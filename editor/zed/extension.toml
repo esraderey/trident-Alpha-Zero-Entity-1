@@ -6,7 +6,7 @@ schema_version = 1
 authors = ["mastercyb"]
 
 [grammars.trident]
-repository = "file:///Users/mastercyb/git/trident/tree-sitter-trident"
+repository = "file:///Users/mastercyb/git/trident/tree-sitter"
 rev = "040e7d18f9141b6a96175821225f469c7e560d8b"
 
 [language_servers.trident-lsp]

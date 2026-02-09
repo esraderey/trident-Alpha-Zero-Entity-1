@@ -1,0 +1,18 @@
+{
+  "name": "tree-sitter-trident",
+  "version": "0.1.0",
+  "description": "Tree-sitter grammar for the Trident ZK language",
+  "main": "bindings/node",
+  "keywords": [
+    "tree-sitter",
+    "parser",
+    "trident"
+  ],
+  "devDependencies": {
+    "tree-sitter-cli": "^0.24.0"
+  },
+  "scripts": {
+    "build": "tree-sitter generate",
+    "test": "tree-sitter test"
+  }
+}

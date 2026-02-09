@@ -1,0 +1,258 @@
+================
+Minimal program
+================
+
+program test
+
+fn main() {
+}
+
+---
+
+(source_file
+  (program_declaration
+    name: (identifier))
+  (function_definition
+    name: (identifier)
+    body: (block)))
+
+================
+Let binding with type
+================
+
+program test
+
+fn main() {
+    let a: Field = 42
+}
+
+---
+
+(source_file
+  (program_declaration
+    name: (identifier))
+  (function_definition
+    name: (identifier)
+    body: (block
+      (let_statement
+        pattern: (identifier)
+        type: (primitive_type)
+        value: (integer_literal)))))
+
+================
+Function with parameters and return type
+================
+
+program test
+
+fn add(a: Field, b: Field) -> Field {
+    a + b
+}
+
+---
+
+(source_file
+  (program_declaration
+    name: (identifier))
+  (function_definition
+    name: (identifier)
+    (parameter
+      name: (identifier)
+      type: (primitive_type))
+    (parameter
+      name: (identifier)
+      type: (primitive_type))
+    return_type: (primitive_type)
+    body: (block
+      tail: (binary_expression
+        left: (module_path
+          (identifier))
+        right: (module_path
+          (identifier))))))
+
+================
+Struct definition
+================
+
+program test
+
+struct Point {
+    x: Field,
+    y: Field,
+}
+
+fn main() {
+}
+
+---
+
+(source_file
+  (program_declaration
+    name: (identifier))
+  (struct_definition
+    name: (identifier)
+    (struct_field
+      name: (identifier)
+      type: (primitive_type))
+    (struct_field
+      name: (identifier)
+      type: (primitive_type)))
+  (function_definition
+    name: (identifier)
+    body: (block)))
+
+================
+Event declaration and emit
+================
+
+program test
+
+event Transfer {
+    from: Field,
+    to: Field,
+}
+
+fn main() {
+    let a: Field = pub_read()
+    emit Transfer { from: a, to: a }
+}
+
+---
+
+(source_file
+  (program_declaration
+    name: (identifier))
+  (event_definition
+    name: (identifier)
+    (event_field
+      name: (identifier)
+      type: (primitive_type))
+    (event_field
+      name: (identifier)
+      type: (primitive_type)))
+  (function_definition
+    name: (identifier)
+    body: (block
+      (let_statement
+        pattern: (identifier)
+        type: (primitive_type)
+        value: (call_expression
+          function: (module_path
+            (identifier))))
+      (emit_statement
+        event: (identifier)
+        (field_init
+          name: (identifier)
+          value: (module_path
+            (identifier)))
+        (field_init
+          name: (identifier)
+          value: (module_path
+            (identifier)))))))
+
+================
+If-else statement
+================
+
+program test
+
+fn main() {
+    let x: Field = pub_read()
+    if x == 0 {
+        pub_write(x)
+    } else {
+        pub_write(x)
+    }
+}
+
+---
+
+(source_file
+  (program_declaration
+    name: (identifier))
+  (function_definition
+    name: (identifier)
+    body: (block
+      (let_statement
+        pattern: (identifier)
+        type: (primitive_type)
+        value: (call_expression
+          function: (module_path
+            (identifier))))
+      (if_statement
+        condition: (binary_expression
+          left: (module_path
+            (identifier))
+          right: (integer_literal))
+        then: (block
+          tail: (call_expression
+            function: (module_path
+              (identifier))
+            (module_path
+              (identifier))))
+        else: (block
+          tail: (call_expression
+            function: (module_path
+              (identifier))
+            (module_path
+              (identifier))))))))
+
+================
+For loop with bounded
+================
+
+program test
+
+fn main() {
+    for i in 0..10 {
+        pub_write(i)
+    }
+}
+
+---
+
+(source_file
+  (program_declaration
+    name: (identifier))
+  (function_definition
+    name: (identifier)
+    body: (block
+      (for_statement
+        variable: (identifier)
+        start: (integer_literal)
+        end: (integer_literal)
+        body: (block
+          tail: (call_expression
+            function: (module_path
+              (identifier))
+            (module_path
+              (identifier))))))))
+
+================
+Module with use
+================
+
+module helpers
+
+pub fn double(x: Field) -> Field {
+    x + x
+}
+
+---
+
+(source_file
+  (module_declaration
+    name: (module_path
+      (identifier)))
+  (function_definition
+    name: (identifier)
+    (parameter
+      name: (identifier)
+      type: (primitive_type))
+    return_type: (primitive_type)
+    body: (block
+      tail: (binary_expression
+        left: (module_path
+          (identifier))
+        right: (module_path
+          (identifier))))))
