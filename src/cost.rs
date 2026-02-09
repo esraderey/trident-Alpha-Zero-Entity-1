@@ -6,6 +6,8 @@
 use std::collections::HashMap;
 
 use crate::ast::*;
+use crate::diagnostic::Diagnostic;
+use crate::span::Span;
 
 /// Cost across all 6 Triton VM tables.
 #[derive(Clone, Debug, Default)]
@@ -973,6 +975,91 @@ impl ProgramCost {
 
         out
     }
+
+    /// Generate optimization hints (H0001, H0002).
+    /// H0001: hash table dominance — hash table is >2x taller than processor.
+    /// H0002: headroom hint — significant room below next power-of-2 boundary.
+    pub fn optimization_hints(&self) -> Vec<Diagnostic> {
+        let mut hints = Vec::new();
+
+        // H0001: Hash table dominance
+        if self.total.hash > 0 && self.total.processor > 0 {
+            let ratio = self.total.hash as f64 / self.total.processor as f64;
+            if ratio > 2.0 {
+                let mut diag = Diagnostic::warning(
+                    format!(
+                        "hint[H0001]: hash table is {:.1}x taller than processor table",
+                        ratio
+                    ),
+                    Span::dummy(),
+                );
+                diag.notes
+                    .push("processor optimizations will not reduce proving cost".to_string());
+                diag.help = Some(
+                    "consider: batching data before hashing, reducing Merkle depth, \
+                     or using sponge_absorb_mem instead of repeated sponge_absorb"
+                        .to_string(),
+                );
+                hints.push(diag);
+            }
+        }
+
+        // H0002: Headroom hint (far below boundary = room to grow)
+        let max_height = self.total.max_height().max(self.attestation_hash_rows);
+        let headroom = self.padded_height - max_height;
+        if headroom > self.padded_height / 4 && self.padded_height >= 16 {
+            let headroom_pct = (headroom as f64 / self.padded_height as f64) * 100.0;
+            let mut diag = Diagnostic::warning(
+                format!(
+                    "hint[H0002]: padded height is {}, but max table height is only {}",
+                    self.padded_height, max_height
+                ),
+                Span::dummy(),
+            );
+            diag.notes.push(format!(
+                "you have {} rows of headroom ({:.0}%) before the next doubling",
+                headroom, headroom_pct
+            ));
+            diag.help = Some(format!(
+                "this program could be {:.0}% more complex at zero additional proving cost",
+                headroom_pct
+            ));
+            hints.push(diag);
+        }
+
+        hints
+    }
+
+    /// Generate diagnostics for power-of-2 boundary proximity.
+    /// Warns when the program is within 12.5% of the next power-of-2 boundary.
+    pub fn boundary_warnings(&self) -> Vec<Diagnostic> {
+        let mut warnings = Vec::new();
+        let max_height = self.total.max_height().max(self.attestation_hash_rows);
+        let headroom = self.padded_height - max_height;
+
+        if headroom < self.padded_height / 8 {
+            let mut diag = Diagnostic::warning(
+                format!("program is {} rows below padded height boundary", headroom),
+                Span::dummy(),
+            );
+            diag.notes.push(format!(
+                "padded_height = {} (max table height = {})",
+                self.padded_height, max_height
+            ));
+            diag.notes.push(format!(
+                "adding {}+ rows to any table will double proving cost to {}",
+                headroom + 1,
+                self.padded_height * 2
+            ));
+            diag.help = Some(format!(
+                "consider optimizing to stay well below {}",
+                self.padded_height
+            ));
+            warnings.push(diag);
+        }
+
+        warnings
+    }
 }
 
 #[cfg(test)]
@@ -1133,6 +1220,101 @@ mod tests {
             cost.total.hash >= 6,
             "seal should have hash cost >= 6, got {}",
             cost.total.hash
+        );
+    }
+
+    #[test]
+    fn test_boundary_warning_when_close() {
+        // Construct a ProgramCost near the boundary
+        let cost = ProgramCost {
+            program_name: "test".to_string(),
+            functions: Vec::new(),
+            total: TableCost {
+                processor: 1020,
+                hash: 0,
+                u32_table: 0,
+                op_stack: 0,
+                ram: 0,
+                jump_stack: 0,
+            },
+            attestation_hash_rows: 0,
+            padded_height: 1024,
+            estimated_proving_secs: 0.0,
+        };
+        let warnings = cost.boundary_warnings();
+        assert_eq!(warnings.len(), 1, "should warn when 4 rows from boundary");
+        assert!(warnings[0].message.contains("4 rows below"));
+    }
+
+    #[test]
+    fn test_h0001_hash_table_dominance() {
+        let cost = ProgramCost {
+            program_name: "test".to_string(),
+            functions: Vec::new(),
+            total: TableCost {
+                processor: 10,
+                hash: 60,
+                u32_table: 0,
+                op_stack: 0,
+                ram: 0,
+                jump_stack: 0,
+            },
+            attestation_hash_rows: 0,
+            padded_height: 64,
+            estimated_proving_secs: 0.0,
+        };
+        let hints = cost.optimization_hints();
+        assert!(
+            hints.iter().any(|h| h.message.contains("H0001")),
+            "should emit H0001 when hash is 6x processor"
+        );
+    }
+
+    #[test]
+    fn test_h0002_headroom_hint() {
+        let cost = ProgramCost {
+            program_name: "test".to_string(),
+            functions: Vec::new(),
+            total: TableCost {
+                processor: 500,
+                hash: 0,
+                u32_table: 0,
+                op_stack: 0,
+                ram: 0,
+                jump_stack: 0,
+            },
+            attestation_hash_rows: 0,
+            padded_height: 1024,
+            estimated_proving_secs: 0.0,
+        };
+        let hints = cost.optimization_hints();
+        assert!(
+            hints.iter().any(|h| h.message.contains("H0002")),
+            "should emit H0002 when >25% headroom"
+        );
+    }
+
+    #[test]
+    fn test_no_boundary_warning_when_far() {
+        let cost = ProgramCost {
+            program_name: "test".to_string(),
+            functions: Vec::new(),
+            total: TableCost {
+                processor: 500,
+                hash: 0,
+                u32_table: 0,
+                op_stack: 0,
+                ram: 0,
+                jump_stack: 0,
+            },
+            attestation_hash_rows: 0,
+            padded_height: 1024,
+            estimated_proving_secs: 0.0,
+        };
+        let warnings = cost.boundary_warnings();
+        assert!(
+            warnings.is_empty(),
+            "should not warn when far from boundary"
         );
     }
 }
