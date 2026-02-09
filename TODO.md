@@ -26,18 +26,21 @@
       std.kernel (MAST tree auth), std.auth (lock script patterns),
       std.utxo, std.storage
 - [x] Programming model documentation (docs/programming-model.md)
-- [ ] Restrict #[intrinsic] to std modules only (spec requirement)
-- [ ] Recursion detection across all modules (spec: compiler rejects call cycles)
-- [ ] Dead code detection (spec: unreachable after unconditional halt/assert)
-- [ ] Unused import warnings
-- [ ] Multi-width array element support (emit.rs:585 TODO)
-- [ ] Runtime index access for arrays (emit.rs:600 TODO)
-- [ ] Module constant resolution (emit.rs:447 TODO)
-- [ ] Deep variable access beyond stack (emit.rs:475 TODO)
-- [ ] Struct field access in emitter (emit.rs:567 TODO)
-- [ ] sec ram declarations (parsed but not emitted)
-- [ ] Power-of-2 boundary proximity warnings (spec section 12.6)
-- [ ] Optimization hints (spec section 13.10 — H0001..H0004)
+- [x] Restrict #[intrinsic] to std modules only (spec requirement)
+- [x] Recursion detection across all modules (spec: compiler rejects call cycles)
+- [x] Module constant resolution (cross-module pub const)
+- [x] Struct field access in emitter (type-annotation-based layout)
+- [x] Dead code detection (spec: unreachable after unconditional halt/assert)
+- [x] Unused import warnings
+- [x] Multi-width array element support (emit.rs:585 TODO)
+- [x] Runtime index access for arrays (emit.rs:600 TODO)
+- [x] Deep variable access beyond stack (emit.rs:475 TODO)
+- [x] sec ram declarations (parsed but not emitted)
+- [x] Power-of-2 boundary proximity warnings (spec section 12.6)
+- [x] Optimization hints H0001, H0002 (spec section 13.10)
+      H0001: hash table dominance warning
+      H0002: headroom hint (room to grow at zero cost)
+      H0003/H0004: require runtime data, deferred
 
 ## CLI
 
@@ -57,7 +60,7 @@
 
 ## Tests
 
-83 tests across 10 files. Missing coverage for:
+103 tests across 10 files. Missing coverage for:
 - [ ] Formatter (format.rs — 0 tests)
 - [ ] Diagnostic rendering (diagnostic.rs — 0 tests)
 - [ ] LSP server (trident-lsp.rs — 0 tests)
