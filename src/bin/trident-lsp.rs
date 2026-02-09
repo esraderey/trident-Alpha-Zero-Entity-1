@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::path::PathBuf;
 use std::sync::Mutex;
 
 use tower_lsp::jsonrpc::Result;
@@ -93,9 +94,11 @@ impl LanguageServer for TridentLsp {
 
 impl TridentLsp {
     async fn publish_diagnostics(&self, uri: Url, source: &str) {
-        let filename = uri.path();
+        let file_path = PathBuf::from(uri.path());
 
-        let diagnostics = match trident::check_silent(source, filename) {
+        let result = trident::check_file_in_project(source, &file_path);
+
+        let diagnostics = match result {
             Ok(()) => Vec::new(),
             Err(errors) => errors
                 .into_iter()
