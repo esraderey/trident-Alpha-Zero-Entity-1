@@ -90,3 +90,84 @@ pub fn render_diagnostics(diagnostics: &[Diagnostic], filename: &str, source: &s
         diag.render(filename, source);
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_error_construction() {
+        let span = Span::new(0, 10, 15);
+        let d = Diagnostic::error("type mismatch".to_string(), span);
+        assert_eq!(d.severity, Severity::Error);
+        assert_eq!(d.message, "type mismatch");
+        assert_eq!(d.span.start, 10);
+        assert_eq!(d.span.end, 15);
+        assert!(d.notes.is_empty());
+        assert!(d.help.is_none());
+    }
+
+    #[test]
+    fn test_warning_construction() {
+        let span = Span::dummy();
+        let d = Diagnostic::warning("unused variable".to_string(), span);
+        assert_eq!(d.severity, Severity::Warning);
+        assert_eq!(d.message, "unused variable");
+    }
+
+    #[test]
+    fn test_with_note() {
+        let d = Diagnostic::error("error".to_string(), Span::dummy())
+            .with_note("expected Field".to_string())
+            .with_note("found U32".to_string());
+        assert_eq!(d.notes.len(), 2);
+        assert_eq!(d.notes[0], "expected Field");
+        assert_eq!(d.notes[1], "found U32");
+    }
+
+    #[test]
+    fn test_with_help() {
+        let d = Diagnostic::error("error".to_string(), Span::dummy())
+            .with_help("try as_field()".to_string());
+        assert_eq!(d.help.as_deref(), Some("try as_field()"));
+    }
+
+    #[test]
+    fn test_chained_builders() {
+        let d = Diagnostic::warning("hint".to_string(), Span::new(0, 0, 5))
+            .with_note("note 1".to_string())
+            .with_help("help text".to_string())
+            .with_note("note 2".to_string());
+        assert_eq!(d.severity, Severity::Warning);
+        assert_eq!(d.notes.len(), 2);
+        assert!(d.help.is_some());
+    }
+
+    #[test]
+    fn test_render_does_not_panic() {
+        let source = "let x: Field = 1\nlet y: U32 = x\n";
+        let d = Diagnostic::error("type mismatch".to_string(), Span::new(0, 18, 32))
+            .with_note("expected U32, found Field".to_string());
+        // Render to stderr — just verify it doesn't panic
+        d.render("test.tri", source);
+    }
+
+    #[test]
+    fn test_render_diagnostics_multiple() {
+        let source = "let x = 1\nlet y = 2\n";
+        let diagnostics = vec![
+            Diagnostic::warning("unused x".to_string(), Span::new(0, 4, 5)),
+            Diagnostic::warning("unused y".to_string(), Span::new(0, 14, 15)),
+        ];
+        // Just verify it doesn't panic
+        render_diagnostics(&diagnostics, "test.tri", source);
+    }
+
+    #[test]
+    fn test_render_warning_does_not_panic() {
+        let source = "fn main() {\n    as_u32(x)\n}\n";
+        let d = Diagnostic::warning("redundant range check".to_string(), Span::new(0, 16, 25))
+            .with_help("x is already proven U32".to_string());
+        d.render("test.tri", source);
+    }
+}

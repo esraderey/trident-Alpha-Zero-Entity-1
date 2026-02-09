@@ -833,3 +833,301 @@ pub async fn run_server() {
     });
     Server::new(stdin, stdout, socket).serve(service).await;
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tower_lsp::lsp_types::Position;
+
+    // --- byte_offset_to_position ---
+
+    #[test]
+    fn test_byte_offset_first_line() {
+        let src = "let x = 1\n";
+        assert_eq!(byte_offset_to_position(src, 0), Position::new(0, 0));
+        assert_eq!(byte_offset_to_position(src, 4), Position::new(0, 4));
+    }
+
+    #[test]
+    fn test_byte_offset_second_line() {
+        // "let x = 1\n" is 10 bytes (indices 0..9), so offset 10 is start of line 2
+        let src = "let x = 1\nlet y = 2\n";
+        assert_eq!(byte_offset_to_position(src, 10), Position::new(1, 0));
+        assert_eq!(byte_offset_to_position(src, 14), Position::new(1, 4));
+    }
+
+    #[test]
+    fn test_byte_offset_clamps() {
+        let src = "abc";
+        // offset beyond source length should clamp
+        let pos = byte_offset_to_position(src, 999);
+        assert_eq!(pos, Position::new(0, 3));
+    }
+
+    // --- position_to_byte_offset ---
+
+    #[test]
+    fn test_position_to_offset_start() {
+        let src = "let x = 1\nlet y = 2\n";
+        assert_eq!(position_to_byte_offset(src, Position::new(0, 0)), Some(0));
+        assert_eq!(position_to_byte_offset(src, Position::new(0, 4)), Some(4));
+        assert_eq!(position_to_byte_offset(src, Position::new(1, 0)), Some(10));
+        assert_eq!(position_to_byte_offset(src, Position::new(1, 4)), Some(14));
+    }
+
+    #[test]
+    fn test_position_to_offset_end_of_line() {
+        let src = "abc\ndef\n";
+        // Past end of line 0 should return the newline position
+        assert_eq!(position_to_byte_offset(src, Position::new(0, 3)), Some(3));
+    }
+
+    #[test]
+    fn test_position_to_offset_past_end() {
+        let src = "abc";
+        // Line 5 doesn't exist
+        assert_eq!(position_to_byte_offset(src, Position::new(5, 0)), None);
+    }
+
+    // --- word_at_position ---
+
+    #[test]
+    fn test_word_simple() {
+        let src = "let foo = bar\n";
+        assert_eq!(word_at_position(src, Position::new(0, 4)), "foo");
+        assert_eq!(word_at_position(src, Position::new(0, 10)), "bar");
+    }
+
+    #[test]
+    fn test_word_at_start() {
+        let src = "hello world\n";
+        assert_eq!(word_at_position(src, Position::new(0, 0)), "hello");
+    }
+
+    #[test]
+    fn test_word_qualified_after_dot() {
+        let src = "let x = hash.tip5()\n";
+        // Cursor on "tip5" — should pick up "hash.tip5"
+        assert_eq!(word_at_position(src, Position::new(0, 14)), "hash.tip5");
+    }
+
+    #[test]
+    fn test_word_qualified_before_dot() {
+        let src = "let x = hash.tip5()\n";
+        // Cursor on "hash" — should pick up "hash.tip5"
+        assert_eq!(word_at_position(src, Position::new(0, 9)), "hash.tip5");
+    }
+
+    #[test]
+    fn test_word_on_boundary_picks_left() {
+        // Cursor right after "let" (on the space) — picks up preceding identifier
+        let src = "let x = 1\n";
+        assert_eq!(word_at_position(src, Position::new(0, 3)), "let");
+    }
+
+    #[test]
+    fn test_word_between_symbols_empty() {
+        // Cursor on "=" which is not an ident char and has no ident neighbor
+        let src = "a = b\n";
+        assert_eq!(word_at_position(src, Position::new(0, 2)), "");
+    }
+
+    // --- text_before_dot ---
+
+    #[test]
+    fn test_dot_completion_prefix() {
+        let src = "hash.t";
+        // Cursor at end, after dot + partial identifier
+        assert_eq!(
+            text_before_dot(src, Position::new(0, 6)),
+            Some("hash".to_string())
+        );
+    }
+
+    #[test]
+    fn test_dot_completion_right_after_dot() {
+        let src = "hash.";
+        assert_eq!(
+            text_before_dot(src, Position::new(0, 5)),
+            Some("hash".to_string())
+        );
+    }
+
+    #[test]
+    fn test_no_dot_prefix() {
+        let src = "let x = 1";
+        assert_eq!(text_before_dot(src, Position::new(0, 5)), None);
+    }
+
+    // --- span_to_range ---
+
+    #[test]
+    fn test_span_to_range_single_line() {
+        let src = "let foo = 1\n";
+        let span = crate::span::Span::new(0, 4, 7);
+        let range = span_to_range(src, span);
+        assert_eq!(range.start, Position::new(0, 4));
+        assert_eq!(range.end, Position::new(0, 7));
+    }
+
+    #[test]
+    fn test_span_to_range_multi_line() {
+        let src = "line1\nline2\nline3\n";
+        let span = crate::span::Span::new(0, 6, 17);
+        let range = span_to_range(src, span);
+        assert_eq!(range.start, Position::new(1, 0));
+        assert_eq!(range.end, Position::new(2, 5));
+    }
+
+    // --- to_lsp_diagnostic ---
+
+    #[test]
+    fn test_lsp_diagnostic_error() {
+        let source = "let x: U32 = pub_read()\n";
+        let diag = crate::diagnostic::Diagnostic::error(
+            "type mismatch".to_string(),
+            crate::span::Span::new(0, 13, 23),
+        )
+        .with_note("expected U32, found Field".to_string());
+
+        let lsp_diag = to_lsp_diagnostic(&diag, source);
+        assert_eq!(lsp_diag.severity, Some(DiagnosticSeverity::ERROR));
+        assert!(lsp_diag.message.contains("type mismatch"));
+        assert!(lsp_diag.message.contains("note: expected U32, found Field"));
+        assert_eq!(lsp_diag.source, Some("trident".to_string()));
+    }
+
+    #[test]
+    fn test_lsp_diagnostic_warning_with_help() {
+        let source = "as_u32(x)\n";
+        let diag = crate::diagnostic::Diagnostic::warning(
+            "redundant".to_string(),
+            crate::span::Span::new(0, 0, 9),
+        )
+        .with_help("already proven".to_string());
+
+        let lsp_diag = to_lsp_diagnostic(&diag, source);
+        assert_eq!(lsp_diag.severity, Some(DiagnosticSeverity::WARNING));
+        assert!(lsp_diag.message.contains("help: already proven"));
+    }
+
+    // --- builtin_hover ---
+
+    #[test]
+    fn test_builtin_hover_known() {
+        assert!(builtin_hover("pub_read").is_some());
+        assert!(builtin_hover("hash").is_some());
+        assert!(builtin_hover("split").is_some());
+        assert!(builtin_hover("merkle_step").is_some());
+    }
+
+    #[test]
+    fn test_builtin_hover_unknown() {
+        assert!(builtin_hover("nonexistent").is_none());
+        assert!(builtin_hover("my_function").is_none());
+    }
+
+    #[test]
+    fn test_builtin_hover_contains_signature() {
+        let info = builtin_hover("pub_read").unwrap();
+        assert!(info.contains("fn pub_read()"));
+        assert!(info.contains("-> Field"));
+    }
+
+    // --- builtin_completions ---
+
+    #[test]
+    fn test_builtin_completions_count() {
+        let completions = builtin_completions();
+        // Should have all builtins
+        assert!(
+            completions.len() >= 30,
+            "expected many builtins, got {}",
+            completions.len()
+        );
+        let names: Vec<&str> = completions.iter().map(|(n, _)| n.as_str()).collect();
+        assert!(names.contains(&"pub_read"));
+        assert!(names.contains(&"hash"));
+        assert!(names.contains(&"split"));
+        assert!(names.contains(&"ram_read"));
+        assert!(names.contains(&"xinvert"));
+    }
+
+    // --- format_fn_signature ---
+
+    #[test]
+    fn test_format_fn_signature_no_params() {
+        let f = crate::ast::FnDef {
+            is_pub: false,
+            intrinsic: None,
+            name: crate::span::Spanned::dummy("main".to_string()),
+            params: vec![],
+            return_ty: None,
+            body: None,
+        };
+        assert_eq!(format_fn_signature(&f), "fn main()");
+    }
+
+    #[test]
+    fn test_format_fn_signature_with_return() {
+        let f = crate::ast::FnDef {
+            is_pub: true,
+            intrinsic: None,
+            name: crate::span::Spanned::dummy("add".to_string()),
+            params: vec![
+                crate::ast::Param {
+                    name: crate::span::Spanned::dummy("a".to_string()),
+                    ty: crate::span::Spanned::dummy(crate::ast::Type::Field),
+                },
+                crate::ast::Param {
+                    name: crate::span::Spanned::dummy("b".to_string()),
+                    ty: crate::span::Spanned::dummy(crate::ast::Type::Field),
+                },
+            ],
+            return_ty: Some(crate::span::Spanned::dummy(crate::ast::Type::Field)),
+            body: None,
+        };
+        assert_eq!(
+            format_fn_signature(&f),
+            "fn add(a: Field, b: Field) -> Field"
+        );
+    }
+
+    // --- format_ast_type ---
+
+    #[test]
+    fn test_format_ast_types() {
+        assert_eq!(format_ast_type(&crate::ast::Type::Field), "Field");
+        assert_eq!(format_ast_type(&crate::ast::Type::XField), "XField");
+        assert_eq!(format_ast_type(&crate::ast::Type::Bool), "Bool");
+        assert_eq!(format_ast_type(&crate::ast::Type::U32), "U32");
+        assert_eq!(format_ast_type(&crate::ast::Type::Digest), "Digest");
+        assert_eq!(
+            format_ast_type(&crate::ast::Type::Array(
+                Box::new(crate::ast::Type::Field),
+                5
+            )),
+            "[Field; 5]"
+        );
+        assert_eq!(
+            format_ast_type(&crate::ast::Type::Tuple(vec![
+                crate::ast::Type::Field,
+                crate::ast::Type::U32
+            ])),
+            "(Field, U32)"
+        );
+    }
+
+    // --- is_ident_char ---
+
+    #[test]
+    fn test_ident_chars() {
+        assert!(is_ident_char(b'a'));
+        assert!(is_ident_char(b'Z'));
+        assert!(is_ident_char(b'0'));
+        assert!(is_ident_char(b'_'));
+        assert!(!is_ident_char(b'.'));
+        assert!(!is_ident_char(b' '));
+        assert!(!is_ident_char(b'('));
+    }
+}

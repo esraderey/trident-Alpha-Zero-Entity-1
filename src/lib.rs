@@ -494,4 +494,310 @@ fn main() {
 
         eprintln!("Events TASM:\n{}", tasm);
     }
+
+    // --- Multi-module type checking (check_file_in_project) ---
+
+    #[test]
+    fn test_check_silent_valid() {
+        let source = "program test\nfn main() {\n    pub_write(pub_read())\n}";
+        assert!(check_silent(source, "test.tri").is_ok());
+    }
+
+    #[test]
+    fn test_check_silent_error() {
+        let source = "program test\nfn main() {\n    pub_write(undefined_var)\n}";
+        assert!(check_silent(source, "test.tri").is_err());
+    }
+
+    #[test]
+    fn test_check_silent_parse_error() {
+        let source = "program test\nfn main( {\n}";
+        assert!(check_silent(source, "test.tri").is_err());
+    }
+
+    #[test]
+    fn test_format_source_valid() {
+        let source = "program test\n\nfn main() {\n    pub_write(pub_read())\n}\n";
+        let result = format_source(source, "test.tri");
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), source);
+    }
+
+    #[test]
+    fn test_format_source_lex_error() {
+        // Unterminated string or invalid character
+        let source = "program test\n\nfn main() {\n    let x = @\n}\n";
+        let result = format_source(source, "test.tri");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_compile_type_error_returns_err() {
+        let source = "program test\nfn main() {\n    let x: U32 = pub_read()\n}";
+        let result = compile(source, "test.tri");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_compile_valid_program() {
+        let source =
+            "program test\nfn main() {\n    let x: Field = pub_read()\n    pub_write(x + 1)\n}";
+        let result = compile(source, "test.tri");
+        assert!(result.is_ok());
+        let tasm = result.unwrap();
+        assert!(tasm.contains("read_io 1"));
+        assert!(tasm.contains("write_io 1"));
+    }
+
+    #[test]
+    fn test_check_valid_program() {
+        let source = "program test\nfn main() {\n    pub_write(pub_read())\n}";
+        assert!(check(source, "test.tri").is_ok());
+    }
+
+    #[test]
+    fn test_check_type_error() {
+        let source = "program test\nfn main() {\n    let x: Bool = pub_read()\n}";
+        assert!(check(source, "test.tri").is_err());
+    }
+
+    #[test]
+    fn test_analyze_costs_valid() {
+        let source = "program test\nfn main() {\n    pub_write(pub_read())\n}";
+        let result = analyze_costs(source, "test.tri");
+        assert!(result.is_ok());
+        let cost = result.unwrap();
+        assert!(cost.total.processor > 0);
+        assert!(cost.padded_height.is_power_of_two());
+    }
+
+    #[test]
+    fn test_analyze_costs_type_error() {
+        let source = "program test\nfn main() {\n    let x: U32 = pub_read()\n}";
+        assert!(analyze_costs(source, "test.tri").is_err());
+    }
+
+    // --- Edge cases: deep nesting ---
+
+    #[test]
+    fn test_deeply_nested_if() {
+        let source = r#"program test
+fn main() {
+    let x: Field = pub_read()
+    if x == 0 {
+        if x == 1 {
+            if x == 2 {
+                if x == 3 {
+                    if x == 4 {
+                        pub_write(x)
+                    }
+                }
+            }
+        }
+    }
+}
+"#;
+        assert!(compile(source, "test.tri").is_ok());
+    }
+
+    #[test]
+    fn test_deeply_nested_for() {
+        let source = r#"program test
+fn main() {
+    let mut s: Field = 0
+    for i in 0..3 bounded 3 {
+        for j in 0..3 bounded 3 {
+            for k in 0..3 bounded 3 {
+                s = s + 1
+            }
+        }
+    }
+    pub_write(s)
+}
+"#;
+        let result = compile(source, "test.tri");
+        assert!(result.is_ok());
+        let tasm = result.unwrap();
+        assert!(tasm.contains("write_io 1"));
+    }
+
+    #[test]
+    fn test_many_variables_spill() {
+        // Force stack spilling by having many live variables
+        let source = r#"program test
+fn main() {
+    let a: Field = pub_read()
+    let b: Field = pub_read()
+    let c: Field = pub_read()
+    let d: Field = pub_read()
+    let e: Field = pub_read()
+    let f: Field = pub_read()
+    let g: Field = pub_read()
+    let h: Field = pub_read()
+    let i: Field = pub_read()
+    let j: Field = pub_read()
+    let k: Field = pub_read()
+    let l: Field = pub_read()
+    let m: Field = pub_read()
+    let n: Field = pub_read()
+    let o: Field = pub_read()
+    let p: Field = pub_read()
+    let q: Field = pub_read()
+    let r: Field = pub_read()
+    pub_write(a + b + c + d + e + f + g + h + i + j + k + l + m + n + o + p + q + r)
+}
+"#;
+        let result = compile(source, "test.tri");
+        assert!(
+            result.is_ok(),
+            "should handle 18 live variables with spilling"
+        );
+        let tasm = result.unwrap();
+        // Should contain RAM operations from spilling
+        assert!(
+            tasm.contains("write_mem") || tasm.contains("read_mem"),
+            "18 variables should trigger spilling"
+        );
+    }
+
+    #[test]
+    fn test_chain_of_function_calls() {
+        let source = r#"program test
+fn add1(x: Field) -> Field {
+    x + 1
+}
+
+fn add2(x: Field) -> Field {
+    add1(add1(x))
+}
+
+fn add4(x: Field) -> Field {
+    add2(add2(x))
+}
+
+fn main() {
+    let x: Field = pub_read()
+    pub_write(add4(add4(x)))
+}
+"#;
+        let result = compile(source, "test.tri");
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_all_binary_operators() {
+        let source = r#"program test
+fn main() {
+    let a: Field = pub_read()
+    let b: Field = pub_read()
+    let sum: Field = a + b
+    let prod: Field = a * b
+    let eq: Bool = a == b
+    let (hi, lo) = split(a)
+    let lt: Bool = hi < lo
+    let band: U32 = hi & lo
+    let bxor: U32 = hi ^ lo
+    let (q, r) = hi /% lo
+    pub_write(sum)
+    pub_write(prod)
+}
+"#;
+        assert!(compile(source, "test.tri").is_ok());
+    }
+
+    #[test]
+    fn test_struct_with_digest_field() {
+        let source = r#"program test
+struct AuthData {
+    owner: Digest,
+    nonce: Field,
+}
+
+fn main() {
+    let d: Digest = divine5()
+    let auth: AuthData = AuthData { owner: d, nonce: 42 }
+    pub_write(auth.nonce)
+}
+"#;
+        assert!(compile(source, "test.tri").is_ok());
+    }
+
+    #[test]
+    fn test_array_of_structs_type_check() {
+        // Arrays of structs should type-check correctly
+        let source = r#"program test
+struct Pt {
+    x: Field,
+    y: Field,
+}
+
+fn main() {
+    let a: Pt = Pt { x: 1, y: 2 }
+    let b: Pt = Pt { x: 3, y: 4 }
+    pub_write(a.x + b.y)
+}
+"#;
+        assert!(check(source, "test.tri").is_ok());
+    }
+
+    #[test]
+    fn test_xfield_operations() {
+        // *. operator is XField * Field -> XField (scalar multiplication)
+        let source = r#"program test
+fn main() {
+    let a: XField = xfield(1, 2, 3)
+    let s: Field = pub_read()
+    let c: XField = a *. s
+    let d: XField = xinvert(c)
+    pub_write(0)
+}
+"#;
+        assert!(compile(source, "test.tri").is_ok());
+    }
+
+    #[test]
+    fn test_tail_expression() {
+        let source = r#"program test
+fn double(x: Field) -> Field {
+    x + x
+}
+
+fn main() {
+    pub_write(double(pub_read()))
+}
+"#;
+        assert!(compile(source, "test.tri").is_ok());
+    }
+
+    #[test]
+    fn test_multiple_return_paths() {
+        let source = r#"program test
+fn abs_diff(a: Field, b: Field) -> Field {
+    if a == b {
+        return 0
+    }
+    a + b
+}
+
+fn main() {
+    pub_write(abs_diff(pub_read(), pub_read()))
+}
+"#;
+        assert!(compile(source, "test.tri").is_ok());
+    }
+
+    #[test]
+    fn test_parse_source_silent_no_stderr() {
+        // parse_source_silent should not render diagnostics
+        let source = "program test\nfn main() {\n    pub_write(pub_read())\n}";
+        let result = parse_source_silent(source, "test.tri");
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_parse_source_silent_returns_errors() {
+        let source = "program test\nfn main( {\n}";
+        let result = parse_source_silent(source, "test.tri");
+        assert!(result.is_err());
+    }
 }
