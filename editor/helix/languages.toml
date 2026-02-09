@@ -20,7 +20,7 @@ roots = ["trident.toml"]
 
 [[grammar]]
 name = "trident"
-source = { path = "../tree-sitter-trident" }
+source = { path = "../../tree-sitter-trident" }
 
 [language-server.trident-lsp]
 command = "trident-lsp"
