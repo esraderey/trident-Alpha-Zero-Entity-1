@@ -110,14 +110,13 @@ fn verify_config(
 }
 
 // --- Authorization: prove knowledge of secret matching auth_hash ---
-// TODO: bind auth_hash to computed digest once Digest indexing is supported.
-// Currently proves preimage knowledge but doesn't
-// constrain auth_hash == hash(secret)[0].
+// Proves preimage knowledge and binds auth_hash to the first field
+// of the computed digest: auth_hash == hash(secret)[0].
 fn verify_auth(auth_hash: Field) {
     let secret: Field = divine()
     let computed: Digest = hash(secret, 0, 0, 0, 0, 0, 0, 0, 0, 0)
-    let expected: Digest = divine5()
-    assert_digest(computed, expected)
+    let (h0, _, _, _, _) = computed
+    assert_eq(auth_hash, h0)
 }
 
 // --- Events ---

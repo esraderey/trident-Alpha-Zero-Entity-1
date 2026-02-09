@@ -288,7 +288,7 @@ impl TypeChecker {
                         self.define_var(&name.node, resolved_ty, *mutable);
                     }
                     Pattern::Tuple(names) => {
-                        // Destructure: type must be a tuple with matching arity
+                        // Destructure: type must be a tuple or Digest
                         if let Ty::Tuple(elem_tys) = &resolved_ty {
                             if names.len() != elem_tys.len() {
                                 self.error(
@@ -304,6 +304,22 @@ impl TypeChecker {
                                 if name.node != "_" {
                                     let ty = elem_tys.get(i).cloned().unwrap_or(Ty::Field);
                                     self.define_var(&name.node, ty, *mutable);
+                                }
+                            }
+                        } else if resolved_ty == Ty::Digest {
+                            // Digest decomposition: let (f0, f1, f2, f3, f4) = digest
+                            if names.len() != 5 {
+                                self.error(
+                                    format!(
+                                        "Digest destructuring requires exactly 5 names, got {}",
+                                        names.len()
+                                    ),
+                                    init.span,
+                                );
+                            }
+                            for name in names.iter() {
+                                if name.node != "_" {
+                                    self.define_var(&name.node, Ty::Field, *mutable);
                                 }
                             }
                         } else {
@@ -390,7 +406,7 @@ impl TypeChecker {
             }
             Stmt::TupleAssign { names, value } => {
                 let val_ty = self.check_expr(&value.node, value.span);
-                if let Ty::Tuple(elem_tys) = &val_ty {
+                let valid = if let Ty::Tuple(elem_tys) = &val_ty {
                     if names.len() != elem_tys.len() {
                         self.error(
                             format!(
@@ -401,6 +417,22 @@ impl TypeChecker {
                             value.span,
                         );
                     }
+                    true
+                } else if val_ty == Ty::Digest {
+                    if names.len() != 5 {
+                        self.error(
+                            format!(
+                                "Digest destructuring requires exactly 5 names, got {}",
+                                names.len()
+                            ),
+                            value.span,
+                        );
+                    }
+                    true
+                } else {
+                    false
+                };
+                if valid {
                     for name in names {
                         if let Some(info) = self.lookup_var(&name.node) {
                             if !info.mutable {
@@ -1286,5 +1318,26 @@ mod tests {
     fn test_event_max_9_fields() {
         let result = check("program test\nevent Big { f0: Field, f1: Field, f2: Field, f3: Field, f4: Field, f5: Field, f6: Field, f7: Field, f8: Field, f9: Field }\nfn main() {\n}");
         assert!(result.is_err()); // 10 fields > max 9
+    }
+
+    #[test]
+    fn test_digest_destructuring() {
+        let result = check("program test\nfn main() {\n    let d: Digest = divine5()\n    let (f0, f1, f2, f3, f4) = d\n    pub_write(f0)\n    pub_write(f4)\n}");
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_digest_destructuring_wrong_arity() {
+        let result = check(
+            "program test\nfn main() {\n    let d: Digest = divine5()\n    let (a, b, c) = d\n}",
+        );
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_digest_destructuring_inline() {
+        // Destructure directly from hash() call
+        let result = check("program test\nfn main() {\n    let (f0, f1, f2, f3, f4) = hash(0, 0, 0, 0, 0, 0, 0, 0, 0, 0)\n    pub_write(f0)\n}");
+        assert!(result.is_ok());
     }
 }

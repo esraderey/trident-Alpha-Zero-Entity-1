@@ -1,41 +1,69 @@
 module std.merkle
 
-use std.hash
 use std.io
+
 use std.assert
+
 use std.convert
 
-// One step up a Merkle tree: given a node index and digest,
+// One step up a Merkle tree: given a node index and digest (as 5 Fields),
 // divine the sibling and compute the parent.
-pub #[intrinsic(merkle_step)] fn step(
+// The sibling comes from the secret digest queue (NonDeterminism.digests).
+#[intrinsic(merkle_step)]
+pub fn step(
     idx: U32,
-    d0: Field, d1: Field, d2: Field, d3: Field, d4: Field
+    d0: Field,
+    d1: Field,
+    d2: Field,
+    d3: Field,
+    d4: Field
 ) -> (U32, Digest)
 
-// Verify a Merkle inclusion proof.
-// The prover supplies sibling digests via divine input.
-// Walks `depth` levels from `leaf` to `root`.
-pub fn verify(
-    leaf: Digest,
-    root: Digest,
-    idx: Field,
-    depth: Field
-) {
-    let mut current: Digest = leaf
-    let mut current_idx: Field = idx
-    let mut i: Field = 0
-    for _step in 0..32 {
-        if i == depth {
-        } else {
-            let sibling: Digest = io.divine5()
-            let idx_u32: U32 = convert.as_u32(current_idx)
-            let next: Digest = hash.tip5(
-                current_idx, 0, 0, 0, 0, 0, 0, 0, 0, 0
-            )
-            current = next
-            current_idx = current_idx + 1
-            i = i + 1
-        }
-    }
-    assert.digest(current, root)
+// Verify a Merkle path of depth 1: single step from leaf to root.
+pub fn verify1(leaf: Digest, root: Digest, leaf_idx: U32) {
+    let (d0, d1, d2, d3, d4) = leaf
+    let (_, computed) = step(leaf_idx, d0, d1, d2, d3, d4)
+    assert.digest(computed, root)
+}
+
+// Verify a Merkle path of depth 2: two steps from leaf to root.
+pub fn verify2(leaf: Digest, root: Digest, leaf_idx: U32) {
+    let (d0, d1, d2, d3, d4) = leaf
+    let (idx1, node1) = step(leaf_idx, d0, d1, d2, d3, d4)
+    let (n0, n1, n2, n3, n4) = node1
+    let (_, computed) = step(idx1, n0, n1, n2, n3, n4)
+    assert.digest(computed, root)
+}
+
+// Verify a Merkle path of depth 3: three steps from leaf to root.
+// This is the exact depth of Neptune's transaction kernel MAST tree (8 leaves).
+pub fn verify3(leaf: Digest, root: Digest, leaf_idx: U32) {
+    let (d0, d1, d2, d3, d4) = leaf
+    let (idx1, node1) = step(leaf_idx, d0, d1, d2, d3, d4)
+    let (n0, n1, n2, n3, n4) = node1
+    let (idx2, node2) = step(idx1, n0, n1, n2, n3, n4)
+    let (m0, m1, m2, m3, m4) = node2
+    let (_, computed) = step(idx2, m0, m1, m2, m3, m4)
+    assert.digest(computed, root)
+}
+
+// Verify a Merkle path of depth 4 (16 leaves).
+pub fn verify4(leaf: Digest, root: Digest, leaf_idx: U32) {
+    let (d0, d1, d2, d3, d4) = leaf
+    let (idx1, node1) = step(leaf_idx, d0, d1, d2, d3, d4)
+    let (n0, n1, n2, n3, n4) = node1
+    let (idx2, node2) = step(idx1, n0, n1, n2, n3, n4)
+    let (m0, m1, m2, m3, m4) = node2
+    let (idx3, node3) = step(idx2, m0, m1, m2, m3, m4)
+    let (p0, p1, p2, p3, p4) = node3
+    let (_, computed) = step(idx3, p0, p1, p2, p3, p4)
+    assert.digest(computed, root)
+}
+
+// Authenticate a leaf value against a known root and return the leaf digest.
+// Divines the leaf hash, verifies its Merkle path (depth 3), returns the leaf.
+pub fn authenticate_leaf3(root: Digest, leaf_idx: U32) -> Digest {
+    let leaf: Digest = io.divine5()
+    verify3(leaf, root, leaf_idx)
+    leaf
 }

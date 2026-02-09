@@ -1386,4 +1386,28 @@ mod tests {
             "seal should write_io 5 for digest"
         );
     }
+
+    #[test]
+    fn test_digest_destructuring() {
+        // Decompose a Digest into 5 individual Field variables
+        let tasm = compile(
+            "program test\nfn main() {\n    let d: Digest = divine5()\n    let (f0, f1, f2, f3, f4) = d\n    pub_write(f0)\n    pub_write(f4)\n}",
+        );
+        eprintln!("=== digest destructure TASM ===\n{}", tasm);
+        assert!(tasm.contains("divine 5"));
+        // After destructuring, each field should be accessible as width-1 var
+        assert!(tasm.contains("write_io 1"));
+    }
+
+    #[test]
+    fn test_digest_destructure_and_pass_to_hash() {
+        // Decompose a Digest, then pass fields to hash()
+        let tasm = compile(
+            "program test\nfn main() {\n    let d: Digest = divine5()\n    let (f0, f1, f2, f3, f4) = d\n    let h: Digest = hash(f0, f1, f2, f3, f4, 0, 0, 0, 0, 0)\n    let e: Digest = divine5()\n    assert_digest(h, e)\n}",
+        );
+        eprintln!("=== digest decompose+hash TASM ===\n{}", tasm);
+        assert!(tasm.contains("divine 5"));
+        assert!(tasm.contains("hash"));
+        assert!(tasm.contains("assert_vector"));
+    }
 }

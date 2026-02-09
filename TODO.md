@@ -15,17 +15,23 @@
 
 ## Compiler
 
-- [ ] Standard library as .tri modules with #[intrinsic]
-      (std.hash, std.convert, std.math, std.io, std.logic, std.merkle)
-      Currently all ops are hardcoded builtins — spec says they
-      should be Trident modules backed by intrinsic annotations
+- [x] Standard library as .tri modules with #[intrinsic]
+      13 modules: std.io, std.hash, std.field, std.convert, std.u32,
+      std.xfield, std.mem, std.assert, std.merkle, std.auth,
+      std.kernel, std.utxo, std.storage
+- [x] Digest destructuring: let (f0, f1, f2, f3, f4) = digest
+      Unlocks Merkle verification, kernel field auth, and proper
+      hash-preimage binding in token verify_auth
+- [x] Neptune blockchain stdlib: std.merkle (verify1-4, authenticate_leaf3),
+      std.kernel (MAST tree auth), std.auth (lock script patterns),
+      std.utxo, std.storage
+- [x] Programming model documentation (docs/programming-model.md)
 - [ ] Restrict #[intrinsic] to std modules only (spec requirement)
 - [ ] Recursion detection across all modules (spec: compiler rejects call cycles)
 - [ ] Dead code detection (spec: unreachable after unconditional halt/assert)
 - [ ] Unused import warnings
 - [ ] Multi-width array element support (emit.rs:585 TODO)
 - [ ] Runtime index access for arrays (emit.rs:600 TODO)
-- [ ] Digest field indexing (emit.rs:896 TODO, token.tri:113 TODO)
 - [ ] Module constant resolution (emit.rs:447 TODO)
 - [ ] Deep variable access beyond stack (emit.rs:475 TODO)
 - [ ] Struct field access in emitter (emit.rs:567 TODO)
@@ -51,7 +57,7 @@
 
 ## Tests
 
-78 tests across 10 files. Missing coverage for:
+83 tests across 10 files. Missing coverage for:
 - [ ] Formatter (format.rs — 0 tests)
 - [ ] Diagnostic rendering (diagnostic.rs — 0 tests)
 - [ ] LSP server (trident-lsp.rs — 0 tests)
