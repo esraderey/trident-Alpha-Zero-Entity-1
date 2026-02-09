@@ -42,6 +42,8 @@ pub struct TypeChecker {
     events: HashMap<String, Vec<(String, Ty)>>,
     /// Accumulated diagnostics.
     diagnostics: Vec<Diagnostic>,
+    /// Variables proven to be in U32 range (via as_u32, split, or U32 type).
+    u32_proven: std::collections::HashSet<String>,
 }
 
 impl TypeChecker {
@@ -53,6 +55,7 @@ impl TypeChecker {
             structs: HashMap::new(),
             events: HashMap::new(),
             diagnostics: Vec::new(),
+            u32_proven: std::collections::HashSet::new(),
         };
         tc.register_builtins();
         tc
@@ -612,7 +615,20 @@ impl TypeChecker {
 
                 match pattern {
                     Pattern::Name(name) => {
-                        self.define_var(&name.node, resolved_ty, *mutable);
+                        self.define_var(&name.node, resolved_ty.clone(), *mutable);
+                        // Track U32-proven variables for H0003:
+                        // When as_u32(x) or split(x) is called, the INPUT x
+                        // has been range-checked. Mark x as proven so a
+                        // subsequent as_u32(x) is flagged as redundant.
+                        if let Expr::Call { path, args, .. } = &init.node {
+                            let call_name = path.node.as_dotted();
+                            let base = call_name.rsplit('.').next().unwrap_or(&call_name);
+                            if (base == "as_u32" || base == "split") && !args.is_empty() {
+                                if let Expr::Var(arg_name) = &args[0].node {
+                                    self.u32_proven.insert(arg_name.clone());
+                                }
+                            }
+                        }
                     }
                     Pattern::Tuple(names) => {
                         // Destructure: type must be a tuple or Digest
@@ -924,6 +940,22 @@ impl TypeChecker {
                             }
                         }
                     }
+                    // H0003: detect redundant as_u32 range checks
+                    let base_name = fn_name.rsplit('.').next().unwrap_or(&fn_name);
+                    if base_name == "as_u32" && args.len() == 1 {
+                        if let Expr::Var(var_name) = &args[0].node {
+                            if self.u32_proven.contains(var_name) {
+                                self.warning(
+                                    format!(
+                                        "hint[H0003]: as_u32({}) is redundant — value is already proven U32",
+                                        var_name
+                                    ),
+                                    span,
+                                );
+                            }
+                        }
+                    }
+
                     sig.return_ty
                 } else {
                     self.error(format!("undefined function '{}'", fn_name), span);
@@ -1755,5 +1787,34 @@ mod tests {
             "no warning expected for module with no imports, got: {:?}",
             exports.warnings
         );
+    }
+
+    #[test]
+    fn test_h0003_redundant_as_u32() {
+        // First as_u32(a) proves a is in U32 range.
+        // Second as_u32(a) is redundant — should warn.
+        let result = check(
+            "program test\nfn main() {\n    let a: Field = pub_read()\n    let b: U32 = as_u32(a)\n    let c: U32 = as_u32(a)\n}",
+        );
+        assert!(result.is_ok());
+        let exports = result.unwrap();
+        let h0003 = exports.warnings.iter().any(|w| w.message.contains("H0003"));
+        assert!(
+            h0003,
+            "expected H0003 warning for redundant as_u32, got: {:?}",
+            exports.warnings
+        );
+    }
+
+    #[test]
+    fn test_h0003_no_false_positive() {
+        // as_u32 on a fresh Field should NOT warn
+        let result = check(
+            "program test\nfn main() {\n    let a: Field = pub_read()\n    let b: U32 = as_u32(a)\n}",
+        );
+        assert!(result.is_ok());
+        let exports = result.unwrap();
+        let h0003 = exports.warnings.iter().any(|w| w.message.contains("H0003"));
+        assert!(!h0003, "should not warn on first as_u32 call");
     }
 }
