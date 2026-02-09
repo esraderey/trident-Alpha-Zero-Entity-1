@@ -1,0 +1,1 @@
+../../tree-sitter-trident/queries/highlights.scm

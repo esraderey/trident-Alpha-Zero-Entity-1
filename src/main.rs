@@ -3,7 +3,11 @@ use std::path::PathBuf;
 use std::process;
 
 #[derive(Parser)]
-#[command(name = "trident", version, about = "Trident compiler — Correct. Bounded. Provable.")]
+#[command(
+    name = "trident",
+    version,
+    about = "Trident compiler — Correct. Bounded. Provable."
+)]
 struct Cli {
     #[command(subcommand)]
     command: Command,
@@ -33,13 +37,26 @@ enum Command {
         #[arg(long)]
         costs: bool,
     },
+    /// Format a .tri file
+    Fmt {
+        /// Input .tri file
+        input: PathBuf,
+        /// Check formatting without modifying (exit 1 if unformatted)
+        #[arg(long)]
+        check: bool,
+    },
 }
 
 fn main() {
     let cli = Cli::parse();
 
     match cli.command {
-        Command::Build { input, output, costs, hotspots } => {
+        Command::Build {
+            input,
+            output,
+            costs,
+            hotspots,
+        } => {
             // Check if input is a directory or has a trident.toml nearby
             let (tasm, default_output) = if input.is_dir() {
                 // Project mode: look for trident.toml in directory
@@ -77,9 +94,7 @@ fn main() {
                         Ok(t) => t,
                         Err(_) => process::exit(1),
                     };
-                    let out = project
-                        .root_dir
-                        .join(format!("{}.tasm", project.name));
+                    let out = project.root_dir.join(format!("{}.tasm", project.name));
                     (tasm, out)
                 } else {
                     // Single-file mode
@@ -124,6 +139,41 @@ fn main() {
                         }
                         Err(_) => {} // errors already printed
                     }
+                }
+            }
+        }
+        Command::Fmt { input, check } => {
+            let source = match std::fs::read_to_string(&input) {
+                Ok(s) => s,
+                Err(e) => {
+                    eprintln!("error: cannot read '{}': {}", input.display(), e);
+                    process::exit(1);
+                }
+            };
+            let filename = input.to_string_lossy().to_string();
+            match trident::format_source(&source, &filename) {
+                Ok(formatted) => {
+                    if check {
+                        if formatted != source {
+                            eprintln!("would reformat: {}", input.display());
+                            process::exit(1);
+                        }
+                        eprintln!("OK: {}", input.display());
+                    } else {
+                        if formatted != source {
+                            if let Err(e) = std::fs::write(&input, &formatted) {
+                                eprintln!("error: cannot write '{}': {}", input.display(), e);
+                                process::exit(1);
+                            }
+                            eprintln!("Formatted: {}", input.display());
+                        } else {
+                            eprintln!("Already formatted: {}", input.display());
+                        }
+                    }
+                }
+                Err(_) => {
+                    eprintln!("error: cannot format '{}' (parse errors)", input.display());
+                    process::exit(1);
                 }
             }
         }
