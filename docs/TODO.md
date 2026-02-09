@@ -70,13 +70,6 @@
 - [ ] Round-trip: parse -> format -> parse produces same AST
 - [ ] Error message quality audit
 
-## Token / Applications
-
-- [ ] Token factory as registry for token deploy
-- [ ] Prove language correctness and compiler implementation
-- [ ] Library for browser extension integration
-- [ ] Browser extension
-
 ## Documentation / Website
 
 - [ ] README with quick start
@@ -85,3 +78,10 @@
 - [ ] Web playground
 - [ ] Landing page
 - [ ] Extension download links
+
+## Standards
+
+- [ ] Token factory as registry for token deploy
+- [ ] Prove language correctness and compiler implementation
+- [ ] Library for browser extension integration
+- [ ] Browser extension

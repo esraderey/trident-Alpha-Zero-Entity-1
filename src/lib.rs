@@ -6,6 +6,7 @@ pub mod format;
 pub mod lexeme;
 pub mod lexer;
 pub mod linker;
+pub mod lsp;
 pub mod parser;
 pub mod project;
 pub mod resolve;
@@ -54,11 +55,16 @@ pub fn compile_project(entry_path: &Path) -> Result<String, Vec<Diagnostic>> {
     // Parse all modules
     for module in &modules {
         let file = parse_source(&module.source, &module.file_path.to_string_lossy())?;
-        parsed_modules.push((module.name.clone(), module.file_path.clone(), file));
+        parsed_modules.push((
+            module.name.clone(),
+            module.file_path.clone(),
+            module.source.clone(),
+            file,
+        ));
     }
 
     // Type-check in topological order (deps first), collecting exports
-    for (_module_name, file_path, file) in &parsed_modules {
+    for (_module_name, file_path, source, file) in &parsed_modules {
         let mut tc = TypeChecker::new();
 
         // Import signatures from already-checked dependencies
@@ -68,10 +74,13 @@ pub fn compile_project(entry_path: &Path) -> Result<String, Vec<Diagnostic>> {
 
         match tc.check_file(file) {
             Ok(exports) => {
+                if !exports.warnings.is_empty() {
+                    render_diagnostics(&exports.warnings, &file_path.to_string_lossy(), source);
+                }
                 all_exports.push(exports);
             }
             Err(errors) => {
-                render_diagnostics(&errors, &file_path.to_string_lossy(), "");
+                render_diagnostics(&errors, &file_path.to_string_lossy(), source);
                 return Err(errors);
             }
         }
@@ -79,7 +88,7 @@ pub fn compile_project(entry_path: &Path) -> Result<String, Vec<Diagnostic>> {
 
     // Build global intrinsic map from all modules
     let mut intrinsic_map = std::collections::HashMap::new();
-    for (_module_name, _file_path, file) in &parsed_modules {
+    for (_module_name, _file_path, _source, file) in &parsed_modules {
         for item in &file.items {
             if let ast::Item::Fn(func) = &item.node {
                 if let Some(ref intrinsic) = func.intrinsic {
@@ -110,7 +119,7 @@ pub fn compile_project(entry_path: &Path) -> Result<String, Vec<Diagnostic>> {
 
     // Build module alias map: short name → full name for dotted modules
     let mut module_aliases = std::collections::HashMap::new();
-    for (_module_name, _file_path, file) in &parsed_modules {
+    for (_module_name, _file_path, _source, file) in &parsed_modules {
         let full_name = &file.name.node;
         if let Some(short) = full_name.rsplit('.').next() {
             if short != full_name.as_str() {
@@ -137,7 +146,7 @@ pub fn compile_project(entry_path: &Path) -> Result<String, Vec<Diagnostic>> {
 
     // Emit TASM for each module
     let mut tasm_modules = Vec::new();
-    for (_module_name, _file_path, file) in &parsed_modules {
+    for (_module_name, _file_path, _source, file) in &parsed_modules {
         let is_program = file.kind == FileKind::Program;
         let tasm = Emitter::new()
             .with_intrinsics(intrinsic_map.clone())
@@ -185,6 +194,13 @@ pub fn check_project(entry_path: &Path) -> Result<(), Vec<Diagnostic>> {
 
         match tc.check_file(&file) {
             Ok(exports) => {
+                if !exports.warnings.is_empty() {
+                    render_diagnostics(
+                        &exports.warnings,
+                        &module.file_path.to_string_lossy(),
+                        &module.source,
+                    );
+                }
                 all_exports.push(exports);
             }
             Err(errors) => {
@@ -304,7 +320,7 @@ fn parse_source(source: &str, filename: &str) -> Result<ast::File, Vec<Diagnosti
     }
 }
 
-fn parse_source_silent(source: &str, _filename: &str) -> Result<ast::File, Vec<Diagnostic>> {
+pub fn parse_source_silent(source: &str, _filename: &str) -> Result<ast::File, Vec<Diagnostic>> {
     let (tokens, _comments, lex_errors) = Lexer::new(source, 0).tokenize();
     if !lex_errors.is_empty() {
         return Err(lex_errors);
