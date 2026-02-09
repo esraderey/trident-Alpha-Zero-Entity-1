@@ -1,0 +1,22 @@
+# Rust build artifacts
+/target/
+**/target/
+
+# Compiled TASM output
+*.tasm
+
+# Compiled WASM grammars
+*.wasm
+
+# Node.js
+**/node_modules/
+
+# Tree-sitter build
+**/build/
+
+# Tree-sitter grammar repos (managed separately)
+editor/tree-sitter-trident/
+editor/zed-trident/grammars/trident/
+
+# OS
+.DS_Store

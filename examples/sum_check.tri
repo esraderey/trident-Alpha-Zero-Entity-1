@@ -1,0 +1,10 @@
+program sum_check
+
+fn main() {
+    let a: Field = pub_read()
+    let b: Field = pub_read()
+    let sum: Field = a + b
+    pub_write(sum)
+    let expected: Field = divine()
+    assert(sum == expected)
+}

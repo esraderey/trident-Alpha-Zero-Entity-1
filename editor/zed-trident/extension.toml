@@ -1,0 +1,14 @@
+id = "trident"
+name = "Trident"
+description = "Trident ZK language support"
+version = "0.1.0"
+schema_version = 1
+authors = ["mastercyb"]
+
+[grammars.trident]
+repository = "file:///Users/mastercyb/git/trident/editor/tree-sitter-trident"
+rev = "040e7d18f9141b6a96175821225f469c7e560d8b"
+
+[language_servers.trident-lsp]
+name = "Trident LSP"
+language = "Trident"

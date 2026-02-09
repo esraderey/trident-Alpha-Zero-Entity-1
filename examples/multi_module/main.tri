@@ -1,0 +1,11 @@
+program multi_example
+
+use helpers
+
+fn main() {
+    let a: Field = pub_read()
+    let doubled: Field = helpers.double(a)
+    pub_write(doubled)
+    let sq: Field = helpers.square(a)
+    pub_write(sq)
+}

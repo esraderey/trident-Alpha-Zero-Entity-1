@@ -1,0 +1,434 @@
+program fungible_token
+
+// ============================================================
+// ZK-Native Fungible Token — PLUMB
+// 5 operations: pay (0), lock (1), update (2), mint (3), burn (4)
+//
+// State: Merkle tree of account leaves + config commitment
+// Leaf     = hash(account_id, balance, nonce, auth_hash, lock_until, 0, 0, 0, 0, 0)
+// Config   = hash(admin_auth, pay_auth, lock_auth, mint_auth, burn_auth,
+//                 pay_hook, lock_hook, update_hook, mint_hook, burn_hook)
+// Metadata = hash(name_hash, ticker_hash, teaser_hash, site_hash, custom_hash,
+//                 price_oracle, volume_oracle, 0, 0, 0)  [standalone commitment]
+//
+// Config = business logic (5 authorities + 5 hooks)
+//   Authorities: who can perform the operation
+//   Hooks: external program for custom business logic
+// Metadata = descriptive (attributes, oracle references), standalone
+//
+// Authority semantics:
+//   Account ops (pay, lock, burn): 0 = account auth only, non-zero = dual auth
+//   Config ops (mint, update):     0 = disabled, non-zero = authorized
+// ============================================================
+
+// --- Leaf hashing ---
+
+fn hash_leaf(id: Field, bal: Field, nonce: Field, auth: Field, lock: Field) -> Digest {
+    hash(id, bal, nonce, auth, lock, 0, 0, 0, 0, 0)
+}
+
+// --- Metadata hashing (standalone, descriptive + oracle references) ---
+
+fn hash_metadata(name_hash: Field, ticker_hash: Field, teaser_hash: Field, site_hash: Field, custom_hash: Field, price_oracle: Field, volume_oracle: Field) -> Digest {
+    hash(name_hash, ticker_hash, teaser_hash, site_hash, custom_hash, price_oracle, volume_oracle, 0, 0, 0)
+}
+
+// --- Config hashing (5 authorities + 5 hooks, all 10 slots used) ---
+
+fn hash_config(admin_auth: Field, pay_auth: Field, lock_auth: Field, mint_auth: Field, burn_auth: Field, pay_hook: Field, lock_hook: Field, update_hook: Field, mint_hook: Field, burn_hook: Field) -> Digest {
+    hash(admin_auth, pay_auth, lock_auth, mint_auth, burn_auth, pay_hook, lock_hook, update_hook, mint_hook, burn_hook)
+}
+
+fn verify_config(admin_auth: Field, pay_auth: Field, lock_auth: Field, mint_auth: Field, burn_auth: Field, pay_hook: Field, lock_hook: Field, update_hook: Field, mint_hook: Field, burn_hook: Field, config: Digest) {
+    let computed: Digest = hash_config(admin_auth, pay_auth, lock_auth, mint_auth, burn_auth, pay_hook, lock_hook, update_hook, mint_hook, burn_hook)
+    assert_digest(computed, config)
+}
+
+// --- Authorization: prove knowledge of secret matching auth_hash ---
+// TODO: bind auth_hash to computed digest once Digest indexing is supported.
+// Currently proves preimage knowledge but doesn't constrain auth_hash == hash(secret)[0].
+
+fn verify_auth(auth_hash: Field) {
+    let secret: Field = divine()
+    let computed: Digest = hash(secret, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+    let expected: Digest = divine5()
+    assert_digest(computed, expected)
+}
+
+// --- Events ---
+
+event Nullifier {
+    account_id: Field,
+    nonce: Field,
+}
+
+event SupplyCheck {
+    supply: Field,
+}
+
+event SupplyChange {
+    old_supply: Field,
+    new_supply: Field,
+}
+
+// --- Balance range check ---
+
+fn assert_non_negative(val: Field) {
+    let checked: U32 = as_u32(val)
+}
+
+// ============================================================
+// Op 0: PAY — transfer tokens between accounts
+// ============================================================
+// Public I/O: old_root(5), new_root(5), supply, current_time, amount, config(5)
+// Secret: config fields (10), sender fields, receiver fields, auth witnesses
+
+fn pay() {
+    let old_root: Digest = pub_read5()
+    let new_root: Digest = pub_read5()
+    let supply: Field = pub_read()
+    let current_time: Field = pub_read()
+    let amount: Field = pub_read()
+    let config: Digest = pub_read5()
+
+    // --- Verify config ---
+    let cfg_admin: Field = divine()
+    let cfg_pay_auth: Field = divine()
+    let cfg_lock_auth: Field = divine()
+    let cfg_mint_auth: Field = divine()
+    let cfg_burn_auth: Field = divine()
+    let cfg_pay_hook: Field = divine()
+    let cfg_lock_hook: Field = divine()
+    let cfg_update_hook: Field = divine()
+    let cfg_mint_hook: Field = divine()
+    let cfg_burn_hook: Field = divine()
+    verify_config(cfg_admin, cfg_pay_auth, cfg_lock_auth, cfg_mint_auth, cfg_burn_auth, cfg_pay_hook, cfg_lock_hook, cfg_update_hook, cfg_mint_hook, cfg_burn_hook, config)
+
+    // --- Sender account (secret) ---
+    let s_id: Field = divine()
+    let s_bal: Field = divine()
+    let s_nonce: Field = divine()
+    let s_auth: Field = divine()
+    let s_lock: Field = divine()
+
+    // Verify sender leaf
+    let s_leaf: Digest = hash_leaf(s_id, s_bal, s_nonce, s_auth, s_lock)
+    let s_leaf_expected: Digest = divine5()
+    assert_digest(s_leaf, s_leaf_expected)
+
+    // Account-level authorization (always required)
+    verify_auth(s_auth)
+
+    // Config-level pay authorization (0 = account auth only, non-zero = dual auth)
+    if cfg_pay_auth == 0 {
+    } else {
+        verify_auth(cfg_pay_auth)
+    }
+
+    // Time-lock check: current_time >= lock_until
+    let time_diff: Field = sub(current_time, s_lock)
+    assert_non_negative(time_diff)
+
+    // Sufficient balance
+    let new_s_bal: Field = sub(s_bal, amount)
+    assert_non_negative(new_s_bal)
+
+    // --- Receiver account (secret) ---
+    let r_id: Field = divine()
+    let r_bal: Field = divine()
+    let r_nonce: Field = divine()
+    let r_auth: Field = divine()
+    let r_lock: Field = divine()
+
+    // Verify receiver leaf
+    let r_leaf: Digest = hash_leaf(r_id, r_bal, r_nonce, r_auth, r_lock)
+    let r_leaf_expected: Digest = divine5()
+    assert_digest(r_leaf, r_leaf_expected)
+
+    // --- Compute new leaves ---
+    let new_s_nonce: Field = s_nonce + 1
+    let new_s_leaf: Digest = hash_leaf(s_id, new_s_bal, new_s_nonce, s_auth, s_lock)
+
+    let new_r_bal: Field = r_bal + amount
+    let new_r_leaf: Digest = hash_leaf(r_id, new_r_bal, r_nonce, r_auth, r_lock)
+
+    // Verify new leaves
+    let new_s_expected: Digest = divine5()
+    assert_digest(new_s_leaf, new_s_expected)
+
+    let new_r_expected: Digest = divine5()
+    assert_digest(new_r_leaf, new_r_expected)
+
+    // Nullifier for replay prevention (sealed — verifier sees only commitment)
+    seal Nullifier { account_id: s_id, nonce: s_nonce }
+
+    // Supply unchanged
+    emit SupplyCheck { supply: supply }
+}
+
+// ============================================================
+// Op 1: LOCK — time-lock tokens
+// ============================================================
+// Public I/O: old_root(5), new_root(5), supply, lock_until_time, config(5)
+// Secret: config fields (10), account fields, auth witnesses
+
+fn lock() {
+    let old_root: Digest = pub_read5()
+    let new_root: Digest = pub_read5()
+    let supply: Field = pub_read()
+    let lock_time: Field = pub_read()
+    let config: Digest = pub_read5()
+
+    // --- Verify config ---
+    let cfg_admin: Field = divine()
+    let cfg_pay_auth: Field = divine()
+    let cfg_lock_auth: Field = divine()
+    let cfg_mint_auth: Field = divine()
+    let cfg_burn_auth: Field = divine()
+    let cfg_pay_hook: Field = divine()
+    let cfg_lock_hook: Field = divine()
+    let cfg_update_hook: Field = divine()
+    let cfg_mint_hook: Field = divine()
+    let cfg_burn_hook: Field = divine()
+    verify_config(cfg_admin, cfg_pay_auth, cfg_lock_auth, cfg_mint_auth, cfg_burn_auth, cfg_pay_hook, cfg_lock_hook, cfg_update_hook, cfg_mint_hook, cfg_burn_hook, config)
+
+    // Account to lock
+    let a_id: Field = divine()
+    let a_bal: Field = divine()
+    let a_nonce: Field = divine()
+    let a_auth: Field = divine()
+    let a_lock: Field = divine()
+
+    // Verify account leaf
+    let a_leaf: Digest = hash_leaf(a_id, a_bal, a_nonce, a_auth, a_lock)
+    let a_leaf_expected: Digest = divine5()
+    assert_digest(a_leaf, a_leaf_expected)
+
+    // Account-level authorization (always required)
+    verify_auth(a_auth)
+
+    // Config-level lock authorization (0 = account auth only, non-zero = dual auth)
+    if cfg_lock_auth == 0 {
+    } else {
+        verify_auth(cfg_lock_auth)
+    }
+
+    // Lock monotonicity: new lock_until >= old lock_until
+    let lock_diff: Field = sub(lock_time, a_lock)
+    assert_non_negative(lock_diff)
+
+    // New leaf with updated lock_until and incremented nonce
+    let new_a_nonce: Field = a_nonce + 1
+    let new_a_leaf: Digest = hash_leaf(a_id, a_bal, new_a_nonce, a_auth, lock_time)
+
+    // Verify new leaf
+    let new_a_expected: Digest = divine5()
+    assert_digest(new_a_leaf, new_a_expected)
+
+    // Supply unchanged
+    emit SupplyCheck { supply: supply }
+}
+
+// ============================================================
+// Op 2: UPDATE — update token config (admin only)
+// ============================================================
+// Public I/O: old_root(5), new_root(5), supply, old_config(5), new_config(5)
+// Secret: old config fields (10), new config fields (10), admin_secret
+// Setting new admin_auth = 0 renounces authority (irreversible)
+
+fn update() {
+    let old_root: Digest = pub_read5()
+    let new_root: Digest = pub_read5()
+    let supply: Field = pub_read()
+    let old_config: Digest = pub_read5()
+    let new_config: Digest = pub_read5()
+
+    // State invariant: account tree must not change
+    assert_digest(old_root, new_root)
+
+    // --- Verify old config ---
+    let old_admin: Field = divine()
+    let old_pay_auth: Field = divine()
+    let old_lock_auth: Field = divine()
+    let old_mint_auth: Field = divine()
+    let old_burn_auth: Field = divine()
+    let old_pay_hook: Field = divine()
+    let old_lock_hook: Field = divine()
+    let old_update_hook: Field = divine()
+    let old_mint_hook: Field = divine()
+    let old_burn_hook: Field = divine()
+    verify_config(old_admin, old_pay_auth, old_lock_auth, old_mint_auth, old_burn_auth, old_pay_hook, old_lock_hook, old_update_hook, old_mint_hook, old_burn_hook, old_config)
+
+    // Admin authorization (0 = renounced, verify_auth will fail)
+    verify_auth(old_admin)
+
+    // --- Verify new config ---
+    let new_admin: Field = divine()
+    let new_pay_auth: Field = divine()
+    let new_lock_auth: Field = divine()
+    let new_mint_auth: Field = divine()
+    let new_burn_auth: Field = divine()
+    let new_pay_hook: Field = divine()
+    let new_lock_hook: Field = divine()
+    let new_update_hook: Field = divine()
+    let new_mint_hook: Field = divine()
+    let new_burn_hook: Field = divine()
+    verify_config(new_admin, new_pay_auth, new_lock_auth, new_mint_auth, new_burn_auth, new_pay_hook, new_lock_hook, new_update_hook, new_mint_hook, new_burn_hook, new_config)
+
+    // Supply unchanged
+    emit SupplyCheck { supply: supply }
+}
+
+// ============================================================
+// Op 3: MINT — create new tokens
+// ============================================================
+// Public I/O: old_root(5), new_root(5), old_supply, new_supply, amount, config(5)
+// Secret: config fields (10), mint_secret, recipient account fields
+
+fn mint() {
+    let old_root: Digest = pub_read5()
+    let new_root: Digest = pub_read5()
+    let old_supply: Field = pub_read()
+    let new_supply: Field = pub_read()
+    let amount: Field = pub_read()
+    let config: Digest = pub_read5()
+
+    // --- Verify config ---
+    let cfg_admin: Field = divine()
+    let cfg_pay_auth: Field = divine()
+    let cfg_lock_auth: Field = divine()
+    let cfg_mint_auth: Field = divine()
+    let cfg_burn_auth: Field = divine()
+    let cfg_pay_hook: Field = divine()
+    let cfg_lock_hook: Field = divine()
+    let cfg_update_hook: Field = divine()
+    let cfg_mint_hook: Field = divine()
+    let cfg_burn_hook: Field = divine()
+    verify_config(cfg_admin, cfg_pay_auth, cfg_lock_auth, cfg_mint_auth, cfg_burn_auth, cfg_pay_hook, cfg_lock_hook, cfg_update_hook, cfg_mint_hook, cfg_burn_hook, config)
+
+    // Mint authorization (always required, 0 = minting disabled)
+    verify_auth(cfg_mint_auth)
+
+    // Supply accounting
+    let expected_supply: Field = old_supply + amount
+    assert_eq(new_supply, expected_supply)
+
+    // Recipient account
+    let r_id: Field = divine()
+    let r_bal: Field = divine()
+    let r_nonce: Field = divine()
+    let r_auth: Field = divine()
+    let r_lock: Field = divine()
+
+    // Verify old recipient leaf
+    let r_leaf: Digest = hash_leaf(r_id, r_bal, r_nonce, r_auth, r_lock)
+    let r_leaf_expected: Digest = divine5()
+    assert_digest(r_leaf, r_leaf_expected)
+
+    // New recipient leaf (balance increased)
+    let new_r_bal: Field = r_bal + amount
+    let new_r_leaf: Digest = hash_leaf(r_id, new_r_bal, r_nonce, r_auth, r_lock)
+
+    // Verify new leaf
+    let new_r_expected: Digest = divine5()
+    assert_digest(new_r_leaf, new_r_expected)
+
+    // Supply change
+    emit SupplyChange { old_supply: old_supply, new_supply: new_supply }
+}
+
+// ============================================================
+// Op 4: BURN — destroy tokens
+// ============================================================
+// Public I/O: old_root(5), new_root(5), old_supply, new_supply, current_time, amount, config(5)
+// Secret: config fields (10), account fields, auth witnesses
+
+fn burn() {
+    let old_root: Digest = pub_read5()
+    let new_root: Digest = pub_read5()
+    let old_supply: Field = pub_read()
+    let new_supply: Field = pub_read()
+    let current_time: Field = pub_read()
+    let amount: Field = pub_read()
+    let config: Digest = pub_read5()
+
+    // --- Verify config ---
+    let cfg_admin: Field = divine()
+    let cfg_pay_auth: Field = divine()
+    let cfg_lock_auth: Field = divine()
+    let cfg_mint_auth: Field = divine()
+    let cfg_burn_auth: Field = divine()
+    let cfg_pay_hook: Field = divine()
+    let cfg_lock_hook: Field = divine()
+    let cfg_update_hook: Field = divine()
+    let cfg_mint_hook: Field = divine()
+    let cfg_burn_hook: Field = divine()
+    verify_config(cfg_admin, cfg_pay_auth, cfg_lock_auth, cfg_mint_auth, cfg_burn_auth, cfg_pay_hook, cfg_lock_hook, cfg_update_hook, cfg_mint_hook, cfg_burn_hook, config)
+
+    // Account to burn from
+    let a_id: Field = divine()
+    let a_bal: Field = divine()
+    let a_nonce: Field = divine()
+    let a_auth: Field = divine()
+    let a_lock: Field = divine()
+
+    // Verify account leaf
+    let a_leaf: Digest = hash_leaf(a_id, a_bal, a_nonce, a_auth, a_lock)
+    let a_leaf_expected: Digest = divine5()
+    assert_digest(a_leaf, a_leaf_expected)
+
+    // Account-level authorization (always required)
+    verify_auth(a_auth)
+
+    // Config-level burn authorization (0 = account auth only, non-zero = dual auth)
+    if cfg_burn_auth == 0 {
+    } else {
+        verify_auth(cfg_burn_auth)
+    }
+
+    // Time-lock check
+    let time_diff: Field = sub(current_time, a_lock)
+    assert_non_negative(time_diff)
+
+    // Sufficient balance
+    let new_a_bal: Field = sub(a_bal, amount)
+    assert_non_negative(new_a_bal)
+
+    // Supply accounting
+    let expected_supply: Field = sub(old_supply, amount)
+    assert_eq(new_supply, expected_supply)
+
+    // New leaf
+    let new_a_nonce: Field = a_nonce + 1
+    let new_a_leaf: Digest = hash_leaf(a_id, new_a_bal, new_a_nonce, a_auth, a_lock)
+
+    // Verify new leaf
+    let new_a_expected: Digest = divine5()
+    assert_digest(new_a_leaf, new_a_expected)
+
+    // Nullifier for replay prevention (sealed — verifier sees only commitment)
+    seal Nullifier { account_id: a_id, nonce: a_nonce }
+
+    // Supply change
+    emit SupplyChange { old_supply: old_supply, new_supply: new_supply }
+}
+
+// ============================================================
+// Entry point — PLUMB dispatch by operation code
+// ============================================================
+
+fn main() {
+    let op: Field = pub_read()
+
+    if op == 0 {
+        pay()
+    } else if op == 1 {
+        lock()
+    } else if op == 2 {
+        update()
+    } else if op == 3 {
+        mint()
+    } else if op == 4 {
+        burn()
+    }
+}

@@ -1,0 +1,9 @@
+module helpers
+
+pub fn double(x: Field) -> Field {
+    x + x
+}
+
+pub fn square(x: Field) -> Field {
+    x * x
+}

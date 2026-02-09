@@ -1,0 +1,10 @@
+name = "Trident"
+grammar = "trident"
+path_suffixes = ["tri"]
+line_comments = ["// "]
+brackets = [
+  { start = "{", end = "}", close = true, newline = true },
+  { start = "[", end = "]", close = true, newline = false },
+  { start = "(", end = ")", close = true, newline = false },
+]
+word_characters = ["_"]

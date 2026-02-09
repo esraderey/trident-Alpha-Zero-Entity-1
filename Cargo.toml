@@ -1,0 +1,23 @@
+[package]
+name = "trident"
+version = "0.1.0"
+edition = "2021"
+description = "A minimal, security-first language for provable computation on Triton VM"
+
+[dependencies]
+clap = { version = "4", features = ["derive"] }
+ariadne = "0.4"
+tower-lsp = "0.20"
+tokio = { version = "1", features = ["io-std", "rt-multi-thread", "macros"] }
+
+[dev-dependencies]
+insta = "1"
+tempfile = "3"
+
+[[bin]]
+name = "trident"
+path = "src/main.rs"
+
+[[bin]]
+name = "trident-lsp"
+path = "src/bin/trident-lsp.rs"
