@@ -504,6 +504,8 @@ pub struct ProgramCost {
     pub attestation_hash_rows: u64,
     pub padded_height: u64,
     pub estimated_proving_secs: f64,
+    /// H0004: loops where declared bound >> actual constant end.
+    pub loop_bound_waste: Vec<(String, u64, u64)>, // (fn_name, end_value, bound)
 }
 
 // --- Cost analyzer ---
@@ -516,6 +518,8 @@ pub struct CostAnalyzer {
     fn_costs: HashMap<String, TableCost>,
     /// Recursion guard to prevent infinite loops in cost computation.
     in_progress: Vec<String>,
+    /// H0004: collected loop bound waste entries (fn_name, end_value, bound).
+    loop_bound_waste: Vec<(String, u64, u64)>,
 }
 
 impl CostAnalyzer {
@@ -524,6 +528,7 @@ impl CostAnalyzer {
             fn_bodies: HashMap::new(),
             fn_costs: HashMap::new(),
             in_progress: Vec::new(),
+            loop_bound_waste: Vec::new(),
         }
     }
 
@@ -572,6 +577,15 @@ impl CostAnalyzer {
         let log_ph = (padded_height as f64).log2();
         let estimated_proving_secs = (padded_height as f64) * 300.0 * log_ph * 3e-9;
 
+        // H0004: scan for loop bound waste (bound >> constant end)
+        for item in &file.items {
+            if let Item::Fn(func) = &item.node {
+                if let Some(body) = &func.body {
+                    self.scan_loop_bound_waste(&func.name.node, &body.node);
+                }
+            }
+        }
+
         ProgramCost {
             program_name: file.name.node.clone(),
             functions,
@@ -579,6 +593,7 @@ impl CostAnalyzer {
             attestation_hash_rows,
             padded_height,
             estimated_proving_secs,
+            loop_bound_waste: std::mem::take(&mut self.loop_bound_waste),
         }
     }
 
@@ -819,6 +834,43 @@ impl CostAnalyzer {
         }
         None
     }
+
+    /// H0004: scan a block for loops where declared bound >> constant end value.
+    fn scan_loop_bound_waste(&mut self, fn_name: &str, block: &Block) {
+        for stmt in &block.stmts {
+            if let Stmt::For {
+                end, bound, body, ..
+            } = &stmt.node
+            {
+                // Check if end is a constant and bound is declared
+                if let (Some(declared_bound), Expr::Literal(Literal::Integer(end_val))) =
+                    (bound, &end.node)
+                {
+                    if *declared_bound > *end_val * 4 && *declared_bound > 8 {
+                        self.loop_bound_waste.push((
+                            fn_name.to_string(),
+                            *end_val,
+                            *declared_bound,
+                        ));
+                    }
+                }
+                // Recurse into loop body
+                self.scan_loop_bound_waste(fn_name, &body.node);
+            }
+            // Recurse into if/else blocks
+            if let Stmt::If {
+                then_block,
+                else_block,
+                ..
+            } = &stmt.node
+            {
+                self.scan_loop_bound_waste(fn_name, &then_block.node);
+                if let Some(eb) = else_block {
+                    self.scan_loop_bound_waste(fn_name, &eb.node);
+                }
+            }
+        }
+    }
 }
 
 /// Smallest power of 2 >= n.
@@ -976,9 +1028,10 @@ impl ProgramCost {
         out
     }
 
-    /// Generate optimization hints (H0001, H0002).
+    /// Generate optimization hints (H0001, H0002, H0004).
     /// H0001: hash table dominance — hash table is >2x taller than processor.
     /// H0002: headroom hint — significant room below next power-of-2 boundary.
+    /// H0004: loop bound waste — declared bound >> constant iteration count.
     pub fn optimization_hints(&self) -> Vec<Diagnostic> {
         let mut hints = Vec::new();
 
@@ -1023,6 +1076,27 @@ impl ProgramCost {
             diag.help = Some(format!(
                 "this program could be {:.0}% more complex at zero additional proving cost",
                 headroom_pct
+            ));
+            hints.push(diag);
+        }
+
+        // H0004: Loop bound waste
+        for (fn_name, end_val, bound) in &self.loop_bound_waste {
+            let ratio = *bound as f64 / *end_val as f64;
+            let mut diag = Diagnostic::warning(
+                format!(
+                    "hint[H0004]: loop in '{}' bounded {} but iterates only {} times",
+                    fn_name, bound, end_val
+                ),
+                Span::dummy(),
+            );
+            diag.notes.push(format!(
+                "declared bound is {:.0}x the actual iteration count",
+                ratio
+            ));
+            diag.help = Some(format!(
+                "tightening the bound to {} would reduce worst-case cost",
+                next_power_of_two(*end_val)
             ));
             hints.push(diag);
         }
@@ -1240,6 +1314,7 @@ mod tests {
             attestation_hash_rows: 0,
             padded_height: 1024,
             estimated_proving_secs: 0.0,
+            loop_bound_waste: Vec::new(),
         };
         let warnings = cost.boundary_warnings();
         assert_eq!(warnings.len(), 1, "should warn when 4 rows from boundary");
@@ -1262,6 +1337,7 @@ mod tests {
             attestation_hash_rows: 0,
             padded_height: 64,
             estimated_proving_secs: 0.0,
+            loop_bound_waste: Vec::new(),
         };
         let hints = cost.optimization_hints();
         assert!(
@@ -1286,6 +1362,7 @@ mod tests {
             attestation_hash_rows: 0,
             padded_height: 1024,
             estimated_proving_secs: 0.0,
+            loop_bound_waste: Vec::new(),
         };
         let hints = cost.optimization_hints();
         assert!(
@@ -1310,11 +1387,38 @@ mod tests {
             attestation_hash_rows: 0,
             padded_height: 1024,
             estimated_proving_secs: 0.0,
+            loop_bound_waste: Vec::new(),
         };
         let warnings = cost.boundary_warnings();
         assert!(
             warnings.is_empty(),
             "should not warn when far from boundary"
         );
+    }
+
+    #[test]
+    fn test_h0004_loop_bound_waste() {
+        // Loop with bound 128 but only 10 iterations — should warn
+        let cost = analyze(
+            "program test\nfn main() {\n    let x: Field = pub_read()\n    for i in 0..10 bounded 128 {\n        pub_write(x)\n    }\n}",
+        );
+        let hints = cost.optimization_hints();
+        let h0004 = hints.iter().any(|h| h.message.contains("H0004"));
+        assert!(
+            h0004,
+            "expected H0004 for bound 128 >> end 10, got: {:?}",
+            hints
+        );
+    }
+
+    #[test]
+    fn test_h0004_no_waste_when_tight() {
+        // Loop with bound close to end — should NOT warn
+        let cost = analyze(
+            "program test\nfn main() {\n    let x: Field = pub_read()\n    for i in 0..10 bounded 16 {\n        pub_write(x)\n    }\n}",
+        );
+        let hints = cost.optimization_hints();
+        let h0004 = hints.iter().any(|h| h.message.contains("H0004"));
+        assert!(!h0004, "should not warn when bound is close to end");
     }
 }
