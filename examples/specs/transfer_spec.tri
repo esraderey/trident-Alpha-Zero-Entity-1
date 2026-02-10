@@ -1,0 +1,19 @@
+program transfer_spec
+
+#[requires(amount > 0)]
+#[requires(sender_balance > amount)]
+#[ensures(new_sender == sub(sender_balance, amount))]
+#[ensures(new_receiver == receiver_balance + amount)]
+fn transfer(sender_balance: Field, receiver_balance: Field, amount: Field) -> (Field, Field) {
+}
+
+#[requires(amount > 0)]
+#[ensures(result == balance + amount)]
+fn deposit(balance: Field, amount: Field) -> Field {
+}
+
+#[requires(amount > 0)]
+#[requires(balance > amount)]
+#[ensures(result == sub(balance, amount))]
+fn withdraw(balance: Field, amount: Field) -> Field {
+}
