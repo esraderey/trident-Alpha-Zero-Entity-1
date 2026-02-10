@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
 use crate::diagnostic::Diagnostic;
+use crate::package::Manifest;
 use crate::span::Span;
 
 /// Minimal project configuration from trident.toml.
@@ -16,6 +17,8 @@ pub struct Project {
     /// Custom profile definitions: profile_name → list of cfg flags.
     /// E.g. `[targets.debug]` with `flags = ["debug", "verbose"]`.
     pub targets: HashMap<String, Vec<String>>,
+    /// Parsed [dependencies] section.
+    pub dependencies: Manifest,
 }
 
 /// Parse a minimal TOML string array: `["a", "b", "c"]` → `vec!["a", "b", "c"]`.
@@ -96,6 +99,8 @@ impl Project {
             entry = "main.tri".to_string();
         }
 
+        let dependencies = crate::package::parse_dependencies(&content);
+
         Ok(Project {
             name,
             version,
@@ -103,6 +108,7 @@ impl Project {
             root_dir,
             target: vm_target,
             targets,
+            dependencies,
         })
     }
 

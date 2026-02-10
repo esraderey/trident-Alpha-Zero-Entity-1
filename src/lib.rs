@@ -12,6 +12,7 @@ pub mod lexer;
 pub mod linker;
 pub mod lsp;
 pub mod onchain;
+pub mod package;
 pub mod parser;
 pub mod project;
 pub mod registry;
@@ -39,7 +40,7 @@ use emit::Emitter;
 use lexer::Lexer;
 use linker::{link, ModuleTasm};
 use parser::Parser;
-use resolve::resolve_modules;
+use resolve::{resolve_modules, resolve_modules_with_deps};
 use target::TargetConfig;
 use typeck::{ModuleExports, TypeChecker};
 
@@ -52,6 +53,8 @@ pub struct CompileOptions {
     pub cfg_flags: HashSet<String>,
     /// Target VM configuration.
     pub target_config: TargetConfig,
+    /// Additional module search directories (from locked dependencies).
+    pub dep_dirs: Vec<std::path::PathBuf>,
 }
 
 impl Default for CompileOptions {
@@ -60,6 +63,7 @@ impl Default for CompileOptions {
             profile: "debug".to_string(),
             cfg_flags: HashSet::from(["debug".to_string()]),
             target_config: TargetConfig::triton(),
+            dep_dirs: Vec::new(),
         }
     }
 }
@@ -71,6 +75,7 @@ impl CompileOptions {
             profile: profile.to_string(),
             cfg_flags: HashSet::from([profile.to_string()]),
             target_config: TargetConfig::triton(),
+            dep_dirs: Vec::new(),
         }
     }
 
@@ -126,7 +131,11 @@ pub fn compile_project_with_options(
     options: &CompileOptions,
 ) -> Result<String, Vec<Diagnostic>> {
     // Resolve all modules in dependency order
-    let modules = resolve_modules(entry_path)?;
+    let modules = if options.dep_dirs.is_empty() {
+        resolve_modules(entry_path)?
+    } else {
+        resolve_modules_with_deps(entry_path, options.dep_dirs.clone())?
+    };
 
     let mut parsed_modules = Vec::new();
     let mut all_exports: Vec<ModuleExports> = Vec::new();

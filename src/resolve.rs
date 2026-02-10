@@ -25,6 +25,18 @@ pub(crate) fn resolve_modules(entry_path: &Path) -> Result<Vec<ModuleInfo>, Vec<
     resolver.topological_sort()
 }
 
+/// Resolve modules with additional dependency search directories.
+/// Used when a project has locked dependencies cached on disk.
+pub(crate) fn resolve_modules_with_deps(
+    entry_path: &Path,
+    dep_dirs: Vec<PathBuf>,
+) -> Result<Vec<ModuleInfo>, Vec<Diagnostic>> {
+    let mut resolver = ModuleResolver::new(entry_path)?;
+    resolver.dep_dirs = dep_dirs;
+    resolver.discover_all()?;
+    resolver.topological_sort()
+}
+
 /// Find the standard library directory.
 /// Search order:
 ///   1. TRIDENT_STDLIB environment variable
@@ -142,6 +154,8 @@ struct ModuleResolver {
     stdlib_dir: Option<PathBuf>,
     /// Extension library directory (if found).
     ext_dir: Option<PathBuf>,
+    /// Additional directories to search for modules (from locked dependencies).
+    dep_dirs: Vec<PathBuf>,
     /// All discovered modules by name.
     modules: HashMap<String, ModuleInfo>,
     /// Queue of modules to process.
@@ -180,6 +194,7 @@ impl ModuleResolver {
             root_dir,
             stdlib_dir: find_stdlib_dir(),
             ext_dir: find_ext_dir(),
+            dep_dirs: Vec::new(),
             modules,
             queue: deps,
             diagnostics: Vec::new(),
@@ -300,6 +315,27 @@ impl ModuleResolver {
             }
         }
 
+        // Check dependency cache directories
+        for dep_dir in &self.dep_dirs {
+            let parts: Vec<&str> = module_name.split('.').collect();
+            let mut path = dep_dir.clone();
+            for part in &parts {
+                path = path.join(part);
+            }
+            let candidate = path.with_extension("tri");
+            if candidate.exists() {
+                return candidate;
+            }
+            // Also check for main.tri inside a directory matching the name
+            if path.is_dir() {
+                let main_tri = path.join("main.tri");
+                if main_tri.exists() {
+                    return main_tri;
+                }
+            }
+        }
+
+        // Default: local project path
         let parts: Vec<&str> = module_name.split('.').collect();
         let mut path = self.root_dir.clone();
         for part in &parts {
