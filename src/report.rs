@@ -277,6 +277,9 @@ fn collect_divine_refs_value(v: &SymValue, out: &mut Vec<String>) {
             }
         }
         SymValue::Const(_) | SymValue::Divine(_) | SymValue::PubInput(_) => {}
+        SymValue::FieldAccess(inner, _) => {
+            collect_divine_refs_value(inner, out);
+        }
     }
 }
 

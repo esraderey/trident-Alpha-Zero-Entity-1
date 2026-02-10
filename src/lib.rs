@@ -1883,6 +1883,31 @@ fn main() {
         assert!(result.is_err(), "non-exhaustive match should fail");
     }
 
+    #[test]
+    fn test_match_struct_pattern_compiles() {
+        let source = "program test\nstruct Point { x: Field, y: Field }\nfn main() {\n    let p = Point { x: pub_read(), y: pub_read() }\n    match p {\n        Point { x, y } => {\n            pub_write(x)\n            pub_write(y)\n        }\n    }\n}";
+        let result = compile(source, "test.tri");
+        assert!(
+            result.is_ok(),
+            "struct pattern should compile: {:?}",
+            result.err()
+        );
+        let tasm = result.unwrap();
+        assert!(tasm.contains("read_io"), "should read inputs");
+        assert!(tasm.contains("write_io"), "should write outputs");
+    }
+
+    #[test]
+    fn test_match_struct_pattern_format_roundtrip() {
+        let source = "program test\n\nstruct Point {\n    x: Field,\n    y: Field,\n}\n\nfn main() {\n    let p = Point { x: 1, y: 2 }\n    match p {\n        Point { x, y } => {\n            pub_write(x)\n        }\n    }\n}\n";
+        let formatted = format_source(source, "test.tri").unwrap();
+        let formatted2 = format_source(&formatted, "test.tri").unwrap();
+        assert_eq!(
+            formatted, formatted2,
+            "struct pattern formatting should be idempotent"
+        );
+    }
+
     // --- #[test] attribute integration tests ---
 
     #[test]

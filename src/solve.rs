@@ -197,6 +197,10 @@ impl<'a> Evaluator<'a> {
                     self.eval(else_val)
                 }
             }
+            SymValue::FieldAccess(_, _) => {
+                // Field access on a symbolic value — cannot evaluate concretely
+                None
+            }
         }
     }
 
@@ -889,6 +893,9 @@ pub fn format_sym_value(v: &SymValue) -> String {
             format_sym_value(t),
             format_sym_value(e)
         ),
+        SymValue::FieldAccess(inner, field) => {
+            format!("{}.{}", format_sym_value(inner), field)
+        }
     }
 }
 

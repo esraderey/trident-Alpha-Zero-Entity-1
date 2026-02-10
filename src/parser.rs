@@ -863,10 +863,15 @@ impl Parser {
             } else if self.at(&Lexeme::False) {
                 self.advance();
                 MatchPattern::Literal(Literal::Bool(false))
+            } else if matches!(self.peek(), Lexeme::Ident(_))
+                && matches!(self.tokens[self.pos + 1].node, Lexeme::LBrace)
+            {
+                // Struct pattern: `Name { field, field: value, ... }`
+                self.parse_struct_match_pattern()
             } else {
                 self.error_with_help(
-                    "expected match pattern (integer, true, false, or _)",
-                    "match arms use literal patterns like `0 =>`, `true =>`, or wildcard `_ =>`",
+                    "expected match pattern (integer, true, false, StructName { ... }, or _)",
+                    "match arms use literal patterns like `0 =>`, `true =>`, struct patterns like `Point { x, y } =>`, or wildcard `_ =>`",
                 );
                 self.advance();
                 MatchPattern::Wildcard
@@ -888,6 +893,65 @@ impl Parser {
         self.expect(&Lexeme::RBrace);
         let span = start.merge(self.prev_span());
         Spanned::new(Stmt::Match { expr, arms }, span)
+    }
+
+    /// Parse a struct destructuring pattern: `Point { x, y: 0, z: _ }`.
+    fn parse_struct_match_pattern(&mut self) -> MatchPattern {
+        let name = self.expect_ident();
+        self.expect(&Lexeme::LBrace);
+
+        let mut fields = Vec::new();
+        while !self.at(&Lexeme::RBrace) && !self.at(&Lexeme::Eof) {
+            let field_name = self.expect_ident();
+
+            let pattern = if self.eat(&Lexeme::Colon) {
+                // Explicit pattern: `field: value`
+                let pat_start = self.current_span();
+                let pat = if self.at(&Lexeme::Underscore)
+                    || matches!(self.peek(), Lexeme::Ident(s) if s == "_")
+                {
+                    self.advance();
+                    FieldPattern::Wildcard
+                } else if let Lexeme::Integer(n) = self.peek().clone() {
+                    self.advance();
+                    FieldPattern::Literal(Literal::Integer(n))
+                } else if self.at(&Lexeme::True) {
+                    self.advance();
+                    FieldPattern::Literal(Literal::Bool(true))
+                } else if self.at(&Lexeme::False) {
+                    self.advance();
+                    FieldPattern::Literal(Literal::Bool(false))
+                } else if matches!(self.peek(), Lexeme::Ident(_)) {
+                    let binding = self.expect_ident();
+                    FieldPattern::Binding(binding.node)
+                } else {
+                    self.error_with_help(
+                        "expected field pattern (identifier, literal, or _)",
+                        "use `field: var` to bind, `field: 0` to match, or `field: _` to ignore",
+                    );
+                    self.advance();
+                    FieldPattern::Wildcard
+                };
+                let pat_span = pat_start.merge(self.prev_span());
+                Spanned::new(pat, pat_span)
+            } else {
+                // Shorthand: `field` is the same as `field: field`
+                let span = field_name.span;
+                Spanned::new(FieldPattern::Binding(field_name.node.clone()), span)
+            };
+
+            fields.push(StructPatternField {
+                field_name,
+                pattern,
+            });
+
+            if !self.eat(&Lexeme::Comma) {
+                break;
+            }
+        }
+
+        self.expect(&Lexeme::RBrace);
+        MatchPattern::Struct { name, fields }
     }
 
     // --- Expression parsing (Pratt / precedence climbing) ---
@@ -1640,6 +1704,81 @@ mod tests {
             if let Stmt::Match { arms, .. } = &block.node.stmts[0].node {
                 assert_eq!(arms.len(), 1);
                 assert!(matches!(arms[0].pattern.node, MatchPattern::Wildcard));
+            } else {
+                panic!("expected match statement");
+            }
+        }
+    }
+
+    #[test]
+    fn test_match_struct_pattern() {
+        let file = parse(
+            "program test\nstruct Point { x: Field, y: Field }\nfn main() {\n    let p = Point { x: 1, y: 2 }\n    match p {\n        Point { x, y } => { pub_write(x) }\n    }\n}",
+        );
+        if let Item::Fn(f) = &file.items[1].node {
+            let block = f.body.as_ref().unwrap();
+            if let Stmt::Match { arms, .. } = &block.node.stmts[1].node {
+                assert_eq!(arms.len(), 1);
+                if let MatchPattern::Struct { name, fields } = &arms[0].pattern.node {
+                    assert_eq!(name.node, "Point");
+                    assert_eq!(fields.len(), 2);
+                    assert_eq!(fields[0].field_name.node, "x");
+                    assert_eq!(fields[1].field_name.node, "y");
+                    assert!(
+                        matches!(fields[0].pattern.node, FieldPattern::Binding(ref v) if v == "x")
+                    );
+                    assert!(
+                        matches!(fields[1].pattern.node, FieldPattern::Binding(ref v) if v == "y")
+                    );
+                } else {
+                    panic!("expected struct pattern");
+                }
+            } else {
+                panic!("expected match statement");
+            }
+        }
+    }
+
+    #[test]
+    fn test_match_struct_pattern_with_literals() {
+        let file = parse(
+            "program test\nstruct Pair { a: Field, b: Field }\nfn main() {\n    let p = Pair { a: 1, b: 2 }\n    match p {\n        Pair { a: 0, b } => { pub_write(b) }\n        _ => { pub_write(0) }\n    }\n}",
+        );
+        if let Item::Fn(f) = &file.items[1].node {
+            let block = f.body.as_ref().unwrap();
+            if let Stmt::Match { arms, .. } = &block.node.stmts[1].node {
+                assert_eq!(arms.len(), 2);
+                if let MatchPattern::Struct { fields, .. } = &arms[0].pattern.node {
+                    assert!(matches!(
+                        fields[0].pattern.node,
+                        FieldPattern::Literal(Literal::Integer(0))
+                    ));
+                    assert!(
+                        matches!(fields[1].pattern.node, FieldPattern::Binding(ref v) if v == "b")
+                    );
+                } else {
+                    panic!("expected struct pattern");
+                }
+                assert!(matches!(arms[1].pattern.node, MatchPattern::Wildcard));
+            } else {
+                panic!("expected match statement");
+            }
+        }
+    }
+
+    #[test]
+    fn test_match_struct_pattern_with_wildcard_field() {
+        let file = parse(
+            "program test\nstruct Pair { a: Field, b: Field }\nfn main() {\n    let p = Pair { a: 1, b: 2 }\n    match p {\n        Pair { a: _, b } => { pub_write(b) }\n    }\n}",
+        );
+        if let Item::Fn(f) = &file.items[1].node {
+            let block = f.body.as_ref().unwrap();
+            if let Stmt::Match { arms, .. } = &block.node.stmts[1].node {
+                if let MatchPattern::Struct { fields, .. } = &arms[0].pattern.node {
+                    assert!(matches!(fields[0].pattern.node, FieldPattern::Wildcard));
+                } else {
+                    panic!("expected struct pattern");
+                }
             } else {
                 panic!("expected match statement");
             }

@@ -179,6 +179,32 @@ pub enum MatchPattern {
     Literal(Literal),
     /// Wildcard: `_`.
     Wildcard,
+    /// Struct destructuring: `Point { x, y }` or `Point { x: a, y: 0 }`.
+    /// Each field maps to a `StructPatternField`.
+    Struct {
+        name: Spanned<String>,
+        fields: Vec<StructPatternField>,
+    },
+}
+
+/// A field in a struct destructuring pattern.
+#[derive(Clone, Debug)]
+pub struct StructPatternField {
+    /// The struct field name being matched.
+    pub field_name: Spanned<String>,
+    /// The pattern for this field: a binding name, a literal, or wildcard.
+    pub pattern: Spanned<FieldPattern>,
+}
+
+/// What a struct pattern field matches against.
+#[derive(Clone, Debug)]
+pub enum FieldPattern {
+    /// Bind to a variable: `x` (shorthand) or `x: var_name`.
+    Binding(String),
+    /// Match a literal value: `x: 0` or `x: true`.
+    Literal(Literal),
+    /// Wildcard: `x: _`.
+    Wildcard,
 }
 
 /// A single arm in a match statement.

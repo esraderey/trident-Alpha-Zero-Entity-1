@@ -336,6 +336,15 @@ impl SmtEncoder {
                 let se = self.encode_value(else_val);
                 format!("(ite (not (= {} (_ bv0 128))) {} {})", sc, st, se)
             }
+            SymValue::FieldAccess(inner, field) => {
+                // Field access is opaque — create uninterpreted function
+                let inner_enc = self.encode_value(inner);
+                let name = format!("__field_{}_{}", inner_enc, sanitize_smt_name(field));
+                if !self.declared_vars.contains(&name) {
+                    self.declared_vars.insert(name.clone());
+                }
+                name
+            }
         }
     }
 }

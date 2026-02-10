@@ -526,6 +526,39 @@ impl<'a> FormatCtx<'a> {
                         MatchPattern::Wildcard => {
                             self.output.push('_');
                         }
+                        MatchPattern::Struct { name, fields } => {
+                            self.output.push_str(&name.node);
+                            self.output.push_str(" { ");
+                            for (i, spf) in fields.iter().enumerate() {
+                                if i > 0 {
+                                    self.output.push_str(", ");
+                                }
+                                self.output.push_str(&spf.field_name.node);
+                                match &spf.pattern.node {
+                                    FieldPattern::Binding(var_name)
+                                        if var_name == &spf.field_name.node =>
+                                    {
+                                        // Shorthand: `field` instead of `field: field`
+                                    }
+                                    FieldPattern::Binding(var_name) => {
+                                        self.output.push_str(": ");
+                                        self.output.push_str(var_name);
+                                    }
+                                    FieldPattern::Literal(Literal::Integer(n)) => {
+                                        self.output.push_str(": ");
+                                        self.output.push_str(&n.to_string());
+                                    }
+                                    FieldPattern::Literal(Literal::Bool(b)) => {
+                                        self.output.push_str(": ");
+                                        self.output.push_str(if *b { "true" } else { "false" });
+                                    }
+                                    FieldPattern::Wildcard => {
+                                        self.output.push_str(": _");
+                                    }
+                                }
+                            }
+                            self.output.push_str(" }");
+                        }
                     }
                     self.output.push_str(" => {\n");
                     self.emit_block(&arm.body.node, &inner);
@@ -1236,5 +1269,35 @@ fn main() {
         let first = fmt(src);
         let second = fmt(&first);
         assert_eq!(first, second, "match formatting should be idempotent");
+    }
+
+    #[test]
+    fn test_match_struct_pattern_formatting() {
+        let src = "program test\n\nstruct Point {\n    x: Field,\n    y: Field,\n}\n\nfn main() {\n    let p = Point { x: 1, y: 2 }\n    match p {\n        Point { x, y } => {\n            pub_write(x)\n        }\n    }\n}\n";
+        let first = fmt(src);
+        let second = fmt(&first);
+        assert_eq!(
+            first, second,
+            "struct pattern formatting should be idempotent"
+        );
+        assert!(
+            first.contains("Point { x, y }"),
+            "should use shorthand for matching bindings"
+        );
+    }
+
+    #[test]
+    fn test_match_struct_pattern_with_literal_formatting() {
+        let src = "program test\n\nstruct Pair {\n    a: Field,\n    b: Field,\n}\n\nfn main() {\n    let p = Pair { a: 1, b: 2 }\n    match p {\n        Pair { a: 0, b } => {\n            pub_write(b)\n        }\n        _ => {\n            pub_write(0)\n        }\n    }\n}\n";
+        let first = fmt(src);
+        let second = fmt(&first);
+        assert_eq!(
+            first, second,
+            "struct pattern with literal should be idempotent"
+        );
+        assert!(
+            first.contains("Pair { a: 0, b }"),
+            "should format literal field pattern"
+        );
     }
 }

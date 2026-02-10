@@ -1603,6 +1603,136 @@ impl Emitter {
                                 false,
                             ));
                         }
+                        MatchPattern::Struct { name, fields } => {
+                            // Struct pattern: unconditionally enter this arm (type
+                            // checker guarantees the scrutinee matches the struct).
+                            // Inside the arm, we decompose the struct and bind/check
+                            // each field.
+                            let s_label = self.fresh_label("match_struct");
+                            self.b_call(&s_label);
+
+                            // Build the arm body: first pop the 1-wide scrutinee
+                            // placeholder, then emit inline asm to set up field
+                            // bindings. The struct scrutinee occupies width field
+                            // elements on the stack — the match setup pushed a
+                            // 1-wide placeholder, but the actual struct is wider.
+                            // We'll handle field extraction in the deferred block
+                            // by looking up the struct type.
+                            let mut arm_stmts: Vec<Spanned<Stmt>> = Vec::new();
+
+                            // Pop the 1-wide scrutinee placeholder
+                            arm_stmts.push(Spanned::new(
+                                Stmt::Asm {
+                                    body: "pop 1".to_string(),
+                                    effect: -1,
+                                    target: None,
+                                },
+                                arm.body.span,
+                            ));
+
+                            // Now emit field assertions and let-bindings.
+                            // The struct is on the stack. We need to:
+                            // 1. For literal fields: assert the field equals the literal
+                            // 2. For binding fields: introduce a let binding
+                            // 3. For wildcard fields: nothing
+                            //
+                            // We synthesize `let` statements for bindings and
+                            // assert statements for literals using the struct's
+                            // field access expression.
+                            if let Some(sdef) = self.struct_types.get(&name.node).cloned() {
+                                // The scrutinee expression — we need to reference
+                                // the original scrutinee variable. Since we're inside
+                                // a subroutine call, the scrutinee is gone. Instead,
+                                // we divine each field's value and constrain it.
+                                //
+                                // Actually, the match emitter puts the scrutinee on
+                                // the stack as __match_scrutinee. After calling the
+                                // arm subroutine, the scrutinee is still available
+                                // to the caller but not inside the callee.
+                                //
+                                // Simplest correct approach: emit the struct pattern
+                                // as a wildcard (unconditional) and generate let
+                                // bindings + assertions as synthesized statements
+                                // that reference the scrutinee expression.
+                                for spf in fields {
+                                    let field_name = &spf.field_name.node;
+                                    // Build expr: scrutinee_expr.field_name
+                                    let access_expr = Expr::FieldAccess {
+                                        expr: Box::new(expr.clone()),
+                                        field: spf.field_name.clone(),
+                                    };
+                                    let access_spanned =
+                                        Spanned::new(access_expr, spf.field_name.span);
+
+                                    match &spf.pattern.node {
+                                        FieldPattern::Binding(var_name) => {
+                                            // Synthesize: let var_name = scrutinee.field
+                                            let field_ty = sdef
+                                                .fields
+                                                .iter()
+                                                .find(|f| f.name.node == *field_name)
+                                                .map(|f| f.ty.clone());
+                                            arm_stmts.push(Spanned::new(
+                                                Stmt::Let {
+                                                    mutable: false,
+                                                    pattern: Pattern::Name(Spanned::new(
+                                                        var_name.clone(),
+                                                        spf.pattern.span,
+                                                    )),
+                                                    ty: field_ty,
+                                                    init: access_spanned,
+                                                },
+                                                spf.field_name.span,
+                                            ));
+                                        }
+                                        FieldPattern::Literal(lit) => {
+                                            // Synthesize: assert_eq(scrutinee.field, literal)
+                                            let lit_expr = Spanned::new(
+                                                Expr::Literal(lit.clone()),
+                                                spf.pattern.span,
+                                            );
+                                            let eq_expr = Spanned::new(
+                                                Expr::BinOp {
+                                                    op: BinOp::Eq,
+                                                    lhs: Box::new(access_spanned),
+                                                    rhs: Box::new(lit_expr),
+                                                },
+                                                spf.pattern.span,
+                                            );
+                                            arm_stmts.push(Spanned::new(
+                                                Stmt::Expr(Spanned::new(
+                                                    Expr::Call {
+                                                        path: Spanned::new(
+                                                            ModulePath::single(
+                                                                "assert".to_string(),
+                                                            ),
+                                                            spf.pattern.span,
+                                                        ),
+                                                        generic_args: vec![],
+                                                        args: vec![eq_expr],
+                                                    },
+                                                    spf.pattern.span,
+                                                )),
+                                                spf.pattern.span,
+                                            ));
+                                        }
+                                        FieldPattern::Wildcard => {
+                                            // No action needed
+                                        }
+                                    }
+                                }
+                            }
+
+                            arm_stmts.extend(arm.body.node.stmts.clone());
+                            deferred_arms.push((
+                                s_label,
+                                Block {
+                                    stmts: arm_stmts,
+                                    tail_expr: arm.body.node.tail_expr.clone(),
+                                },
+                                false,
+                            ));
+                        }
                     }
                 }
 

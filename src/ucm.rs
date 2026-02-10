@@ -1027,6 +1027,35 @@ fn format_stmt(stmt: &Stmt, out: &mut String, pad: &str, indent: usize) {
                     ast::MatchPattern::Wildcard => {
                         out.push('_');
                     }
+                    ast::MatchPattern::Struct { name, fields } => {
+                        out.push_str(&name.node);
+                        out.push_str(" { ");
+                        for (i, spf) in fields.iter().enumerate() {
+                            if i > 0 {
+                                out.push_str(", ");
+                            }
+                            out.push_str(&spf.field_name.node);
+                            match &spf.pattern.node {
+                                ast::FieldPattern::Binding(v) if v == &spf.field_name.node => {}
+                                ast::FieldPattern::Binding(v) => {
+                                    out.push_str(": ");
+                                    out.push_str(v);
+                                }
+                                ast::FieldPattern::Literal(ast::Literal::Integer(n)) => {
+                                    out.push_str(": ");
+                                    out.push_str(&n.to_string());
+                                }
+                                ast::FieldPattern::Literal(ast::Literal::Bool(b)) => {
+                                    out.push_str(": ");
+                                    out.push_str(if *b { "true" } else { "false" });
+                                }
+                                ast::FieldPattern::Wildcard => {
+                                    out.push_str(": _");
+                                }
+                            }
+                        }
+                        out.push_str(" }");
+                    }
                 }
                 out.push_str(" => {\n");
                 format_block(&arm.body.node, out, indent + 2);

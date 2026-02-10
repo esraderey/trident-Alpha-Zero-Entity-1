@@ -60,6 +60,7 @@ const TAG_DIV_MOD: u8 = 0x20;
 const TAG_XFIELD_MUL: u8 = 0x21;
 const TAG_ASM: u8 = 0x22;
 const TAG_EXPR_STMT: u8 = 0x23;
+const TAG_STRUCT_PAT: u8 = 0x24;
 
 // Type tags
 const TAG_TY_FIELD: u8 = 0x80;
@@ -477,6 +478,31 @@ impl Normalizer {
             }
             MatchPattern::Wildcard => {
                 self.write_u8(0xFF); // wildcard marker
+            }
+            MatchPattern::Struct { name, fields } => {
+                self.write_u8(TAG_STRUCT_PAT);
+                self.write_str(&name.node);
+                self.write_u32(fields.len() as u32);
+                for spf in fields {
+                    self.write_str(&spf.field_name.node);
+                    match &spf.pattern.node {
+                        FieldPattern::Binding(v) => {
+                            self.write_u8(0x01);
+                            self.write_str(v);
+                        }
+                        FieldPattern::Literal(Literal::Integer(n)) => {
+                            self.write_u8(TAG_FIELD_LIT);
+                            self.write_u64(*n);
+                        }
+                        FieldPattern::Literal(Literal::Bool(b)) => {
+                            self.write_u8(TAG_BOOL_LIT);
+                            self.write_u8(if *b { 1 } else { 0 });
+                        }
+                        FieldPattern::Wildcard => {
+                            self.write_u8(0xFF);
+                        }
+                    }
+                }
             }
         }
     }

@@ -53,6 +53,8 @@ pub enum SymValue {
     Hash(Vec<SymValue>, usize),
     /// A divine (nondeterministic) input. Each occurrence is unique.
     Divine(u32),
+    /// Struct field access: value.field_name.
+    FieldAccess(Box<SymValue>, String),
     /// Public input. Sequential read index.
     PubInput(u32),
     /// If-then-else: if cond then a else b.
@@ -529,8 +531,25 @@ impl SymExecutor {
                             Box::new(SymValue::Const(if *b { 1 } else { 0 })),
                         ),
                         MatchPattern::Wildcard => SymValue::Const(1),
+                        MatchPattern::Struct { .. } => {
+                            // Struct patterns are unconditional (type-checked)
+                            SymValue::Const(1)
+                        }
                     };
                     self.path_condition.push(cond.clone());
+                    // For struct patterns, bind fields before executing body
+                    if let MatchPattern::Struct { fields, .. } = &arm.pattern.node {
+                        for spf in fields {
+                            if let FieldPattern::Binding(var_name) = &spf.pattern.node {
+                                // Bind field to a symbolic field access
+                                let field_val = SymValue::FieldAccess(
+                                    Box::new(match_val.clone()),
+                                    spf.field_name.node.clone(),
+                                );
+                                self.env.insert(var_name.clone(), field_val);
+                            }
+                        }
+                    }
                     self.execute_block(&arm.body.node);
                     self.path_condition.pop();
                     merged_envs.push((cond, self.env.clone()));

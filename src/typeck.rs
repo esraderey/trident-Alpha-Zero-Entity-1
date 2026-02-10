@@ -1039,14 +1039,100 @@ impl TypeChecker {
                             has_wildcard = true;
                             wildcard_seen = true;
                         }
+                        MatchPattern::Struct { name, fields } => {
+                            // Look up the struct type
+                            if let Some(sty) = self.structs.get(&name.node).cloned() {
+                                // Verify scrutinee type matches the struct
+                                if scrutinee_ty != Ty::Struct(sty.clone()) {
+                                    self.error(
+                                        format!(
+                                            "struct pattern `{}` does not match scrutinee type `{}`",
+                                            name.node,
+                                            scrutinee_ty.display()
+                                        ),
+                                        arm.pattern.span,
+                                    );
+                                }
+                                // Validate each field in the pattern
+                                for spf in fields {
+                                    if let Some((field_ty, _, _)) =
+                                        sty.field_offset(&spf.field_name.node)
+                                    {
+                                        match &spf.pattern.node {
+                                            FieldPattern::Literal(Literal::Integer(_)) => {
+                                                if field_ty != Ty::Field && field_ty != Ty::U32 {
+                                                    self.error(
+                                                        format!(
+                                                            "integer pattern on field `{}` requires Field or U32, got {}",
+                                                            spf.field_name.node,
+                                                            field_ty.display()
+                                                        ),
+                                                        spf.pattern.span,
+                                                    );
+                                                }
+                                            }
+                                            FieldPattern::Literal(Literal::Bool(_)) => {
+                                                if field_ty != Ty::Bool {
+                                                    self.error(
+                                                        format!(
+                                                            "boolean pattern on field `{}` requires Bool, got {}",
+                                                            spf.field_name.node,
+                                                            field_ty.display()
+                                                        ),
+                                                        spf.pattern.span,
+                                                    );
+                                                }
+                                            }
+                                            FieldPattern::Binding(_) | FieldPattern::Wildcard => {}
+                                        }
+                                    } else {
+                                        self.error(
+                                            format!(
+                                                "struct `{}` has no field `{}`",
+                                                name.node, spf.field_name.node
+                                            ),
+                                            spf.field_name.span,
+                                        );
+                                    }
+                                }
+                            } else {
+                                self.error(
+                                    format!("unknown struct type `{}`", name.node),
+                                    name.span,
+                                );
+                            }
+                        }
                     }
 
-                    self.check_block(&arm.body.node);
+                    // For struct patterns, define bound variables in a scope wrapping the arm body
+                    if let MatchPattern::Struct { name, fields } = &arm.pattern.node {
+                        self.push_scope();
+                        if let Some(sty) = self.structs.get(&name.node).cloned() {
+                            for spf in fields {
+                                if let FieldPattern::Binding(var_name) = &spf.pattern.node {
+                                    if let Some((field_ty, _, _)) =
+                                        sty.field_offset(&spf.field_name.node)
+                                    {
+                                        self.define_var(var_name, field_ty, false);
+                                    }
+                                }
+                            }
+                        }
+                        self.check_block(&arm.body.node);
+                        self.pop_scope();
+                    } else {
+                        self.check_block(&arm.body.node);
+                    }
                 }
 
-                // Exhaustiveness: require wildcard unless Bool with both true+false
-                let exhaustive =
-                    has_wildcard || (scrutinee_ty == Ty::Bool && has_true && has_false);
+                // Exhaustiveness: require wildcard unless Bool with both true+false,
+                // or a struct pattern (structs have exactly one shape)
+                let has_struct_pattern = arms
+                    .iter()
+                    .any(|a| matches!(a.pattern.node, MatchPattern::Struct { .. }));
+                let exhaustive = has_wildcard
+                    || (scrutinee_ty == Ty::Bool && has_true && has_false)
+                    || has_struct_pattern;
                 if !exhaustive {
                     self.error_with_help(
                         "non-exhaustive match: not all possible values are covered".to_string(),
@@ -2447,6 +2533,63 @@ mod tests {
         assert!(
             result.is_err(),
             "pattern after wildcard should be unreachable"
+        );
+    }
+
+    #[test]
+    fn test_match_struct_pattern_valid() {
+        let result = check(
+            "program test\nstruct Point { x: Field, y: Field }\nfn main() {\n    let p = Point { x: 1, y: 2 }\n    match p {\n        Point { x, y } => { pub_write(x) }\n    }\n}",
+        );
+        assert!(
+            result.is_ok(),
+            "struct pattern match should pass: {:?}",
+            result.err()
+        );
+    }
+
+    #[test]
+    fn test_match_struct_pattern_wrong_type() {
+        let result = check(
+            "program test\nstruct Point { x: Field, y: Field }\nstruct Pair { a: Field, b: Field }\nfn main() {\n    let p = Point { x: 1, y: 2 }\n    match p {\n        Pair { a, b } => { pub_write(a) }\n    }\n}",
+        );
+        assert!(
+            result.is_err(),
+            "struct pattern with wrong type should fail"
+        );
+    }
+
+    #[test]
+    fn test_match_struct_pattern_unknown_field() {
+        let result = check(
+            "program test\nstruct Point { x: Field, y: Field }\nfn main() {\n    let p = Point { x: 1, y: 2 }\n    match p {\n        Point { x, z } => { pub_write(x) }\n    }\n}",
+        );
+        assert!(
+            result.is_err(),
+            "struct pattern with unknown field should fail"
+        );
+    }
+
+    #[test]
+    fn test_match_struct_pattern_unknown_struct() {
+        let result = check(
+            "program test\nfn main() {\n    let x: Field = pub_read()\n    match x {\n        Foo { a } => { pub_write(a) }\n    }\n}",
+        );
+        assert!(
+            result.is_err(),
+            "struct pattern with unknown struct should fail"
+        );
+    }
+
+    #[test]
+    fn test_match_struct_pattern_with_literal_field() {
+        let result = check(
+            "program test\nstruct Pair { a: Field, b: Field }\nfn main() {\n    let p = Pair { a: 1, b: 2 }\n    match p {\n        Pair { a: 0, b } => { pub_write(b) }\n        _ => { pub_write(0) }\n    }\n}",
+        );
+        assert!(
+            result.is_ok(),
+            "struct pattern with literal field should pass: {:?}",
+            result.err()
         );
     }
 

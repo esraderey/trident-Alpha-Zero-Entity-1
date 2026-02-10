@@ -1034,7 +1034,7 @@ impl<'a> CostAnalyzer<'a> {
                 let arm_overhead = stack_op.scale(3).add(&self.cost_model.if_overhead());
                 let num_literal_arms = arms
                     .iter()
-                    .filter(|a| !matches!(a.pattern.node, MatchPattern::Wildcard))
+                    .filter(|a| matches!(a.pattern.node, MatchPattern::Literal(_)))
                     .count() as u64;
                 let check_cost = arm_overhead.scale(num_literal_arms);
                 // Worst-case body: max across all arms

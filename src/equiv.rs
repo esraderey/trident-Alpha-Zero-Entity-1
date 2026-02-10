@@ -299,7 +299,8 @@ fn normalize_polynomial(val: &SymValue) -> Option<Vec<PolyTerm>> {
         | SymValue::Hash(_, _)
         | SymValue::Divine(_)
         | SymValue::PubInput(_)
-        | SymValue::Ite(_, _, _) => None,
+        | SymValue::Ite(_, _, _)
+        | SymValue::FieldAccess(_, _) => None,
     }
 }
 
