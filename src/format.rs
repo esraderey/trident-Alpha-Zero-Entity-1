@@ -521,15 +521,33 @@ impl<'a> FormatCtx<'a> {
                 self.output.push_str(indent);
                 self.output.push_str("}\n");
             }
-            Stmt::Asm { body, effect } => {
+            Stmt::Asm {
+                body,
+                effect,
+                target,
+            } => {
                 self.output.push_str(indent);
                 self.output.push_str("asm");
-                if *effect != 0 {
-                    if *effect > 0 {
-                        self.output.push_str(&format!("(+{})", effect));
-                    } else {
-                        self.output.push_str(&format!("({})", effect));
+                // Format annotation: target and/or effect
+                match (target.as_deref(), *effect != 0) {
+                    (Some(tag), true) => {
+                        if *effect > 0 {
+                            self.output.push_str(&format!("({}, +{})", tag, effect));
+                        } else {
+                            self.output.push_str(&format!("({}, {})", tag, effect));
+                        }
                     }
+                    (Some(tag), false) => {
+                        self.output.push_str(&format!("({})", tag));
+                    }
+                    (None, true) => {
+                        if *effect > 0 {
+                            self.output.push_str(&format!("(+{})", effect));
+                        } else {
+                            self.output.push_str(&format!("({})", effect));
+                        }
+                    }
+                    (None, false) => {}
                 }
                 self.output.push_str(" {\n");
                 let inner = format!("{}{}", indent, INDENT);

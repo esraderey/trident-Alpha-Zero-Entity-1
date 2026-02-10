@@ -852,7 +852,18 @@ impl Emitter {
                     }
                 }
             }
-            Stmt::Asm { body, effect } => {
+            Stmt::Asm {
+                body,
+                effect,
+                target,
+            } => {
+                // Skip asm blocks tagged for a different target
+                if let Some(tag) = target {
+                    if tag != &self.target_config.name {
+                        return;
+                    }
+                }
+
                 // Spill all named variables to RAM to isolate asm from managed stack
                 self.stack.spill_all_named();
                 self.flush_stack_effects();
@@ -925,6 +936,7 @@ impl Emitter {
                                 Stmt::Asm {
                                     body: "pop 1".to_string(),
                                     effect: -1,
+                                    target: None,
                                 },
                                 arm.body.span,
                             )];
@@ -956,6 +968,7 @@ impl Emitter {
                                 Stmt::Asm {
                                     body: "pop 1".to_string(),
                                     effect: -1,
+                                    target: None,
                                 },
                                 arm.body.span,
                             )];

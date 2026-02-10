@@ -976,7 +976,20 @@ impl TypeChecker {
             Stmt::Emit { event_name, fields } | Stmt::Seal { event_name, fields } => {
                 self.check_event_stmt(event_name, fields);
             }
-            Stmt::Asm { .. } => {}
+            Stmt::Asm { target, .. } => {
+                // Warn if asm block is tagged for a different target
+                if let Some(tag) = target {
+                    if tag != &self.target_config.name {
+                        self.warning(
+                            format!(
+                                "asm block tagged for '{}' will be skipped (current target: '{}')",
+                                tag, self.target_config.name
+                            ),
+                            _span,
+                        );
+                    }
+                }
+            }
             Stmt::Match { expr, arms } => {
                 let scrutinee_ty = self.check_expr(&expr.node, expr.span);
                 let mut has_wildcard = false;

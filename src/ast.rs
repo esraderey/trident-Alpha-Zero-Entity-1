@@ -226,6 +226,7 @@ pub enum Stmt {
     Asm {
         body: String,
         effect: i32,
+        target: Option<String>,
     },
     Match {
         expr: Spanned<Expr>,

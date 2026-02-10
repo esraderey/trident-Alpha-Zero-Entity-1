@@ -519,12 +519,18 @@ impl Parser {
             } else if matches!(self.peek(), Lexeme::AsmBlock { .. }) {
                 let start = self.current_span();
                 let tok = self.advance().clone();
-                if let Lexeme::AsmBlock { body, effect } = &tok.node {
+                if let Lexeme::AsmBlock {
+                    body,
+                    effect,
+                    target,
+                } = &tok.node
+                {
                     let span = start.merge(tok.span);
                     stmts.push(Spanned::new(
                         Stmt::Asm {
                             body: body.clone(),
                             effect: *effect,
+                            target: target.clone(),
                         },
                         span,
                     ));
@@ -1387,10 +1393,16 @@ mod tests {
         if let Item::Fn(f) = &file.items[0].node {
             let block = f.body.as_ref().unwrap();
             assert_eq!(block.node.stmts.len(), 1);
-            if let Stmt::Asm { body, effect } = &block.node.stmts[0].node {
+            if let Stmt::Asm {
+                body,
+                effect,
+                target,
+            } = &block.node.stmts[0].node
+            {
                 assert!(body.contains("dup 0"));
                 assert!(body.contains("add"));
                 assert_eq!(*effect, 0);
+                assert_eq!(*target, None);
             } else {
                 panic!("expected asm statement");
             }

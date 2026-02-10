@@ -64,7 +64,11 @@ pub enum Lexeme {
     Ident(String),
 
     // Inline assembly
-    AsmBlock { body: String, effect: i32 },
+    AsmBlock {
+        body: String,
+        effect: i32,
+        target: Option<String>,
+    },
 
     // End of file
     Eof,

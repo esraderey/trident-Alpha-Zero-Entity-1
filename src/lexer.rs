@@ -123,46 +123,74 @@ impl<'src> Lexer<'src> {
         self.make_token(token, start, self.pos)
     }
 
-    /// Scan an inline asm block: `asm { ... }` or `asm(+N) { ... }` or `asm(-N) { ... }`.
-    /// Collects the raw body between braces as a single token.
+    /// Scan an inline asm block. Supported forms:
+    /// - `asm { ... }` — bare block, no target or effect
+    /// - `asm(+N) { ... }` / `asm(-N) { ... }` — stack effect annotation
+    /// - `asm(triton) { ... }` — target-tagged block
+    /// - `asm(triton, +N) { ... }` — target tag + stack effect
     fn scan_asm_block(&mut self, start: usize) -> Spanned<Lexeme> {
         // Skip whitespace
         while self.pos < self.source.len() && self.source[self.pos].is_ascii_whitespace() {
             self.pos += 1;
         }
 
-        // Optional effect annotation: (+N) or (-N)
+        // Optional parenthesized annotation: target tag and/or stack effect
         let mut effect: i32 = 0;
+        let mut target: Option<String> = None;
         if self.pos < self.source.len() && self.source[self.pos] == b'(' {
             self.pos += 1; // skip '('
-                           // Parse sign and digits
-            let neg = if self.pos < self.source.len() && self.source[self.pos] == b'-' {
-                self.pos += 1;
-                true
-            } else {
-                if self.pos < self.source.len() && self.source[self.pos] == b'+' {
-                    self.pos += 1;
-                }
-                false
-            };
-            let num_start = self.pos;
-            while self.pos < self.source.len() && self.source[self.pos].is_ascii_digit() {
+
+            // Skip whitespace inside parens
+            while self.pos < self.source.len() && self.source[self.pos].is_ascii_whitespace() {
                 self.pos += 1;
             }
-            let num_text = std::str::from_utf8(&self.source[num_start..self.pos]).unwrap();
-            let n: i32 = num_text.parse().unwrap_or(0);
-            effect = if neg { -n } else { n };
+
+            // Determine what's inside: identifier (target) or +/-N (effect)
+            if self.pos < self.source.len() && self.source[self.pos].is_ascii_alphabetic() {
+                // Target tag: scan identifier
+                let tag_start = self.pos;
+                while self.pos < self.source.len() && is_ident_continue(self.source[self.pos]) {
+                    self.pos += 1;
+                }
+                let tag = std::str::from_utf8(&self.source[tag_start..self.pos])
+                    .unwrap()
+                    .to_string();
+                target = Some(tag);
+
+                // Skip whitespace
+                while self.pos < self.source.len() && self.source[self.pos].is_ascii_whitespace() {
+                    self.pos += 1;
+                }
+
+                // Optional comma + effect after target
+                if self.pos < self.source.len() && self.source[self.pos] == b',' {
+                    self.pos += 1; // skip ','
+                    while self.pos < self.source.len()
+                        && self.source[self.pos].is_ascii_whitespace()
+                    {
+                        self.pos += 1;
+                    }
+                    effect = self.scan_effect_number();
+                }
+            } else {
+                // Stack effect: +N or -N
+                effect = self.scan_effect_number();
+            }
+
             // Expect ')'
+            while self.pos < self.source.len() && self.source[self.pos].is_ascii_whitespace() {
+                self.pos += 1;
+            }
             if self.pos < self.source.len() && self.source[self.pos] == b')' {
                 self.pos += 1;
             } else {
                 self.diagnostics.push(
                     Diagnostic::error(
-                        "expected ')' after asm stack effect annotation".to_string(),
+                        "expected ')' after asm annotation".to_string(),
                         Span::new(self.file_id, self.pos as u32, self.pos as u32),
                     )
                     .with_help(
-                        "asm effect annotations look like `asm(+1) { ... }` or `asm(-2) { ... }`"
+                        "asm annotations: `asm(+1) { ... }`, `asm(triton) { ... }`, or `asm(triton, +1) { ... }`"
                             .to_string(),
                     ),
                 );
@@ -178,11 +206,12 @@ impl<'src> Lexer<'src> {
             self.diagnostics.push(Diagnostic::error(
                 "expected '{' after `asm` keyword".to_string(),
                 Span::new(self.file_id, self.pos as u32, self.pos as u32),
-            ).with_help("inline assembly syntax is `asm { instructions }` or `asm(+N) { instructions }`".to_string()));
+            ).with_help("inline assembly syntax is `asm { instructions }` or `asm(triton) { instructions }`".to_string()));
             return self.make_token(
                 Lexeme::AsmBlock {
                     body: String::new(),
                     effect,
+                    target,
                 },
                 start,
                 self.pos,
@@ -222,7 +251,39 @@ impl<'src> Lexer<'src> {
             );
         }
 
-        self.make_token(Lexeme::AsmBlock { body, effect }, start, self.pos)
+        self.make_token(
+            Lexeme::AsmBlock {
+                body,
+                effect,
+                target,
+            },
+            start,
+            self.pos,
+        )
+    }
+
+    /// Parse a stack effect number: `+N`, `-N`, or just `N`.
+    fn scan_effect_number(&mut self) -> i32 {
+        let neg = if self.pos < self.source.len() && self.source[self.pos] == b'-' {
+            self.pos += 1;
+            true
+        } else {
+            if self.pos < self.source.len() && self.source[self.pos] == b'+' {
+                self.pos += 1;
+            }
+            false
+        };
+        let num_start = self.pos;
+        while self.pos < self.source.len() && self.source[self.pos].is_ascii_digit() {
+            self.pos += 1;
+        }
+        let num_text = std::str::from_utf8(&self.source[num_start..self.pos]).unwrap();
+        let n: i32 = num_text.parse().unwrap_or(0);
+        if neg {
+            -n
+        } else {
+            n
+        }
     }
 
     fn scan_number(&mut self) -> Spanned<Lexeme> {
@@ -524,6 +585,7 @@ mod tests {
                 Lexeme::AsmBlock {
                     body: "push 1\nadd".to_string(),
                     effect: 0,
+                    target: None,
                 },
                 Lexeme::Eof,
             ]
@@ -539,6 +601,7 @@ mod tests {
                 Lexeme::AsmBlock {
                     body: "push 42".to_string(),
                     effect: 1,
+                    target: None,
                 },
                 Lexeme::Eof,
             ]
@@ -554,6 +617,7 @@ mod tests {
                 Lexeme::AsmBlock {
                     body: "pop 1\npop 1".to_string(),
                     effect: -2,
+                    target: None,
                 },
                 Lexeme::Eof,
             ]
@@ -562,7 +626,6 @@ mod tests {
 
     #[test]
     fn test_asm_block_with_negative_literal() {
-        // Raw TASM can contain `push -1` which is NOT valid Trident
         let tokens = lex("asm { push -1\nadd }");
         assert_eq!(
             tokens,
@@ -570,6 +633,39 @@ mod tests {
                 Lexeme::AsmBlock {
                     body: "push -1\nadd".to_string(),
                     effect: 0,
+                    target: None,
+                },
+                Lexeme::Eof,
+            ]
+        );
+    }
+
+    #[test]
+    fn test_asm_block_target_tag() {
+        let tokens = lex("asm(triton) { push 1 }");
+        assert_eq!(
+            tokens,
+            vec![
+                Lexeme::AsmBlock {
+                    body: "push 1".to_string(),
+                    effect: 0,
+                    target: Some("triton".to_string()),
+                },
+                Lexeme::Eof,
+            ]
+        );
+    }
+
+    #[test]
+    fn test_asm_block_target_and_effect() {
+        let tokens = lex("asm(triton, +2) { push 1\npush 2 }");
+        assert_eq!(
+            tokens,
+            vec![
+                Lexeme::AsmBlock {
+                    body: "push 1\npush 2".to_string(),
+                    effect: 2,
+                    target: Some("triton".to_string()),
                 },
                 Lexeme::Eof,
             ]
