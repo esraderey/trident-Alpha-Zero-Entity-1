@@ -844,7 +844,7 @@ fn generate_combinations(
 }
 
 /// Format a constraint for human-readable display.
-fn format_constraint(c: &Constraint) -> String {
+pub fn format_constraint(c: &Constraint) -> String {
     match c {
         Constraint::Equal(a, b) => {
             format!("{} == {}", format_sym_value(a), format_sym_value(b))
@@ -869,7 +869,7 @@ fn format_constraint(c: &Constraint) -> String {
 }
 
 /// Format a symbolic value for display (abbreviated).
-fn format_sym_value(v: &SymValue) -> String {
+pub fn format_sym_value(v: &SymValue) -> String {
     match v {
         SymValue::Const(c) => format!("{}", c),
         SymValue::Var(var) => var.to_string(),

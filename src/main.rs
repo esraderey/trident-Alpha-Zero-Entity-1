@@ -112,6 +112,9 @@ enum Command {
         /// Run Z3 solver (if available) for formal verification
         #[arg(long)]
         z3: bool,
+        /// Output machine-readable JSON report (for LLM/CI consumption)
+        #[arg(long)]
+        json: bool,
     },
     /// Show content hashes of functions (BLAKE3)
     Hash {
@@ -126,6 +129,14 @@ enum Command {
         /// Directory containing benchmark .tri + .baseline.tasm files
         #[arg(default_value = "benches")]
         dir: PathBuf,
+    },
+    /// Generate code scaffold from spec annotations
+    Generate {
+        /// Input .tri spec file
+        input: PathBuf,
+        /// Output file (default: stdout)
+        #[arg(short, long)]
+        output: Option<PathBuf>,
     },
     /// Start the Language Server Protocol server
     Lsp,
@@ -173,9 +184,11 @@ fn main() {
             verbose,
             smt,
             z3,
-        } => cmd_verify(input, verbose, smt, z3),
+            json,
+        } => cmd_verify(input, verbose, smt, z3, json),
         Command::Hash { input, full } => cmd_hash(input, full),
         Command::Bench { dir } => cmd_bench(dir),
+        Command::Generate { input, output } => cmd_generate(input, output),
         Command::Lsp => cmd_lsp(),
     }
 }
@@ -737,7 +750,13 @@ fn cmd_doc(input: PathBuf, output: Option<PathBuf>, target: &str, profile: &str)
 
 // --- trident verify ---
 
-fn cmd_verify(input: PathBuf, verbose: bool, smt_output: Option<PathBuf>, run_z3: bool) {
+fn cmd_verify(
+    input: PathBuf,
+    verbose: bool,
+    smt_output: Option<PathBuf>,
+    run_z3: bool,
+    json: bool,
+) {
     let entry = if input.is_dir() {
         let toml_path = input.join("trident.toml");
         if !toml_path.exists() {
@@ -774,8 +793,8 @@ fn cmd_verify(input: PathBuf, verbose: bool, smt_output: Option<PathBuf>, run_z3
 
     eprintln!("Verifying {}...", input.display());
 
-    // Parse for symbolic analysis (needed for verbose, SMT, and Z3)
-    let system = if verbose || smt_output.is_some() || run_z3 {
+    // Parse for symbolic analysis (needed for verbose, SMT, Z3, and JSON)
+    let system = if verbose || smt_output.is_some() || run_z3 || json {
         if let Ok(source) = std::fs::read_to_string(&entry) {
             let filename = entry.to_string_lossy().to_string();
             match trident::parse_source_silent(&source, &filename) {
@@ -871,7 +890,19 @@ fn cmd_verify(input: PathBuf, verbose: bool, smt_output: Option<PathBuf>, run_z3
     // Standard verification (random + BMC)
     match trident::verify_project(&entry) {
         Ok(report) => {
-            eprintln!("\n{}", report.format_report());
+            if json {
+                if let Some(ref sys) = system {
+                    let file_name = entry.to_string_lossy().to_string();
+                    let json_output =
+                        trident::report::generate_json_report(&file_name, sys, &report);
+                    println!("{}", json_output);
+                } else {
+                    eprintln!("error: could not build constraint system for JSON report");
+                    process::exit(1);
+                }
+            } else {
+                eprintln!("\n{}", report.format_report());
+            }
             if !report.is_safe() {
                 process::exit(1);
             }
@@ -1050,6 +1081,45 @@ fn cmd_bench(dir: PathBuf) {
         );
     }
     eprintln!();
+}
+
+// --- trident generate ---
+
+fn cmd_generate(input: PathBuf, output: Option<PathBuf>) {
+    if !input.extension().is_some_and(|e| e == "tri") {
+        eprintln!("error: input must be a .tri file");
+        process::exit(1);
+    }
+
+    let source = match std::fs::read_to_string(&input) {
+        Ok(s) => s,
+        Err(e) => {
+            eprintln!("error: cannot read '{}': {}", input.display(), e);
+            process::exit(1);
+        }
+    };
+
+    let filename = input.to_string_lossy().to_string();
+    let file = match trident::parse_source_silent(&source, &filename) {
+        Ok(f) => f,
+        Err(errors) => {
+            trident::diagnostic::render_diagnostics(&errors, &filename, &source);
+            eprintln!("error: parse errors in '{}'", input.display());
+            process::exit(1);
+        }
+    };
+
+    let scaffold = trident::scaffold::generate_scaffold(&file);
+
+    if let Some(out_path) = output {
+        if let Err(e) = std::fs::write(&out_path, &scaffold) {
+            eprintln!("error: cannot write '{}': {}", out_path.display(), e);
+            process::exit(1);
+        }
+        eprintln!("Generated scaffold -> {}", out_path.display());
+    } else {
+        print!("{}", scaffold);
+    }
 }
 
 // --- trident lsp ---
