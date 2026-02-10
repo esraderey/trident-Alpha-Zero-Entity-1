@@ -1,4 +1,5 @@
 pub mod ast;
+pub mod cache;
 pub mod cost;
 pub mod diagnostic;
 pub mod emit;
