@@ -138,8 +138,59 @@ enum Command {
         #[arg(short, long)]
         output: Option<PathBuf>,
     },
+    /// View a function definition (pretty-printed from AST)
+    View {
+        /// Function name or content hash prefix
+        name: String,
+        /// Input .tri file or directory with trident.toml
+        #[arg(short, long)]
+        input: Option<PathBuf>,
+        /// Show full hash instead of short form
+        #[arg(long)]
+        full: bool,
+    },
+    /// Universal Codebase Manager — hash-keyed definitions store
+    Ucm {
+        #[command(subcommand)]
+        action: UcmAction,
+    },
     /// Start the Language Server Protocol server
     Lsp,
+}
+
+#[derive(Subcommand)]
+enum UcmAction {
+    /// Add a file to the codebase
+    Add {
+        /// Input .tri file or directory
+        input: PathBuf,
+    },
+    /// List all named definitions
+    List,
+    /// View a definition by name or hash prefix
+    View {
+        /// Name or hash prefix
+        name: String,
+    },
+    /// Rename a definition
+    Rename {
+        /// Current name
+        from: String,
+        /// New name
+        to: String,
+    },
+    /// Show codebase statistics
+    Stats,
+    /// Show history of a name
+    History {
+        /// Name to show history for
+        name: String,
+    },
+    /// Show dependencies of a definition
+    Deps {
+        /// Name or hash prefix
+        name: String,
+    },
 }
 
 fn main() {
@@ -189,6 +240,8 @@ fn main() {
         Command::Hash { input, full } => cmd_hash(input, full),
         Command::Bench { dir } => cmd_bench(dir),
         Command::Generate { input, output } => cmd_generate(input, output),
+        Command::View { name, input, full } => cmd_view(name, input, full),
+        Command::Ucm { action } => cmd_ucm(action),
         Command::Lsp => cmd_lsp(),
     }
 }
@@ -1119,6 +1172,354 @@ fn cmd_generate(input: PathBuf, output: Option<PathBuf>) {
         eprintln!("Generated scaffold -> {}", out_path.display());
     } else {
         print!("{}", scaffold);
+    }
+}
+
+// --- trident view ---
+
+fn cmd_view(name: String, input: Option<PathBuf>, full: bool) {
+    // Resolve the source file to parse
+    let source_path = if let Some(ref path) = input {
+        if path.is_dir() {
+            let toml_path = path.join("trident.toml");
+            if !toml_path.exists() {
+                eprintln!("error: no trident.toml found in '{}'", path.display());
+                process::exit(1);
+            }
+            let project = match trident::project::Project::load(&toml_path) {
+                Ok(p) => p,
+                Err(e) => {
+                    eprintln!("error: {}", e.message);
+                    process::exit(1);
+                }
+            };
+            project.entry
+        } else if path.extension().is_some_and(|e| e == "tri") {
+            path.clone()
+        } else {
+            eprintln!("error: input must be a .tri file or project directory");
+            process::exit(1);
+        }
+    } else {
+        // Try current directory for trident.toml, then look for .tri files
+        let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+        let toml_path = cwd.join("trident.toml");
+        if toml_path.exists() {
+            let project = match trident::project::Project::load(&toml_path) {
+                Ok(p) => p,
+                Err(e) => {
+                    eprintln!("error: {}", e.message);
+                    process::exit(1);
+                }
+            };
+            project.entry
+        } else {
+            let main_tri = cwd.join("main.tri");
+            if main_tri.exists() {
+                main_tri
+            } else {
+                eprintln!("error: no trident.toml or main.tri found in current directory");
+                eprintln!("  use --input to specify a .tri file or project directory");
+                process::exit(1);
+            }
+        }
+    };
+
+    let source = match std::fs::read_to_string(&source_path) {
+        Ok(s) => s,
+        Err(e) => {
+            eprintln!("error: cannot read '{}': {}", source_path.display(), e);
+            process::exit(1);
+        }
+    };
+
+    let filename = source_path.to_string_lossy().to_string();
+    let file = match trident::parse_source_silent(&source, &filename) {
+        Ok(f) => f,
+        Err(_) => {
+            eprintln!("error: parse errors in '{}'", source_path.display());
+            process::exit(1);
+        }
+    };
+
+    let fn_hashes = trident::hash::hash_file(&file);
+
+    // Try to find the function: by hash prefix or by name
+    let (fn_name, func) = if trident::view::looks_like_hash(&name) {
+        // Try hash prefix first, fall back to name lookup
+        if let Some((found_name, found_func)) =
+            trident::view::find_function_by_hash(&file, &fn_hashes, &name)
+        {
+            (found_name, found_func.clone())
+        } else if let Some(found_func) = trident::view::find_function(&file, &name) {
+            (name.clone(), found_func.clone())
+        } else {
+            eprintln!("error: no function matching '{}' found", name);
+            process::exit(1);
+        }
+    } else if let Some(found_func) = trident::view::find_function(&file, &name) {
+        (name.clone(), found_func.clone())
+    } else {
+        eprintln!("error: function '{}' not found in '{}'", name, filename);
+        eprintln!("\nAvailable functions:");
+        for item in &file.items {
+            if let trident::ast::Item::Fn(f) = &item.node {
+                if let Some(hash) = fn_hashes.get(&f.name.node) {
+                    eprintln!("  {}  {}", hash, f.name.node);
+                }
+            }
+        }
+        process::exit(1);
+    };
+
+    // Pretty-print the function
+    let formatted = trident::view::format_function(&func);
+
+    // Show hash
+    if let Some(hash) = fn_hashes.get(&fn_name) {
+        if full {
+            eprintln!("Hash: {}", hash.to_hex());
+        } else {
+            eprintln!("Hash: {}", hash);
+        }
+    }
+
+    print!("{}", formatted);
+}
+
+// --- trident ucm ---
+
+fn cmd_ucm(action: UcmAction) {
+    match action {
+        UcmAction::Add { input } => cmd_ucm_add(input),
+        UcmAction::List => cmd_ucm_list(),
+        UcmAction::View { name } => cmd_ucm_view(name),
+        UcmAction::Rename { from, to } => cmd_ucm_rename(from, to),
+        UcmAction::Stats => cmd_ucm_stats(),
+        UcmAction::History { name } => cmd_ucm_history(name),
+        UcmAction::Deps { name } => cmd_ucm_deps(name),
+    }
+}
+
+fn cmd_ucm_add(input: PathBuf) {
+    let mut cb = match trident::ucm::Codebase::open() {
+        Ok(cb) => cb,
+        Err(e) => {
+            eprintln!("error: cannot open codebase: {}", e);
+            process::exit(1);
+        }
+    };
+
+    let files = if input.is_dir() {
+        collect_tri_files(&input)
+    } else if input.extension().is_some_and(|e| e == "tri") {
+        vec![input.clone()]
+    } else {
+        eprintln!("error: input must be a .tri file or directory");
+        process::exit(1);
+    };
+
+    if files.is_empty() {
+        eprintln!("No .tri files found in '{}'", input.display());
+        return;
+    }
+
+    let mut total_added = 0usize;
+    let mut total_updated = 0usize;
+    let mut total_unchanged = 0usize;
+
+    for file_path in &files {
+        let source = match std::fs::read_to_string(file_path) {
+            Ok(s) => s,
+            Err(e) => {
+                eprintln!("error: cannot read '{}': {}", file_path.display(), e);
+                continue;
+            }
+        };
+        let filename = file_path.to_string_lossy().to_string();
+        let file = match trident::parse_source_silent(&source, &filename) {
+            Ok(f) => f,
+            Err(_) => {
+                eprintln!("error: parse errors in '{}'", file_path.display());
+                continue;
+            }
+        };
+        let result = cb.add_file(&file);
+        total_added += result.added;
+        total_updated += result.updated;
+        total_unchanged += result.unchanged;
+        eprintln!(
+            "  {} +{} ~{} ={} {}",
+            if result.added > 0 || result.updated > 0 {
+                "OK"
+            } else {
+                "  "
+            },
+            result.added,
+            result.updated,
+            result.unchanged,
+            file_path.display()
+        );
+    }
+
+    if let Err(e) = cb.save() {
+        eprintln!("error: cannot save codebase: {}", e);
+        process::exit(1);
+    }
+
+    eprintln!(
+        "\nCodebase: {} added, {} updated, {} unchanged",
+        total_added, total_updated, total_unchanged
+    );
+}
+
+fn cmd_ucm_list() {
+    let cb = match trident::ucm::Codebase::open() {
+        Ok(cb) => cb,
+        Err(e) => {
+            eprintln!("error: cannot open codebase: {}", e);
+            process::exit(1);
+        }
+    };
+
+    let names = cb.list_names();
+    if names.is_empty() {
+        eprintln!("Codebase is empty. Use `trident ucm add <file>` to add definitions.");
+        return;
+    }
+
+    for (name, hash) in &names {
+        println!("  {}  {}", hash, name);
+    }
+    eprintln!("\n{} definitions", names.len());
+}
+
+fn cmd_ucm_view(name: String) {
+    let cb = match trident::ucm::Codebase::open() {
+        Ok(cb) => cb,
+        Err(e) => {
+            eprintln!("error: cannot open codebase: {}", e);
+            process::exit(1);
+        }
+    };
+
+    // Try by name first, then by hash prefix.
+    if let Some(view) = cb.view(&name) {
+        print!("{}", view);
+    } else if let Some((hash, def)) = cb.lookup_by_prefix(&name) {
+        // Find a name for this hash.
+        let names = cb.names_for_hash(hash);
+        let display_name = names.first().copied().unwrap_or("<unnamed>");
+        println!("-- {} {}", display_name, hash);
+        println!("{}", def.source);
+    } else {
+        eprintln!("error: '{}' not found in codebase", name);
+        process::exit(1);
+    }
+}
+
+fn cmd_ucm_rename(from: String, to: String) {
+    let mut cb = match trident::ucm::Codebase::open() {
+        Ok(cb) => cb,
+        Err(e) => {
+            eprintln!("error: cannot open codebase: {}", e);
+            process::exit(1);
+        }
+    };
+
+    if let Err(e) = cb.rename(&from, &to) {
+        eprintln!("error: {}", e);
+        process::exit(1);
+    }
+
+    if let Err(e) = cb.save() {
+        eprintln!("error: cannot save codebase: {}", e);
+        process::exit(1);
+    }
+
+    eprintln!("Renamed '{}' -> '{}'", from, to);
+}
+
+fn cmd_ucm_stats() {
+    let cb = match trident::ucm::Codebase::open() {
+        Ok(cb) => cb,
+        Err(e) => {
+            eprintln!("error: cannot open codebase: {}", e);
+            process::exit(1);
+        }
+    };
+
+    let stats = cb.stats();
+    eprintln!("Codebase statistics:");
+    eprintln!("  Definitions: {}", stats.definitions);
+    eprintln!("  Names:       {}", stats.names);
+    eprintln!("  Source size:  {} bytes", stats.total_source_bytes);
+}
+
+fn cmd_ucm_history(name: String) {
+    let cb = match trident::ucm::Codebase::open() {
+        Ok(cb) => cb,
+        Err(e) => {
+            eprintln!("error: cannot open codebase: {}", e);
+            process::exit(1);
+        }
+    };
+
+    let history = cb.name_history(&name);
+    if history.is_empty() {
+        eprintln!("No history for '{}'", name);
+        return;
+    }
+
+    eprintln!("History of '{}':", name);
+    for (hash, timestamp) in &history {
+        println!("  {} at {}", hash, timestamp);
+    }
+}
+
+fn cmd_ucm_deps(name: String) {
+    let cb = match trident::ucm::Codebase::open() {
+        Ok(cb) => cb,
+        Err(e) => {
+            eprintln!("error: cannot open codebase: {}", e);
+            process::exit(1);
+        }
+    };
+
+    // Look up the hash for this name.
+    let hash = if let Some(def) = cb.lookup(&name) {
+        // Get hash from names map by looking it up through the definition.
+        let _ = def;
+        match cb.list_names().iter().find(|(n, _)| *n == name.as_str()) {
+            Some((_, h)) => **h,
+            None => {
+                eprintln!("error: '{}' not found", name);
+                process::exit(1);
+            }
+        }
+    } else if let Some((h, _)) = cb.lookup_by_prefix(&name) {
+        *h
+    } else {
+        eprintln!("error: '{}' not found in codebase", name);
+        process::exit(1);
+    };
+
+    let deps = cb.dependencies(&hash);
+    if deps.is_empty() {
+        eprintln!("'{}' has no dependencies", name);
+    } else {
+        eprintln!("Dependencies of '{}':", name);
+        for (dep_name, dep_hash) in &deps {
+            println!("  {}  {}", dep_hash, dep_name);
+        }
+    }
+
+    let dependents = cb.dependents(&hash);
+    if !dependents.is_empty() {
+        eprintln!("\nUsed by:");
+        for (dep_name, dep_hash) in &dependents {
+            println!("  {}  {}", dep_hash, dep_name);
+        }
     }
 }
 

@@ -23,6 +23,8 @@ pub mod sym;
 pub mod target;
 pub mod typeck;
 pub mod types;
+pub mod ucm;
+pub mod view;
 
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
