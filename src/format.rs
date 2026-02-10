@@ -245,6 +245,13 @@ impl<'a> FormatCtx<'a> {
 
     fn emit_fn(&mut self, f: &FnDef, indent: &str) {
         self.emit_cfg_attr(&f.cfg, indent);
+
+        // Test attribute
+        if f.is_test {
+            self.output.push_str(indent);
+            self.output.push_str("#[test]\n");
+        }
+
         self.output.push_str(indent);
 
         // Intrinsic attribute

@@ -271,7 +271,7 @@ impl Emitter {
                 continue;
             }
             if let Item::Fn(func) = &item.node {
-                if func.type_params.is_empty() {
+                if func.type_params.is_empty() && !func.is_test {
                     self.emit_fn(func);
                 }
             }

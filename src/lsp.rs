@@ -32,6 +32,10 @@ impl LanguageServer for TridentLsp {
                     trigger_characters: Some(vec![".".to_string()]),
                     ..Default::default()
                 }),
+                signature_help_provider: Some(SignatureHelpOptions {
+                    trigger_characters: Some(vec!["(".to_string(), ",".to_string()]),
+                    ..Default::default()
+                }),
                 ..Default::default()
             },
             ..Default::default()
@@ -425,6 +429,101 @@ impl LanguageServer for TridentLsp {
         Ok(Some(CompletionResponse::Array(items)))
     }
 
+    async fn signature_help(&self, params: SignatureHelpParams) -> Result<Option<SignatureHelp>> {
+        let uri = &params.text_document_position_params.text_document.uri;
+        let pos = params.text_document_position_params.position;
+
+        let source = match self.documents.lock().unwrap().get(uri) {
+            Some(s) => s.clone(),
+            None => return Ok(None),
+        };
+
+        let (fn_name, active_param) = match find_call_context(&source, pos) {
+            Some(ctx) => ctx,
+            None => return Ok(None),
+        };
+
+        // Strip module prefix for builtin lookup
+        let bare_name = fn_name.rsplit('.').next().unwrap_or(&fn_name);
+
+        // Try builtins first
+        if let Some((params, ret_ty)) = builtin_signature(bare_name) {
+            let params_str: Vec<String> = params
+                .iter()
+                .map(|(n, t)| format!("{}: {}", n, t))
+                .collect();
+            let ret = if ret_ty.is_empty() {
+                String::new()
+            } else {
+                format!(" -> {}", ret_ty)
+            };
+            let label = format!("fn {}({}){}", bare_name, params_str.join(", "), ret);
+            let parameters: Vec<ParameterInformation> = params
+                .iter()
+                .map(|(n, t)| ParameterInformation {
+                    label: ParameterLabel::Simple(format!("{}: {}", n, t)),
+                    documentation: None,
+                })
+                .collect();
+
+            let sig_info = SignatureInformation {
+                label,
+                documentation: None,
+                parameters: Some(parameters),
+                active_parameter: Some(active_param),
+            };
+
+            return Ok(Some(SignatureHelp {
+                signatures: vec![sig_info],
+                active_signature: Some(0),
+                active_parameter: Some(active_param),
+            }));
+        }
+
+        // Try project exports
+        let file_path = PathBuf::from(uri.path());
+        let exports = self.collect_project_exports(&file_path);
+        for exp in &exports {
+            for (fname, fn_params, ret_ty) in &exp.functions {
+                let exp_bare = fname.rsplit('.').next().unwrap_or(fname);
+                if exp_bare == bare_name || *fname == fn_name {
+                    let params_str: Vec<String> = fn_params
+                        .iter()
+                        .map(|(n, t)| format!("{}: {}", n, t.display()))
+                        .collect();
+                    let ret = if *ret_ty == Ty::Unit {
+                        String::new()
+                    } else {
+                        format!(" -> {}", ret_ty.display())
+                    };
+                    let label = format!("fn {}({}){}", exp_bare, params_str.join(", "), ret);
+                    let parameters: Vec<ParameterInformation> = fn_params
+                        .iter()
+                        .map(|(n, t)| ParameterInformation {
+                            label: ParameterLabel::Simple(format!("{}: {}", n, t.display())),
+                            documentation: None,
+                        })
+                        .collect();
+
+                    let sig_info = SignatureInformation {
+                        label,
+                        documentation: None,
+                        parameters: Some(parameters),
+                        active_parameter: Some(active_param),
+                    };
+
+                    return Ok(Some(SignatureHelp {
+                        signatures: vec![sig_info],
+                        active_signature: Some(0),
+                        active_parameter: Some(active_param),
+                    }));
+                }
+            }
+        }
+
+        Ok(None)
+    }
+
     async fn shutdown(&self) -> Result<()> {
         Ok(())
     }
@@ -766,6 +865,152 @@ fn builtin_hover(name: &str) -> Option<String> {
     Some(info.to_string())
 }
 
+/// Return the parameter list and return type for a builtin function.
+/// Each parameter is `(name, type_name)`. The second element is the return type string.
+fn builtin_signature(name: &str) -> Option<(Vec<(&'static str, &'static str)>, &'static str)> {
+    let sig: (Vec<(&str, &str)>, &str) = match name {
+        "pub_read" => (vec![], "Field"),
+        "pub_read2" => (vec![], "(Field, Field)"),
+        "pub_read3" => (vec![], "(Field, Field, Field)"),
+        "pub_read4" => (vec![], "(Field, Field, Field, Field)"),
+        "pub_read5" => (vec![], "Digest"),
+        "pub_write" => (vec![("v", "Field")], ""),
+        "pub_write2" => (vec![("a", "Field"), ("b", "Field")], ""),
+        "pub_write3" => (vec![("a", "Field"), ("b", "Field"), ("c", "Field")], ""),
+        "pub_write4" => (
+            vec![
+                ("a", "Field"),
+                ("b", "Field"),
+                ("c", "Field"),
+                ("d", "Field"),
+            ],
+            "",
+        ),
+        "pub_write5" => (
+            vec![
+                ("a", "Field"),
+                ("b", "Field"),
+                ("c", "Field"),
+                ("d", "Field"),
+                ("e", "Field"),
+            ],
+            "",
+        ),
+        "divine" => (vec![], "Field"),
+        "divine3" => (vec![], "(Field, Field, Field)"),
+        "divine5" => (vec![], "Digest"),
+        "assert" => (vec![("cond", "Bool")], ""),
+        "assert_eq" => (vec![("a", "Field"), ("b", "Field")], ""),
+        "assert_digest_eq" => (vec![("a", "Digest"), ("b", "Digest")], ""),
+        "hash" => (
+            vec![
+                ("x0", "Field"),
+                ("x1", "Field"),
+                ("x2", "Field"),
+                ("x3", "Field"),
+                ("x4", "Field"),
+                ("x5", "Field"),
+                ("x6", "Field"),
+                ("x7", "Field"),
+                ("x8", "Field"),
+                ("x9", "Field"),
+            ],
+            "Digest",
+        ),
+        "sponge_init" => (vec![], ""),
+        "sponge_absorb" => (
+            vec![
+                ("x0", "Field"),
+                ("x1", "Field"),
+                ("x2", "Field"),
+                ("x3", "Field"),
+                ("x4", "Field"),
+                ("x5", "Field"),
+                ("x6", "Field"),
+                ("x7", "Field"),
+                ("x8", "Field"),
+                ("x9", "Field"),
+            ],
+            "",
+        ),
+        "sponge_squeeze" => (vec![], "[Field; 10]"),
+        "split" => (vec![("a", "Field")], "(U32, U32)"),
+        "log2" => (vec![("a", "U32")], "U32"),
+        "pow" => (vec![("base", "U32"), ("exp", "U32")], "U32"),
+        "popcount" => (vec![("a", "U32")], "U32"),
+        "as_u32" => (vec![("a", "Field")], "U32"),
+        "as_field" => (vec![("a", "U32")], "Field"),
+        "field_add" => (vec![("a", "Field"), ("b", "Field")], "Field"),
+        "field_mul" => (vec![("a", "Field"), ("b", "Field")], "Field"),
+        "inv" => (vec![("a", "Field")], "Field"),
+        "neg" => (vec![("a", "Field")], "Field"),
+        "sub" => (vec![("a", "Field"), ("b", "Field")], "Field"),
+        "ram_read" => (vec![("addr", "Field")], "Field"),
+        "ram_write" => (vec![("addr", "Field"), ("val", "Field")], ""),
+        "ram_read_block" => (vec![("addr", "Field")], "Digest"),
+        "ram_write_block" => (vec![("addr", "Field"), ("d", "Digest")], ""),
+        "merkle_step" => (
+            vec![
+                ("idx", "U32"),
+                ("d0", "Field"),
+                ("d1", "Field"),
+                ("d2", "Field"),
+                ("d3", "Field"),
+                ("d4", "Field"),
+            ],
+            "(U32, Digest)",
+        ),
+        "xfield" => (
+            vec![("a", "Field"), ("b", "Field"), ("c", "Field")],
+            "XField",
+        ),
+        "xinvert" => (vec![("a", "XField")], "XField"),
+        _ => return None,
+    };
+    Some(sig)
+}
+
+/// Find the function name and active parameter index at a given position.
+fn find_call_context(source: &str, pos: Position) -> Option<(String, u32)> {
+    let offset = position_to_byte_offset(source, pos)?;
+    let bytes = source.as_bytes();
+
+    // Walk backward to find the matching '('
+    let mut depth = 0i32;
+    let mut comma_count = 0u32;
+    let mut i = offset;
+    while i > 0 {
+        i -= 1;
+        match bytes[i] {
+            b')' => depth += 1,
+            b'(' => {
+                if depth == 0 {
+                    // Found the opening paren - extract function name
+                    let mut name_end = i;
+                    while name_end > 0 && bytes[name_end - 1] == b' ' {
+                        name_end -= 1;
+                    }
+                    let mut name_start = name_end;
+                    while name_start > 0
+                        && (is_ident_char(bytes[name_start - 1]) || bytes[name_start - 1] == b'.')
+                    {
+                        name_start -= 1;
+                    }
+                    if name_start < name_end {
+                        let name = source[name_start..name_end].to_string();
+                        return Some((name, comma_count));
+                    }
+                    return None;
+                }
+                depth -= 1;
+            }
+            b',' if depth == 0 => comma_count += 1,
+            _ => {}
+        }
+    }
+    None
+}
+
 /// Completion items for all builtin functions.
 fn builtin_completions() -> Vec<(String, String)> {
     vec![
@@ -1059,6 +1304,7 @@ mod tests {
     fn test_format_fn_signature_no_params() {
         let f = crate::ast::FnDef {
             is_pub: false,
+            is_test: false,
             cfg: None,
             intrinsic: None,
             name: crate::span::Spanned::dummy("main".to_string()),
@@ -1074,6 +1320,7 @@ mod tests {
     fn test_format_fn_signature_with_return() {
         let f = crate::ast::FnDef {
             is_pub: true,
+            is_test: false,
             cfg: None,
             intrinsic: None,
             name: crate::span::Spanned::dummy("add".to_string()),
@@ -1133,5 +1380,97 @@ mod tests {
         assert!(!is_ident_char(b'.'));
         assert!(!is_ident_char(b' '));
         assert!(!is_ident_char(b'('));
+    }
+
+    // --- find_call_context ---
+
+    #[test]
+    fn test_find_call_context_simple() {
+        let src = "pub_write(x, y)";
+        let ctx = find_call_context(src, Position::new(0, 12));
+        assert_eq!(ctx, Some(("pub_write".to_string(), 1)));
+    }
+
+    #[test]
+    fn test_find_call_context_first_param() {
+        let src = "pub_write(x)";
+        let ctx = find_call_context(src, Position::new(0, 10));
+        assert_eq!(ctx, Some(("pub_write".to_string(), 0)));
+    }
+
+    #[test]
+    fn test_find_call_context_no_paren() {
+        let src = "let x = 1";
+        let ctx = find_call_context(src, Position::new(0, 5));
+        assert_eq!(ctx, None);
+    }
+
+    #[test]
+    fn test_find_call_context_nested() {
+        // Cursor inside inner call: split(field_add(a, b))
+        // At position inside field_add(a, _b_)
+        let src = "split(field_add(a, b))";
+        let ctx = find_call_context(src, Position::new(0, 19));
+        assert_eq!(ctx, Some(("field_add".to_string(), 1)));
+    }
+
+    #[test]
+    fn test_find_call_context_qualified_name() {
+        let src = "math.add(x, y, z)";
+        let ctx = find_call_context(src, Position::new(0, 15));
+        assert_eq!(ctx, Some(("math.add".to_string(), 2)));
+    }
+
+    #[test]
+    fn test_find_call_context_right_after_open_paren() {
+        let src = "assert(";
+        let ctx = find_call_context(src, Position::new(0, 7));
+        assert_eq!(ctx, Some(("assert".to_string(), 0)));
+    }
+
+    #[test]
+    fn test_find_call_context_space_before_paren() {
+        let src = "foo (a, b)";
+        let ctx = find_call_context(src, Position::new(0, 8));
+        assert_eq!(ctx, Some(("foo".to_string(), 1)));
+    }
+
+    // --- builtin_signature ---
+
+    #[test]
+    fn test_builtin_signature_known() {
+        let (params, ret) = builtin_signature("pub_write").unwrap();
+        assert_eq!(params.len(), 1);
+        assert_eq!(params[0], ("v", "Field"));
+        assert_eq!(ret, "");
+    }
+
+    #[test]
+    fn test_builtin_signature_with_return() {
+        let (params, ret) = builtin_signature("split").unwrap();
+        assert_eq!(params.len(), 1);
+        assert_eq!(params[0], ("a", "Field"));
+        assert_eq!(ret, "(U32, U32)");
+    }
+
+    #[test]
+    fn test_builtin_signature_no_params() {
+        let (params, ret) = builtin_signature("pub_read").unwrap();
+        assert_eq!(params.len(), 0);
+        assert_eq!(ret, "Field");
+    }
+
+    #[test]
+    fn test_builtin_signature_unknown() {
+        assert!(builtin_signature("nonexistent").is_none());
+    }
+
+    #[test]
+    fn test_builtin_signature_multi_params() {
+        let (params, ret) = builtin_signature("pow").unwrap();
+        assert_eq!(params.len(), 2);
+        assert_eq!(params[0], ("base", "U32"));
+        assert_eq!(params[1], ("exp", "U32"));
+        assert_eq!(ret, "U32");
     }
 }

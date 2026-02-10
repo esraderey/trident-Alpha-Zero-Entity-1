@@ -98,6 +98,7 @@ pub struct FnDef {
     pub is_pub: bool,
     pub cfg: Option<Spanned<String>>,
     pub intrinsic: Option<Spanned<String>>,
+    pub is_test: bool,
     pub name: Spanned<String>,
     /// Size-generic parameters, e.g. `<N>` in `fn sum<N>(arr: [Field; N])`.
     pub type_params: Vec<Spanned<String>>,

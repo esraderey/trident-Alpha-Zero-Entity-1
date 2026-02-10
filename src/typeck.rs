@@ -647,6 +647,28 @@ impl TypeChecker {
             return; // generic — body checked per monomorphized instance
         }
 
+        // Validate #[test] functions: no parameters, no return type, not generic.
+        if func.is_test {
+            if !func.params.is_empty() {
+                self.error(
+                    format!(
+                        "#[test] function '{}' must have no parameters",
+                        func.name.node
+                    ),
+                    func.name.span,
+                );
+            }
+            if func.return_ty.is_some() {
+                self.error(
+                    format!(
+                        "#[test] function '{}' must not have a return type",
+                        func.name.node
+                    ),
+                    func.name.span,
+                );
+            }
+        }
+
         self.push_scope();
 
         // Bind parameters
@@ -2406,5 +2428,40 @@ mod tests {
             result.is_err(),
             "pattern after wildcard should be unreachable"
         );
+    }
+
+    // --- #[test] function validation ---
+
+    #[test]
+    fn test_test_fn_valid() {
+        let result =
+            check("program test\n#[test]\nfn check_math() {\n    assert(1 == 1)\n}\nfn main() {}");
+        assert!(
+            result.is_ok(),
+            "valid test fn should pass: {:?}",
+            result.err()
+        );
+    }
+
+    #[test]
+    fn test_test_fn_with_params_rejected() {
+        let result = check(
+            "program test\n#[test]\nfn bad_test(x: Field) {\n    assert(x == x)\n}\nfn main() {}",
+        );
+        assert!(result.is_err(), "test fn with params should fail");
+    }
+
+    #[test]
+    fn test_test_fn_with_return_rejected() {
+        let result =
+            check("program test\n#[test]\nfn bad_test() -> Field {\n    42\n}\nfn main() {}");
+        assert!(result.is_err(), "test fn with return type should fail");
+    }
+
+    #[test]
+    fn test_test_fn_not_emitted_in_normal_build() {
+        // Test functions should type-check but not interfere with normal compilation
+        let result = check("program test\n#[test]\nfn check() {\n    assert(true)\n}\nfn main() {\n    pub_write(pub_read())\n}");
+        assert!(result.is_ok());
     }
 }

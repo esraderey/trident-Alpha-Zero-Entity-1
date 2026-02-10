@@ -179,9 +179,10 @@ impl Parser {
         while !self.at(&Lexeme::Eof) {
             let start = self.current_span();
 
-            // Parse attributes: #[cfg(flag)] and/or #[intrinsic(name)]
+            // Parse attributes: #[cfg(flag)], #[intrinsic(name)], #[test]
             let mut cfg_attr: Option<Spanned<String>> = None;
             let mut intrinsic_attr: Option<Spanned<String>> = None;
+            let mut is_test = false;
             while self.at(&Lexeme::Hash) {
                 let attr = self.parse_attribute();
                 if attr.node.starts_with("cfg(") {
@@ -190,8 +191,10 @@ impl Parser {
                     cfg_attr = Some(Spanned::new(flag, attr.span));
                 } else if attr.node.starts_with("intrinsic(") {
                     intrinsic_attr = Some(attr);
+                } else if attr.node == "test" {
+                    is_test = true;
                 } else {
-                    self.error_at_current("unknown attribute; expected cfg or intrinsic");
+                    self.error_at_current("unknown attribute; expected cfg, intrinsic, or test");
                 }
             }
 
@@ -201,12 +204,18 @@ impl Parser {
                 if intrinsic_attr.is_some() {
                     self.error_at_current("#[intrinsic] is only allowed on functions");
                 }
+                if is_test {
+                    self.error_at_current("#[test] is only allowed on functions");
+                }
                 let item = self.parse_const(is_pub, cfg_attr);
                 let span = start.merge(self.prev_span());
                 items.push(Spanned::new(Item::Const(item), span));
             } else if self.at(&Lexeme::Struct) {
                 if intrinsic_attr.is_some() {
                     self.error_at_current("#[intrinsic] is only allowed on functions");
+                }
+                if is_test {
+                    self.error_at_current("#[test] is only allowed on functions");
                 }
                 let item = self.parse_struct(is_pub, cfg_attr);
                 let span = start.merge(self.prev_span());
@@ -215,11 +224,14 @@ impl Parser {
                 if intrinsic_attr.is_some() {
                     self.error_at_current("#[intrinsic] is only allowed on functions");
                 }
+                if is_test {
+                    self.error_at_current("#[test] is only allowed on functions");
+                }
                 let item = self.parse_event(cfg_attr);
                 let span = start.merge(self.prev_span());
                 items.push(Spanned::new(Item::Event(item), span));
             } else if self.at(&Lexeme::Fn) || self.at(&Lexeme::Hash) {
-                let item = self.parse_fn_with_attr(is_pub, cfg_attr, intrinsic_attr);
+                let item = self.parse_fn_with_attr(is_pub, cfg_attr, intrinsic_attr, is_test);
                 let span = start.merge(self.prev_span());
                 items.push(Spanned::new(Item::Fn(item), span));
             } else {
@@ -279,6 +291,7 @@ impl Parser {
         is_pub: bool,
         cfg: Option<Spanned<String>>,
         intrinsic: Option<Spanned<String>>,
+        is_test: bool,
     ) -> FnDef {
         self.expect(&Lexeme::Fn);
         let name = self.expect_ident();
@@ -306,6 +319,7 @@ impl Parser {
             is_pub,
             cfg,
             intrinsic,
+            is_test,
             name,
             type_params,
             params,
@@ -335,12 +349,18 @@ impl Parser {
         self.expect(&Lexeme::Hash);
         self.expect(&Lexeme::LBracket);
         let name = self.expect_ident();
-        self.expect(&Lexeme::LParen);
-        let value = self.expect_ident();
-        self.expect(&Lexeme::RParen);
-        self.expect(&Lexeme::RBracket);
-        let span = start.merge(self.prev_span());
-        Spanned::new(format!("{}({})", name.node, value.node), span)
+        if self.at(&Lexeme::LParen) {
+            self.expect(&Lexeme::LParen);
+            let value = self.expect_ident();
+            self.expect(&Lexeme::RParen);
+            self.expect(&Lexeme::RBracket);
+            let span = start.merge(self.prev_span());
+            Spanned::new(format!("{}({})", name.node, value.node), span)
+        } else {
+            self.expect(&Lexeme::RBracket);
+            let span = start.merge(self.prev_span());
+            Spanned::new(name.node, span)
+        }
     }
 
     fn parse_params(&mut self) -> Vec<Param> {
@@ -1453,6 +1473,62 @@ mod tests {
             } else {
                 panic!("expected match statement");
             }
+        }
+    }
+
+    // --- #[test] attribute parsing ---
+
+    #[test]
+    fn test_test_attribute_on_fn() {
+        let file =
+            parse("program test\n#[test]\nfn check_math() {\n    assert(1 == 1)\n}\nfn main() {}");
+        // First item should be the test function, second should be main
+        assert_eq!(file.items.len(), 2);
+        if let Item::Fn(f) = &file.items[0].node {
+            assert!(f.is_test, "function should be marked as test");
+            assert_eq!(f.name.node, "check_math");
+        } else {
+            panic!("expected test function");
+        }
+        if let Item::Fn(f) = &file.items[1].node {
+            assert!(!f.is_test, "main should not be marked as test");
+            assert_eq!(f.name.node, "main");
+        } else {
+            panic!("expected main function");
+        }
+    }
+
+    #[test]
+    fn test_test_attribute_with_cfg() {
+        let file = parse("program test\n#[cfg(debug)]\n#[test]\nfn debug_check() {}\nfn main() {}");
+        if let Item::Fn(f) = &file.items[0].node {
+            assert!(f.is_test, "function should be marked as test");
+            assert_eq!(f.cfg.as_ref().unwrap().node, "debug");
+            assert_eq!(f.name.node, "debug_check");
+        } else {
+            panic!("expected test function");
+        }
+    }
+
+    #[test]
+    fn test_no_test_attribute() {
+        let file = parse("program test\nfn main() {}");
+        if let Item::Fn(f) = &file.items[0].node {
+            assert!(!f.is_test, "main should not be marked as test");
+        } else {
+            panic!("expected function");
+        }
+    }
+
+    #[test]
+    fn test_no_arg_attribute_format() {
+        // Verify the parse_attribute handles #[test] (no args) correctly
+        let file = parse("program test\n#[test]\nfn t() {}\nfn main() {}");
+        if let Item::Fn(f) = &file.items[0].node {
+            assert!(f.is_test);
+            assert!(f.intrinsic.is_none());
+        } else {
+            panic!("expected function");
         }
     }
 }

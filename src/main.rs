@@ -59,6 +59,14 @@ enum Command {
         #[arg(long)]
         check: bool,
     },
+    /// Run #[test] functions
+    Test {
+        /// Input .tri file or directory with trident.toml
+        input: PathBuf,
+        /// Compilation target (debug or release)
+        #[arg(long, default_value = "debug")]
+        target: String,
+    },
     /// Start the Language Server Protocol server
     Lsp,
 }
@@ -82,6 +90,7 @@ fn main() {
             target,
         } => cmd_check(input, costs, &target),
         Command::Fmt { input, check } => cmd_fmt(input, check),
+        Command::Test { input, target } => cmd_test(input, &target),
         Command::Lsp => cmd_lsp(),
     }
 }
@@ -432,6 +441,56 @@ fn collect_tri_files_recursive(dir: &Path, result: &mut Vec<PathBuf>) {
             collect_tri_files_recursive(&path, result);
         } else if path.extension().is_some_and(|e| e == "tri") {
             result.push(path);
+        }
+    }
+}
+
+// --- trident test ---
+
+fn cmd_test(input: PathBuf, target: &str) {
+    let entry = if input.is_dir() {
+        let toml_path = input.join("trident.toml");
+        if !toml_path.exists() {
+            eprintln!("error: no trident.toml found in '{}'", input.display());
+            process::exit(1);
+        }
+        let project = match trident::project::Project::load(&toml_path) {
+            Ok(p) => p,
+            Err(e) => {
+                eprintln!("error: {}", e.message);
+                process::exit(1);
+            }
+        };
+        project.entry
+    } else if input.extension().is_some_and(|e| e == "tri") {
+        if let Some(toml_path) =
+            trident::project::Project::find(input.parent().unwrap_or(Path::new(".")))
+        {
+            let project = match trident::project::Project::load(&toml_path) {
+                Ok(p) => p,
+                Err(e) => {
+                    eprintln!("error: {}", e.message);
+                    process::exit(1);
+                }
+            };
+            project.entry
+        } else {
+            input.clone()
+        }
+    } else {
+        eprintln!("error: input must be a .tri file or project directory");
+        process::exit(1);
+    };
+
+    let options = resolve_target(target, None);
+    let result = trident::run_tests(&entry, &options);
+
+    match result {
+        Ok(report) => {
+            eprintln!("{}", report);
+        }
+        Err(_) => {
+            process::exit(1);
         }
     }
 }
