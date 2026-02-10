@@ -167,6 +167,22 @@ pub enum Pattern {
     Tuple(Vec<Spanned<String>>),
 }
 
+/// A pattern in a match arm.
+#[derive(Clone, Debug)]
+pub enum MatchPattern {
+    /// Integer or boolean literal: `0`, `42`, `true`, `false`.
+    Literal(Literal),
+    /// Wildcard: `_`.
+    Wildcard,
+}
+
+/// A single arm in a match statement.
+#[derive(Clone, Debug)]
+pub struct MatchArm {
+    pub pattern: Spanned<MatchPattern>,
+    pub body: Spanned<Block>,
+}
+
 /// Statements.
 #[derive(Clone, Debug)]
 pub enum Stmt {
@@ -209,6 +225,10 @@ pub enum Stmt {
     Asm {
         body: String,
         effect: i32,
+    },
+    Match {
+        expr: Spanned<Expr>,
+        arms: Vec<MatchArm>,
     },
 }
 

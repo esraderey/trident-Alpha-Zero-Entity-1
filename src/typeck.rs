@@ -501,6 +501,12 @@ impl TypeChecker {
                 }
             }
             Stmt::Asm { .. } => {}
+            Stmt::Match { expr, arms } => {
+                Self::collect_calls_expr(&expr.node, calls);
+                for arm in arms {
+                    Self::collect_calls_block(&arm.body.node, calls);
+                }
+            }
         }
     }
 
@@ -546,6 +552,12 @@ impl TypeChecker {
                 }
             }
             Stmt::Asm { .. } => {}
+            Stmt::Match { expr, arms } => {
+                Self::collect_used_modules_expr(&expr.node, used);
+                for arm in arms {
+                    Self::collect_used_modules_block(&arm.body.node, used);
+                }
+            }
         }
     }
 
@@ -923,6 +935,69 @@ impl TypeChecker {
                 self.check_event_stmt(event_name, fields);
             }
             Stmt::Asm { .. } => {}
+            Stmt::Match { expr, arms } => {
+                let scrutinee_ty = self.check_expr(&expr.node, expr.span);
+                let mut has_wildcard = false;
+                let mut has_true = false;
+                let mut has_false = false;
+                let mut wildcard_seen = false;
+
+                for arm in arms {
+                    if wildcard_seen {
+                        self.error(
+                            "unreachable pattern after wildcard '_'".to_string(),
+                            arm.pattern.span,
+                        );
+                    }
+
+                    match &arm.pattern.node {
+                        MatchPattern::Literal(Literal::Integer(_)) => {
+                            if scrutinee_ty != Ty::Field && scrutinee_ty != Ty::U32 {
+                                self.error(
+                                    format!(
+                                        "integer pattern requires Field or U32 scrutinee, got {}",
+                                        scrutinee_ty.display()
+                                    ),
+                                    arm.pattern.span,
+                                );
+                            }
+                        }
+                        MatchPattern::Literal(Literal::Bool(b)) => {
+                            if scrutinee_ty != Ty::Bool {
+                                self.error(
+                                    format!(
+                                        "boolean pattern requires Bool scrutinee, got {}",
+                                        scrutinee_ty.display()
+                                    ),
+                                    arm.pattern.span,
+                                );
+                            }
+                            if *b {
+                                has_true = true;
+                            } else {
+                                has_false = true;
+                            }
+                        }
+                        MatchPattern::Wildcard => {
+                            has_wildcard = true;
+                            wildcard_seen = true;
+                        }
+                    }
+
+                    self.check_block(&arm.body.node);
+                }
+
+                // Exhaustiveness: require wildcard unless Bool with both true+false
+                let exhaustive =
+                    has_wildcard || (scrutinee_ty == Ty::Bool && has_true && has_false);
+                if !exhaustive {
+                    self.error(
+                        "non-exhaustive match: add a wildcard '_' arm or cover all values"
+                            .to_string(),
+                        expr.span,
+                    );
+                }
+            }
         }
     }
 
@@ -2278,5 +2353,58 @@ mod tests {
         .unwrap();
         assert_eq!(exports.functions.len(), 1, "only always() exported");
         assert_eq!(exports.functions[0].0, "always");
+    }
+
+    // --- match statement type checking ---
+
+    #[test]
+    fn test_match_field_with_integers() {
+        let result = check("program test\nfn main() {\n    let x: Field = pub_read()\n    match x {\n        0 => { pub_write(0) }\n        1 => { pub_write(1) }\n        _ => { pub_write(2) }\n    }\n}");
+        assert!(result.is_ok(), "match on Field with integers should pass");
+    }
+
+    #[test]
+    fn test_match_bool_exhaustive() {
+        let result = check("program test\nfn main() {\n    let b: Bool = pub_read() == pub_read()\n    match b {\n        true => { pub_write(1) }\n        false => { pub_write(0) }\n    }\n}");
+        assert!(
+            result.is_ok(),
+            "match on Bool with true+false is exhaustive"
+        );
+    }
+
+    #[test]
+    fn test_match_non_exhaustive_error() {
+        let result = check("program test\nfn main() {\n    let x: Field = pub_read()\n    match x {\n        0 => { pub_write(0) }\n        1 => { pub_write(1) }\n    }\n}");
+        assert!(
+            result.is_err(),
+            "match without wildcard on Field should fail"
+        );
+    }
+
+    #[test]
+    fn test_match_bool_pattern_on_field_error() {
+        let result = check("program test\nfn main() {\n    let x: Field = pub_read()\n    match x {\n        true => { pub_write(1) }\n        _ => { pub_write(0) }\n    }\n}");
+        assert!(
+            result.is_err(),
+            "boolean pattern on Field scrutinee should fail"
+        );
+    }
+
+    #[test]
+    fn test_match_integer_pattern_on_bool_error() {
+        let result = check("program test\nfn main() {\n    let b: Bool = pub_read() == pub_read()\n    match b {\n        0 => { pub_write(0) }\n        _ => { pub_write(1) }\n    }\n}");
+        assert!(
+            result.is_err(),
+            "integer pattern on Bool scrutinee should fail"
+        );
+    }
+
+    #[test]
+    fn test_match_unreachable_after_wildcard() {
+        let result = check("program test\nfn main() {\n    let x: Field = pub_read()\n    match x {\n        _ => { pub_write(0) }\n        0 => { pub_write(1) }\n    }\n}");
+        assert!(
+            result.is_err(),
+            "pattern after wildcard should be unreachable"
+        );
     }
 }

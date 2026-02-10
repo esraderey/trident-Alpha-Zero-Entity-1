@@ -446,6 +446,8 @@ impl Parser {
                 stmts.push(self.parse_emit_stmt());
             } else if self.at(&Lexeme::Seal) {
                 stmts.push(self.parse_seal_stmt());
+            } else if self.at(&Lexeme::Match) {
+                stmts.push(self.parse_match_stmt());
             } else if matches!(self.peek(), Lexeme::AsmBlock { .. }) {
                 let start = self.current_span();
                 let tok = self.advance().clone();
@@ -677,6 +679,53 @@ impl Parser {
         self.expect(&Lexeme::RBrace);
         let span = start.merge(self.prev_span());
         Spanned::new(Stmt::Seal { event_name, fields }, span)
+    }
+
+    fn parse_match_stmt(&mut self) -> Spanned<Stmt> {
+        let start = self.current_span();
+        self.expect(&Lexeme::Match);
+        let expr = self.parse_expr();
+        self.expect(&Lexeme::LBrace);
+
+        let mut arms = Vec::new();
+        while !self.at(&Lexeme::RBrace) && !self.at(&Lexeme::Eof) {
+            let pat_start = self.current_span();
+            let pattern = if self.at(&Lexeme::Underscore)
+                || matches!(self.peek(), Lexeme::Ident(s) if s == "_")
+            {
+                self.advance();
+                MatchPattern::Wildcard
+            } else if let Lexeme::Integer(n) = self.peek().clone() {
+                self.advance();
+                MatchPattern::Literal(Literal::Integer(n))
+            } else if self.at(&Lexeme::True) {
+                self.advance();
+                MatchPattern::Literal(Literal::Bool(true))
+            } else if self.at(&Lexeme::False) {
+                self.advance();
+                MatchPattern::Literal(Literal::Bool(false))
+            } else {
+                self.error_at_current("expected pattern (integer, true, false, or _)");
+                self.advance();
+                MatchPattern::Wildcard
+            };
+            let pat_span = pat_start.merge(self.prev_span());
+
+            self.expect(&Lexeme::FatArrow);
+            let body = self.parse_block();
+
+            arms.push(MatchArm {
+                pattern: Spanned::new(pattern, pat_span),
+                body,
+            });
+
+            // Optional comma between arms
+            self.eat(&Lexeme::Comma);
+        }
+
+        self.expect(&Lexeme::RBrace);
+        let span = start.merge(self.prev_span());
+        Spanned::new(Stmt::Match { expr, arms }, span)
     }
 
     // --- Expression parsing (Pratt / precedence climbing) ---
@@ -1344,6 +1393,66 @@ mod tests {
             assert!(f.cfg.is_none());
         } else {
             panic!("expected fn");
+        }
+    }
+
+    // --- match statement parsing ---
+
+    #[test]
+    fn test_match_basic() {
+        let file = parse("program test\nfn main() {\n    let x: Field = pub_read()\n    match x {\n        0 => { pub_write(0) }\n        1 => { pub_write(1) }\n        _ => { pub_write(2) }\n    }\n}");
+        if let Item::Fn(f) = &file.items[0].node {
+            let block = f.body.as_ref().unwrap();
+            assert_eq!(block.node.stmts.len(), 2);
+            if let Stmt::Match { arms, .. } = &block.node.stmts[1].node {
+                assert_eq!(arms.len(), 3);
+                assert!(matches!(
+                    arms[0].pattern.node,
+                    MatchPattern::Literal(Literal::Integer(0))
+                ));
+                assert!(matches!(
+                    arms[1].pattern.node,
+                    MatchPattern::Literal(Literal::Integer(1))
+                ));
+                assert!(matches!(arms[2].pattern.node, MatchPattern::Wildcard));
+            } else {
+                panic!("expected match statement");
+            }
+        }
+    }
+
+    #[test]
+    fn test_match_bool_patterns() {
+        let file = parse("program test\nfn main() {\n    let b: Bool = true\n    match b {\n        true => { pub_write(1) }\n        false => { pub_write(0) }\n    }\n}");
+        if let Item::Fn(f) = &file.items[0].node {
+            let block = f.body.as_ref().unwrap();
+            if let Stmt::Match { arms, .. } = &block.node.stmts[1].node {
+                assert_eq!(arms.len(), 2);
+                assert!(matches!(
+                    arms[0].pattern.node,
+                    MatchPattern::Literal(Literal::Bool(true))
+                ));
+                assert!(matches!(
+                    arms[1].pattern.node,
+                    MatchPattern::Literal(Literal::Bool(false))
+                ));
+            } else {
+                panic!("expected match statement");
+            }
+        }
+    }
+
+    #[test]
+    fn test_match_wildcard_only() {
+        let file = parse("program test\nfn main() {\n    match pub_read() {\n        _ => { pub_write(0) }\n    }\n}");
+        if let Item::Fn(f) = &file.items[0].node {
+            let block = f.body.as_ref().unwrap();
+            if let Stmt::Match { arms, .. } = &block.node.stmts[0].node {
+                assert_eq!(arms.len(), 1);
+                assert!(matches!(arms[0].pattern.node, MatchPattern::Wildcard));
+            } else {
+                panic!("expected match statement");
+            }
         }
     }
 }

@@ -647,6 +647,114 @@ impl Emitter {
                     }
                 }
             }
+            Stmt::Match { expr, arms } => {
+                // Emit scrutinee value onto the stack
+                self.emit_expr(&expr.node);
+                // The scrutinee is now the top anonymous temp on the stack.
+                // Rename it so we can track it.
+                if let Some(top) = self.stack.last_mut() {
+                    top.name = Some("__match_scrutinee".to_string());
+                }
+
+                // Collect arm info: (label, body_clone, is_literal)
+                let mut deferred_arms: Vec<(String, Block, bool)> = Vec::new();
+
+                for arm in arms {
+                    match &arm.pattern.node {
+                        MatchPattern::Literal(lit) => {
+                            let arm_label = self.fresh_label("match_arm");
+                            let rest_label = self.fresh_label("match_rest");
+
+                            // dup the scrutinee for comparison
+                            let depth = self.find_var_depth("__match_scrutinee");
+                            self.inst(&format!("dup {}", depth));
+
+                            // push the pattern value
+                            match lit {
+                                Literal::Integer(n) => {
+                                    self.inst(&format!("push {}", n));
+                                }
+                                Literal::Bool(b) => {
+                                    self.inst(&format!("push {}", if *b { 1 } else { 0 }));
+                                }
+                            }
+
+                            // eq → produces bool on stack
+                            self.inst("eq");
+
+                            // Use the flag pattern: push 1, swap, skiz call arm, skiz call rest
+                            self.inst("push 1");
+                            self.inst("swap 1");
+                            self.inst("skiz");
+                            self.inst(&format!("call {}", arm_label));
+                            self.inst("skiz");
+                            self.inst(&format!("call {}", rest_label));
+
+                            // Build arm body: pop scrutinee then run original body
+                            let mut arm_stmts = vec![Spanned::new(
+                                Stmt::Asm {
+                                    body: "pop 1".to_string(),
+                                    effect: -1,
+                                },
+                                arm.body.span,
+                            )];
+                            arm_stmts.extend(arm.body.node.stmts.clone());
+                            deferred_arms.push((
+                                arm_label,
+                                Block {
+                                    stmts: arm_stmts,
+                                    tail_expr: arm.body.node.tail_expr.clone(),
+                                },
+                                true,
+                            ));
+
+                            // rest_label continues to next arm check — empty block
+                            self.deferred.push(DeferredBlock {
+                                label: rest_label,
+                                block: Block {
+                                    stmts: Vec::new(),
+                                    tail_expr: None,
+                                },
+                                clears_flag: false,
+                            });
+                        }
+                        MatchPattern::Wildcard => {
+                            let w_label = self.fresh_label("match_wild");
+                            self.inst(&format!("call {}", w_label));
+
+                            let mut arm_stmts = vec![Spanned::new(
+                                Stmt::Asm {
+                                    body: "pop 1".to_string(),
+                                    effect: -1,
+                                },
+                                arm.body.span,
+                            )];
+                            arm_stmts.extend(arm.body.node.stmts.clone());
+                            deferred_arms.push((
+                                w_label,
+                                Block {
+                                    stmts: arm_stmts,
+                                    tail_expr: arm.body.node.tail_expr.clone(),
+                                },
+                                false,
+                            ));
+                        }
+                    }
+                }
+
+                // Pop the scrutinee after match completes
+                self.stack.pop(); // remove scrutinee from model
+                self.inst("pop 1");
+
+                // Emit deferred blocks for each arm
+                for (label, block, is_literal) in deferred_arms {
+                    self.deferred.push(DeferredBlock {
+                        label,
+                        block,
+                        clears_flag: is_literal,
+                    });
+                }
+            }
             Stmt::Seal { event_name, fields } => {
                 let tag = self.event_tags.get(&event_name.node).copied().unwrap_or(0);
                 let decl_order = self

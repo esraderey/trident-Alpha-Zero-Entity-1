@@ -487,6 +487,33 @@ impl<'a> FormatCtx<'a> {
             Stmt::Seal { event_name, fields } => {
                 self.emit_event_stmt("seal", event_name, fields, indent, stmt.span.end);
             }
+            Stmt::Match { expr, arms } => {
+                self.output.push_str(indent);
+                self.output.push_str("match ");
+                self.output.push_str(&format_expr(&expr.node));
+                self.output.push_str(" {\n");
+                let inner = format!("{}{}", indent, INDENT);
+                for arm in arms {
+                    self.output.push_str(&inner);
+                    match &arm.pattern.node {
+                        MatchPattern::Literal(Literal::Integer(n)) => {
+                            self.output.push_str(&n.to_string());
+                        }
+                        MatchPattern::Literal(Literal::Bool(b)) => {
+                            self.output.push_str(if *b { "true" } else { "false" });
+                        }
+                        MatchPattern::Wildcard => {
+                            self.output.push('_');
+                        }
+                    }
+                    self.output.push_str(" => {\n");
+                    self.emit_block(&arm.body.node, &inner);
+                    self.output.push_str(&inner);
+                    self.output.push_str("}\n");
+                }
+                self.output.push_str(indent);
+                self.output.push_str("}\n");
+            }
             Stmt::Asm { body, effect } => {
                 self.output.push_str(indent);
                 self.output.push_str("asm");
@@ -1150,5 +1177,25 @@ fn main() {
         let src =
             "program test\n\nfn main() {\n    asm {\n        push -1\n        mul\n    }\n}\n";
         assert_eq!(fmt(src), src);
+    }
+
+    #[test]
+    fn test_match_formatting() {
+        let src = "program test\n\nfn main() {\n    let x: Field = pub_read()\n    match x {\n        0 => {\n            pub_write(0)\n        }\n        1 => {\n            pub_write(1)\n        }\n        _ => {\n            pub_write(2)\n        }\n    }\n}\n";
+        assert_eq!(fmt(src), src);
+    }
+
+    #[test]
+    fn test_match_bool_formatting() {
+        let src = "program test\n\nfn main() {\n    let b: Bool = true\n    match b {\n        true => {\n            pub_write(1)\n        }\n        false => {\n            pub_write(0)\n        }\n    }\n}\n";
+        assert_eq!(fmt(src), src);
+    }
+
+    #[test]
+    fn test_match_idempotent() {
+        let src = "program test\n\nfn main() {\n    let x: Field = pub_read()\n    match x {\n        0 => {\n            pub_write(0)\n        }\n        _ => {\n            pub_write(1)\n        }\n    }\n}\n";
+        let first = fmt(src);
+        let second = fmt(&first);
+        assert_eq!(first, second, "match formatting should be idempotent");
     }
 }

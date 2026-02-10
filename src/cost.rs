@@ -729,6 +729,22 @@ impl CostAnalyzer {
                     .count() as u64;
                 STACK_OP.scale(line_count)
             }
+            Stmt::Match { expr, arms } => {
+                let scrutinee_cost = self.cost_expr(&expr.node);
+                // Per arm: dup + push + eq + skiz/call overhead = ~5 rows
+                let arm_overhead = STACK_OP.scale(3).add(&IF_OVERHEAD);
+                let num_literal_arms = arms
+                    .iter()
+                    .filter(|a| !matches!(a.pattern.node, MatchPattern::Wildcard))
+                    .count() as u64;
+                let check_cost = arm_overhead.scale(num_literal_arms);
+                // Worst-case body: max across all arms
+                let max_body = arms
+                    .iter()
+                    .map(|a| self.cost_block(&a.body.node))
+                    .fold(TableCost::ZERO, |acc, c| acc.max(&c));
+                scrutinee_cost.add(&check_cost).add(&max_body)
+            }
             Stmt::Seal { fields, .. } => {
                 // push tag + field exprs + padding pushes + hash + write_io 5
                 let mut cost = STACK_OP; // push tag
@@ -892,6 +908,12 @@ impl CostAnalyzer {
                 self.scan_loop_bound_waste(fn_name, &then_block.node);
                 if let Some(eb) = else_block {
                     self.scan_loop_bound_waste(fn_name, &eb.node);
+                }
+            }
+            // Recurse into match arms
+            if let Stmt::Match { arms, .. } = &stmt.node {
+                for arm in arms {
+                    self.scan_loop_bound_waste(fn_name, &arm.body.node);
                 }
             }
         }

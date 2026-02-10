@@ -271,6 +271,9 @@ impl<'src> Lexer<'src> {
                 if self.peek() == Some(b'=') {
                     self.pos += 1;
                     Lexeme::EqEq
+                } else if self.peek() == Some(b'>') {
+                    self.pos += 1;
+                    Lexeme::FatArrow
                 } else {
                     Lexeme::Eq
                 }
@@ -548,5 +551,28 @@ mod tests {
         assert_eq!(tokens[0], Lexeme::Fn);
         assert!(matches!(tokens[5], Lexeme::AsmBlock { .. }));
         assert_eq!(tokens[6], Lexeme::RBrace);
+    }
+
+    #[test]
+    fn test_match_keyword() {
+        let tokens = lex("match x { 0 => { } _ => { } }");
+        assert_eq!(tokens[0], Lexeme::Match);
+        assert_eq!(tokens[1], Lexeme::Ident("x".into()));
+        assert_eq!(tokens[2], Lexeme::LBrace);
+        assert_eq!(tokens[3], Lexeme::Integer(0));
+        assert_eq!(tokens[4], Lexeme::FatArrow);
+        assert_eq!(tokens[5], Lexeme::LBrace);
+        assert_eq!(tokens[6], Lexeme::RBrace);
+        assert_eq!(tokens[7], Lexeme::Ident("_".into()));
+        assert_eq!(tokens[8], Lexeme::FatArrow);
+    }
+
+    #[test]
+    fn test_fat_arrow_vs_eq() {
+        let tokens = lex("= => ==");
+        assert_eq!(
+            tokens,
+            vec![Lexeme::Eq, Lexeme::FatArrow, Lexeme::EqEq, Lexeme::Eof]
+        );
     }
 }

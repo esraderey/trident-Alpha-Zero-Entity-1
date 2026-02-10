@@ -23,6 +23,7 @@ pub enum Lexeme {
     Event,
     Emit,
     Seal,
+    Match,
 
     // Type keywords
     FieldTy,
@@ -45,6 +46,7 @@ pub enum Lexeme {
     DotDot,       // ..
     Arrow,        // ->
     Eq,           // =
+    FatArrow,     // =>
     EqEq,         // ==
     Plus,         // +
     Star,         // *
@@ -93,6 +95,7 @@ impl Lexeme {
             "event" => Some(Lexeme::Event),
             "emit" => Some(Lexeme::Emit),
             "seal" => Some(Lexeme::Seal),
+            "match" => Some(Lexeme::Match),
             "Field" => Some(Lexeme::FieldTy),
             "XField" => Some(Lexeme::XFieldTy),
             "Bool" => Some(Lexeme::BoolTy),
@@ -125,6 +128,7 @@ impl Lexeme {
             Lexeme::Event => "'event'",
             Lexeme::Emit => "'emit'",
             Lexeme::Seal => "'seal'",
+            Lexeme::Match => "'match'",
             Lexeme::FieldTy => "'Field'",
             Lexeme::XFieldTy => "'XField'",
             Lexeme::BoolTy => "'Bool'",
@@ -143,6 +147,7 @@ impl Lexeme {
             Lexeme::DotDot => "'..'",
             Lexeme::Arrow => "'->'",
             Lexeme::Eq => "'='",
+            Lexeme::FatArrow => "'=>'",
             Lexeme::EqEq => "'=='",
             Lexeme::Plus => "'+'",
             Lexeme::Star => "'*'",

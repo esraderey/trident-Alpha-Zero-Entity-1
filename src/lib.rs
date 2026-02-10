@@ -1089,4 +1089,45 @@ fn main() {
         let result = compile(source, "test.tri");
         assert!(result.is_ok(), "no-cfg code should compile as before");
     }
+
+    // --- pattern matching integration ---
+
+    #[test]
+    fn test_match_compiles() {
+        let source = "program test\nfn main() {\n    let x: Field = pub_read()\n    match x {\n        0 => { pub_write(0) }\n        1 => { pub_write(1) }\n        _ => { pub_write(2) }\n    }\n}";
+        let result = compile(source, "test.tri");
+        assert!(result.is_ok(), "match should compile: {:?}", result.err());
+        let tasm = result.unwrap();
+        assert!(tasm.contains("eq"), "match should emit equality checks");
+        assert!(tasm.contains("skiz"), "match should use skiz for branching");
+    }
+
+    #[test]
+    fn test_match_bool_compiles() {
+        let source = "program test\nfn main() {\n    let b: Bool = pub_read() == pub_read()\n    match b {\n        true => { pub_write(1) }\n        false => { pub_write(0) }\n    }\n}";
+        let result = compile(source, "test.tri");
+        assert!(
+            result.is_ok(),
+            "bool match should compile: {:?}",
+            result.err()
+        );
+    }
+
+    #[test]
+    fn test_match_format_roundtrip() {
+        let source = "program test\n\nfn main() {\n    let x: Field = pub_read()\n    match x {\n        0 => {\n            pub_write(0)\n        }\n        1 => {\n            pub_write(1)\n        }\n        _ => {\n            pub_write(2)\n        }\n    }\n}\n";
+        let formatted = format_source(source, "test.tri").unwrap();
+        let formatted2 = format_source(&formatted, "test.tri").unwrap();
+        assert_eq!(
+            formatted, formatted2,
+            "match formatting should be idempotent"
+        );
+    }
+
+    #[test]
+    fn test_match_non_exhaustive_fails() {
+        let source = "program test\nfn main() {\n    let x: Field = pub_read()\n    match x {\n        0 => { pub_write(0) }\n    }\n}";
+        let result = compile(source, "test.tri");
+        assert!(result.is_err(), "non-exhaustive match should fail");
+    }
 }
