@@ -315,6 +315,22 @@ flags = ["release"]
 
 ## Documentation
 
+### Learning Paths
+
+**New to zero-knowledge?** Start here:
+[For Developers](docs/for-developers.md) -> [Tutorial](docs/tutorial.md) -> [How STARK Proofs Work](docs/stark-proofs.md) -> [Optimization Guide](docs/optimization.md)
+
+**Coming from Solidity/Anchor/CosmWasm?** Start here:
+[For Blockchain Devs](docs/for-blockchain-devs.md) -> [Tutorial](docs/tutorial.md) -> [Programming Model](docs/programming-model.md) -> [Optimization Guide](docs/optimization.md)
+
+**Evaluating Triton VM for your project?** Start here:
+[Vision](docs/vision.md) -> [Comparative Analysis](docs/analysis.md) -> [How STARK Proofs Work](docs/stark-proofs.md) -> [Programming Model](docs/programming-model.md)
+
+**Already writing Trident? Keep these open:**
+[Language Reference](docs/reference.md) | [Error Catalog](docs/errors.md) | [Optimization Guide](docs/optimization.md)
+
+### All Documents
+
 - [Vision](docs/vision.md) -- Why Trident exists and what you can build
 - [Tutorial](docs/tutorial.md) -- Step-by-step developer guide
 - [For Developers](docs/for-developers.md) -- Zero-knowledge from scratch (for Rust/Python/Go devs)

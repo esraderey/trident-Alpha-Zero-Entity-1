@@ -897,8 +897,11 @@ Cross-reference: [vision.md](vision.md) "Recursive STARK Verification",
 
 ### Triton VM and Trident documentation
 
-- [Triton VM specification](https://triton-vm.org/spec/) -- The target VM's
-  instruction set, table structure, and constraint system.
+- [Tutorial](tutorial.md) -- Step-by-step guide from hello world to Merkle
+  proofs, cost analysis, and inline assembly.
+
+- [Language Reference](reference.md) -- Quick lookup: cost-per-instruction
+  table (Section 7) maps every construct to its table impact.
 
 - [Language Specification](spec.md) -- Section 12 covers cost computation in
   full detail. Section 8.4 covers extension-field dot products. Section 13.4
@@ -912,6 +915,9 @@ Cross-reference: [vision.md](vision.md) "Recursive STARK Verification",
   heights and avoiding power-of-2 cliffs. Essential reading after
   understanding the cost model.
 
+- [Error Catalog](errors.md) -- All compiler error messages explained, with
+  links back to relevant concepts.
+
 - [Comparative Analysis](analysis.md) -- Triton VM compared to every other
   ZK system: StarkWare, SP1, RISC Zero, Aleo, Mina, NockVM. Covers quantum
   safety, privacy, performance, and ecosystem strength.
@@ -920,6 +926,13 @@ Cross-reference: [vision.md](vision.md) "Recursive STARK Verification",
   Section 8 gives a one-page STARK overview. Section 9 walks through the
   build-prove-verify CLI workflow.
 
+- [For Blockchain Devs](for-blockchain-devs.md) -- Mental model migration
+  from Solidity/Anchor/CosmWasm. See "Where's My Gas?" for the cost model
+  from a smart contract perspective.
+
 - [Vision](vision.md) -- Why STARK properties -- transparency, quantum
   safety, recursive verification -- matter for real infrastructure intended
   to last decades.
+
+- [Triton VM specification](https://triton-vm.org/spec/) -- The target VM's
+  instruction set, table structure, and constraint system.

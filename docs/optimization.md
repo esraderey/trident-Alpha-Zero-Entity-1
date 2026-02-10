@@ -4,7 +4,7 @@ Strategies for reducing the proving cost of Trident programs on [Triton VM](http
 
 ## Understanding Cost
 
-[Triton VM](https://triton-vm.org/) proves computation correctness using six execution tables. The **proving cost** is determined by the **tallest table**, padded to the next power of two. Reducing the tallest table has the most impact; reducing a table that is already shorter than the tallest has no effect on proving cost.
+[Triton VM](https://triton-vm.org/) proves computation correctness using [six execution tables](stark-proofs.md#4-triton-vms-six-tables). The **proving cost** is determined by the **tallest table**, padded to the next power of two. Reducing the tallest table has the most impact; reducing a table that is already shorter than the tallest has no effect on proving cost. See [How STARK Proofs Work](stark-proofs.md) Section 11 for the exact proving time formula.
 
 ### The Six Tables
 
@@ -253,6 +253,13 @@ The goal is not to minimize every table, but to bring the tallest table down. On
 ## See Also
 
 - [Tutorial](tutorial.md) -- Step-by-step guide to writing Trident programs
+- [Language Reference](reference.md) -- Quick lookup: cost-per-instruction table (Section 7)
 - [Language Specification](spec.md) -- Complete reference including cost computation (Section 12)
+- [How STARK Proofs Work](stark-proofs.md) -- Section 4 (six tables explained), Section 11 (proving cost formula)
+- [Programming Model](programming-model.md) -- How Triton VM execution produces the trace
 - [Error Catalog](errors.md) -- All compiler error messages explained
+- [For Developers](for-developers.md) -- Why bounded loops determine cost (Section 3)
+- [For Blockchain Devs](for-blockchain-devs.md) -- Where's My Gas? section explains cost from a smart contract perspective
+- [Vision](vision.md) -- The cost transparency story and why it matters
+- [Comparative Analysis](analysis.md) -- Hash performance comparison across all ZK systems
 - [Triton VM specification](https://triton-vm.org/spec/) -- Target VM instruction costs

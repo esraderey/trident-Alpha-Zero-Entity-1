@@ -67,7 +67,7 @@ entire state. The prover knows the full tree; the verifier only sees the root.
 
 To read state, the prover **divines** (secretly inputs) the leaf data and then
 **authenticates** it against the root using a Merkle proof. This is the
-divine-and-authenticate pattern:
+divine-and-authenticate pattern (see [Programming Model](programming-model.md) for the full treatment):
 
 ```
 // Trident — read an account from the state tree
@@ -242,7 +242,7 @@ your proving cost. This is the single most important cost concept in ZK
 programming.
 
 Cost is known at **compile time** because all loops have bounded iteration
-counts and there is no dynamic dispatch.
+counts and there is no dynamic dispatch. See [How STARK Proofs Work](stark-proofs.md) Section 4 for why there are exactly six tables, and the [Optimization Guide](optimization.md) for cost reduction strategies.
 
 ```bash
 # See the cost breakdown
@@ -683,10 +683,13 @@ All cryptographic security in Triton VM comes from
 [FRI](https://eccc.weizmann.ac.il/report/2017/134/) commitments.
 No elliptic curves anywhere. No secp256k1, no BN254, no BLS12-381. This
 means proofs are resistant to quantum attacks without any migration needed.
+See [How STARK Proofs Work](stark-proofs.md) Section 10 for the full
+quantum safety argument.
 
 In contrast, every EVM chain's security (transaction signatures, precompiles,
 validator keys) depends on elliptic curves that a sufficiently powerful quantum
-computer could break.
+computer could break. See [Comparative Analysis](analysis.md) for how every
+major ZK system scores on quantum safety.
 
 ---
 
@@ -804,12 +807,22 @@ types, functions, modules, I/O, hashing, events, testing, and cost analysis.
 
 ## Further Reading
 
+### Trident documentation
+
 - [Tutorial](tutorial.md) -- Step-by-step Trident developer guide
+- [Language Reference](reference.md) -- Quick lookup: types, operators, builtins, grammar
+- [Language Specification](spec.md) -- Complete language reference
 - [Programming Model](programming-model.md) -- How programs run in Triton VM
 - [Optimization Guide](optimization.md) -- Cost reduction strategies
-- [Language Specification](spec.md) -- Complete language reference
+- [How STARK Proofs Work](stark-proofs.md) -- From execution traces to quantum-safe proofs
+- [For Developers](for-developers.md) -- Zero-knowledge from scratch (if you also need the ZK primer)
+- [Error Catalog](errors.md) -- All compiler error messages explained
+- [Vision](vision.md) -- Why Trident exists and what you can build
+- [Comparative Analysis](analysis.md) -- Triton VM vs. every other ZK system
+
+### External resources
+
 - [Triton VM](https://triton-vm.org/) -- The target zero-knowledge virtual machine
 - [Triton VM Specification](https://triton-vm.org/spec/) -- TASM instruction set
 - [Neptune Cash](https://neptune.cash/) -- Production blockchain built on Triton VM
 - [Tip5 Hash Function](https://eprint.iacr.org/2023/107) -- The algebraic hash used everywhere
-- [How STARK Proofs Work](stark-proofs.md) -- From execution traces to quantum-safe proofs

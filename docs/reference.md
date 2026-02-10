@@ -268,8 +268,10 @@ Visibility: `pub` (cross-module) or default (private). Two levels only.
 
 ## 7. Cost Per Instruction
 
-Each instruction contributes rows to multiple Triton VM tables simultaneously.
+Each instruction contributes rows to multiple [Triton VM](https://triton-vm.org/) tables simultaneously.
 Proving cost is determined by the **tallest** table (padded to next power of 2).
+See [How STARK Proofs Work](stark-proofs.md) Section 4 for why there are six tables,
+and the [Optimization Guide](optimization.md) for strategies to reduce the dominant table.
 
 | Trident construct | TASM | Processor | Hash | U32 | OpStack | RAM |
 |-------------------|------|----------:|-----:|----:|--------:|----:|
@@ -490,5 +492,9 @@ optimization by the compiler.
 - [Tutorial](tutorial.md) -- Step-by-step developer guide
 - [Programming Model](programming-model.md) -- Triton VM execution model
 - [Optimization Guide](optimization.md) -- Cost reduction strategies
+- [How STARK Proofs Work](stark-proofs.md) -- Section 4 (six tables), Section 11 (proving cost formula)
 - [Error Catalog](errors.md) -- All error messages with explanations
+- [For Developers](for-developers.md) -- Zero-knowledge concepts for conventional programmers
+- [For Blockchain Devs](for-blockchain-devs.md) -- Mental model migration from Solidity/Anchor/CosmWasm
+- [Vision](vision.md) -- Why Trident exists and what you can build
 - [Comparative Analysis](analysis.md) -- Trident vs. Cairo, Leo, Noir, Vyper

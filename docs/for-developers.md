@@ -597,6 +597,8 @@ them explicit rather than hiding them behind abstractions.
 
 - [Tutorial](tutorial.md) -- Step-by-step guide: types, functions, modules,
   I/O, hashing, events, testing, cost analysis
+- [Language Reference](reference.md) -- Quick lookup: types, operators,
+  builtins, grammar, CLI flags
 - [Language Specification](spec.md) -- Complete reference for all language
   constructs, the type system, module system, grammar, and cost model
 - [Programming Model](programming-model.md) -- How programs run inside Triton
@@ -605,6 +607,10 @@ them explicit rather than hiding them behind abstractions.
   cost across all six Triton VM tables
 - [Error Catalog](errors.md) -- Every compiler error message explained with
   fixes
+- [For Blockchain Devs](for-blockchain-devs.md) -- If you come from Solidity,
+  Anchor, or CosmWasm, start here instead
+- [Vision](vision.md) -- Why Trident exists and what you can build with it
+- [Comparative Analysis](analysis.md) -- Triton VM vs. every other ZK system
 
 ### External resources
 

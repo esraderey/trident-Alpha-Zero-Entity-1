@@ -349,8 +349,14 @@ NonDeterminism {              |                    version,
 ## See Also
 
 - [Tutorial](tutorial.md) -- Step-by-step guide to writing Trident programs
+- [Language Reference](reference.md) -- Quick lookup: types, operators, builtins, grammar
 - [Language Specification](spec.md) -- Complete language reference
 - [Optimization Guide](optimization.md) -- Cost reduction strategies for all six tables
+- [How STARK Proofs Work](stark-proofs.md) -- The proof system underlying Triton VM execution
 - [Error Catalog](errors.md) -- All compiler error messages explained
+- [For Developers](for-developers.md) -- Zero-knowledge concepts explained for conventional programmers
+- [For Blockchain Devs](for-blockchain-devs.md) -- Mental model migration from smart contracts
+- [Vision](vision.md) -- Why Trident exists and what you can build
+- [Comparative Analysis](analysis.md) -- Triton VM vs. every other ZK system
 - [Neptune Cash](https://neptune.cash/) -- Reference blockchain using Triton VM
 - [Triton VM specification](https://triton-vm.org/spec/) -- Target VM instruction set

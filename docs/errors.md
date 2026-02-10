@@ -292,7 +292,7 @@ error: for loop with non-constant range requires `bounded N` annotation
   help: add `bounded <max>` after the range to specify the maximum iteration count
 ```
 
-**Cause:** A for loop with a dynamic range does not have a `bounded` annotation.
+**Cause:** A for loop with a dynamic range does not have a `bounded` annotation. Bounded loops are a fundamental requirement of STARK proof systems -- see [For Developers](for-developers.md) Section 3 for why.
 
 **Fix:** Add the `bounded` keyword with a maximum iteration count:
 
@@ -432,7 +432,7 @@ error: recursive function call detected: main -> foo -> main
   help: Trident does not allow recursion; use `for` loops instead
 ```
 
-**Cause:** A function directly or indirectly calls itself. Trident prohibits recursion because [Triton VM](https://triton-vm.org/) cannot handle unbounded call depths.
+**Cause:** A function directly or indirectly calls itself. Trident prohibits recursion because [Triton VM](https://triton-vm.org/) requires deterministic trace lengths -- see [For Developers](for-developers.md) Section 4 for the full explanation.
 
 **Fix:** Rewrite the algorithm using `for` loops with `bounded`:
 
@@ -548,5 +548,12 @@ let p: Point = Point { x: 0, y: 0 }
 ## See Also
 
 - [Tutorial](tutorial.md) -- Step-by-step guide with working examples
+- [Language Reference](reference.md) -- Quick lookup: types, operators, builtins, grammar
 - [Language Specification](spec.md) -- Complete language reference
+- [Programming Model](programming-model.md) -- How programs run in Triton VM
 - [Optimization Guide](optimization.md) -- Cost reduction strategies
+- [How STARK Proofs Work](stark-proofs.md) -- The proof system behind every Trident program
+- [For Developers](for-developers.md) -- Why bounded loops? Why no heap? Concepts explained
+- [For Blockchain Devs](for-blockchain-devs.md) -- Where's My Revert? section maps error patterns
+- [Vision](vision.md) -- Why Trident exists and what you can build
+- [Comparative Analysis](analysis.md) -- Triton VM vs. every other ZK system

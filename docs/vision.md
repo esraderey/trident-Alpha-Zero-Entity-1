@@ -780,6 +780,7 @@ The numbers are small. The foundation is solid. The rest is building.
 ### Trident Documentation
 
 - [Tutorial](tutorial.md) -- Step-by-step guide from hello world to Merkle proofs
+- [Language Reference](reference.md) -- Quick lookup: types, operators, builtins, grammar, CLI flags
 - [Language Specification](spec.md) -- Complete reference for every construct
 - [Programming Model](programming-model.md) -- How Triton VM execution works
 - [Optimization Guide](optimization.md) -- Cost reduction strategies and table management

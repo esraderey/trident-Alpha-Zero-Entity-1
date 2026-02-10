@@ -45,7 +45,7 @@ trident check hello.tri
 
 ## 2. Types
 
-Trident has five primitive types, all with known compile-time widths:
+Trident has five primitive types, all with known compile-time widths (see [Language Reference](reference.md) for the complete type table):
 
 ### Field
 
@@ -429,7 +429,7 @@ std.assert.digest(claimed_root, actual_root)
 
 ## 10. Hashing
 
-[Tip5](https://eprint.iacr.org/2023/107) is Triton VM's native algebraic hash function. It always takes exactly 10 field elements as input and produces a 5-element Digest. Pad unused inputs with zeros:
+[Tip5](https://eprint.iacr.org/2023/107) is Triton VM's native algebraic hash function (see [How STARK Proofs Work](stark-proofs.md) Section 5 for why this hash matters for proofs). It always takes exactly 10 field elements as input and produces a 5-element Digest. Pad unused inputs with zeros:
 
 ```
 use std.hash
@@ -578,7 +578,7 @@ trident build main.tri --save-costs baseline.json
 trident build main.tri --compare baseline.json
 ```
 
-See the [Optimization Guide](optimization.md) for strategies to reduce proving cost.
+See the [Optimization Guide](optimization.md) for strategies to reduce proving cost, and [How STARK Proofs Work](stark-proofs.md) Section 11 for the proving time formula.
 
 ## 15. Inline Assembly
 
@@ -598,9 +598,15 @@ Use with care: the compiler trusts the effect annotation. An incorrect annotatio
 
 ## Next Steps
 
+- [Language Reference](reference.md) -- Quick lookup for types, operators, builtins, and grammar
 - [Language Specification](spec.md) -- Complete reference for all language constructs
 - [Programming Model](programming-model.md) -- How programs run in [Triton VM](https://triton-vm.org/)
 - [Optimization Guide](optimization.md) -- Strategies to reduce proving cost
+- [How STARK Proofs Work](stark-proofs.md) -- The proof system behind every Trident program
 - [Error Catalog](errors.md) -- All error messages explained
+- [For Developers](for-developers.md) -- Zero-knowledge concepts explained for conventional programmers
+- [For Blockchain Devs](for-blockchain-devs.md) -- Mental model migration from Solidity/Anchor/CosmWasm
+- [Vision](vision.md) -- Why Trident exists and what you can build
+- [Comparative Analysis](analysis.md) -- Triton VM vs. every other ZK system
 - [Triton VM specification](https://triton-vm.org/spec/) -- Target VM instruction set
 - [tasm-lib](https://github.com/TritonVM/tasm-lib) -- Reusable TASM snippets
