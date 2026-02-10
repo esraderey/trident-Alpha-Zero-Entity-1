@@ -4,6 +4,7 @@
 /// by walking the AST and summing per-instruction costs. This gives an upper
 /// bound on proving cost without executing the program.
 use std::collections::HashMap;
+use std::path::Path;
 
 use crate::ast::*;
 use crate::diagnostic::Diagnostic;
@@ -99,6 +100,62 @@ impl TableCost {
             "jump"
         }
     }
+
+    /// Serialize to a JSON object string.
+    pub fn to_json_value(&self) -> String {
+        format!(
+            "{{\"processor\": {}, \"hash\": {}, \"u32_table\": {}, \"op_stack\": {}, \"ram\": {}, \"jump_stack\": {}}}",
+            self.processor, self.hash, self.u32_table, self.op_stack, self.ram, self.jump_stack
+        )
+    }
+
+    /// Deserialize from a JSON object string.
+    pub fn from_json_value(s: &str) -> Option<TableCost> {
+        fn extract_u64(s: &str, key: &str) -> Option<u64> {
+            let needle = format!("\"{}\"", key);
+            let idx = s.find(&needle)?;
+            let rest = &s[idx + needle.len()..];
+            let colon = rest.find(':')?;
+            let after_colon = rest[colon + 1..].trim_start();
+            let end = after_colon
+                .find(|c: char| !c.is_ascii_digit())
+                .unwrap_or(after_colon.len());
+            after_colon[..end].parse().ok()
+        }
+
+        Some(TableCost {
+            processor: extract_u64(s, "processor")?,
+            hash: extract_u64(s, "hash")?,
+            u32_table: extract_u64(s, "u32_table")?,
+            op_stack: extract_u64(s, "op_stack")?,
+            ram: extract_u64(s, "ram")?,
+            jump_stack: extract_u64(s, "jump_stack")?,
+        })
+    }
+
+    /// Format a compact annotation string showing non-zero cost fields.
+    pub fn format_annotation(&self) -> String {
+        let mut parts = Vec::new();
+        if self.processor > 0 {
+            parts.push(format!("cc={}", self.processor));
+        }
+        if self.hash > 0 {
+            parts.push(format!("hash={}", self.hash));
+        }
+        if self.u32_table > 0 {
+            parts.push(format!("u32={}", self.u32_table));
+        }
+        if self.op_stack > 0 {
+            parts.push(format!("opst={}", self.op_stack));
+        }
+        if self.ram > 0 {
+            parts.push(format!("ram={}", self.ram));
+        }
+        if self.jump_stack > 0 {
+            parts.push(format!("jump={}", self.jump_stack));
+        }
+        parts.join(" ")
+    }
 }
 
 // --- Per-instruction cost constants ---
@@ -175,7 +232,7 @@ fn cost_binop(op: &BinOp) -> TableCost {
     }
 }
 
-fn cost_builtin(name: &str) -> TableCost {
+pub fn cost_builtin(name: &str) -> TableCost {
     match name {
         // I/O
         "pub_read" | "pub_read2" | "pub_read3" | "pub_read4" | "pub_read5" => TableCost {
@@ -876,6 +933,101 @@ impl CostAnalyzer {
         None
     }
 
+    /// Collect per-statement costs mapped to line numbers.
+    ///
+    /// Walks every function body and records the cost of each statement
+    /// along with the 1-based line number derived from the statement's span.
+    /// Also records function definition lines with call overhead.
+    pub fn stmt_costs(&mut self, file: &File, source: &str) -> Vec<(u32, TableCost)> {
+        // Build line offset table: line_starts[i] = byte offset of line i+1
+        let line_starts: Vec<u32> = std::iter::once(0)
+            .chain(source.bytes().enumerate().filter_map(|(i, b)| {
+                if b == b'\n' {
+                    Some((i + 1) as u32)
+                } else {
+                    None
+                }
+            }))
+            .collect();
+
+        let byte_to_line = |offset: u32| -> u32 {
+            match line_starts.binary_search(&offset) {
+                Ok(i) => (i + 1) as u32,
+                Err(i) => i as u32,
+            }
+        };
+
+        // Ensure fn_bodies are populated (analyze_file does this, but in case
+        // stmt_costs is called standalone)
+        for item in &file.items {
+            if let Item::Fn(func) = &item.node {
+                self.fn_bodies
+                    .entry(func.name.node.clone())
+                    .or_insert_with(|| func.clone());
+            }
+        }
+
+        let mut result: Vec<(u32, TableCost)> = Vec::new();
+
+        for item in &file.items {
+            if let Item::Fn(func) = &item.node {
+                // Record function header with call overhead
+                let fn_line = byte_to_line(item.span.start);
+                result.push((fn_line, CALL_OVERHEAD));
+
+                if let Some(body) = &func.body {
+                    self.collect_block_costs(&body.node, &byte_to_line, &mut result);
+                }
+            }
+        }
+
+        result.sort_by_key(|(line, _)| *line);
+        result
+    }
+
+    /// Recursively collect costs for all statements in a block.
+    fn collect_block_costs(
+        &mut self,
+        block: &Block,
+        byte_to_line: &dyn Fn(u32) -> u32,
+        result: &mut Vec<(u32, TableCost)>,
+    ) {
+        for stmt in &block.stmts {
+            let line = byte_to_line(stmt.span.start);
+            let cost = self.cost_stmt(&stmt.node);
+            result.push((line, cost));
+
+            // Recurse into nested blocks
+            match &stmt.node {
+                Stmt::If {
+                    then_block,
+                    else_block,
+                    ..
+                } => {
+                    self.collect_block_costs(&then_block.node, byte_to_line, result);
+                    if let Some(eb) = else_block {
+                        self.collect_block_costs(&eb.node, byte_to_line, result);
+                    }
+                }
+                Stmt::For { body, .. } => {
+                    self.collect_block_costs(&body.node, byte_to_line, result);
+                }
+                Stmt::Match { arms, .. } => {
+                    for arm in arms {
+                        self.collect_block_costs(&arm.body.node, byte_to_line, result);
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        if let Some(tail) = &block.tail_expr {
+            let line = byte_to_line(tail.span.start);
+            let cost = self.cost_expr(&tail.node);
+            result.push((line, cost));
+        }
+    }
+
     /// H0004: scan a block for loops where declared bound >> constant end value.
     fn scan_loop_bound_waste(&mut self, fn_name: &str, block: &Block) {
         for stmt in &block.stmts {
@@ -918,6 +1070,28 @@ impl CostAnalyzer {
             }
         }
     }
+}
+
+/// Find the index of the matching closing brace for a `{` at position `start`.
+fn find_matching_brace(s: &str, start: usize) -> Option<usize> {
+    let bytes = s.as_bytes();
+    if bytes.get(start) != Some(&b'{') {
+        return None;
+    }
+    let mut depth = 0i32;
+    for (i, &b) in bytes[start..].iter().enumerate() {
+        match b {
+            b'{' => depth += 1,
+            b'}' => {
+                depth -= 1;
+                if depth == 0 {
+                    return Some(start + i);
+                }
+            }
+            _ => {}
+        }
+    }
+    None
 }
 
 /// Smallest power of 2 >= n.
@@ -1149,6 +1323,219 @@ impl ProgramCost {
         }
 
         hints
+    }
+
+    /// Serialize ProgramCost to a JSON string.
+    pub fn to_json(&self) -> String {
+        let mut out = String::new();
+        out.push_str("{\n  \"functions\": {\n");
+        for (i, func) in self.functions.iter().enumerate() {
+            out.push_str(&format!(
+                "    \"{}\": {}",
+                func.name,
+                func.cost.to_json_value()
+            ));
+            if i + 1 < self.functions.len() {
+                out.push(',');
+            }
+            out.push('\n');
+        }
+        out.push_str("  },\n");
+        out.push_str(&format!("  \"total\": {},\n", self.total.to_json_value()));
+        out.push_str(&format!("  \"padded_height\": {}\n", self.padded_height));
+        out.push_str("}\n");
+        out
+    }
+
+    /// Save cost analysis to a JSON file.
+    pub fn save_json(&self, path: &Path) -> Result<(), String> {
+        std::fs::write(path, self.to_json())
+            .map_err(|e| format!("cannot write '{}': {}", path.display(), e))
+    }
+
+    /// Load cost analysis from a JSON file.
+    pub fn load_json(path: &Path) -> Result<ProgramCost, String> {
+        let content = std::fs::read_to_string(path)
+            .map_err(|e| format!("cannot read '{}': {}", path.display(), e))?;
+        Self::from_json(&content)
+    }
+
+    /// Parse a ProgramCost from a JSON string.
+    pub fn from_json(s: &str) -> Result<ProgramCost, String> {
+        // Extract "functions" block
+        let fns_start = s
+            .find("\"functions\"")
+            .ok_or_else(|| "missing 'functions' key".to_string())?;
+        let fns_obj_start = s[fns_start..]
+            .find('{')
+            .map(|i| fns_start + i)
+            .ok_or_else(|| "missing functions object".to_string())?;
+
+        // Find matching closing brace for functions object
+        let fns_obj_end = find_matching_brace(s, fns_obj_start)
+            .ok_or_else(|| "unmatched brace in functions".to_string())?;
+        let fns_content = &s[fns_obj_start + 1..fns_obj_end];
+
+        // Parse individual function entries
+        let mut functions = Vec::new();
+        let mut pos = 0;
+        while pos < fns_content.len() {
+            // Find next function name
+            if let Some(quote_start) = fns_content[pos..].find('"') {
+                let name_start = pos + quote_start + 1;
+                if let Some(quote_end) = fns_content[name_start..].find('"') {
+                    let name = fns_content[name_start..name_start + quote_end].to_string();
+                    // Find the cost object for this function
+                    let after_name = name_start + quote_end + 1;
+                    if let Some(obj_start) = fns_content[after_name..].find('{') {
+                        let abs_obj_start = after_name + obj_start;
+                        if let Some(obj_end) = find_matching_brace(fns_content, abs_obj_start) {
+                            let cost_str = &fns_content[abs_obj_start..=obj_end];
+                            if let Some(cost) = TableCost::from_json_value(cost_str) {
+                                functions.push(FunctionCost {
+                                    name,
+                                    cost,
+                                    per_iteration: None,
+                                });
+                            }
+                            pos = obj_end + 1;
+                            continue;
+                        }
+                    }
+                }
+            }
+            break;
+        }
+
+        // Extract "total"
+        let total = {
+            let total_start = s
+                .find("\"total\"")
+                .ok_or_else(|| "missing 'total' key".to_string())?;
+            let obj_start = s[total_start..]
+                .find('{')
+                .map(|i| total_start + i)
+                .ok_or_else(|| "missing total object".to_string())?;
+            let obj_end = find_matching_brace(s, obj_start)
+                .ok_or_else(|| "unmatched brace in total".to_string())?;
+            TableCost::from_json_value(&s[obj_start..=obj_end])
+                .ok_or_else(|| "invalid total cost".to_string())?
+        };
+
+        // Extract "padded_height"
+        let padded_height = {
+            let ph_start = s
+                .find("\"padded_height\"")
+                .ok_or_else(|| "missing 'padded_height' key".to_string())?;
+            let rest = &s[ph_start + "\"padded_height\"".len()..];
+            let colon = rest
+                .find(':')
+                .ok_or_else(|| "missing colon after padded_height".to_string())?;
+            let after_colon = rest[colon + 1..].trim_start();
+            let end = after_colon
+                .find(|c: char| !c.is_ascii_digit())
+                .unwrap_or(after_colon.len());
+            after_colon[..end]
+                .parse::<u64>()
+                .map_err(|e| format!("invalid padded_height: {}", e))?
+        };
+
+        Ok(ProgramCost {
+            program_name: String::new(),
+            functions,
+            total,
+            attestation_hash_rows: 0,
+            padded_height,
+            estimated_proving_secs: 0.0,
+            loop_bound_waste: Vec::new(),
+        })
+    }
+
+    /// Format a comparison between this cost and another (old vs new).
+    pub fn format_comparison(&self, other: &ProgramCost) -> String {
+        let mut out = String::new();
+        out.push_str("Cost comparison:\n");
+        out.push_str(&format!(
+            "{:<20} {:>9} {:>9}  {:>6}\n",
+            "Function", "cc (old)", "cc (new)", "delta"
+        ));
+        out.push_str(&"-".repeat(48));
+        out.push('\n');
+
+        // Collect all function names from both
+        let mut all_names: Vec<String> = Vec::new();
+        for f in &self.functions {
+            if !all_names.contains(&f.name) {
+                all_names.push(f.name.clone());
+            }
+        }
+        for f in &other.functions {
+            if !all_names.contains(&f.name) {
+                all_names.push(f.name.clone());
+            }
+        }
+
+        for name in &all_names {
+            let old_cc = self
+                .functions
+                .iter()
+                .find(|f| f.name == *name)
+                .map(|f| f.cost.processor)
+                .unwrap_or(0);
+            let new_cc = other
+                .functions
+                .iter()
+                .find(|f| f.name == *name)
+                .map(|f| f.cost.processor)
+                .unwrap_or(0);
+            let delta = new_cc as i64 - old_cc as i64;
+            let delta_str = if delta > 0 {
+                format!("+{}", delta)
+            } else if delta == 0 {
+                "0".to_string()
+            } else {
+                format!("{}", delta)
+            };
+            out.push_str(&format!(
+                "{:<20} {:>9} {:>9}  {:>6}\n",
+                name, old_cc, new_cc, delta_str
+            ));
+        }
+
+        out.push_str(&"-".repeat(48));
+        out.push('\n');
+
+        let old_total = self.total.processor;
+        let new_total = other.total.processor;
+        let total_delta = new_total as i64 - old_total as i64;
+        let total_delta_str = if total_delta > 0 {
+            format!("+{}", total_delta)
+        } else if total_delta == 0 {
+            "0".to_string()
+        } else {
+            format!("{}", total_delta)
+        };
+        out.push_str(&format!(
+            "{:<20} {:>9} {:>9}  {:>6}\n",
+            "TOTAL", old_total, new_total, total_delta_str
+        ));
+
+        let old_ph = self.padded_height;
+        let new_ph = other.padded_height;
+        let ph_delta = new_ph as i64 - old_ph as i64;
+        let ph_delta_str = if ph_delta > 0 {
+            format!("+{}", ph_delta)
+        } else if ph_delta == 0 {
+            "0".to_string()
+        } else {
+            format!("{}", ph_delta)
+        };
+        out.push_str(&format!(
+            "{:<20} {:>9} {:>9}  {:>6}\n",
+            "Padded height:", old_ph, new_ph, ph_delta_str
+        ));
+
+        out
     }
 
     /// Generate diagnostics for power-of-2 boundary proximity.
@@ -1491,6 +1878,199 @@ mod tests {
         assert!(
             cost.total.processor >= 1,
             "asm block cost should count only instructions"
+        );
+    }
+
+    #[test]
+    fn test_stmt_costs_lines() {
+        let source =
+            "program test\n\nfn main() {\n    let x: Field = pub_read()\n    pub_write(x)\n}\n";
+        let (tokens, _, _) = Lexer::new(source, 0).tokenize();
+        let file = Parser::new(tokens).parse_file().unwrap();
+        let mut analyzer = CostAnalyzer::new();
+        // Populate fn_bodies for cost_fn
+        analyzer.analyze_file(&file);
+        let costs = analyzer.stmt_costs(&file, source);
+
+        // Should have entries for the fn header (line 3) and each statement
+        assert!(
+            !costs.is_empty(),
+            "stmt_costs should return non-empty results"
+        );
+
+        // fn main() is on line 3
+        assert!(
+            costs.iter().any(|(line, _)| *line == 3),
+            "should have a cost entry for fn main() on line 3, got lines: {:?}",
+            costs.iter().map(|(l, _)| l).collect::<Vec<_>>()
+        );
+
+        // let x = pub_read() is on line 4
+        assert!(
+            costs.iter().any(|(line, _)| *line == 4),
+            "should have a cost entry for let statement on line 4"
+        );
+
+        // pub_write(x) is on line 5
+        assert!(
+            costs.iter().any(|(line, _)| *line == 5),
+            "should have a cost entry for pub_write on line 5"
+        );
+
+        // Verify all costs have non-zero processor count
+        for (line, cost) in &costs {
+            if *line >= 3 && *line <= 5 {
+                assert!(
+                    cost.processor > 0 || cost.jump_stack > 0,
+                    "line {} should have non-zero cost",
+                    line
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_cost_json_roundtrip() {
+        let original = TableCost {
+            processor: 10,
+            hash: 6,
+            u32_table: 33,
+            op_stack: 8,
+            ram: 5,
+            jump_stack: 2,
+        };
+        let json = original.to_json_value();
+        let parsed = TableCost::from_json_value(&json).expect("should parse JSON");
+        assert_eq!(parsed.processor, original.processor);
+        assert_eq!(parsed.hash, original.hash);
+        assert_eq!(parsed.u32_table, original.u32_table);
+        assert_eq!(parsed.op_stack, original.op_stack);
+        assert_eq!(parsed.ram, original.ram);
+        assert_eq!(parsed.jump_stack, original.jump_stack);
+    }
+
+    #[test]
+    fn test_program_cost_json_roundtrip() {
+        let cost = analyze(
+            "program test\nfn helper(x: Field) -> Field {\n    x + x\n}\nfn main() {\n    let x: Field = pub_read()\n    pub_write(helper(x))\n}",
+        );
+        let json = cost.to_json();
+        let parsed = ProgramCost::from_json(&json).expect("should parse program cost JSON");
+        assert_eq!(parsed.total.processor, cost.total.processor);
+        assert_eq!(parsed.total.hash, cost.total.hash);
+        assert_eq!(parsed.padded_height, cost.padded_height);
+        assert_eq!(parsed.functions.len(), cost.functions.len());
+        for (orig, loaded) in cost.functions.iter().zip(parsed.functions.iter()) {
+            assert_eq!(orig.name, loaded.name);
+            assert_eq!(orig.cost.processor, loaded.cost.processor);
+        }
+    }
+
+    #[test]
+    fn test_comparison_format() {
+        let old_cost = ProgramCost {
+            program_name: "test".to_string(),
+            functions: vec![
+                FunctionCost {
+                    name: "main".to_string(),
+                    cost: TableCost {
+                        processor: 10,
+                        hash: 6,
+                        u32_table: 0,
+                        op_stack: 8,
+                        ram: 0,
+                        jump_stack: 2,
+                    },
+                    per_iteration: None,
+                },
+                FunctionCost {
+                    name: "helper".to_string(),
+                    cost: TableCost {
+                        processor: 5,
+                        hash: 0,
+                        u32_table: 0,
+                        op_stack: 3,
+                        ram: 0,
+                        jump_stack: 0,
+                    },
+                    per_iteration: None,
+                },
+            ],
+            total: TableCost {
+                processor: 15,
+                hash: 6,
+                u32_table: 0,
+                op_stack: 11,
+                ram: 0,
+                jump_stack: 2,
+            },
+            attestation_hash_rows: 0,
+            padded_height: 32,
+            estimated_proving_secs: 0.0,
+            loop_bound_waste: Vec::new(),
+        };
+
+        let new_cost = ProgramCost {
+            program_name: "test".to_string(),
+            functions: vec![
+                FunctionCost {
+                    name: "main".to_string(),
+                    cost: TableCost {
+                        processor: 12,
+                        hash: 6,
+                        u32_table: 0,
+                        op_stack: 10,
+                        ram: 0,
+                        jump_stack: 2,
+                    },
+                    per_iteration: None,
+                },
+                FunctionCost {
+                    name: "helper".to_string(),
+                    cost: TableCost {
+                        processor: 5,
+                        hash: 0,
+                        u32_table: 0,
+                        op_stack: 3,
+                        ram: 0,
+                        jump_stack: 0,
+                    },
+                    per_iteration: None,
+                },
+            ],
+            total: TableCost {
+                processor: 17,
+                hash: 6,
+                u32_table: 0,
+                op_stack: 13,
+                ram: 0,
+                jump_stack: 2,
+            },
+            attestation_hash_rows: 0,
+            padded_height: 32,
+            estimated_proving_secs: 0.0,
+            loop_bound_waste: Vec::new(),
+        };
+
+        let comparison = old_cost.format_comparison(&new_cost);
+        assert!(
+            comparison.contains("Cost comparison:"),
+            "should contain header"
+        );
+        assert!(comparison.contains("main"), "should contain function name");
+        assert!(
+            comparison.contains("helper"),
+            "should contain helper function"
+        );
+        assert!(comparison.contains("TOTAL"), "should contain TOTAL");
+        assert!(
+            comparison.contains("+2"),
+            "should show +2 delta for main and total"
+        );
+        assert!(comparison.contains("0"), "should show 0 delta for helper");
+        assert!(
+            comparison.contains("Padded height:"),
+            "should contain padded height"
         );
     }
 }

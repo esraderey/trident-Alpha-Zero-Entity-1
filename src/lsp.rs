@@ -211,7 +211,9 @@ impl LanguageServer for TridentLsp {
         }
 
         // Check builtins first
-        if let Some(info) = builtin_hover(&word) {
+        if let Some(mut info) = builtin_hover(&word) {
+            let cost = crate::cost::cost_builtin(&word);
+            info = format!("{}\n\n**Cost:** {}", info, format_cost_inline(&cost));
             return Ok(Some(Hover {
                 contents: HoverContents::Markup(MarkupContent {
                     kind: MarkupKind::Markdown,
@@ -238,12 +240,16 @@ impl LanguageServer for TridentLsp {
                     } else {
                         format!(" -> {}", ret_ty.display())
                     };
-                    let info = format!(
+                    let mut info = format!(
                         "```trident\nfn {}({}){}\n```",
                         fname,
                         params_str.join(", "),
                         ret
                     );
+                    // Compute cost for this user-defined function
+                    if let Some(cost) = self.compute_function_cost(&file_path, bare) {
+                        info = format!("{}\n\n**Cost:** {}", info, format_cost_inline(&cost));
+                    }
                     return Ok(Some(Hover {
                         contents: HoverContents::Markup(MarkupContent {
                             kind: MarkupKind::Markdown,
@@ -644,6 +650,55 @@ impl TridentLsp {
 
         all_exports
     }
+
+    /// Compute cost for a specific user-defined function by name.
+    ///
+    /// Resolves project modules, parses sources, runs CostAnalyzer, and
+    /// looks up the named function in the resulting ProgramCost.
+    fn compute_function_cost(
+        &self,
+        file_path: &Path,
+        fn_name: &str,
+    ) -> Option<crate::cost::TableCost> {
+        let dir = file_path.parent().unwrap_or(Path::new("."));
+        let entry = match crate::project::Project::find(dir) {
+            Some(toml_path) => match crate::project::Project::load(&toml_path) {
+                Ok(p) => p.entry,
+                Err(_) => file_path.to_path_buf(),
+            },
+            None => file_path.to_path_buf(),
+        };
+
+        let modules = resolve_modules(&entry).ok()?;
+
+        // Find the module that contains this function and analyze it
+        for module in &modules {
+            let parsed =
+                crate::parse_source_silent(&module.source, &module.file_path.to_string_lossy())
+                    .ok()?;
+
+            // Check if this module contains the function
+            let has_fn = parsed.items.iter().any(|item| {
+                if let Item::Fn(f) = &item.node {
+                    f.name.node == fn_name
+                } else {
+                    false
+                }
+            });
+
+            if has_fn {
+                let mut analyzer = crate::cost::CostAnalyzer::new();
+                let program_cost = analyzer.analyze_file(&parsed);
+                for fc in &program_cost.functions {
+                    if fc.name == fn_name {
+                        return Some(fc.cost.clone());
+                    }
+                }
+            }
+        }
+
+        None
+    }
 }
 
 // --- Helpers ---
@@ -817,6 +872,30 @@ fn format_ast_type(ty: &ast::Type) -> String {
         }
         ast::Type::Named(path) => path.as_dotted(),
     }
+}
+
+/// Format a `TableCost` as a compact inline string for hover display.
+///
+/// Only shows non-zero tables (except `cc` which is always shown).
+/// Example output: `cc=1, hash=6 | dominant: hash`
+fn format_cost_inline(cost: &crate::cost::TableCost) -> String {
+    let mut parts = vec![format!("cc={}", cost.processor)];
+    if cost.hash > 0 {
+        parts.push(format!("hash={}", cost.hash));
+    }
+    if cost.u32_table > 0 {
+        parts.push(format!("u32={}", cost.u32_table));
+    }
+    if cost.op_stack > 0 {
+        parts.push(format!("opstack={}", cost.op_stack));
+    }
+    if cost.ram > 0 {
+        parts.push(format!("ram={}", cost.ram));
+    }
+    if cost.jump_stack > 0 {
+        parts.push(format!("jump={}", cost.jump_stack));
+    }
+    format!("{} | dominant: {}", parts.join(", "), cost.dominant_table())
 }
 
 /// Hover info for builtin functions.
@@ -1472,5 +1551,76 @@ mod tests {
         assert_eq!(params[0], ("base", "U32"));
         assert_eq!(params[1], ("exp", "U32"));
         assert_eq!(ret, "U32");
+    }
+
+    // --- format_cost_inline ---
+
+    #[test]
+    fn test_format_cost_inline_zero() {
+        let cost = crate::cost::TableCost::ZERO;
+        let s = format_cost_inline(&cost);
+        assert!(s.contains("cc=0"), "should contain cc=0, got: {}", s);
+        assert!(
+            s.contains("dominant:"),
+            "should contain dominant label, got: {}",
+            s
+        );
+    }
+
+    #[test]
+    fn test_format_cost_inline_hash_dominant() {
+        let cost = crate::cost::TableCost {
+            processor: 1,
+            hash: 6,
+            u32_table: 0,
+            op_stack: 1,
+            ram: 0,
+            jump_stack: 0,
+        };
+        let s = format_cost_inline(&cost);
+        assert!(s.contains("cc=1"), "should contain cc=1, got: {}", s);
+        assert!(s.contains("hash=6"), "should contain hash=6, got: {}", s);
+        assert!(
+            s.contains("dominant: hash"),
+            "dominant should be hash, got: {}",
+            s
+        );
+        // u32 is zero, so it should NOT appear
+        assert!(
+            !s.contains("u32="),
+            "zero u32 should be omitted, got: {}",
+            s
+        );
+    }
+
+    // --- builtin hover cost ---
+
+    #[test]
+    fn test_builtin_hover_includes_cost() {
+        let mut info = builtin_hover("hash").unwrap();
+        let cost = crate::cost::cost_builtin("hash");
+        info = format!("{}\n\n**Cost:** {}", info, format_cost_inline(&cost));
+        assert!(
+            info.contains("hash=6"),
+            "hash hover should include hash=6 cost, got: {}",
+            info
+        );
+        assert!(
+            info.contains("**Cost:**"),
+            "hover should include Cost header, got: {}",
+            info
+        );
+    }
+
+    #[test]
+    fn test_builtin_hover_pub_read_cost() {
+        let mut info = builtin_hover("pub_read").unwrap();
+        let cost = crate::cost::cost_builtin("pub_read");
+        info = format!("{}\n\n**Cost:** {}", info, format_cost_inline(&cost));
+        assert!(
+            info.contains("cc=1"),
+            "pub_read hover should show cc=1, got: {}",
+            info
+        );
     }
 }

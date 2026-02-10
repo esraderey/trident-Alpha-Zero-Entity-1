@@ -151,10 +151,16 @@ impl<'src> Lexer<'src> {
             if self.pos < self.source.len() && self.source[self.pos] == b')' {
                 self.pos += 1;
             } else {
-                self.diagnostics.push(Diagnostic::error(
-                    "expected ')' after asm effect annotation".to_string(),
-                    Span::new(self.file_id, self.pos as u32, self.pos as u32),
-                ));
+                self.diagnostics.push(
+                    Diagnostic::error(
+                        "expected ')' after asm stack effect annotation".to_string(),
+                        Span::new(self.file_id, self.pos as u32, self.pos as u32),
+                    )
+                    .with_help(
+                        "asm effect annotations look like `asm(+1) { ... }` or `asm(-2) { ... }`"
+                            .to_string(),
+                    ),
+                );
             }
             // Skip whitespace after annotation
             while self.pos < self.source.len() && self.source[self.pos].is_ascii_whitespace() {
@@ -165,9 +171,9 @@ impl<'src> Lexer<'src> {
         // Expect '{'
         if self.pos >= self.source.len() || self.source[self.pos] != b'{' {
             self.diagnostics.push(Diagnostic::error(
-                "expected '{' after asm".to_string(),
+                "expected '{' after `asm` keyword".to_string(),
                 Span::new(self.file_id, self.pos as u32, self.pos as u32),
-            ));
+            ).with_help("inline assembly syntax is `asm { instructions }` or `asm(+N) { instructions }`".to_string()));
             return self.make_token(
                 Lexeme::AsmBlock {
                     body: String::new(),
@@ -200,10 +206,15 @@ impl<'src> Lexer<'src> {
         if self.pos < self.source.len() {
             self.pos += 1; // skip closing '}'
         } else {
-            self.diagnostics.push(Diagnostic::error(
-                "unterminated asm block".to_string(),
-                Span::new(self.file_id, start as u32, self.pos as u32),
-            ));
+            self.diagnostics.push(
+                Diagnostic::error(
+                    "unterminated asm block: missing closing '}'".to_string(),
+                    Span::new(self.file_id, start as u32, self.pos as u32),
+                )
+                .with_help(
+                    "every `asm { ... }` block must have a matching closing brace".to_string(),
+                ),
+            );
         }
 
         self.make_token(Lexeme::AsmBlock { body, effect }, start, self.pos)
@@ -218,10 +229,13 @@ impl<'src> Lexer<'src> {
         match text.parse::<u64>() {
             Ok(n) => self.make_token(Lexeme::Integer(n), start, self.pos),
             Err(_) => {
-                self.diagnostics.push(Diagnostic::error(
-                    format!("integer literal '{}' is too large", text),
-                    Span::new(self.file_id, start as u32, self.pos as u32),
-                ));
+                self.diagnostics.push(
+                    Diagnostic::error(
+                        format!("integer literal '{}' is too large", text),
+                        Span::new(self.file_id, start as u32, self.pos as u32),
+                    )
+                    .with_help(format!("maximum integer value is {}", u64::MAX)),
+                );
                 self.make_token(Lexeme::Integer(0), start, self.pos)
             }
         }
@@ -260,10 +274,13 @@ impl<'src> Lexer<'src> {
                     self.pos += 1;
                     Lexeme::Arrow
                 } else {
-                    self.diagnostics.push(Diagnostic::error(
-                        "unexpected '-'; subtraction uses sub() function".to_string(),
-                        Span::new(self.file_id, start as u32, self.pos as u32),
-                    ));
+                    self.diagnostics.push(
+                        Diagnostic::error(
+                            "unexpected '-'; Trident has no subtraction operator".to_string(),
+                            Span::new(self.file_id, start as u32, self.pos as u32),
+                        )
+                        .with_help("use the `sub(a, b)` function instead of `a - b`".to_string()),
+                    );
                     return self.next_token();
                 }
             }
@@ -291,10 +308,16 @@ impl<'src> Lexer<'src> {
                     self.pos += 1;
                     Lexeme::SlashPercent
                 } else {
-                    self.diagnostics.push(Diagnostic::error(
-                        "unexpected '/'; division uses /% (divmod) operator".to_string(),
-                        Span::new(self.file_id, start as u32, self.pos as u32),
-                    ));
+                    self.diagnostics.push(
+                        Diagnostic::error(
+                            "unexpected '/'; Trident has no division operator".to_string(),
+                            Span::new(self.file_id, start as u32, self.pos as u32),
+                        )
+                        .with_help(
+                            "use the `/% (divmod)` operator instead: `let (quot, rem) = a /% b`"
+                                .to_string(),
+                        ),
+                    );
                     return self.next_token();
                 }
             }
@@ -308,10 +331,15 @@ impl<'src> Lexer<'src> {
                 Lexeme::Underscore
             }
             _ => {
-                self.diagnostics.push(Diagnostic::error(
-                    format!("unexpected character '{}'", ch as char),
-                    Span::new(self.file_id, start as u32, self.pos as u32),
-                ));
+                self.diagnostics.push(
+                    Diagnostic::error(
+                        format!("unexpected character '{}' (U+{:04X})", ch as char, ch),
+                        Span::new(self.file_id, start as u32, self.pos as u32),
+                    )
+                    .with_help(
+                        "this character is not recognized as part of Trident syntax".to_string(),
+                    ),
+                );
                 return self.next_token();
             }
         };
@@ -573,6 +601,95 @@ mod tests {
         assert_eq!(
             tokens,
             vec![Lexeme::Eq, Lexeme::FatArrow, Lexeme::EqEq, Lexeme::Eof]
+        );
+    }
+
+    // --- Error path tests ---
+
+    fn lex_with_errors(source: &str) -> (Vec<Lexeme>, Vec<Diagnostic>) {
+        let (tokens, _comments, diags) = Lexer::new(source, 0).tokenize();
+        let lexemes = tokens.into_iter().map(|t| t.node).collect();
+        (lexemes, diags)
+    }
+
+    #[test]
+    fn test_error_unexpected_character() {
+        let (_tokens, diags) = lex_with_errors("@");
+        assert!(!diags.is_empty(), "should produce an error for '@'");
+        assert!(
+            diags[0].message.contains("unexpected character '@'"),
+            "error should name the character, got: {}",
+            diags[0].message
+        );
+        assert!(
+            diags[0].help.is_some(),
+            "unexpected character error should have help text"
+        );
+    }
+
+    #[test]
+    fn test_error_subtraction_operator() {
+        let (_tokens, diags) = lex_with_errors("a - b");
+        assert!(!diags.is_empty(), "should produce an error for '-'");
+        assert!(
+            diags[0].message.contains("no subtraction operator"),
+            "should explain there is no subtraction, got: {}",
+            diags[0].message
+        );
+        assert!(
+            diags[0].help.as_deref().unwrap().contains("sub(a, b)"),
+            "help should suggest sub() function"
+        );
+    }
+
+    #[test]
+    fn test_error_division_operator() {
+        let (_tokens, diags) = lex_with_errors("a / b");
+        assert!(!diags.is_empty(), "should produce an error for '/'");
+        assert!(
+            diags[0].message.contains("no division operator"),
+            "should explain there is no division, got: {}",
+            diags[0].message
+        );
+        assert!(
+            diags[0].help.as_deref().unwrap().contains("/%"),
+            "help should suggest /% operator"
+        );
+    }
+
+    #[test]
+    fn test_error_integer_too_large() {
+        let (_tokens, diags) = lex_with_errors("99999999999999999999999");
+        assert!(
+            !diags.is_empty(),
+            "should produce an error for huge integer"
+        );
+        assert!(
+            diags[0].message.contains("too large"),
+            "should say the integer is too large, got: {}",
+            diags[0].message
+        );
+        assert!(
+            diags[0].help.is_some(),
+            "integer overflow error should have help text"
+        );
+    }
+
+    #[test]
+    fn test_error_unterminated_asm_block() {
+        let (_tokens, diags) = lex_with_errors("asm { push 1");
+        assert!(
+            !diags.is_empty(),
+            "should produce an error for unterminated asm"
+        );
+        assert!(
+            diags[0].message.contains("unterminated asm block"),
+            "should report unterminated asm, got: {}",
+            diags[0].message
+        );
+        assert!(
+            diags[0].help.is_some(),
+            "unterminated asm error should have help text"
         );
     }
 }

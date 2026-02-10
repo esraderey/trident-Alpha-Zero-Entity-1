@@ -420,9 +420,10 @@ impl TypeChecker {
                             None
                         })
                         .unwrap_or(file.name.span);
-                    self.error(
+                    self.error_with_help(
                         format!("recursive call cycle detected: {}", path.join(" -> ")),
                         span,
+                        "Triton VM does not support recursion; use loops (`for`) or iterative algorithms instead".to_string(),
                     );
                 }
             }
@@ -688,7 +689,11 @@ impl TypeChecker {
         let mut terminated = false;
         for stmt in &block.stmts {
             if terminated {
-                self.error("unreachable code after return".to_string(), stmt.span);
+                self.error_with_help(
+                    "unreachable code after return statement".to_string(),
+                    stmt.span,
+                    "remove this code or move it before the return".to_string(),
+                );
                 break;
             }
             self.check_stmt(&stmt.node, stmt.span);
@@ -698,9 +703,10 @@ impl TypeChecker {
         }
         if terminated {
             if let Some(tail) = &block.tail_expr {
-                self.error(
+                self.error_with_help(
                     "unreachable tail expression after return".to_string(),
                     tail.span,
+                    "remove this expression or move it before the return".to_string(),
                 );
             }
         }
@@ -825,9 +831,10 @@ impl TypeChecker {
             Stmt::Assign { place, value } => {
                 let (place_ty, is_mut) = self.check_place(&place.node, place.span);
                 if !is_mut {
-                    self.error(
+                    self.error_with_help(
                         "cannot assign to immutable variable".to_string(),
                         place.span,
+                        "declare the variable with `let mut` to make it mutable".to_string(),
                     );
                 }
                 let val_ty = self.check_expr(&value.node, value.span);
@@ -881,10 +888,10 @@ impl TypeChecker {
                 if bound.is_none() {
                     // end must be a compile-time constant
                     if !self.is_constant_expr(&end.node) {
-                        self.error(
-                            "loop end must be a compile-time constant, or use 'bounded N'"
-                                .to_string(),
+                        self.error_with_help(
+                            "loop end must be a compile-time constant, or annotated with a bound".to_string(),
                             end.span,
+                            "use a literal like `for i in 0..10 { }` or add a bound: `for i in 0..n bounded 100 { }`".to_string(),
                         );
                     }
                 }
@@ -928,9 +935,11 @@ impl TypeChecker {
                     for name in names {
                         if let Some(info) = self.lookup_var(&name.node) {
                             if !info.mutable {
-                                self.error(
+                                self.error_with_help(
                                     format!("cannot assign to immutable variable '{}'", name.node),
                                     name.span,
+                                    "declare the variable with `let mut` to make it mutable"
+                                        .to_string(),
                                 );
                             }
                         }
@@ -966,9 +975,10 @@ impl TypeChecker {
 
                 for arm in arms {
                     if wildcard_seen {
-                        self.error(
+                        self.error_with_help(
                             "unreachable pattern after wildcard '_'".to_string(),
                             arm.pattern.span,
+                            "the wildcard `_` already matches all values; remove this arm or move it before `_`".to_string(),
                         );
                     }
 
@@ -1013,10 +1023,11 @@ impl TypeChecker {
                 let exhaustive =
                     has_wildcard || (scrutinee_ty == Ty::Bool && has_true && has_false);
                 if !exhaustive {
-                    self.error(
-                        "non-exhaustive match: add a wildcard '_' arm or cover all values"
-                            .to_string(),
+                    self.error_with_help(
+                        "non-exhaustive match: not all possible values are covered".to_string(),
                         expr.span,
+                        "add a wildcard `_ => { ... }` arm to handle all remaining values"
+                            .to_string(),
                     );
                 }
             }
@@ -1109,7 +1120,11 @@ impl TypeChecker {
                         }
                     }
                 }
-                self.error(format!("undefined variable '{}'", name), span);
+                self.error_with_help(
+                    format!("undefined variable '{}'", name),
+                    span,
+                    "check that the variable is declared with `let` before use".to_string(),
+                );
                 Ty::Field
             }
             Expr::BinOp { op, lhs, rhs } => {
@@ -1281,7 +1296,12 @@ impl TypeChecker {
 
                     sig.return_ty
                 } else {
-                    self.error(format!("undefined function '{}'", fn_name), span);
+                    self.error_with_help(
+                        format!("undefined function '{}'", fn_name),
+                        span,
+                        "check the function name and ensure the module is imported with `use`"
+                            .to_string(),
+                    );
                     Ty::Field
                 }
             }
@@ -1363,7 +1383,12 @@ impl TypeChecker {
                     }
                     Ty::Struct(sty)
                 } else {
-                    self.error(format!("undefined struct '{}'", struct_name), span);
+                    self.error_with_help(
+                        format!("undefined struct '{}'", struct_name),
+                        span,
+                        "check the struct name spelling, or import the module that defines it"
+                            .to_string(),
+                    );
                     Ty::Field
                 }
             }
@@ -1630,6 +1655,11 @@ impl TypeChecker {
 
     fn error(&mut self, msg: String, span: Span) {
         self.diagnostics.push(Diagnostic::error(msg, span));
+    }
+
+    fn error_with_help(&mut self, msg: String, span: Span, help: String) {
+        self.diagnostics
+            .push(Diagnostic::error(msg, span).with_help(help));
     }
 
     fn warning(&mut self, msg: String, span: Span) {
@@ -2463,5 +2493,248 @@ mod tests {
         // Test functions should type-check but not interfere with normal compilation
         let result = check("program test\n#[test]\nfn check() {\n    assert(true)\n}\nfn main() {\n    pub_write(pub_read())\n}");
         assert!(result.is_ok());
+    }
+
+    // --- Error path tests: message quality ---
+
+    fn check_err(source: &str) -> Vec<Diagnostic> {
+        match check(source) {
+            Ok(_) => vec![],
+            Err(diags) => diags,
+        }
+    }
+
+    #[test]
+    fn test_error_binary_op_type_mismatch() {
+        let diags = check_err(
+            "program test\nfn main() {\n    let a: Field = pub_read()\n    let b: Bool = a == a\n    let c: Field = a + b\n}",
+        );
+        assert!(!diags.is_empty(), "should error on Field + Bool");
+        let msg = &diags[0].message;
+        assert!(
+            msg.contains("Field") && msg.contains("Bool"),
+            "should show both types in mismatch, got: {}",
+            msg
+        );
+    }
+
+    #[test]
+    fn test_error_function_arity_mismatch() {
+        let diags = check_err(
+            "program test\nfn add(a: Field, b: Field) -> Field {\n    a + b\n}\nfn main() {\n    let x: Field = add(1)\n}",
+        );
+        assert!(!diags.is_empty(), "should error on wrong argument count");
+        let msg = &diags[0].message;
+        assert!(
+            msg.contains("expects 2 arguments") && msg.contains("got 1"),
+            "should show expected and actual arity, got: {}",
+            msg
+        );
+    }
+
+    #[test]
+    fn test_error_assign_to_immutable() {
+        let diags =
+            check_err("program test\nfn main() {\n    let x: Field = pub_read()\n    x = 42\n}");
+        assert!(!diags.is_empty(), "should error on assigning to immutable");
+        let msg = &diags[0].message;
+        assert!(
+            msg.contains("immutable"),
+            "should mention immutability, got: {}",
+            msg
+        );
+        assert!(
+            diags[0].help.as_deref().unwrap().contains("let mut"),
+            "help should suggest `let mut`"
+        );
+    }
+
+    #[test]
+    fn test_error_return_type_mismatch() {
+        // pub_read() returns Field, but let binding declares U32 -- a type mismatch
+        let diags = check_err("program test\nfn main() {\n    let x: U32 = pub_read()\n}");
+        assert!(!diags.is_empty(), "should error on Field assigned to U32");
+        let msg = &diags[0].message;
+        assert!(
+            msg.contains("U32") && msg.contains("Field"),
+            "should show both expected and actual types, got: {}",
+            msg
+        );
+    }
+
+    #[test]
+    fn test_error_undefined_event() {
+        let diags = check_err("program test\nfn main() {\n    emit NoSuchEvent { x: 1 }\n}");
+        assert!(!diags.is_empty(), "should error on undefined event");
+        assert!(
+            diags[0].message.contains("undefined event 'NoSuchEvent'"),
+            "should name the undefined event, got: {}",
+            diags[0].message
+        );
+    }
+
+    #[test]
+    fn test_error_struct_unknown_field() {
+        let diags = check_err(
+            "program test\nstruct Point { x: Field, y: Field }\nfn main() {\n    let p: Point = Point { x: 1, y: 2, z: 3 }\n}",
+        );
+        assert!(!diags.is_empty(), "should error on unknown struct field");
+        let has_unknown = diags
+            .iter()
+            .any(|d| d.message.contains("unknown field 'z'"));
+        assert!(
+            has_unknown,
+            "should report unknown field 'z', got: {:?}",
+            diags.iter().map(|d| &d.message).collect::<Vec<_>>()
+        );
+    }
+
+    #[test]
+    fn test_error_recursion_has_help() {
+        let diags =
+            check_err("program test\nfn loop_forever() {\n    loop_forever()\n}\nfn main() {\n}");
+        assert!(!diags.is_empty(), "should detect recursion");
+        assert!(
+            diags[0].message.contains("recursive call cycle"),
+            "should report cycle, got: {}",
+            diags[0].message
+        );
+        assert!(
+            diags[0].help.is_some(),
+            "recursion error should have help text explaining alternative"
+        );
+    }
+
+    #[test]
+    fn test_error_non_exhaustive_match_has_help() {
+        let diags = check_err(
+            "program test\nfn main() {\n    let x: Field = pub_read()\n    match x {\n        0 => { pub_write(0) }\n    }\n}",
+        );
+        assert!(!diags.is_empty(), "should detect non-exhaustive match");
+        assert!(
+            diags[0].message.contains("non-exhaustive"),
+            "should report non-exhaustive match, got: {}",
+            diags[0].message
+        );
+        assert!(
+            diags[0].help.as_deref().unwrap().contains("_ =>"),
+            "help should suggest wildcard arm"
+        );
+    }
+
+    #[test]
+    fn test_error_unreachable_code_has_help() {
+        let diags = check_err(
+            "program test\nfn foo() -> Field {\n    return 1\n    pub_write(2)\n}\nfn main() {\n}",
+        );
+        assert!(!diags.is_empty(), "should detect unreachable code");
+        let unreachable_diag = diags.iter().find(|d| d.message.contains("unreachable"));
+        assert!(
+            unreachable_diag.is_some(),
+            "should report unreachable code, got: {:?}",
+            diags.iter().map(|d| &d.message).collect::<Vec<_>>()
+        );
+        assert!(
+            unreachable_diag.unwrap().help.is_some(),
+            "unreachable code error should have help text"
+        );
+    }
+
+    #[test]
+    fn test_error_undefined_variable_has_help() {
+        let diags = check_err("program test\nfn main() {\n    pub_write(xyz)\n}");
+        assert!(!diags.is_empty(), "should error on undefined variable");
+        assert!(
+            diags[0].message.contains("undefined variable 'xyz'"),
+            "should name the variable, got: {}",
+            diags[0].message
+        );
+        assert!(
+            diags[0].help.is_some(),
+            "undefined variable error should have help text"
+        );
+    }
+
+    #[test]
+    fn test_error_undefined_function_has_help() {
+        let diags = check_err("program test\nfn main() {\n    let x: Field = no_such_fn()\n}");
+        assert!(!diags.is_empty(), "should error on undefined function");
+        assert!(
+            diags[0].message.contains("undefined function 'no_such_fn'"),
+            "should name the function, got: {}",
+            diags[0].message
+        );
+        assert!(
+            diags[0].help.is_some(),
+            "undefined function error should have help text"
+        );
+    }
+
+    #[test]
+    fn test_error_loop_bound_has_help() {
+        let diags = check_err(
+            "program test\nfn main() {\n    let n: Field = pub_read()\n    for i in 0..n {\n        pub_write(0)\n    }\n}",
+        );
+        assert!(!diags.is_empty(), "should error on non-constant loop bound");
+        let msg = &diags[0].message;
+        assert!(
+            msg.contains("compile-time constant") || msg.contains("bound"),
+            "should explain the loop bound requirement, got: {}",
+            msg
+        );
+        assert!(
+            diags[0].help.as_deref().unwrap().contains("bounded"),
+            "help should suggest `bounded` keyword"
+        );
+    }
+
+    #[test]
+    fn test_error_lt_requires_u32() {
+        let diags = check_err(
+            "program test\nfn main() {\n    let a: Field = pub_read()\n    let b: Field = pub_read()\n    assert(a < b)\n}",
+        );
+        assert!(!diags.is_empty(), "should error on Field < Field");
+        let msg = &diags[0].message;
+        assert!(
+            msg.contains("U32") && msg.contains("Field"),
+            "should show required U32 and actual Field types, got: {}",
+            msg
+        );
+    }
+
+    #[test]
+    fn test_error_field_access_on_non_struct() {
+        let diags = check_err(
+            "program test\nfn main() {\n    let x: Field = pub_read()\n    pub_write(x.y)\n}",
+        );
+        assert!(
+            !diags.is_empty(),
+            "should error on field access of non-struct"
+        );
+        // The parser treats `x.y` as a dotted variable, so the error is
+        // "undefined variable 'x.y'" since x is Field, not a struct with field y
+        let has_error = diags
+            .iter()
+            .any(|d| d.message.contains("undefined variable") || d.message.contains("field"));
+        assert!(
+            has_error,
+            "should report variable/field error, got: {:?}",
+            diags.iter().map(|d| &d.message).collect::<Vec<_>>()
+        );
+    }
+
+    #[test]
+    fn test_error_messages_have_spans() {
+        // All type checker errors should have non-dummy spans
+        let diags = check_err("program test\nfn main() {\n    pub_write(undefined_var)\n}");
+        assert!(!diags.is_empty());
+        for d in &diags {
+            assert!(
+                d.span.start != d.span.end || d.span.start > 0,
+                "error '{}' should have a meaningful span, got: {:?}",
+                d.message,
+                d.span
+            );
+        }
     }
 }

@@ -24,7 +24,10 @@ impl Parser {
         } else if self.at(&Lexeme::Module) {
             self.parse_module()
         } else {
-            self.error_at_current("expected 'program' or 'module' declaration");
+            self.error_with_help(
+                "expected 'program' or 'module' declaration at the start of file",
+                "every .tri file must begin with `program <name>` or `module <name>`",
+            );
             return Err(self.diagnostics);
         };
 
@@ -235,7 +238,10 @@ impl Parser {
                 let span = start.merge(self.prev_span());
                 items.push(Spanned::new(Item::Fn(item), span));
             } else {
-                self.error_at_current("expected item (fn, struct, event, or const)");
+                self.error_with_help(
+                    "expected item (fn, struct, event, or const)",
+                    "top-level items must be function, struct, event, or const definitions",
+                );
                 self.advance(); // skip to recover
             }
         }
@@ -415,7 +421,10 @@ impl Parser {
                     let ident = self.expect_ident();
                     ArraySize::Param(ident.node)
                 } else {
-                    self.error_at_current("expected integer or size parameter");
+                    self.error_with_help(
+                        "expected array size (integer literal or size parameter name)",
+                        "array types are written as `[T; N]` where N is a number or generic parameter",
+                    );
                     ArraySize::Literal(0)
                 };
                 self.expect(&Lexeme::RBracket);
@@ -435,7 +444,10 @@ impl Parser {
                 Type::Named(path)
             }
             _ => {
-                self.error_at_current("expected type");
+                self.error_with_help(
+                    "expected type",
+                    "valid types are: Field, XField, Bool, U32, Digest, [T; N], (T, U), or a struct name",
+                );
                 Type::Field // fallback
             }
         };
@@ -725,7 +737,10 @@ impl Parser {
                 self.advance();
                 MatchPattern::Literal(Literal::Bool(false))
             } else {
-                self.error_at_current("expected pattern (integer, true, false, or _)");
+                self.error_with_help(
+                    "expected match pattern (integer, true, false, or _)",
+                    "match arms use literal patterns like `0 =>`, `true =>`, or wildcard `_ =>`",
+                );
                 self.advance();
                 MatchPattern::Wildcard
             };
@@ -921,7 +936,10 @@ impl Parser {
                 }
             }
             _ => {
-                self.error_at_current("expected expression");
+                self.error_with_help(
+                    &format!("expected expression, found {}", self.peek().description()),
+                    "expressions include literals (42, true), variables, function calls, and operators",
+                );
                 self.advance();
                 Spanned::new(Expr::Literal(Literal::Integer(0)), start)
             }
@@ -975,7 +993,10 @@ impl Parser {
                 let ident = self.expect_ident();
                 ArraySize::Param(ident.node)
             } else {
-                self.error_at_current("expected integer or size parameter in generic args");
+                self.error_with_help(
+                    "expected integer or size parameter in generic arguments",
+                    "generic size arguments are written as `fn_name<3>(...)` or `fn_name<N>(...)`",
+                );
                 self.advance();
                 ArraySize::Literal(0)
             };
@@ -1083,7 +1104,11 @@ impl Parser {
             self.advance();
             span
         } else {
-            self.error_at_current(&format!("expected {}", token.description()));
+            self.error_at_current(&format!(
+                "expected {}, found {}",
+                token.description(),
+                self.peek().description()
+            ));
             self.current_span()
         }
     }
@@ -1094,7 +1119,10 @@ impl Parser {
             self.advance();
             Spanned::new(name, span)
         } else {
-            self.error_at_current("expected identifier");
+            self.error_at_current(&format!(
+                "expected identifier, found {}",
+                self.peek().description()
+            ));
             Spanned::new("_error_".to_string(), self.current_span())
         }
     }
@@ -1115,7 +1143,10 @@ impl Parser {
             self.advance();
             n
         } else {
-            self.error_at_current("expected integer literal");
+            self.error_at_current(&format!(
+                "expected integer literal, found {}",
+                self.peek().description()
+            ));
             0
         }
     }
@@ -1123,6 +1154,12 @@ impl Parser {
     fn error_at_current(&mut self, msg: &str) {
         self.diagnostics
             .push(Diagnostic::error(msg.to_string(), self.current_span()));
+    }
+
+    fn error_with_help(&mut self, msg: &str, help: &str) {
+        self.diagnostics.push(
+            Diagnostic::error(msg.to_string(), self.current_span()).with_help(help.to_string()),
+        );
     }
 }
 
@@ -1530,5 +1567,132 @@ mod tests {
         } else {
             panic!("expected function");
         }
+    }
+
+    // --- Error path tests ---
+
+    fn parse_err(source: &str) -> Vec<Diagnostic> {
+        let (tokens, _comments, lex_diags) = Lexer::new(source, 0).tokenize();
+        if !lex_diags.is_empty() {
+            return lex_diags;
+        }
+        match Parser::new(tokens).parse_file() {
+            Ok(_) => vec![],
+            Err(diags) => diags,
+        }
+    }
+
+    #[test]
+    fn test_error_missing_program_or_module() {
+        let diags = parse_err("fn main() {}");
+        assert!(!diags.is_empty(), "should error on missing program/module");
+        assert!(
+            diags[0].message.contains("expected 'program' or 'module'"),
+            "should say what was expected, got: {}",
+            diags[0].message
+        );
+        assert!(
+            diags[0].help.is_some(),
+            "should have help text for program/module declaration"
+        );
+    }
+
+    #[test]
+    fn test_error_missing_closing_brace() {
+        let diags = parse_err("program test\nfn main() {");
+        assert!(!diags.is_empty(), "should error on missing closing brace");
+        assert!(
+            diags[0].message.contains("expected '}'"),
+            "should expect closing brace, got: {}",
+            diags[0].message
+        );
+    }
+
+    #[test]
+    fn test_error_unexpected_token_in_expr() {
+        let diags = parse_err("program test\nfn main() {\n    let x: Field = }\n}");
+        assert!(
+            !diags.is_empty(),
+            "should error on unexpected token in expression"
+        );
+        assert!(
+            diags[0].message.contains("expected expression"),
+            "should say 'expected expression', got: {}",
+            diags[0].message
+        );
+        assert!(
+            diags[0].help.is_some(),
+            "expression error should have help text"
+        );
+    }
+
+    #[test]
+    fn test_error_missing_fn_body() {
+        // A function with a body that has no closing brace produces a parse error
+        let diags = parse_err("program test\nfn main() {\n    let x: Field = 1");
+        assert!(!diags.is_empty(), "should error on unclosed function body");
+        let has_relevant_error = diags.iter().any(|d| d.message.contains("expected"));
+        assert!(
+            has_relevant_error,
+            "should have an 'expected' error, got: {:?}",
+            diags.iter().map(|d| &d.message).collect::<Vec<_>>()
+        );
+    }
+
+    #[test]
+    fn test_error_invalid_type() {
+        let diags = parse_err("program test\nfn main() {\n    let x: 42 = 0\n}");
+        assert!(!diags.is_empty(), "should error on invalid type");
+        assert!(
+            diags[0].message.contains("expected type"),
+            "should say 'expected type', got: {}",
+            diags[0].message
+        );
+        assert!(
+            diags[0].help.as_deref().unwrap().contains("Field"),
+            "help should list valid types"
+        );
+    }
+
+    #[test]
+    fn test_error_missing_arrow_in_return_type() {
+        // Missing -> before return type: `fn foo() Field {}`
+        // This parses as: fn foo() followed by item "Field" which isn't valid
+        let diags = parse_err("program test\nfn foo() Field {}");
+        assert!(
+            !diags.is_empty(),
+            "should error when return type arrow is missing"
+        );
+    }
+
+    #[test]
+    fn test_error_expected_token_shows_found() {
+        // When expecting '(' but finding something else, error should show what was found
+        let diags = parse_err("program test\nfn main {}");
+        assert!(!diags.is_empty());
+        let msg = &diags[0].message;
+        assert!(
+            msg.contains("expected") && msg.contains("found"),
+            "error should show both expected and found tokens, got: {}",
+            msg
+        );
+    }
+
+    #[test]
+    fn test_error_expected_item() {
+        let diags = parse_err("program test\n42");
+        assert!(
+            !diags.is_empty(),
+            "should error on bare integer at top level"
+        );
+        assert!(
+            diags[0].message.contains("expected item"),
+            "should say 'expected item', got: {}",
+            diags[0].message
+        );
+        assert!(
+            diags[0].help.is_some(),
+            "expected item error should have help text"
+        );
     }
 }

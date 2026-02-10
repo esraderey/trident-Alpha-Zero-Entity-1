@@ -473,6 +473,386 @@ pub fn analyze_costs(source: &str, filename: &str) -> Result<cost::ProgramCost, 
     Ok(cost)
 }
 
+/// Generate markdown documentation for a Trident project.
+///
+/// Resolves all modules, parses and type-checks them, computes cost analysis,
+/// and produces a markdown document listing all public functions, structs,
+/// constants, and events with their type signatures and cost annotations.
+pub fn generate_docs(
+    entry_path: &Path,
+    options: &CompileOptions,
+) -> Result<String, Vec<Diagnostic>> {
+    // Resolve all modules in dependency order
+    let modules = resolve_modules(entry_path)?;
+
+    let mut parsed_modules = Vec::new();
+    let mut all_exports: Vec<ModuleExports> = Vec::new();
+
+    // Parse all modules
+    for module in &modules {
+        let file = parse_source(&module.source, &module.file_path.to_string_lossy())?;
+        parsed_modules.push((
+            module.name.clone(),
+            module.file_path.clone(),
+            module.source.clone(),
+            file,
+        ));
+    }
+
+    // Type-check in topological order, collecting exports
+    for (_module_name, file_path, source, file) in &parsed_modules {
+        let mut tc = TypeChecker::new().with_cfg_flags(options.cfg_flags.clone());
+        for exports in &all_exports {
+            tc.import_module(exports);
+        }
+        match tc.check_file(file) {
+            Ok(exports) => {
+                all_exports.push(exports);
+            }
+            Err(errors) => {
+                render_diagnostics(&errors, &file_path.to_string_lossy(), source);
+                return Err(errors);
+            }
+        }
+    }
+
+    // Compute cost analysis per module
+    let mut module_costs: Vec<Option<cost::ProgramCost>> = Vec::new();
+    for (_module_name, _file_path, _source, file) in &parsed_modules {
+        let pc = cost::CostAnalyzer::new().analyze_file(file);
+        module_costs.push(Some(pc));
+    }
+
+    // Determine the program name from the entry module
+    let program_name = parsed_modules
+        .iter()
+        .find(|(_, _, _, f)| f.kind == FileKind::Program)
+        .map(|(_, _, _, f)| f.name.node.clone())
+        .unwrap_or_else(|| "project".to_string());
+
+    let mut doc = String::new();
+    doc.push_str(&format!("# {}\n", program_name));
+
+    // --- Functions ---
+    let mut fn_entries: Vec<String> = Vec::new();
+    for (i, (_module_name, _file_path, _source, file)) in parsed_modules.iter().enumerate() {
+        let module_name = &file.name.node;
+        let costs = module_costs[i].as_ref();
+        for item in &file.items {
+            if let ast::Item::Fn(func) = &item.node {
+                // Skip test functions, intrinsic-only, and non-pub functions in modules
+                if func.is_test {
+                    continue;
+                }
+                if file.kind == FileKind::Module && !func.is_pub {
+                    continue;
+                }
+                // Skip cfg-excluded items
+                if let Some(ref cfg) = func.cfg {
+                    if !options.cfg_flags.contains(&cfg.node) {
+                        continue;
+                    }
+                }
+
+                let sig = format_fn_signature(func);
+                let fn_cost =
+                    costs.and_then(|pc| pc.functions.iter().find(|f| f.name == func.name.node));
+
+                let mut entry = format!("### `{}`\n", sig);
+                if let Some(fc) = fn_cost {
+                    let c = &fc.cost;
+                    entry.push_str(&format!(
+                        "**Cost:** cc={}, hash={}, u32={} | dominant: {}\n",
+                        c.processor,
+                        c.hash,
+                        c.u32_table,
+                        c.dominant_table()
+                    ));
+                }
+                entry.push_str(&format!("**Module:** {}\n", module_name));
+                fn_entries.push(entry);
+            }
+        }
+    }
+
+    if !fn_entries.is_empty() {
+        doc.push_str("\n## Functions\n\n");
+        for entry in &fn_entries {
+            doc.push_str(entry);
+            doc.push('\n');
+        }
+    }
+
+    // --- Structs ---
+    let mut struct_entries: Vec<String> = Vec::new();
+    for (_i, (_module_name, _file_path, _source, file)) in parsed_modules.iter().enumerate() {
+        for item in &file.items {
+            if let ast::Item::Struct(sdef) = &item.node {
+                if file.kind == FileKind::Module && !sdef.is_pub {
+                    continue;
+                }
+                if let Some(ref cfg) = sdef.cfg {
+                    if !options.cfg_flags.contains(&cfg.node) {
+                        continue;
+                    }
+                }
+
+                let mut entry = format!("### `struct {}`\n", sdef.name.node);
+                entry.push_str("| Field | Type | Width |\n");
+                entry.push_str("|-------|------|-------|\n");
+                let mut total_width: u32 = 0;
+                for field in &sdef.fields {
+                    let ty_str = format_ast_type(&field.ty.node);
+                    let width = ast_type_width(&field.ty.node);
+                    total_width += width;
+                    entry.push_str(&format!(
+                        "| {} | {} | {} |\n",
+                        field.name.node, ty_str, width
+                    ));
+                }
+                entry.push_str(&format!("Total width: {} field elements\n", total_width));
+                struct_entries.push(entry);
+            }
+        }
+    }
+
+    if !struct_entries.is_empty() {
+        doc.push_str("\n## Structs\n\n");
+        for entry in &struct_entries {
+            doc.push_str(entry);
+            doc.push('\n');
+        }
+    }
+
+    // --- Constants ---
+    let mut const_entries: Vec<(String, String, String)> = Vec::new(); // (name, type, value)
+    for (_i, (_module_name, _file_path, _source, file)) in parsed_modules.iter().enumerate() {
+        for item in &file.items {
+            if let ast::Item::Const(cdef) = &item.node {
+                if file.kind == FileKind::Module && !cdef.is_pub {
+                    continue;
+                }
+                if let Some(ref cfg) = cdef.cfg {
+                    if !options.cfg_flags.contains(&cfg.node) {
+                        continue;
+                    }
+                }
+                let ty_str = format_ast_type(&cdef.ty.node);
+                let val_str = format_const_value(&cdef.value.node);
+                const_entries.push((cdef.name.node.clone(), ty_str, val_str));
+            }
+        }
+    }
+
+    if !const_entries.is_empty() {
+        doc.push_str("\n## Constants\n\n");
+        doc.push_str("| Name | Type | Value |\n");
+        doc.push_str("|------|------|-------|\n");
+        for (name, ty, val) in &const_entries {
+            doc.push_str(&format!("| {} | {} | {} |\n", name, ty, val));
+        }
+        doc.push('\n');
+    }
+
+    // --- Events ---
+    let mut event_entries: Vec<String> = Vec::new();
+    for (_i, (_module_name, _file_path, _source, file)) in parsed_modules.iter().enumerate() {
+        for item in &file.items {
+            if let ast::Item::Event(edef) = &item.node {
+                if let Some(ref cfg) = edef.cfg {
+                    if !options.cfg_flags.contains(&cfg.node) {
+                        continue;
+                    }
+                }
+                let mut entry = format!("### `event {}`\n", edef.name.node);
+                entry.push_str("| Field | Type |\n");
+                entry.push_str("|-------|------|\n");
+                for field in &edef.fields {
+                    let ty_str = format_ast_type(&field.ty.node);
+                    entry.push_str(&format!("| {} | {} |\n", field.name.node, ty_str));
+                }
+                event_entries.push(entry);
+            }
+        }
+    }
+
+    if !event_entries.is_empty() {
+        doc.push_str("\n## Events\n\n");
+        for entry in &event_entries {
+            doc.push_str(entry);
+            doc.push('\n');
+        }
+    }
+
+    // --- Cost Summary ---
+    // Aggregate costs across all modules — use the program module's cost if it exists,
+    // otherwise sum all module costs.
+    let program_cost = parsed_modules
+        .iter()
+        .enumerate()
+        .find(|(_, (_, _, _, f))| f.kind == FileKind::Program)
+        .and_then(|(i, _)| module_costs[i].as_ref());
+
+    let total_cost = if let Some(pc) = program_cost {
+        pc.total.clone()
+    } else {
+        // Sum across all modules
+        let mut total = cost::TableCost::ZERO;
+        for mc in &module_costs {
+            if let Some(pc) = mc {
+                total = total.add(&pc.total);
+            }
+        }
+        total
+    };
+
+    let padded_height = if let Some(pc) = program_cost {
+        pc.padded_height
+    } else {
+        cost::next_power_of_two(total_cost.max_height())
+    };
+
+    doc.push_str("\n## Cost Summary\n\n");
+    doc.push_str("| Table | Height |\n");
+    doc.push_str("|-------|--------|\n");
+    doc.push_str(&format!("| Processor | {} |\n", total_cost.processor));
+    doc.push_str(&format!("| Hash | {} |\n", total_cost.hash));
+    doc.push_str(&format!("| U32 | {} |\n", total_cost.u32_table));
+    doc.push_str(&format!("| Padded | {} |\n", padded_height));
+
+    Ok(doc)
+}
+
+/// Format an AST type for documentation display.
+fn format_ast_type(ty: &ast::Type) -> String {
+    match ty {
+        ast::Type::Field => "Field".to_string(),
+        ast::Type::XField => "XField".to_string(),
+        ast::Type::Bool => "Bool".to_string(),
+        ast::Type::U32 => "U32".to_string(),
+        ast::Type::Digest => "Digest".to_string(),
+        ast::Type::Array(inner, size) => format!("[{}; {}]", format_ast_type(inner), size),
+        ast::Type::Tuple(elems) => {
+            let parts: Vec<_> = elems.iter().map(|t| format_ast_type(t)).collect();
+            format!("({})", parts.join(", "))
+        }
+        ast::Type::Named(path) => path.as_dotted(),
+    }
+}
+
+/// Compute the width in field elements for an AST type (best-effort).
+fn ast_type_width(ty: &ast::Type) -> u32 {
+    match ty {
+        ast::Type::Field | ast::Type::Bool | ast::Type::U32 => 1,
+        ast::Type::XField => 3,
+        ast::Type::Digest => 5,
+        ast::Type::Array(inner, size) => {
+            let inner_w = ast_type_width(inner);
+            let n = size.as_literal().unwrap_or(1) as u32;
+            inner_w * n
+        }
+        ast::Type::Tuple(elems) => elems.iter().map(|t| ast_type_width(t)).sum(),
+        ast::Type::Named(_) => 1, // unknown, default to 1
+    }
+}
+
+/// Format a function signature for documentation.
+fn format_fn_signature(func: &ast::FnDef) -> String {
+    let mut sig = String::from("fn ");
+    sig.push_str(&func.name.node);
+
+    // Type params
+    if !func.type_params.is_empty() {
+        let params: Vec<_> = func.type_params.iter().map(|p| p.node.clone()).collect();
+        sig.push_str(&format!("<{}>", params.join(", ")));
+    }
+
+    sig.push('(');
+    let params: Vec<String> = func
+        .params
+        .iter()
+        .map(|p| format!("{}: {}", p.name.node, format_ast_type(&p.ty.node)))
+        .collect();
+    sig.push_str(&params.join(", "));
+    sig.push(')');
+
+    if let Some(ref ret) = func.return_ty {
+        sig.push_str(&format!(" -> {}", format_ast_type(&ret.node)));
+    }
+
+    sig
+}
+
+/// Format a constant value expression for documentation.
+fn format_const_value(expr: &ast::Expr) -> String {
+    match expr {
+        ast::Expr::Literal(ast::Literal::Integer(n)) => n.to_string(),
+        ast::Expr::Literal(ast::Literal::Bool(b)) => b.to_string(),
+        _ => "...".to_string(),
+    }
+}
+
+/// Parse, type-check, and produce per-line cost-annotated source output.
+///
+/// Each source line is printed with a line number and, if the line has
+/// an associated cost, a bracketed annotation showing the cost breakdown.
+pub fn annotate_source(source: &str, filename: &str) -> Result<String, Vec<Diagnostic>> {
+    let file = parse_source(source, filename)?;
+
+    if let Err(errors) = TypeChecker::new().check_file(&file) {
+        render_diagnostics(&errors, filename, source);
+        return Err(errors);
+    }
+
+    let mut analyzer = cost::CostAnalyzer::new();
+    analyzer.analyze_file(&file);
+    let stmt_costs = analyzer.stmt_costs(&file, source);
+
+    // Build a map from line number to aggregated cost
+    let mut line_costs: std::collections::HashMap<u32, cost::TableCost> =
+        std::collections::HashMap::new();
+    for (line, cost) in &stmt_costs {
+        line_costs
+            .entry(*line)
+            .and_modify(|existing| *existing = existing.add(cost))
+            .or_insert_with(|| cost.clone());
+    }
+
+    let lines: Vec<&str> = source.lines().collect();
+    let line_count = lines.len();
+    let line_num_width = format!("{}", line_count).len().max(2);
+
+    // Find max line length for alignment
+    let max_line_len = lines.iter().map(|l| l.len()).max().unwrap_or(0).min(60);
+
+    let mut out = String::new();
+    for (i, line) in lines.iter().enumerate() {
+        let line_num = (i + 1) as u32;
+        let padded_line = format!("{:<width$}", line, width = max_line_len);
+        if let Some(cost) = line_costs.get(&line_num) {
+            let annotation = cost.format_annotation();
+            if !annotation.is_empty() {
+                out.push_str(&format!(
+                    "{:>width$} | {}  [{}]\n",
+                    line_num,
+                    padded_line,
+                    annotation,
+                    width = line_num_width,
+                ));
+                continue;
+            }
+        }
+        out.push_str(&format!(
+            "{:>width$} | {}\n",
+            line_num,
+            line,
+            width = line_num_width,
+        ));
+    }
+
+    Ok(out)
+}
+
 /// Format Trident source code, preserving comments.
 pub fn format_source(source: &str, _filename: &str) -> Result<String, Vec<Diagnostic>> {
     let (tokens, comments, lex_errors) = Lexer::new(source, 0).tokenize();
@@ -1409,6 +1789,241 @@ fn main() {
         assert!(
             check(source, "test.tri").is_err(),
             "test fn with return should fail type check"
+        );
+    }
+
+    // --- generate_docs integration tests ---
+
+    #[test]
+    fn test_generate_docs_simple() {
+        let dir = tempfile::tempdir().unwrap();
+        let main_path = dir.path().join("main.tri");
+        std::fs::write(
+            &main_path,
+            "program my_app\n\nfn helper(x: Field) -> Field {\n    x + 1\n}\n\nfn main() {\n    let a: Field = pub_read()\n    pub_write(helper(a))\n}\n",
+        )
+        .unwrap();
+
+        let options = CompileOptions::default();
+        let doc = generate_docs(&main_path, &options).expect("doc generation should succeed");
+
+        // Should contain the program name as title
+        assert!(
+            doc.contains("# my_app"),
+            "should have program name as title"
+        );
+        // Should contain function names
+        assert!(
+            doc.contains("fn helper("),
+            "should document helper function"
+        );
+        assert!(doc.contains("fn main("), "should document main function");
+        // Should contain cost summary section
+        assert!(doc.contains("## Cost Summary"), "should have cost summary");
+        assert!(doc.contains("Processor"), "should list Processor table");
+        assert!(doc.contains("Padded"), "should list Padded height");
+    }
+
+    #[test]
+    fn test_generate_docs_with_structs() {
+        let dir = tempfile::tempdir().unwrap();
+        let main_path = dir.path().join("main.tri");
+        std::fs::write(
+            &main_path,
+            "program test\n\nstruct AuthData {\n    owner: Digest,\n    nonce: Field,\n}\n\nfn main() {\n    let d: Digest = divine5()\n    let auth: AuthData = AuthData { owner: d, nonce: 42 }\n    pub_write(auth.nonce)\n}\n",
+        )
+        .unwrap();
+
+        let options = CompileOptions::default();
+        let doc = generate_docs(&main_path, &options).expect("doc generation should succeed");
+
+        // Should contain struct section
+        assert!(doc.contains("## Structs"), "should have Structs section");
+        assert!(
+            doc.contains("struct AuthData"),
+            "should document AuthData struct"
+        );
+        // Should contain field table with types and widths
+        assert!(
+            doc.contains("| owner | Digest | 5 |"),
+            "should show owner field with Digest width 5"
+        );
+        assert!(
+            doc.contains("| nonce | Field | 1 |"),
+            "should show nonce field with Field width 1"
+        );
+        assert!(
+            doc.contains("Total width: 6 field elements"),
+            "should show total width"
+        );
+    }
+
+    #[test]
+    fn test_generate_docs_with_events() {
+        let dir = tempfile::tempdir().unwrap();
+        let main_path = dir.path().join("main.tri");
+        std::fs::write(
+            &main_path,
+            "program test\n\nevent Transfer {\n    from: Field,\n    to: Field,\n    amount: Field,\n}\n\nfn main() {\n    emit Transfer { from: 1, to: 2, amount: 100 }\n}\n",
+        )
+        .unwrap();
+
+        let options = CompileOptions::default();
+        let doc = generate_docs(&main_path, &options).expect("doc generation should succeed");
+
+        // Should contain events section
+        assert!(doc.contains("## Events"), "should have Events section");
+        assert!(
+            doc.contains("event Transfer"),
+            "should document Transfer event"
+        );
+        // Should list event fields
+        assert!(doc.contains("| from | Field |"), "should show from field");
+        assert!(doc.contains("| to | Field |"), "should show to field");
+        assert!(
+            doc.contains("| amount | Field |"),
+            "should show amount field"
+        );
+    }
+
+    #[test]
+    fn test_generate_docs_cost_annotations() {
+        let dir = tempfile::tempdir().unwrap();
+        let main_path = dir.path().join("main.tri");
+        std::fs::write(
+            &main_path,
+            "program test\n\nfn compute(x: Field) -> Field {\n    let d: Digest = hash(x, 0, 0, 0, 0, 0, 0, 0, 0, 0)\n    x\n}\n\nfn main() {\n    let a: Field = pub_read()\n    pub_write(compute(a))\n}\n",
+        )
+        .unwrap();
+
+        let options = CompileOptions::default();
+        let doc = generate_docs(&main_path, &options).expect("doc generation should succeed");
+
+        // Should contain cost annotations on functions
+        assert!(
+            doc.contains("**Cost:**"),
+            "should have cost annotations on functions"
+        );
+        assert!(doc.contains("cc="), "should show cycle count");
+        assert!(doc.contains("hash="), "should show hash cost");
+        assert!(doc.contains("u32="), "should show u32 cost");
+        assert!(doc.contains("dominant:"), "should show dominant table");
+        // The compute function uses split which has u32 cost
+        assert!(doc.contains("**Module:** test"), "should show module name");
+    }
+
+    // --- annotate_source tests ---
+
+    #[test]
+    fn test_annotate_source_valid() {
+        let source =
+            "program test\n\nfn main() {\n    let x: Field = pub_read()\n    pub_write(x)\n}\n";
+        let result = annotate_source(source, "test.tri");
+        assert!(result.is_ok(), "annotate_source should succeed");
+        let annotated = result.unwrap();
+
+        // Should contain line numbers
+        assert!(annotated.contains("1 |"), "should have line 1");
+        assert!(annotated.contains("3 |"), "should have line 3");
+
+        // Should contain cost annotations (brackets with cc= or jump=)
+        assert!(
+            annotated.contains("["),
+            "should contain cost annotation brackets"
+        );
+        assert!(annotated.contains("cc="), "should contain cc= cost marker");
+
+        // fn main() line should show call overhead (jump stack)
+        let line3 = annotated.lines().find(|l| l.contains("fn main()"));
+        assert!(line3.is_some(), "should have fn main() line");
+        let line3 = line3.unwrap();
+        assert!(
+            line3.contains("jump="),
+            "fn main() should show jump stack cost from call overhead"
+        );
+    }
+
+    #[test]
+    fn test_annotate_source_shows_hash_cost() {
+        let source = "program test\n\nfn main() {\n    let d: Digest = divine5()\n    let (d0, d1, d2, d3, d4) = d\n    let h: Digest = hash(d0, d1, d2, d3, d4, 0, 0, 0, 0, 0)\n    pub_write(0)\n}\n";
+        let result = annotate_source(source, "test.tri");
+        assert!(result.is_ok(), "annotate_source should succeed");
+        let annotated = result.unwrap();
+
+        // The hash line should show hash cost
+        let hash_line = annotated.lines().find(|l| l.contains("hash("));
+        assert!(hash_line.is_some(), "should have hash() line");
+        let hash_line = hash_line.unwrap();
+        assert!(
+            hash_line.contains("hash="),
+            "hash() line should show hash cost, got: {}",
+            hash_line
+        );
+    }
+
+    // --- Cost JSON round-trip integration test ---
+
+    #[test]
+    fn test_cost_json_roundtrip_integration() {
+        let source = "program test\nfn helper(x: Field) -> Field {\n    x + x\n}\nfn main() {\n    let x: Field = pub_read()\n    pub_write(helper(x))\n}";
+        let cost_result = analyze_costs(source, "test.tri").expect("should analyze");
+        let json = cost_result.to_json();
+
+        // Verify JSON structure
+        assert!(json.contains("\"functions\""), "JSON should have functions");
+        assert!(json.contains("\"total\""), "JSON should have total");
+        assert!(
+            json.contains("\"padded_height\""),
+            "JSON should have padded_height"
+        );
+        assert!(json.contains("\"main\""), "JSON should have main function");
+        assert!(
+            json.contains("\"helper\""),
+            "JSON should have helper function"
+        );
+
+        // Round-trip
+        let parsed =
+            cost::ProgramCost::from_json(&json).expect("should parse JSON back to ProgramCost");
+        assert_eq!(parsed.total.processor, cost_result.total.processor);
+        assert_eq!(parsed.total.hash, cost_result.total.hash);
+        assert_eq!(parsed.total.u32_table, cost_result.total.u32_table);
+        assert_eq!(parsed.total.op_stack, cost_result.total.op_stack);
+        assert_eq!(parsed.total.ram, cost_result.total.ram);
+        assert_eq!(parsed.total.jump_stack, cost_result.total.jump_stack);
+        assert_eq!(parsed.padded_height, cost_result.padded_height);
+    }
+
+    // --- Comparison formatting integration test ---
+
+    #[test]
+    fn test_comparison_formatting_integration() {
+        let source_v1 =
+            "program test\nfn main() {\n    let x: Field = pub_read()\n    pub_write(x)\n}";
+        let source_v2 = "program test\nfn main() {\n    let x: Field = pub_read()\n    let y: Field = pub_read()\n    pub_write(x + y)\n}";
+
+        let cost_v1 = analyze_costs(source_v1, "test.tri").expect("v1 should analyze");
+        let cost_v2 = analyze_costs(source_v2, "test.tri").expect("v2 should analyze");
+
+        let comparison = cost_v1.format_comparison(&cost_v2);
+        assert!(
+            comparison.contains("Cost comparison:"),
+            "should have header"
+        );
+        assert!(comparison.contains("TOTAL"), "should have TOTAL row");
+        assert!(
+            comparison.contains("Padded height:"),
+            "should have padded height row"
+        );
+        assert!(
+            comparison.contains("main"),
+            "should show main function in comparison"
+        );
+
+        // v2 has more operations, so delta should be positive
+        assert!(
+            comparison.contains("+"),
+            "v2 should have higher cost than v1, showing + delta"
         );
     }
 }

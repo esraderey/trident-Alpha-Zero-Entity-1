@@ -36,6 +36,15 @@ enum Command {
         /// Show optimization hints (H0001-H0004)
         #[arg(long)]
         hints: bool,
+        /// Output per-line cost annotations
+        #[arg(long)]
+        annotate: bool,
+        /// Save cost analysis to a JSON file
+        #[arg(long, value_name = "PATH")]
+        save_costs: Option<PathBuf>,
+        /// Compare costs with a previous cost JSON file
+        #[arg(long, value_name = "PATH")]
+        compare: Option<PathBuf>,
         /// Compilation target (debug or release)
         #[arg(long, default_value = "debug")]
         target: String,
@@ -67,6 +76,17 @@ enum Command {
         #[arg(long, default_value = "debug")]
         target: String,
     },
+    /// Generate documentation with cost annotations
+    Doc {
+        /// Input .tri file or directory with trident.toml
+        input: PathBuf,
+        /// Output markdown file (default: stdout)
+        #[arg(short, long)]
+        output: Option<PathBuf>,
+        /// Compilation target (debug or release)
+        #[arg(long, default_value = "debug")]
+        target: String,
+    },
     /// Start the Language Server Protocol server
     Lsp,
 }
@@ -82,8 +102,13 @@ fn main() {
             costs,
             hotspots,
             hints,
+            annotate,
+            save_costs,
+            compare,
             target,
-        } => cmd_build(input, output, costs, hotspots, hints, &target),
+        } => cmd_build(
+            input, output, costs, hotspots, hints, annotate, save_costs, compare, &target,
+        ),
         Command::Check {
             input,
             costs,
@@ -91,6 +116,11 @@ fn main() {
         } => cmd_check(input, costs, &target),
         Command::Fmt { input, check } => cmd_fmt(input, check),
         Command::Test { input, target } => cmd_test(input, &target),
+        Command::Doc {
+            input,
+            output,
+            target,
+        } => cmd_doc(input, output, &target),
         Command::Lsp => cmd_lsp(),
     }
 }
@@ -184,6 +214,9 @@ fn cmd_build(
     costs: bool,
     hotspots: bool,
     hints: bool,
+    annotate: bool,
+    save_costs: Option<PathBuf>,
+    compare: Option<PathBuf>,
     target: &str,
 ) {
     let (tasm, default_output) = if input.is_dir() {
@@ -245,8 +278,24 @@ fn cmd_build(
     }
     eprintln!("Compiled -> {}", out_path.display());
 
+    // --annotate: print per-line cost annotations
+    if annotate {
+        if let Some(source_path) = find_program_source(&input) {
+            let source = std::fs::read_to_string(&source_path).unwrap_or_default();
+            let filename = source_path.to_string_lossy().to_string();
+            match trident::annotate_source(&source, &filename) {
+                Ok(annotated) => {
+                    println!("{}", annotated);
+                }
+                Err(_) => {
+                    eprintln!("error: could not annotate source (compilation errors)");
+                }
+            }
+        }
+    }
+
     // Cost analysis, hotspots, and optimization hints
-    if costs || hotspots || hints {
+    if costs || hotspots || hints || save_costs.is_some() || compare.is_some() {
         if let Some(source_path) = find_program_source(&input) {
             let source = std::fs::read_to_string(&source_path).unwrap_or_default();
             let filename = source_path.to_string_lossy().to_string();
@@ -273,6 +322,28 @@ fn cmd_build(
                             if let Some(help) = &hint.help {
                                 eprintln!("    help: {}", help);
                             }
+                        }
+                    }
+                }
+
+                // --save-costs: write cost JSON to file
+                if let Some(ref save_path) = save_costs {
+                    if let Err(e) = program_cost.save_json(save_path) {
+                        eprintln!("error: {}", e);
+                        process::exit(1);
+                    }
+                    eprintln!("Saved costs -> {}", save_path.display());
+                }
+
+                // --compare: load previous costs and show diff
+                if let Some(ref compare_path) = compare {
+                    match trident::cost::ProgramCost::load_json(compare_path) {
+                        Ok(old_cost) => {
+                            eprintln!("\n{}", old_cost.format_comparison(&program_cost));
+                        }
+                        Err(e) => {
+                            eprintln!("error: {}", e);
+                            process::exit(1);
                         }
                     }
                 }
@@ -492,6 +563,65 @@ fn cmd_test(input: PathBuf, target: &str) {
         Err(_) => {
             process::exit(1);
         }
+    }
+}
+
+// --- trident doc ---
+
+fn cmd_doc(input: PathBuf, output: Option<PathBuf>, target: &str) {
+    let (entry, project) = if input.is_dir() {
+        let toml_path = input.join("trident.toml");
+        if !toml_path.exists() {
+            eprintln!("error: no trident.toml found in '{}'", input.display());
+            process::exit(1);
+        }
+        let project = match trident::project::Project::load(&toml_path) {
+            Ok(p) => p,
+            Err(e) => {
+                eprintln!("error: {}", e.message);
+                process::exit(1);
+            }
+        };
+        let entry = project.entry.clone();
+        (entry, Some(project))
+    } else if input.extension().is_some_and(|e| e == "tri") {
+        if let Some(toml_path) =
+            trident::project::Project::find(input.parent().unwrap_or(Path::new(".")))
+        {
+            let project = match trident::project::Project::load(&toml_path) {
+                Ok(p) => p,
+                Err(e) => {
+                    eprintln!("error: {}", e.message);
+                    process::exit(1);
+                }
+            };
+            let entry = project.entry.clone();
+            (entry, Some(project))
+        } else {
+            (input.clone(), None)
+        }
+    } else {
+        eprintln!("error: input must be a .tri file or project directory");
+        process::exit(1);
+    };
+
+    let options = resolve_target(target, project.as_ref());
+    let markdown = match trident::generate_docs(&entry, &options) {
+        Ok(md) => md,
+        Err(_) => {
+            eprintln!("error: documentation generation failed (compilation errors)");
+            process::exit(1);
+        }
+    };
+
+    if let Some(out_path) = output {
+        if let Err(e) = std::fs::write(&out_path, &markdown) {
+            eprintln!("error: cannot write '{}': {}", out_path.display(), e);
+            process::exit(1);
+        }
+        eprintln!("Documentation written to {}", out_path.display());
+    } else {
+        print!("{}", markdown);
     }
 }
 

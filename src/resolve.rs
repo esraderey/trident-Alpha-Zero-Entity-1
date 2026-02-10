@@ -93,7 +93,8 @@ impl ModuleResolver {
             vec![Diagnostic::error(
                 format!("cannot read '{}': {}", entry_path.display(), e),
                 Span::dummy(),
-            )]
+            )
+            .with_help("check that the file exists and is readable".to_string())]
         })?;
 
         // Quick-parse the entry file to get its name and dependencies
@@ -130,15 +131,21 @@ impl ModuleResolver {
             let source = match std::fs::read_to_string(&file_path) {
                 Ok(s) => s,
                 Err(e) => {
-                    self.diagnostics.push(Diagnostic::error(
-                        format!(
-                            "cannot find module '{}' (looked at '{}'): {}",
-                            module_name,
-                            file_path.display(),
-                            e
-                        ),
-                        Span::dummy(),
-                    ));
+                    self.diagnostics.push(
+                        Diagnostic::error(
+                            format!(
+                                "cannot find module '{}' (looked at '{}'): {}",
+                                module_name,
+                                file_path.display(),
+                                e
+                            ),
+                            Span::dummy(),
+                        )
+                        .with_help(format!(
+                            "create the file '{}' or check the module name in the `use` statement",
+                            file_path.display()
+                        )),
+                    );
                     continue;
                 }
             };
@@ -238,10 +245,16 @@ impl ModuleResolver {
             return;
         }
         if in_progress.contains(name) {
-            diagnostics.push(Diagnostic::error(
-                format!("circular dependency detected involving module '{}'", name),
-                Span::dummy(),
-            ));
+            diagnostics.push(
+                Diagnostic::error(
+                    format!("circular dependency detected involving module '{}'", name),
+                    Span::dummy(),
+                )
+                .with_help(
+                    "break the cycle by extracting shared definitions into a separate module"
+                        .to_string(),
+                ),
+            );
             return;
         }
 
@@ -321,5 +334,58 @@ mod tests {
         let (name, deps) = scan_module_header("program simple\n\nfn main() {}");
         assert_eq!(name, Some("simple".to_string()));
         assert!(deps.is_empty());
+    }
+
+    // --- Error path tests ---
+
+    #[test]
+    fn test_error_missing_entry_file() {
+        let result = resolve_modules(Path::new("/nonexistent/path/to/file.tri"));
+        assert!(result.is_err(), "should error on missing entry file");
+        let diags = result.unwrap_err();
+        assert!(
+            diags[0].message.contains("cannot read"),
+            "should report file read error, got: {}",
+            diags[0].message
+        );
+        assert!(
+            diags[0].help.is_some(),
+            "file-not-found error should have help text"
+        );
+    }
+
+    #[test]
+    fn test_error_module_not_found_has_path() {
+        // Create a temp file that uses a nonexistent module
+        let dir = std::env::temp_dir().join("trident_test_resolve");
+        let _ = std::fs::create_dir_all(&dir);
+        let entry = dir.join("test_missing.tri");
+        std::fs::write(
+            &entry,
+            "program test_missing\nuse nonexistent_module\nfn main() {}\n",
+        )
+        .unwrap();
+
+        let result = resolve_modules(&entry);
+        assert!(result.is_err(), "should error on missing module");
+        let diags = result.unwrap_err();
+        let has_not_found = diags.iter().any(|d| {
+            d.message
+                .contains("cannot find module 'nonexistent_module'")
+        });
+        assert!(
+            has_not_found,
+            "should report module not found with name, got: {:?}",
+            diags.iter().map(|d| &d.message).collect::<Vec<_>>()
+        );
+        // Check that it says where it looked
+        let has_path = diags.iter().any(|d| d.message.contains("looked at"));
+        assert!(has_path, "should say where it looked for the module");
+        // Check help text
+        let has_help = diags.iter().any(|d| d.help.is_some());
+        assert!(has_help, "module-not-found error should have help text");
+
+        // Cleanup
+        let _ = std::fs::remove_file(&entry);
     }
 }
