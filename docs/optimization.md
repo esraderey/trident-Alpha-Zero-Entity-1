@@ -45,7 +45,7 @@ The Hash table is often the tallest because each `hash` / [`tip5`](https://eprin
 
 **Strategies:**
 
-- **Batch hashing**: Instead of hashing items one at a time, pack up to 10 field elements into a single `tip5` call:
+- **Batch hashing**: Each `tip5` call costs 6 Hash Table rows regardless of how many of its 10 inputs you actually use. Batching 3 single-value hashes into 1 call saves 12 hash rows. Pack up to 10 field elements into a single `tip5` call:
 
 ```
 // Expensive: 3 hash calls = 18 hash rows
@@ -66,7 +66,7 @@ sponge_absorb(e10, e11, e12, e13, e14, e15, e16, e17, e18, e19)
 let d: Digest = sponge_squeeze()
 ```
 
-- **Reduce [Merkle tree](https://en.wikipedia.org/wiki/Merkle_tree) depth**: Shallower trees need fewer hash operations. A depth-3 tree requires 3 hash calls per authentication; depth-4 requires 4.
+- **Reduce [Merkle tree](https://en.wikipedia.org/wiki/Merkle_tree) depth**: Each level costs 6 hash rows. Depth-3 = 18 hash rows per proof. Depth-4 = 24. Depth-20 = 120. If you're near a power-of-2 boundary, even one extra level can double proving cost.
 
 ### 2. Reduce Processor Table Cost
 
@@ -186,7 +186,15 @@ This immediately shows where to focus optimization efforts.
 
 ### [Merkle](https://en.wikipedia.org/wiki/Merkle_tree) Proof Verification
 
-Merkle proofs are hash-heavy. Use the shallowest tree that fits your data:
+Merkle proofs are hash-heavy. Each level adds 6 hash rows + U32 table rows. Use the shallowest tree that fits your data:
+
+| Depth | Hash Rows | Padded Height Impact |
+|-------|-----------|---------------------|
+| 1 | 6 | Negligible |
+| 3 | 18 | Low (Neptune kernel default) |
+| 10 | 60 | Moderate |
+| 20 | 120 | High (can dominate) |
+| 32 | 192 | Very high |
 
 ```
 // Depth 3: 3 hash calls = 18 hash rows (Neptune default)
@@ -216,6 +224,22 @@ std.assert.digest(actual, expected)
 
 This is cheaper than manual element-by-element comparison because it uses native `assert` instructions.
 
+### RAM-Aware Hashing
+
+When absorbing data that's already in RAM, prefer `sponge_absorb_mem` over reading to the stack first:
+
+```
+// Expensive: 10 RAM reads + sponge_absorb = 10 cc + 10 RAM rows + 6 hash rows
+let a: Field = std.mem.read(addr)
+// ... read 9 more values ...
+std.hash.sponge_absorb(a, b, c, d, e, f, g, h, i, j)
+
+// Cheaper: sponge_absorb_mem = 1 cc + 10 RAM rows + 6 hash rows
+std.hash.sponge_absorb_mem(addr)
+```
+
+Both cost the same 6 Hash Table rows, but `sponge_absorb_mem` saves ~10 processor cycles by avoiding individual `read_mem` instructions.
+
 ## Summary
 
 1. **Identify the dominant table** with `--costs`
@@ -225,3 +249,10 @@ This is cheaper than manual element-by-element comparison because it uses native
 5. **Verify improvement** with `--compare`
 
 The goal is not to minimize every table, but to bring the tallest table down. Once two tables are similar height, optimize the one that is now tallest.
+
+## See Also
+
+- [Tutorial](tutorial.md) -- Step-by-step guide to writing Trident programs
+- [Language Specification](spec.md) -- Complete reference including cost computation (Section 12)
+- [Error Catalog](errors.md) -- All compiler error messages explained
+- [Triton VM specification](https://triton-vm.org/spec/) -- Target VM instruction costs

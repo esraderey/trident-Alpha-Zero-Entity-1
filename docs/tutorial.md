@@ -35,6 +35,8 @@ Build it:
 trident build hello.tri -o hello.tasm
 ```
 
+This compiles Trident source to [TASM](https://triton-vm.org/spec/) (Triton Assembly) -- the instruction set of [Triton VM](https://triton-vm.org/). The output `hello.tasm` is what the VM executes and proves.
+
 Check it (type-check without emitting TASM):
 
 ```bash
@@ -54,13 +56,16 @@ let x: Field = 42
 let y: Field = x + x
 ```
 
-There is no `-` operator. Use `sub(a, b)` from `std.field`:
+There is no `-` operator. Use `sub(a, b)` from `std.field`. This is deliberate -- in a prime field, `1 - 2` gives `p - 1`, not `-1`. Making subtraction explicit avoids this footgun:
 
 ```
+program example
+
 use std.field
 
-fn example() {
+fn main() {
     let diff: Field = std.field.sub(10, 3)
+    pub_write(diff)
 }
 ```
 
@@ -288,7 +293,7 @@ for i in 0..10 bounded 10 {
 }
 ```
 
-The `bounded N` annotation tells the compiler the maximum number of iterations. This is required because [Triton VM](https://triton-vm.org/) cannot execute unbounded loops. The loop variable `i` has type `Field`.
+The `bounded N` annotation tells the compiler the maximum number of iterations. This is required because [Triton VM](https://triton-vm.org/) cannot execute unbounded loops. The compiler uses the bound (not the runtime count) to compute worst-case proving cost -- so `bounded 100` always costs 100 iterations in the trace, even if the actual count is lower. The loop variable `i` has type `Field`.
 
 Dynamic ranges are allowed with `bounded`:
 
@@ -424,7 +429,7 @@ std.assert.digest(claimed_root, actual_root)
 
 ## 10. Hashing
 
-[Tip5](https://eprint.iacr.org/2023/107) is the native hash function (10 inputs, 5 outputs):
+[Tip5](https://eprint.iacr.org/2023/107) is Triton VM's native algebraic hash function. It always takes exactly 10 field elements as input and produces a 5-element Digest. Pad unused inputs with zeros:
 
 ```
 use std.hash
@@ -447,11 +452,7 @@ fn hash_stream() -> Digest {
 
 ## 11. Events
 
-Events record data in the proof trace. Two kinds:
-
-### Emit (Open Events)
-
-All fields are visible to the verifier:
+Events record data in the proof trace. First, declare the event structure:
 
 ```
 event Transfer {
@@ -459,7 +460,15 @@ event Transfer {
     to: Digest,
     amount: Field,
 }
+```
 
+Then emit or seal it in your functions. Two kinds:
+
+### Emit (Open Events)
+
+All fields are visible to the verifier:
+
+```
 fn pay(sender: Digest, receiver: Digest, value: Field) {
     emit Transfer {
         from: sender,
@@ -502,11 +511,12 @@ fn main() {
 }
 ```
 
-Build with a target:
+Build with a target to activate the conditional code:
 
 ```bash
 trident build main.tri --target debug     # includes debug_log
 trident build main.tri --target release   # excludes debug_log
+trident build main.tri                    # no target: cfg(debug) items excluded
 ```
 
 Define custom targets in `trident.toml`:

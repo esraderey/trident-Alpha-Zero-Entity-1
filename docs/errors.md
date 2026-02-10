@@ -24,7 +24,7 @@ error: unexpected '-'; Trident has no subtraction operator
   help: use the `sub(a, b)` function instead of `a - b`
 ```
 
-**Cause:** Trident deliberately omits the `-` operator (see [design rationale](spec.md#61-field-arithmetic)). The `->` arrow for return types uses `-`, but standalone `-` is not allowed.
+**Cause:** Trident deliberately omits the `-` operator (see [design rationale](spec.md)). The `->` arrow for return types uses `-`, but standalone `-` is not allowed.
 
 **Fix:** Use `std.field.sub(a, b)` or `std.field.neg(a)`:
 
@@ -487,3 +487,66 @@ error: cannot infer size argument for function 'sum'
 ```
 let result: Field = sum<5>(arr)
 ```
+
+---
+
+## Match Errors
+
+### Non-exhaustive match
+
+```
+error: non-exhaustive match: missing wildcard '_' arm
+```
+
+**Cause:** A match statement does not cover all possible values and has no wildcard arm.
+
+**Fix:** Add a wildcard arm:
+
+```
+match x {
+    0 => { handle_zero() }
+    _ => { handle_other() }
+}
+```
+
+---
+
+### Unreachable pattern after wildcard
+
+```
+error: unreachable pattern after wildcard '_'
+```
+
+**Cause:** A pattern appears after the wildcard `_` arm, which catches everything.
+
+**Fix:** Move the specific pattern before the wildcard, or remove it.
+
+---
+
+## Struct Errors
+
+### Missing struct fields
+
+```
+error: missing field 'y' in struct 'Point' initializer
+```
+
+**Cause:** A struct literal does not provide all required fields.
+
+**Fix:** Provide all fields declared in the struct:
+
+```
+// Wrong: missing 'y'
+let p: Point = Point { x: 0 }
+
+// Right
+let p: Point = Point { x: 0, y: 0 }
+```
+
+---
+
+## See Also
+
+- [Tutorial](tutorial.md) -- Step-by-step guide with working examples
+- [Language Specification](spec.md) -- Complete language reference
+- [Optimization Guide](optimization.md) -- Cost reduction strategies

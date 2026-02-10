@@ -806,7 +806,7 @@ error[E0042]: u32 operation on unchecked Field value
 
 ## 12. Cost Computation
 
-### 13.1 Why Cost Matters
+### 12.1 Why Cost Matters
 
 In [Triton VM](https://triton-vm.org/), proving time is directly determined by the **padded height** of the Algebraic Execution Tables (AETs). The padded height is the smallest power of 2 that is greater than or equal to the height of the tallest table. Doubling the padded height roughly doubles the proving time and memory consumption. This means:
 
@@ -816,7 +816,7 @@ In [Triton VM](https://triton-vm.org/), proving time is directly determined by t
 
 This makes cost computation not just useful but **essential**. Trident computes costs statically at compile time and makes them visible to the developer. The developer should never be surprised by proving cost.
 
-### 13.2 The Multi-Table Cost Model
+### 12.2 The Multi-Table Cost Model
 
 [Triton VM](https://triton-vm.org/)'s execution trace is spread across multiple tables. Each instruction contributes rows to different tables simultaneously. The proving cost is determined by the **tallest** table, not the sum. Understanding which table dominates is critical for optimization.
 
@@ -833,7 +833,7 @@ This makes cost computation not just useful but **essential**. Trident computes 
 
 **The critical insight**: a program that uses many hash operations may have its proving cost dominated by the Hash Table even if the Processor Table is relatively small. The Trident compiler tracks all table heights independently and reports the dominant table.
 
-### 13.3 Cost Units
+### 12.3 Cost Units
 
 Trident uses three cost metrics:
 
@@ -858,7 +858,7 @@ pub fn verify_merkle(root: Digest, leaf: Digest, index: U32, depth: U32)
 // }
 ```
 
-### 13.4 Per-Instruction Cost Table
+### 12.4 Per-Instruction Cost Table
 
 Every TASM instruction has a known, fixed contribution to each table. The compiler uses this table for static analysis:
 
@@ -1072,7 +1072,7 @@ pub fn verify(root: Digest, leaf: Digest, index: U32, depth: U32) {
 // padded height: 512
 ```
 
-### 13.10 Optimization Guidance
+### 12.10 Optimization Guidance
 
 The compiler provides actionable suggestions when it detects common cost antipatterns:
 
@@ -1106,7 +1106,7 @@ hint[H0004]: loop bounded 128 but typical execution uses ~10 iterations
   = Tightening from 128 to 16 would reduce padded height from 1024 to 256.
 ```
 
-### 13.11 Cost Invariants
+### 12.11 Cost Invariants
 
 The Trident compiler guarantees the following invariants about cost computation:
 
@@ -1120,7 +1120,7 @@ The Trident compiler guarantees the following invariants about cost computation:
 
 5. **Table-completeness**: All six Triton VM tables are tracked. No table is ignored or approximated (except U32 table, which uses worst-case bit-width estimates).
 
-### 13.12 Cost-Driven Design Decisions
+### 12.12 Cost-Driven Design Decisions
 
 Understanding the cost model informs several architectural decisions in Trident programs:
 

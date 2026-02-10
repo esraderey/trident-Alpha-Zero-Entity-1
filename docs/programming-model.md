@@ -56,7 +56,9 @@ pattern:
 2. The program **divines** the actual value it needs (secret input)
 3. The program **authenticates** the divined value against the MAST hash using
    Merkle proofs (`merkle_step`)
-4. If the proof checks out, the divined value is cryptographically trustworthy
+4. If the proof checks out, the divined value is cryptographically trustworthy.
+   If authentication fails, the assertion crashes the VM -- no proof is generated
+   and the transaction is rejected
 
 This pattern is used everywhere: accessing transaction fields, block headers,
 UTXO data, timestamps, fees, etc.
@@ -314,8 +316,9 @@ All arithmetic in [Triton VM](https://triton-vm.org/) operates in the [prime fie
 `p = 2^64 - 2^32 + 1` elements (the [Goldilocks prime](https://xn--2-umb.com/22/goldilocks/)). This means:
 
 - Field elements range from 0 to p-1
-- Addition, multiplication wrap modulo p
-- `+`, `-`, `*` operators in Trident map to field arithmetic
+- Addition and multiplication wrap modulo p automatically -- there is no overflow error
+- `1 - 2` in field arithmetic gives `p - 1`, not `-1`. Use `std.field.sub()` to make this explicit
+- `+`, `*` operators in Trident map to field arithmetic
 - Integer comparison (`<`, `>`) requires explicit `as_u32` conversion
 - For amounts/balances, use u128 encoding (4 field elements)
 
@@ -342,3 +345,12 @@ NonDeterminism {              |                    version,
              v                |                true / false
        prove() ------------> Proof ------------->
 ```
+
+## See Also
+
+- [Tutorial](tutorial.md) -- Step-by-step guide to writing Trident programs
+- [Language Specification](spec.md) -- Complete language reference
+- [Optimization Guide](optimization.md) -- Cost reduction strategies for all six tables
+- [Error Catalog](errors.md) -- All compiler error messages explained
+- [Neptune Cash](https://neptune.cash/) -- Reference blockchain using Triton VM
+- [Triton VM specification](https://triton-vm.org/spec/) -- Target VM instruction set

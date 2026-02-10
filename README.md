@@ -56,7 +56,8 @@ fn main() {
 Build it:
 
 ```bash
-trident build hello.tri -o hello.tasm
+trident build hello.tri -o hello.tasm    # compile to TASM
+trident build hello.tri                   # defaults to hello.tasm
 ```
 
 ## Language Overview
@@ -164,6 +165,8 @@ fn pay() {
 ```
 
 ### Inline Assembly
+
+The effect annotation (`-1`) declares the net stack change. The compiler trusts it to track stack layout across `asm` boundaries:
 
 ```
 fn custom_hash(a: Field, b: Field) -> Field {
@@ -327,6 +330,12 @@ flags = ["release"]
 5. **Compile-time everything** -- All type widths and array sizes known statically
 6. **Minimal dependencies** -- 4 runtime crates ([clap](https://crates.io/crates/clap), [ariadne](https://crates.io/crates/ariadne), [tower-lsp](https://crates.io/crates/tower-lsp), [tokio](https://crates.io/crates/tokio))
 
+## Getting Help
+
+- [GitHub Issues](https://github.com/nicktriton/trident/issues) -- Bug reports and feature requests
+- [Language Specification](docs/spec.md) -- Complete reference for all language constructs
+- [Error Catalog](docs/errors.md) -- Every error message explained with fixes
+
 ## License
 
-See LICENSE file for details.
+See the LICENSE file for details.
