@@ -5,7 +5,7 @@ use crate::span::{Span, Spanned};
 
 const MAX_NESTING_DEPTH: u32 = 256;
 
-pub struct Parser {
+pub(crate) struct Parser {
     tokens: Vec<Spanned<Lexeme>>,
     pos: usize,
     diagnostics: Vec<Diagnostic>,
@@ -13,7 +13,7 @@ pub struct Parser {
 }
 
 impl Parser {
-    pub fn new(tokens: Vec<Spanned<Lexeme>>) -> Self {
+    pub(crate) fn new(tokens: Vec<Spanned<Lexeme>>) -> Self {
         Self {
             tokens,
             pos: 0,
@@ -38,7 +38,7 @@ impl Parser {
         self.depth -= 1;
     }
 
-    pub fn parse_file(mut self) -> Result<File, Vec<Diagnostic>> {
+    pub(crate) fn parse_file(mut self) -> Result<File, Vec<Diagnostic>> {
         let file = if self.at(&Lexeme::Program) {
             self.parse_program()
         } else if self.at(&Lexeme::Module) {

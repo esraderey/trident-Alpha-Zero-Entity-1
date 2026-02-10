@@ -6,20 +6,20 @@ use crate::span::Span;
 
 /// Information about a discovered module.
 #[derive(Clone, Debug)]
-pub struct ModuleInfo {
+pub(crate) struct ModuleInfo {
     /// Dotted module name (e.g. "crypto.sponge").
-    pub name: String,
+    pub(crate) name: String,
     /// Filesystem path to the .tri file.
-    pub file_path: PathBuf,
+    pub(crate) file_path: PathBuf,
     /// Source code.
-    pub source: String,
+    pub(crate) source: String,
     /// Modules this module depends on (from `use` statements).
-    pub dependencies: Vec<String>,
+    pub(crate) dependencies: Vec<String>,
 }
 
 /// Resolve all modules reachable from an entry point.
 /// Returns modules in topological order (dependencies first).
-pub fn resolve_modules(entry_path: &Path) -> Result<Vec<ModuleInfo>, Vec<Diagnostic>> {
+pub(crate) fn resolve_modules(entry_path: &Path) -> Result<Vec<ModuleInfo>, Vec<Diagnostic>> {
     let mut resolver = ModuleResolver::new(entry_path)?;
     resolver.discover_all()?;
     resolver.topological_sort()
@@ -30,7 +30,7 @@ pub fn resolve_modules(entry_path: &Path) -> Result<Vec<ModuleInfo>, Vec<Diagnos
 ///   1. TRIDENT_STDLIB environment variable
 ///   2. `std/` relative to the compiler binary
 ///   3. `std/` in the repository root (development)
-pub fn find_stdlib_dir() -> Option<PathBuf> {
+pub(crate) fn find_stdlib_dir() -> Option<PathBuf> {
     // 1. Environment variable
     if let Ok(p) = std::env::var("TRIDENT_STDLIB") {
         let path = PathBuf::from(p);
@@ -77,7 +77,7 @@ pub fn find_stdlib_dir() -> Option<PathBuf> {
 ///   1. TRIDENT_EXTLIB environment variable
 ///   2. `ext/` relative to the compiler binary (and ancestors)
 ///   3. `ext/` in the current working directory (development)
-pub fn find_ext_dir() -> Option<PathBuf> {
+pub(crate) fn find_ext_dir() -> Option<PathBuf> {
     if let Ok(p) = std::env::var("TRIDENT_EXTLIB") {
         let path = PathBuf::from(p);
         if path.is_dir() {

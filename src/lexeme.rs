@@ -1,6 +1,6 @@
 /// All lexemes in the Trident language.
 #[derive(Clone, Debug, PartialEq)]
-pub enum Lexeme {
+pub(crate) enum Lexeme {
     // Keywords
     Program,
     Module,
@@ -76,7 +76,7 @@ pub enum Lexeme {
 
 impl Lexeme {
     /// Try to match an identifier string to a keyword or type lexeme.
-    pub fn from_keyword(s: &str) -> Option<Lexeme> {
+    pub(crate) fn from_keyword(s: &str) -> Option<Lexeme> {
         match s {
             "program" => Some(Lexeme::Program),
             "module" => Some(Lexeme::Module),
@@ -109,7 +109,7 @@ impl Lexeme {
         }
     }
 
-    pub fn description(&self) -> &'static str {
+    pub(crate) fn description(&self) -> &'static str {
         match self {
             Lexeme::Program => "'program'",
             Lexeme::Module => "'module'",

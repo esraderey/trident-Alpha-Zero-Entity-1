@@ -65,7 +65,7 @@ pub struct ModuleExports {
     pub call_resolutions: Vec<MonoInstance>,
 }
 
-pub struct TypeChecker {
+pub(crate) struct TypeChecker {
     /// Known function signatures (user-defined + builtins).
     functions: HashMap<String, FnSig>,
     /// Variable scopes (stack of scope maps).
@@ -99,11 +99,11 @@ impl Default for TypeChecker {
 }
 
 impl TypeChecker {
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self::with_target(crate::target::TargetConfig::triton())
     }
 
-    pub fn with_target(config: crate::target::TargetConfig) -> Self {
+    pub(crate) fn with_target(config: crate::target::TargetConfig) -> Self {
         let mut tc = Self {
             functions: HashMap::new(),
             scopes: Vec::new(),
@@ -123,7 +123,7 @@ impl TypeChecker {
     }
 
     /// Set active cfg flags for conditional compilation.
-    pub fn with_cfg_flags(mut self, flags: HashSet<String>) -> Self {
+    pub(crate) fn with_cfg_flags(mut self, flags: HashSet<String>) -> Self {
         self.cfg_flags = flags;
         self
     }
@@ -150,7 +150,7 @@ impl TypeChecker {
     /// Makes them available as `module_name.fn_name`.
     /// For dotted modules like `std.hash`, also registers under
     /// the short alias `hash.fn_name` so `hash.tip5()` works.
-    pub fn import_module(&mut self, exports: &ModuleExports) {
+    pub(crate) fn import_module(&mut self, exports: &ModuleExports) {
         // Short alias: last segment of dotted module name
         let short_prefix = exports
             .module_name
@@ -189,7 +189,7 @@ impl TypeChecker {
         }
     }
 
-    pub fn check_file(mut self, file: &File) -> Result<ModuleExports, Vec<Diagnostic>> {
+    pub(crate) fn check_file(mut self, file: &File) -> Result<ModuleExports, Vec<Diagnostic>> {
         let is_std_module =
             file.name.node.starts_with("std.") || file.name.node.starts_with("ext.");
 
@@ -431,7 +431,7 @@ impl TypeChecker {
                     self.error_with_help(
                         format!("recursive call cycle detected: {}", path.join(" -> ")),
                         span,
-                        "Triton VM does not support recursion; use loops (`for`) or iterative algorithms instead".to_string(),
+                        "stack-machine targets do not support recursion; use loops (`for`) or iterative algorithms instead".to_string(),
                     );
                 }
             }
@@ -814,7 +814,7 @@ impl TypeChecker {
                             if names.len() != dw {
                                 self.error(
                                     format!(
-                                        "Digest destructuring requires exactly {} names, got {}",
+                                        "digest destructuring requires exactly {} names, got {}",
                                         dw,
                                         names.len()
                                     ),

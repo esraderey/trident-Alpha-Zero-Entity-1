@@ -1,16 +1,16 @@
 /// Per-module TASM output ready for linking.
 #[derive(Clone, Debug)]
-pub struct ModuleTasm {
+pub(crate) struct ModuleTasm {
     /// Dotted module name (e.g. "merkle").
-    pub module_name: String,
+    pub(crate) module_name: String,
     /// Whether this is the program entry module.
-    pub is_program: bool,
+    pub(crate) is_program: bool,
     /// Raw TASM output from the emitter.
-    pub tasm: String,
+    pub(crate) tasm: String,
 }
 
 /// Link multiple module TASM outputs into a single program.
-pub fn link(modules: Vec<ModuleTasm>) -> String {
+pub(crate) fn link(modules: Vec<ModuleTasm>) -> String {
     let mut output = Vec::new();
 
     // Find the program module (entry point)

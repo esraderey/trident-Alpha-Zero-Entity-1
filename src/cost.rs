@@ -23,7 +23,8 @@ use crate::span::Span;
 /// Each target VM implements this to provide table names, per-instruction
 /// costs, and formatting for cost reports. The cost analyzer delegates all
 /// target-specific knowledge through this trait.
-pub trait CostModel {
+#[allow(dead_code)] // Methods will be used by future cost model implementations.
+pub(crate) trait CostModel {
     /// Names of the execution tables (e.g. ["processor", "hash", "u32", ...]).
     fn table_names(&self) -> &[&str];
 
@@ -60,7 +61,7 @@ pub trait CostModel {
 // ---------------------------------------------------------------------------
 
 /// Triton VM cost model with 6 Algebraic Execution Tables.
-pub struct TritonCostModel;
+pub(crate) struct TritonCostModel;
 
 impl TritonCostModel {
     /// Worst-case U32 table rows for 32-bit operations.
@@ -499,7 +500,7 @@ impl TableCost {
 
 /// Convenience function: look up builtin cost using the default Triton cost model.
 /// Used by LSP and other callers that don't have a CostModel reference.
-pub fn cost_builtin(name: &str) -> TableCost {
+pub(crate) fn cost_builtin(name: &str) -> TableCost {
     TritonCostModel.builtin_cost(name)
 }
 
@@ -534,7 +535,7 @@ pub struct ProgramCost {
 ///
 /// The analyzer is parameterized by a `CostModel` that provides all
 /// target-specific cost constants. Default: `TritonCostModel`.
-pub struct CostAnalyzer<'a> {
+pub(crate) struct CostAnalyzer<'a> {
     /// Target-specific cost model.
     cost_model: &'a dyn CostModel,
     /// Function bodies indexed by name (for resolving calls).
@@ -558,7 +559,7 @@ static TRITON_COST_MODEL: TritonCostModel = TritonCostModel;
 
 impl<'a> CostAnalyzer<'a> {
     /// Create a new analyzer with the default Triton VM cost model.
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self {
             cost_model: &TRITON_COST_MODEL,
             fn_bodies: HashMap::new(),
@@ -569,7 +570,8 @@ impl<'a> CostAnalyzer<'a> {
     }
 
     /// Create a new analyzer with a specific cost model.
-    pub fn with_cost_model(cost_model: &'a dyn CostModel) -> Self {
+    #[allow(dead_code)] // Will be used when multiple cost models are available.
+    pub(crate) fn with_cost_model(cost_model: &'a dyn CostModel) -> Self {
         Self {
             cost_model,
             fn_bodies: HashMap::new(),
@@ -580,7 +582,7 @@ impl<'a> CostAnalyzer<'a> {
     }
 
     /// Analyze a complete file and return the program cost.
-    pub fn analyze_file(&mut self, file: &File) -> ProgramCost {
+    pub(crate) fn analyze_file(&mut self, file: &File) -> ProgramCost {
         // Collect all function definitions.
         for item in &file.items {
             if let Item::Fn(func) = &item.node {
@@ -902,7 +904,7 @@ impl<'a> CostAnalyzer<'a> {
     /// Walks every function body and records the cost of each statement
     /// along with the 1-based line number derived from the statement's span.
     /// Also records function definition lines with call overhead.
-    pub fn stmt_costs(&mut self, file: &File, source: &str) -> Vec<(u32, TableCost)> {
+    pub(crate) fn stmt_costs(&mut self, file: &File, source: &str) -> Vec<(u32, TableCost)> {
         // Build line offset table: line_starts[i] = byte offset of line i+1
         let line_starts: Vec<u32> = std::iter::once(0)
             .chain(source.bytes().enumerate().filter_map(|(i, b)| {
@@ -1059,7 +1061,7 @@ fn find_matching_brace(s: &str, start: usize) -> Option<usize> {
 }
 
 /// Smallest power of 2 >= n.
-pub fn next_power_of_two(n: u64) -> u64 {
+pub(crate) fn next_power_of_two(n: u64) -> u64 {
     if n <= 1 {
         return 1;
     }

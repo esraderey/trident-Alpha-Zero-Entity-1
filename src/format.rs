@@ -6,7 +6,7 @@ const MAX_WIDTH: usize = 80;
 const INDENT: &str = "    ";
 
 /// Format a parsed Trident file back to source, preserving comments.
-pub fn format_file(file: &File, comments: &[Comment], source: &str) -> String {
+pub(crate) fn format_file(file: &File, comments: &[Comment], source: &str) -> String {
     let mut ctx = FormatCtx::new(comments, source);
     ctx.emit_file(file);
     let mut out = ctx.output;

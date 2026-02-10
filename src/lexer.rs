@@ -4,13 +4,13 @@ use crate::span::{Span, Spanned};
 
 /// A source comment preserved for the formatter.
 #[derive(Clone, Debug)]
-pub struct Comment {
-    pub text: String, // includes the "//" prefix
-    pub span: Span,
-    pub trailing: bool, // true if a token appeared earlier on the same line
+pub(crate) struct Comment {
+    pub(crate) text: String, // includes the "//" prefix
+    pub(crate) span: Span,
+    pub(crate) trailing: bool, // true if a token appeared earlier on the same line
 }
 
-pub struct Lexer<'src> {
+pub(crate) struct Lexer<'src> {
     source: &'src [u8],
     file_id: u16,
     pos: usize,
@@ -21,7 +21,7 @@ pub struct Lexer<'src> {
 }
 
 impl<'src> Lexer<'src> {
-    pub fn new(source: &'src str, file_id: u16) -> Self {
+    pub(crate) fn new(source: &'src str, file_id: u16) -> Self {
         Self {
             source: source.as_bytes(),
             file_id,
@@ -32,7 +32,7 @@ impl<'src> Lexer<'src> {
         }
     }
 
-    pub fn tokenize(mut self) -> (Vec<Spanned<Lexeme>>, Vec<Comment>, Vec<Diagnostic>) {
+    pub(crate) fn tokenize(mut self) -> (Vec<Spanned<Lexeme>>, Vec<Comment>, Vec<Diagnostic>) {
         let mut tokens = Vec::new();
         loop {
             let tok = self.next_token();

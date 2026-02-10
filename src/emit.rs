@@ -11,7 +11,8 @@ use crate::typeck::MonoInstance;
 /// Each method returns the target assembly string for a semantic operation.
 /// The Emitter calls these to produce target-specific output while sharing
 /// all AST-walking and stack-management logic.
-pub trait StackBackend {
+#[allow(dead_code)] // Methods used by TritonBackend; other backends will use all methods.
+pub(crate) trait StackBackend {
     /// Target name (e.g. "triton", "miden").
     fn target_name(&self) -> &str;
     /// File extension for output (e.g. ".tasm").
@@ -77,7 +78,7 @@ pub trait StackBackend {
 }
 
 /// Triton VM backend — emits Triton Assembly (TASM).
-pub struct TritonBackend;
+pub(crate) struct TritonBackend;
 
 impl StackBackend for TritonBackend {
     fn target_name(&self) -> &str {
@@ -212,7 +213,8 @@ struct DeferredBlock {
 }
 
 /// TASM emitter — walks the AST and produces Triton Assembly.
-pub struct Emitter {
+#[allow(dead_code)] // backend field used via trait dispatch; accessors for future multi-backend.
+pub(crate) struct Emitter {
     output: Vec<String>,
     label_counter: u32,
     /// Stack model: LRU-based manager with automatic RAM spill/reload.
@@ -262,11 +264,14 @@ impl Default for Emitter {
 }
 
 impl Emitter {
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self::with_backend(Box::new(TritonBackend), TargetConfig::triton())
     }
 
-    pub fn with_backend(backend: Box<dyn StackBackend>, target_config: TargetConfig) -> Self {
+    pub(crate) fn with_backend(
+        backend: Box<dyn StackBackend>,
+        target_config: TargetConfig,
+    ) -> Self {
         let stack =
             StackManager::with_config(target_config.stack_depth, target_config.spill_ram_base);
         Self {
@@ -295,21 +300,24 @@ impl Emitter {
     }
 
     /// Output file extension for the current backend (e.g. ".tasm").
-    pub fn output_extension(&self) -> &str {
+    #[allow(dead_code)]
+    pub(crate) fn output_extension(&self) -> &str {
         self.backend.output_extension()
     }
 
     /// Target name from the backend (e.g. "triton").
-    pub fn target_name(&self) -> &str {
+    #[allow(dead_code)]
+    pub(crate) fn target_name(&self) -> &str {
         self.backend.target_name()
     }
 
     /// Access the target configuration.
-    pub fn target_config(&self) -> &TargetConfig {
+    #[allow(dead_code)]
+    pub(crate) fn target_config(&self) -> &TargetConfig {
         &self.target_config
     }
 
-    pub fn with_cfg_flags(mut self, flags: HashSet<String>) -> Self {
+    pub(crate) fn with_cfg_flags(mut self, flags: HashSet<String>) -> Self {
         self.cfg_flags = flags;
         self
     }
@@ -323,31 +331,31 @@ impl Emitter {
     }
 
     /// Set a pre-built intrinsic map (from all project modules).
-    pub fn with_intrinsics(mut self, map: HashMap<String, String>) -> Self {
+    pub(crate) fn with_intrinsics(mut self, map: HashMap<String, String>) -> Self {
         self.intrinsic_map = map;
         self
     }
 
     /// Set module alias map (short name → full dotted name).
-    pub fn with_module_aliases(mut self, aliases: HashMap<String, String>) -> Self {
+    pub(crate) fn with_module_aliases(mut self, aliases: HashMap<String, String>) -> Self {
         self.module_aliases = aliases;
         self
     }
 
     /// Set external constants (from imported modules).
-    pub fn with_constants(mut self, constants: HashMap<String, u64>) -> Self {
+    pub(crate) fn with_constants(mut self, constants: HashMap<String, u64>) -> Self {
         self.constants.extend(constants);
         self
     }
 
     /// Set monomorphized generic function instances to emit.
-    pub fn with_mono_instances(mut self, instances: Vec<MonoInstance>) -> Self {
+    pub(crate) fn with_mono_instances(mut self, instances: Vec<MonoInstance>) -> Self {
         self.mono_instances = instances;
         self
     }
 
     /// Set per-call-site resolutions from the type checker.
-    pub fn with_call_resolutions(mut self, resolutions: Vec<MonoInstance>) -> Self {
+    pub(crate) fn with_call_resolutions(mut self, resolutions: Vec<MonoInstance>) -> Self {
         self.call_resolutions = resolutions;
         self
     }
@@ -362,7 +370,7 @@ impl Emitter {
         }
     }
 
-    pub fn emit_file(mut self, file: &File) -> String {
+    pub(crate) fn emit_file(mut self, file: &File) -> String {
         // Pre-scan: collect return widths and detect generic functions.
         for item in &file.items {
             if !self.is_item_cfg_active(&item.node) {
