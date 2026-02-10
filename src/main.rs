@@ -99,6 +99,14 @@ enum Command {
         #[arg(long, default_value = "debug")]
         profile: String,
     },
+    /// Verify assertions using symbolic execution + algebraic solver
+    Verify {
+        /// Input .tri file or directory with trident.toml
+        input: PathBuf,
+        /// Show detailed constraint system summary
+        #[arg(long)]
+        verbose: bool,
+    },
     /// Run benchmarks: compare Trident output vs hand-written TASM
     Bench {
         /// Directory containing benchmark .tri + .baseline.tasm files
@@ -146,6 +154,7 @@ fn main() {
             target,
             profile,
         } => cmd_doc(input, output, &target, &profile),
+        Command::Verify { input, verbose } => cmd_verify(input, verbose),
         Command::Bench { dir } => cmd_bench(dir),
         Command::Lsp => cmd_lsp(),
     }
@@ -703,6 +712,69 @@ fn cmd_doc(input: PathBuf, output: Option<PathBuf>, target: &str, profile: &str)
         eprintln!("Documentation written to {}", out_path.display());
     } else {
         print!("{}", markdown);
+    }
+}
+
+// --- trident verify ---
+
+fn cmd_verify(input: PathBuf, verbose: bool) {
+    let entry = if input.is_dir() {
+        let toml_path = input.join("trident.toml");
+        if !toml_path.exists() {
+            eprintln!("error: no trident.toml found in '{}'", input.display());
+            process::exit(1);
+        }
+        let project = match trident::project::Project::load(&toml_path) {
+            Ok(p) => p,
+            Err(e) => {
+                eprintln!("error: {}", e.message);
+                process::exit(1);
+            }
+        };
+        project.entry
+    } else if input.extension().is_some_and(|e| e == "tri") {
+        if let Some(toml_path) =
+            trident::project::Project::find(input.parent().unwrap_or(Path::new(".")))
+        {
+            let project = match trident::project::Project::load(&toml_path) {
+                Ok(p) => p,
+                Err(e) => {
+                    eprintln!("error: {}", e.message);
+                    process::exit(1);
+                }
+            };
+            project.entry
+        } else {
+            input.clone()
+        }
+    } else {
+        eprintln!("error: input must be a .tri file or project directory");
+        process::exit(1);
+    };
+
+    eprintln!("Verifying {}...", input.display());
+
+    // Also run symbolic analysis for verbose output
+    if verbose {
+        if let Ok(source) = std::fs::read_to_string(&entry) {
+            let filename = entry.to_string_lossy().to_string();
+            if let Ok(file) = trident::parse_source_silent(&source, &filename) {
+                let system = trident::sym::analyze(&file);
+                eprintln!("\nConstraint system: {}", system.summary());
+            }
+        }
+    }
+
+    match trident::verify_project(&entry) {
+        Ok(report) => {
+            eprintln!("\n{}", report.format_report());
+            if !report.is_safe() {
+                process::exit(1);
+            }
+        }
+        Err(_) => {
+            process::exit(1);
+        }
     }
 }
 

@@ -544,6 +544,54 @@ pub fn analyze_costs_project(
     }
 }
 
+/// Parse, type-check, and verify a project using symbolic execution + solver.
+///
+/// Returns a `VerificationReport` with static analysis, random testing (Schwartz-Zippel),
+/// and bounded model checking results.
+pub fn verify_project(entry_path: &Path) -> Result<solve::VerificationReport, Vec<Diagnostic>> {
+    let modules = resolve_modules(entry_path)?;
+
+    let mut all_exports: Vec<ModuleExports> = Vec::new();
+    let mut last_file = None;
+
+    for module in &modules {
+        let file = parse_source(&module.source, &module.file_path.to_string_lossy())?;
+
+        let mut tc = TypeChecker::new();
+        for exports in &all_exports {
+            tc.import_module(exports);
+        }
+        match tc.check_file(&file) {
+            Ok(exports) => {
+                if !exports.warnings.is_empty() {
+                    render_diagnostics(
+                        &exports.warnings,
+                        &module.file_path.to_string_lossy(),
+                        &module.source,
+                    );
+                }
+                all_exports.push(exports);
+            }
+            Err(errors) => {
+                render_diagnostics(&errors, &module.file_path.to_string_lossy(), &module.source);
+                return Err(errors);
+            }
+        }
+
+        last_file = Some(file);
+    }
+
+    if let Some(file) = last_file {
+        let system = sym::analyze(&file);
+        Ok(solve::verify(&system))
+    } else {
+        Err(vec![Diagnostic::error(
+            "no program file found".to_string(),
+            crate::span::Span::dummy(),
+        )])
+    }
+}
+
 /// Count the number of TASM instructions in a compiled output string.
 /// Skips comments, labels, blank lines, and the halt instruction.
 pub fn count_tasm_instructions(tasm: &str) -> usize {
