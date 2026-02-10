@@ -201,7 +201,7 @@ This is the final stage. Here is the complete journey of a Trident program, from
 
 | Stage | What Happens | Guide |
 |-------|-------------|-------|
-| **1. Writing** | Author a `.tri` program with types, modules, and functions | [Writing a Program](writing-a-program.md) |
+| **1. Writing** | Author a `.tri` program with types, modules, and functions | [Tutorial](tutorial.md) |
 | **2. Compiling** | `trident build` translates `.tri` to TASM assembly | [Compiling a Program](compiling-a-program.md) |
 | **3. Running** | Execute the TASM in Triton VM, producing an execution trace | [Running a Program](running-a-program.md) |
 | **4. Deploying** | Distribute the compiled program for use by provers and verifiers | [Deploying a Program](deploying-a-program.md) |

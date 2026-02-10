@@ -265,6 +265,15 @@ helpers_double:
 
 The `.tasm` file is the definitive record of what will execute. If the program's behavior surprises you, reading the assembly is the most direct way to understand what is happening. The mapping from Trident source to TASM is intentionally straightforward -- there is no optimization pass that rearranges code in unexpected ways.
 
+## See Also
+
+- [Tutorial](tutorial.md) -- Step-by-step guide: types, functions, modules, testing
+- [Compiling a Program](compiling-a-program.md) -- The prior stage: build pipeline and cost analysis
+- [Error Catalog](errors.md) -- All error messages explained with fixes
+- [How STARK Proofs Work](stark-proofs.md) -- Execution traces and the six constraint tables
+- [For Developers](for-developers.md) -- Zero-knowledge concepts for general developers
+- [Language Reference](reference.md) -- Types, operators, builtins, grammar
+
 ## Next Step
 
 Once you can build and run programs locally, the next stage is packaging them for on-chain use: [Deploying a Program](deploying-a-program.md).

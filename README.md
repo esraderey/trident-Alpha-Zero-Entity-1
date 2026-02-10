@@ -332,7 +332,7 @@ The complete journey from source code to verified proof:
 
 | Stage | Guide | What happens |
 |-------|-------|-------------|
-| 1. Write | [Writing a Program](docs/writing-a-program.md) | Types, functions, modules, control flow |
+| 1. Write | [Tutorial](docs/tutorial.md) | Types, functions, modules, control flow, inline asm |
 | 2. Compile | [Compiling a Program](docs/compiling-a-program.md) | Build, check, cost analysis, error handling |
 | 3. Run | [Running a Program](docs/running-a-program.md) | Execute TASM in Triton VM, I/O model, testing |
 | 4. Deploy | [Deploying a Program](docs/deploying-a-program.md) | Neptune UTXO scripts, multi-target deployment |
@@ -351,16 +351,21 @@ The complete journey from source code to verified proof:
 ### All Documents
 
 **Lifecycle guides** (start here):
-- [Writing a Program](docs/writing-a-program.md) -- Program structure, types, functions, modules, inline asm
-- [Compiling a Program](docs/compiling-a-program.md) -- Build pipeline, errors, cost analysis, testing
+- [Tutorial](docs/tutorial.md) -- Step-by-step guide: types, functions, modules, inline asm, testing
+- [Compiling a Program](docs/compiling-a-program.md) -- Build pipeline, errors, cost analysis
 - [Running a Program](docs/running-a-program.md) -- Execution in Triton VM, I/O model, debugging
 - [Deploying a Program](docs/deploying-a-program.md) -- Neptune scripts, multi-target, deployment checklist
 - [Generating Proofs](docs/generating-proofs.md) -- Trace to proof, cost optimization, recursive proofs
 - [Verifying Proofs](docs/verifying-proofs.md) -- Proof checking, on-chain verification, quantum safety
 
+**Architecture and features**:
+- [Formal Verification](docs/formal-verification.md) -- Symbolic execution, algebraic solving, SMT, invariant synthesis, equivalence checking
+- [Content-Addressed Code](docs/content-addressed.md) -- Poseidon2 hashing, UCM codebase manager, verification caching, on-chain registry
+- [Universal Design](docs/universal-design.md) -- TargetConfig, StackBackend trait, CostModel trait, multi-target architecture
+- [Gold Standard Libraries](docs/gold-standard.md) -- Token standards (TSP-1/TSP-2), bridge clients, crypto gadgets, benchmarks
+
 **Background and reference**:
 - [Vision](docs/vision.md) -- Why Trident exists and what you can build
-- [Tutorial](docs/tutorial.md) -- Step-by-step developer guide
 - [For Developers](docs/for-developers.md) -- Zero-knowledge from scratch (for Rust/Python/Go devs)
 - [For Blockchain Devs](docs/for-blockchain-devs.md) -- Mental model migration (for Solidity/Anchor/CosmWasm devs)
 - [How STARK Proofs Work](docs/stark-proofs.md) -- From execution traces to quantum-safe proofs
@@ -370,6 +375,31 @@ The complete journey from source code to verified proof:
 - [Optimization Guide](docs/optimization.md) -- Cost reduction strategies
 - [Error Catalog](docs/errors.md) -- All error messages with explanations
 - [Comparative Analysis](docs/analysis.md) -- Triton VM vs. every other ZK system
+
+## Formal Verification
+
+Trident includes a built-in verification pipeline: symbolic execution, algebraic solving (Schwartz-Zippel), bounded model checking, and SMT encoding. Annotate functions with `#[requires]`, `#[ensures]`, and `#[pure]`, then run `trident verify` to prove properties for all inputs -- or get a concrete counterexample.
+
+```bash
+trident verify main.tri              # Full verification pipeline
+trident verify main.tri --z3         # Also run Z3 SMT solver
+trident equiv main.tri f g           # Prove two functions equivalent
+trident generate spec.tri -o impl.tri  # Scaffold from specs
+```
+
+See [Formal Verification](docs/formal-verification.md) for details.
+
+## Content-Addressed Code
+
+Every function is identified by a Poseidon2 hash of its normalized AST (de Bruijn indices, dependency substitution, metadata stripped). Names are metadata; the hash is the identity.
+
+```bash
+trident hash main.tri               # Compute content hashes
+trident ucm add main.tri            # Store in codebase manager
+trident ucm view verify_merkle      # View by name or hash prefix
+```
+
+Verification and compilation results are cached by content hash -- same code, same hash, instant cache hit regardless of file location. See [Content-Addressed Code](docs/content-addressed.md) for details.
 
 ## Design Principles
 

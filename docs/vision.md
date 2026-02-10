@@ -60,7 +60,7 @@ That is why Trident exists.
 
 ---
 
-## What Trident Makes Possible
+## The Solution
 
 Trident is a minimal, security-first language with a universal compilation
 architecture. Its 3-layer design -- universal core, abstraction layer, and
@@ -107,6 +107,22 @@ unbounded iteration. No recursion. This is the property that makes static
 cost analysis possible. If the compiler accepts your program, the proving
 cost is computable before you ever run the prover.
 
+**Formal verification.** The `#[pure]` annotation marks functions for
+automated verification. Because Trident programs are bounded, first-order,
+and heap-free, the compiler can symbolically verify that a function satisfies
+its specification for all possible inputs -- not by testing, but by
+exhaustive analysis. See [Formal Verification](formal-verification.md).
+
+**Content-addressed code.** Every function compiles to a deterministic
+constraint system with a unique cryptographic identity. Two functions with
+different names but identical computation share the same hash. Audit
+certificates, cost analyses, and verification results travel with the code
+regardless of naming. See [Content-Addressed Code](content-addressed.md).
+
+**Proof composition.** Language-level support for verifying a proof inside a
+proof. The recursive verification pattern -- Triton VM's architectural sweet
+spot -- is a first-class operation, not a hand-rolled assembly routine.
+
 **Events, open and sealed.** `emit` writes event fields to public output.
 `seal` hashes them and writes only the digest -- the verifier sees that
 *something* happened, but not what. This is how you build private transfers.
@@ -132,6 +148,14 @@ compiler rejects it when compiling for a different target. The `-1` declares
 the net stack change. You get full control when you need it, structured code
 when you don't. Programs that omit the target tag default to `(triton)` for
 backward compatibility.
+
+**Const generic expressions.** Array sizes can be computed from generic
+parameters: `fn concat<M, N>() -> [Field; M + N]` enables compile-time
+concat, split, and reshape of fixed-size arrays with zero runtime cost.
+
+**Struct pattern matching.** Destructure structs directly in match arms:
+`match point { Point { x: 0, y } => ... }` desugars to field access and
+conditional checks with no overhead.
 
 ---
 
@@ -191,24 +215,16 @@ and the range check conspire to make the constraint automatic.
 In Solidity, an ERC-20 with comparable privacy features does not exist --
 the EVM is a transparent execution environment. In raw TASM, this program
 would be thousands of lines of stack manipulation. In Trident, it is 530
-lines with 12 formally specified security properties. More on this below.
+lines with 12 formally specified security properties.
 
-### Provable Computation
+### Neptune Transaction Validation
 
-Verify any computation without re-executing it. The core pattern is "compute
-expensive, verify cheap":
-
-```
-fn prove_sqrt(x: Field) {
-    let s: Field = divine()      // prover injects sqrt(x)
-    assert(s * s == x)           // verifier checks s^2 = x
-}
-```
-
-The prover does the hard work. The program constrains the result. The
-[STARK](stark-proofs.md) proof guarantees the constraint holds.
-This generalizes to any computation where verification is cheaper than
-computation: matrix multiplication, database queries, ML inference, search.
+Trident compiles directly to the programs that Neptune Cash miners prove.
+The transaction validation engine -- UTXO verification, supply conservation,
+nullifier checking -- is expressible in Trident instead of hand-written TASM.
+Neptune's consensus rules become readable source code that any developer can
+audit, and the same validation logic can be compiled to other backends as
+they ship.
 
 ### Recursive STARK Verification
 
@@ -252,6 +268,20 @@ checks FRI proximity using `xx_dot_step`. The recursive verification cost
 is approximately 300K clock cycles regardless of the original computation's
 complexity.
 
+### DeFi Protocols
+
+The building blocks for decentralized finance on a private, quantum-safe
+foundation:
+
+- **Private DEX**: Automated market makers where trade sizes, prices, and
+  participants are hidden. The proof guarantees the invariant (e.g.,
+  constant product) holds without revealing the state.
+- **Lending protocols**: Collateralization ratios verified in zero knowledge.
+  Liquidation proofs reveal only that the threshold was crossed, not the
+  borrower's position.
+- **Prediction markets**: Bet placement and resolution proved without
+  revealing individual positions until settlement.
+
 ### Identity Without Revelation
 
 The `verify_auth` pattern from the token example generalizes to any identity
@@ -270,10 +300,21 @@ Build on this foundation:
 - **Delegated authorization**: prove that someone authorized you to act,
   without revealing who or when
 
-### Private Voting, Compliance, and Bridges
+### Cross-Chain Bridges
 
-The building blocks in the token example -- Merkle authentication,
-nullifiers, hash-preimage authorization -- compose into larger systems:
+Bitcoin and Ethereum light clients that verify in zero-knowledge. For
+Ethereum, instead of implementing BLS12-381 pairing verification directly
+in-circuit (millions of cycles), verify a STARK proof that *someone else*
+verified the BLS signature correctly. The recursive verification costs
+approximately 300K clock cycles regardless of the original computation's
+complexity. This is Triton VM's architectural sweet spot: use native
+recursive verification to sidestep expensive non-native cryptography.
+
+With Trident's universal compilation, bridge logic is written once and
+compiled to both chains' native zkVMs. The verifier on each side provably
+computes the same thing. Auditors verify one codebase, not two.
+
+### Private Voting and Compliance
 
 **Private voting.** Voters prove eligibility via Merkle inclusion and cast
 votes without revealing which voter cast which vote. The proof guarantees
@@ -287,13 +328,29 @@ data to a Merkle tree, run the compliance check inside the STARK proof,
 output only the boolean result. The regulator gets cryptographic assurance.
 The data stays private.
 
-**Cross-chain bridges.** Bitcoin and Ethereum light clients that verify in
-zero-knowledge. For Ethereum, instead of implementing BLS12-381 pairing
-verification directly in-circuit (millions of cycles), verify a STARK proof
-that *someone else* verified the BLS signature correctly. The recursive
-verification costs approximately 300K clock cycles regardless of the original
-computation's complexity. This is Triton VM's architectural sweet spot: use
-native recursive verification to sidestep expensive non-native cryptography.
+### Verifiable AI/ML Inference
+
+Prove that a neural network inference was computed correctly. The computation
+is inherently bounded (fixed model architecture, fixed input size) and
+arithmetic-heavy (matrix multiplications over finite fields). Trident's
+properties align naturally:
+
+- Fixed arrays for weight matrices
+- Bounded loops for layer computation
+- Field arithmetic for quantized operations
+- Multi-target compilation to prove inference on whichever VM is fastest
+  for matrix operations
+
+### Provable Data Pipelines
+
+Beyond smart contracts, Trident targets provable data processing:
+
+- **Provable ETL**: Transform data with guaranteed correctness. Input hash +
+  output hash + Trident program = verifiable data pipeline.
+- **Provable aggregation**: Compute statistics (sum, mean, count, Merkle
+  root) over datasets with proof of correct computation.
+- **Supply chain verification**: Each step runs a Trident program that
+  verifies the previous step's proof and extends the chain.
 
 ### Sovereign Mining
 
@@ -309,9 +366,126 @@ a high-level language, every new program on Triton VM requires an assembly
 expert. With Trident, any developer who can read a struct definition and a
 for loop can write provable programs for a sovereign, mineable chain.
 
+### Cross-Chain Provable Computation
+
+Because Trident programs are target-agnostic, the same source compiled to
+different backends produces independent proofs of the *same computation*.
+This unlocks:
+
+- **Cross-chain atomic operations**: A single Trident program describes an
+  atomic swap. Compile to each chain's VM. The proofs are independent but
+  the source is shared.
+- **Proof relay networks**: Chain A proves computation X. Chain B needs to
+  verify that proof. If both run Trident-compatible VMs, the recursive
+  verifier is the same program compiled to different targets.
+- **Prover shopping**: A computation written in Trident can be proved on
+  whichever zkVM offers the best price/performance. Triton might be cheapest
+  for hash-heavy workloads, SP1 for general computation, Miden for
+  state-heavy programs.
+
 ---
 
-## Cost Transparency: Know What You Pay Before You Prove
+## Architecture
+
+### Compilation: Source to TASM, Nothing in Between
+
+Trident's compiler is built on a 3-layer universal design:
+
+```
++-------------------------------------------+
+|         Trident Universal Core            |
+|   (types, control flow, modules, field    |
+|    arithmetic, I/O, cost transparency)    |
++-------------------------------------------+
+|         Abstraction Layer                 |
+|   (hash, memory, stack/register mgmt,    |
+|    Merkle ops, cost model, events)        |
++----------+---------+---------+------------+
+| Triton   |  Miden  |  Cairo  |  SP1/RZ   |
+| Backend  | Backend | Backend |  Backend  |
+|  + ext   |  + ext  |  + ext  |  + ext    |
++----------+---------+---------+------------+
+```
+
+The **universal core** (~56% of the language surface) compiles identically to
+every target: types, field arithmetic, bounded loops, modules, functions. The
+**abstraction layer** (~22%) provides the same syntax with per-target dispatch:
+I/O, hashing, Merkle operations, memory, events. **Backend extensions** (~22%)
+expose target-specific capabilities -- `XField` on Triton, account models on
+Miden, precompiles on SP1 -- through a uniform extension mechanism under
+`ext/<target>/`.
+
+The `--target` flag selects the backend (default: `triton`):
+
+```bash
+trident build main.tri                     # default: --target triton
+trident build main.tri --target triton
+trident build main.tri --target miden      # when backend ships
+```
+
+For the Triton backend, the pipeline is direct:
+
+```
+Source (.tri) --> Parse --> AST --> Type Check --> TASM Emit --> Link
+```
+
+No intermediate representation. The AST is type-checked, then each node
+emits TASM directly. When you see `hash(a, b, c, d, e, f, g, h, i, j)` in
+source, the `hash` instruction fires in the VM -- 1 clock cycle, 6 hash
+table rows, 5 elements out. No optimization pass reorders your operations.
+No IR introduces instructions you did not write. **What you see is what you
+prove.**
+
+Register-machine targets (Cairo, SP1/RISC Zero) will use a minimal IR
+between type checking and emission. Stack-machine targets (Triton, Miden)
+keep the direct-emission model.
+
+The compiler is 36,848 lines of Rust with 4 runtime dependencies. Small
+enough for one person to audit in depth. A compiler that generates proofs
+of computation must itself be trustworthy, and trustworthiness scales
+inversely with complexity.
+
+### Standard Library: Layered for Portability
+
+The standard library mirrors the 3-layer architecture:
+
+```
+std/
++-- core/               Universal -- zero VM dependencies
+|   +-- field.tri         Goldilocks field arithmetic
+|   +-- u32.tri           U32 operations
+|   +-- convert.tri       Type conversions (as_u32, as_field)
+|   +-- assert.tri        Assertions (is_true, eq, digest)
+|
++-- io/                 Abstraction layer -- per-target intrinsic dispatch
+|   +-- io.tri            pub_read, pub_write, divine
+|   +-- mem.tri           ram_read, ram_write, block operations
+|   +-- storage.tri       Persistent storage
+|
++-- crypto/             Abstraction layer -- hash-parameterized
+    +-- hash.tri          hash(), sponge_init/absorb/squeeze
+    +-- merkle.tri        Merkle tree verification
+    +-- auth.tri          Hash-preimage authorization
+
+ext/
++-- triton/             Backend extensions -- Triton VM specific
+    +-- xfield.tri        XField type, xx_add, xx_mul, x_invert
+    +-- kernel.tri        Neptune kernel interface
+    +-- utxo.tri          UTXO verification
+```
+
+Modules under `std/core/` compile identically to every target. Modules under
+`std/io/` and `std/crypto/` use the same syntax everywhere but dispatch to
+target-native instructions. Modules under `ext/triton/` are available only
+when compiling with `--target triton`. 52 `.tri` files across
+`std/`, `ext/`, and `examples/` form the current library and example surface.
+
+Every function in the standard library has a known, fixed cost in table rows.
+When you call `std.crypto.merkle.verify(root, leaf, index, depth)`, the
+compiler knows exactly how many Hash rows, Processor rows, and RAM rows that
+verification adds to your trace.
+
+### Cost Transparency: Know What You Pay Before You Prove
 
 In most ZK systems, proving cost is a runtime discovery. You run the program,
 measure the trace, and find out afterward how expensive it was. STARK proving
@@ -326,13 +500,6 @@ and every instruction's contribution to all six Triton VM tables is known.
 The compiler sums these across all paths and reports the maximum table height
 padded to the next power of two -- which is the actual value that determines
 proving time.
-
-That padding is critical. [Triton VM](https://triton-vm.org/) pads every
-table to the next power of two. If your Hash table has 1,025 rows, it pads
-to 2,048. If it has 1,024, it stays at 1,024. A single row can double your
-proving time. The compiler warns you when you are near these cliffs.
-
-### The --costs Output
 
 ```bash
 $ trident build main.tri --costs
@@ -355,415 +522,12 @@ Cost report:
 +---------------------------------------------------------+
 ```
 
-Every row in this report is computed statically from the source code. The
-"dominant" column tells you which table determines the padded height. The
-per-iteration breakdown tells you exactly what each loop iteration costs
-across all six tables.
-
-The `--hotspots` flag ranks functions by their contribution to the dominant
-table:
-
-```bash
-$ trident build main.tri --hotspots
-
-Top 5 cost contributors:
-  1. merkle.verify:loop_body     120 hash rows (46% of hash table)
-  2. compute_inputs_hash:absorb  768 hash rows (29% of hash table)
-  3. main:divine5                  5 cc  (negligible)
-```
-
-The `--hints` flag gives actionable optimization suggestions:
-
-```
-hint[H0001]: hash table is 3.2x taller than processor table
-  = Processor optimizations will not reduce proving cost.
-  = Consider: batching data before hashing, reducing Merkle depth,
-    or using sponge_absorb_mem instead of repeated sponge_absorb.
-
-hint[H0002]: padded height is 1024, but max table height is only 519
-  = You have 505 rows of headroom before the next doubling.
-  = This function could be 97% more complex at zero additional cost.
-```
-
-The `--annotate` flag inlines costs with your source code:
-
-```
-pub fn verify(root: Digest, leaf: Digest, index: U32, depth: U32) {
-    let mut idx = index                          // cc: 1  hash: 0  u32: 0
-    let mut current = leaf                       // cc: 0  hash: 0  u32: 0
-    for _ in 0..depth bounded 64 {               // x 64 iterations (worst case)
-        (idx, current) = merkle_step(idx, current)  // cc: 1  hash: 6  u32: ~4
-    }                                            // subtotal: cc: 64  hash: 384
-    assert_digest(current, root)                 // cc: 1  hash: 0  u32: 0
-}
-// TOTAL: cc: 66  hash: 384  dominant: hash  padded: 512
-```
-
-And `--compare` diffs two cost snapshots so you can see the exact impact of
-every change:
-
-```bash
-$ trident build main.tri --save-costs before.json
-# ... make optimizations ...
-$ trident build main.tri --compare before.json
-```
-
-This is profiling for proving cost. Not guessing. Not estimating. Measuring,
-from source code, at compile time. No other ZK language does this.
-
-Without cost transparency, ZK development is trial-and-error: write code,
-run the prover, discover it takes 45 minutes, guess which part is expensive,
-change something, run again. With Trident, you know before you ever invoke
-the prover that adding one `hash()` call near a 512-row boundary will double
-your padded height, or that tightening `bounded 128` to `bounded 16` drops
-the padded height from 1,024 to 256. This transforms ZK development from
-guesswork into engineering.
-
----
-
-## Quantum Safety Is Not Optional
-
-Every SNARK system in production today relies on the hardness of the discrete
-logarithm problem on elliptic curves. [Shor's algorithm](https://en.wikipedia.org/wiki/Shor%27s_algorithm)
-solves discrete logarithm in polynomial time on a quantum computer. The
-question is not *whether* sufficiently powerful quantum computers will exist,
-but *when*. NIST has already [standardized post-quantum algorithms](https://csrc.nist.gov/Projects/post-quantum-cryptography).
-The migration is underway.
-
-When it happens, the break is total and retroactive. Every Groth16 proof
-ever generated becomes forgeable. Every KZG polynomial commitment becomes
-extractable. Every blockchain using these schemes loses its security
-guarantees -- not going forward, but *retroactively*, for all historical
-proofs.
-
-Here is where every major system stands:
-
-| System | Prover Quantum-Safe | Verifier Quantum-Safe | Migration Path |
-|--------|:---:|:---:|---|
-| StarkWare/Stwo | Yes (Circle STARKs) | Yes (native STARK) | None needed |
-| SP1 | Yes (FRI) | **No** (Groth16/BN254) | Fundamental redesign |
-| RISC Zero | Yes (0STARK) | **No** (Groth16/BN254) | Fundamental redesign |
-| Aleo | **No** (Pasta curves) | **No** (Pasta curves) | Complete crypto migration |
-| Mina | **No** (Pasta curves) | **No** (Pasta curves) | Complete crypto migration |
-| **Triton VM** | **Yes** (FRI + Tip5) | **Yes** (native STARK) | **None needed** |
-
-SP1 and RISC Zero wrap in Groth16 because Ethereum's gas costs make raw
-STARK verification prohibitively expensive. This is a structural vulnerability
-they cannot fix without abandoning cheap Ethereum verification.
-
-[Triton VM](https://triton-vm.org/) uses no elliptic curves anywhere. The
-proof system is [FRI](https://eccc.weizmann.ac.il/report/2017/134/) -- a
-proximity test over finite fields. The hash function is
-[Tip5](https://eprint.iacr.org/2023/107) -- an algebraic hash designed for
-STARK arithmetic. Security rests entirely on hash collision resistance and
-low-degree testing. No pairings. No groups. No discrete log. No trusted setup.
-
-This is not "quantum-resistant as an option." It is quantum-safe by
-construction. There is nothing to migrate. The proofs you generate today
-will be secure against quantum computers whenever they arrive. For
-infrastructure intended to last decades, this is not a feature. It is a
-requirement.
-
----
-
-## The 530-Line Token: A Guided Tour
-
-The best way to understand what Trident makes possible is to read a real
-program. The [fungible token example](../examples/fungible_token/token.tri)
-is 530 lines of Trident that implement a complete, privacy-preserving
-fungible token. Here is how it works.
-
-The full source is at `examples/fungible_token/token.tri`. The formal
-specification is at `examples/fungible_token/SPEC.md`.
-
-### State: A Merkle Tree of Account Leaves
-
-Every account is 5 field elements, hashed to a Digest:
-
-```
-fn hash_leaf(
-    id: Field,
-    bal: Field,
-    nonce: Field,
-    auth: Field,
-    lock: Field
-) -> Digest {
-    hash(id, bal, nonce, auth, lock, 0, 0, 0, 0, 0)
-}
-```
-
-`id` is the account identifier. `bal` is the token balance (range-checked
-to fit in U32). `nonce` is a monotonic counter that prevents replay. `auth`
-is the hash of an authorization secret -- not a public key, not a signature
-scheme, just a hash commitment. `lock` is a timestamp until which the tokens
-cannot move.
-
-These leaves live in a binary Merkle tree. The root is the entire token's
-state commitment. To prove any operation, you prove that specific leaves
-exist in the tree, transform them according to the operation's rules, and
-produce a new root.
-
-This is 6 lines of Trident. One Tip5 hash call. The account model for a
-complete private token.
-
-### Token Configuration: 10 Fields, One Hash
-
-The token's business logic is governed by a configuration commitment -- 5
-authorities and 5 hooks, packed into a single Tip5 hash:
-
-```
-fn hash_config(
-    admin_auth: Field, pay_auth: Field, lock_auth: Field,
-    mint_auth: Field, burn_auth: Field,
-    pay_hook: Field, lock_hook: Field, update_hook: Field,
-    mint_hook: Field, burn_hook: Field
-) -> Digest {
-    hash(admin_auth, pay_auth, lock_auth, mint_auth, burn_auth,
-         pay_hook, lock_hook, update_hook, mint_hook, burn_hook)
-}
-```
-
-Authorities control *who* can perform each operation. Hooks reference
-external programs for custom business logic -- compliance checks, transfer
-limits, KYC gates, vesting schedules. Every operation divines the 10 config
-fields, hashes them, and asserts the hash matches the public commitment. If
-it doesn't match, the VM crashes -- no proof generated. The config hash binds
-every proof to a specific token: proofs for Token A cannot be reused against
-Token B.
-
-### Authorization: Hash Preimage, Not Signatures
-
-```
-fn verify_auth(auth_hash: Field) {
-    let secret: Field = divine()
-    let computed: Digest = hash(secret, 0, 0, 0, 0, 0, 0, 0, 0, 0)
-    let (h0, _, _, _, _) = computed
-    assert_eq(auth_hash, h0)
-}
-```
-
-This is the entire authorization mechanism. Four lines. One divine, one hash,
-one destructure, one assert. The secret can be anything -- a private key, a
-Shamir share reconstruction, a biometric hash, a hardware security module
-attestation. The protocol does not prescribe an authentication scheme. It
-prescribes a commitment scheme and lets users choose their own security model.
-
-This is account abstraction at the deepest possible level.
-
-### Five Operations, PLUMB Order
-
-The entry point dispatches on a public opcode:
-
-```
-fn main() {
-    let op: Field = pub_read()
-    if op == 0 { pay() }
-    else if op == 1 { lock() }
-    else if op == 2 { update() }
-    else if op == 3 { mint() }
-    else if op == 4 { burn() }
-}
-```
-
-**Pay** (operation 0) transfers tokens between accounts. Here is the core
-of the balance logic:
-
-```
-// Sufficient balance
-let new_s_bal: Field = sub(s_bal, amount)
-assert_non_negative(new_s_bal)
-
-// ...
-
-// Compute new leaves
-let new_s_nonce: Field = s_nonce + 1
-let new_s_leaf: Digest = hash_leaf(
-    s_id, new_s_bal, new_s_nonce, s_auth, s_lock
-)
-let new_r_bal: Field = r_bal + amount
-let new_r_leaf: Digest = hash_leaf(r_id, new_r_bal, r_nonce, r_auth, r_lock)
-```
-
-The subtraction `sub(s_bal, amount)` is field arithmetic -- if the result
-would be negative, it wraps to a value larger than 2^32.
-`assert_non_negative` calls `as_u32()`, which inserts a range check via
-Triton VM's `split` instruction. If the value exceeds 2^32, the range check
-fails, the VM crashes, and no proof can be generated. Negative balances are
-mathematically impossible.
-
-After the transfer, the sender emits a sealed nullifier:
-
-```
-seal Nullifier { account_id: s_id, nonce: s_nonce }
-```
-
-`seal` hashes the event fields and writes only the digest to public output.
-The verifier sees that a nullifier was emitted -- enough to reject replays --
-but not which account or which nonce. Privacy preserved.
-
-**Lock** (operation 1) time-locks tokens. Locks are monotonic -- you can
-extend but never shorten:
-
-```
-let lock_diff: Field = sub(lock_time, a_lock)
-assert_non_negative(lock_diff)
-```
-
-An attacker who gains temporary access cannot remove a lock placed by the
-legitimate owner.
-
-**Update** (operation 2) changes the token configuration. Only the admin
-can do this:
-
-```
-assert_digest(old_root, new_root)   // state must not change
-verify_auth(old_admin)              // admin authorization
-```
-
-Setting `admin_auth` to zero in the new config permanently renounces admin
-authority. The hash preimage of zero is computationally infeasible under
-[Tip5](https://eprint.iacr.org/2023/107), so no future update proof can
-be constructed. The config becomes immutable forever. Irreversible by
-mathematics, not by policy.
-
-**Mint** (operation 3) creates new tokens. Requires config-level authority.
-If `mint_auth` is zero, minting is permanently disabled.
-
-**Burn** (operation 4) destroys tokens. Checks time-lock, range-checks
-balance, adjusts supply.
-
-### What the Verifier Sees (and What It Doesn't)
-
-Every operation is a standalone zero-knowledge proof. The verifier sees the
-old and new Merkle roots, the supply, the current time, the config
-commitment, and nullifier commitments for replay prevention.
-
-The verifier **never** sees: account balances, transfer amounts,
-authorization secrets, Merkle tree paths, account identifiers, or any of
-the 10 config fields. Verified but hidden.
-
-### 12 Security Properties, 530 Lines
-
-The [specification](../examples/fungible_token/SPEC.md) formally defines 12
-security properties enforced by constraints in the circuit: no negative
-balances (`as_u32()` range check), replay prevention (nonce + sealed
-nullifier), time-lock enforcement, lock monotonicity, supply conservation,
-account abstraction, config binding, irreversible renounce, config-state
-separation, hook composability, symmetric dual authority, and safe defaults
-(zero values disable operations, not enable them).
-
-Each property emerges from a small number of constraints in the Trident
-source. No runtime. No state machine. Just math, verified by the STARK
-prover.
-
-In Solidity, an ERC-20 with comparable features does not exist -- the EVM is
-transparent. In raw TASM, this would be thousands of lines of stack
-manipulation. Trident sits in the middle: structured enough to be readable,
-low-level enough that every line maps to provable computation. 530 lines.
-Five operations. Twelve security properties. One file.
-
----
-
-## The Architecture
-
-Trident's compiler is built on a 3-layer universal design:
-
-```
-┌───────────────────────────────────────────┐
-│         Trident Universal Core            │
-│   (types, control flow, modules, field    │
-│    arithmetic, I/O, cost transparency)    │
-├───────────────────────────────────────────┤
-│         Abstraction Layer                 │
-│   (hash, memory, stack/register mgmt,    │
-│    Merkle ops, cost model, events)        │
-├─────────┬─────────┬─────────┬────────────┤
-│ Triton  │  Miden  │  Cairo  │  SP1/RZ    │
-│ Backend │ Backend │ Backend │  Backend   │
-│  + ext  │  + ext  │  + ext  │  + ext     │
-└─────────┴─────────┴─────────┴────────────┘
-```
-
-The **universal core** (~56% of the language surface) compiles identically to
-every target: types, field arithmetic, bounded loops, modules, functions. The
-**abstraction layer** (~22%) provides the same syntax with per-target dispatch:
-I/O, hashing, Merkle operations, memory, events. **Backend extensions** (~22%)
-expose target-specific capabilities -- `XField` on Triton, account models on
-Miden, precompiles on SP1 -- through a uniform extension mechanism under
-`ext/<target>/`.
-
-The `--target` flag selects the backend (default: `triton`):
-
-```bash
-trident build main.tri                     # default: --target triton
-trident build main.tri --target triton
-trident build main.tri --target miden      # when backend ships
-```
-
-### Compilation: Source to TASM, Nothing in Between
-
-For the Triton backend, the pipeline is direct:
-
-```
-Source (.tri) --> Parse --> AST --> Type Check --> TASM Emit --> Link
-```
-
-No intermediate representation. The AST is type-checked, then each node
-emits TASM directly. When you see `hash(a, b, c, d, e, f, g, h, i, j)` in
-source, the `hash` instruction fires in the VM -- 1 clock cycle, 6 hash
-table rows, 5 elements out. No optimization pass reorders your operations.
-No IR introduces instructions you did not write. **What you see is what you
-prove.**
-
-Register-machine targets (Cairo, SP1/RISC Zero) will use a minimal IR
-between type checking and emission. Stack-machine targets (Triton, Miden)
-keep the direct-emission model.
-
-The compiler is 16,700 lines of Rust with 4 runtime dependencies. Small
-enough for one person to read in a day. Small enough for a security auditor
-to verify the source-to-TASM translation in a week. A compiler that
-generates proofs of computation must itself be trustworthy, and
-trustworthiness scales inversely with complexity.
-
-### Standard Library: Layered for Portability
-
-The standard library mirrors the 3-layer architecture:
-
-```
-std/
-├── core/               Universal -- zero VM dependencies
-│   ├── field.tri         Goldilocks field arithmetic
-│   ├── u32.tri           U32 operations
-│   ├── convert.tri       Type conversions (as_u32, as_field)
-│   └── assert.tri        Assertions (is_true, eq, digest)
-│
-├── io/                 Abstraction layer -- per-target intrinsic dispatch
-│   ├── io.tri            pub_read, pub_write, divine
-│   ├── mem.tri           ram_read, ram_write, block operations
-│   └── storage.tri       Persistent storage
-│
-└── crypto/             Abstraction layer -- hash-parameterized
-    ├── hash.tri          hash(), sponge_init/absorb/squeeze
-    ├── merkle.tri        Merkle tree verification
-    └── auth.tri          Hash-preimage authorization
-
-ext/
-└── triton/             Backend extensions -- Triton VM specific
-    ├── xfield.tri        XField type, xx_add, xx_mul, x_invert
-    ├── kernel.tri        Neptune kernel interface
-    └── utxo.tri          UTXO verification
-```
-
-Modules under `std/core/` compile identically to every target. Modules under
-`std/io/` and `std/crypto/` use the same syntax everywhere but dispatch to
-target-native instructions. Modules under `ext/triton/` are available only
-when compiling with `--target triton`. See the [Language Specification](spec.md)
-and the [Universal Design](universal-design.md) document for details.
-
-Every function in the standard library has a known, fixed cost in table rows.
-When you call `std.crypto.merkle.verify(root, leaf, index, depth)`, the
-compiler knows exactly how many Hash rows, Processor rows, and RAM rows that
-verification adds to your trace.
+The `--hotspots` flag ranks functions by cost contribution. The `--hints`
+flag gives actionable optimization suggestions. The `--annotate` flag inlines
+costs with your source code. The `--compare` flag diffs two cost snapshots.
+This is profiling for proving cost -- not guessing, not estimating, but
+measuring from source code at compile time. See the
+[Optimization Guide](optimization.md) for details.
 
 ### Hash Performance: The Categorical Advantage
 
@@ -790,7 +554,40 @@ verification -- this dominance is decisive.
 
 ---
 
-## The Only System That Passes All Four Tests
+## Why Trident
+
+### Quantum Safety Is Not Optional
+
+Every SNARK system in production today relies on the hardness of the discrete
+logarithm problem on elliptic curves. [Shor's algorithm](https://en.wikipedia.org/wiki/Shor%27s_algorithm)
+solves discrete logarithm in polynomial time on a quantum computer. The
+question is not *whether* sufficiently powerful quantum computers will exist,
+but *when*. NIST has already [standardized post-quantum algorithms](https://csrc.nist.gov/Projects/post-quantum-cryptography).
+The migration is underway.
+
+When it happens, the break is total and retroactive. Every Groth16 proof
+ever generated becomes forgeable. Every KZG polynomial commitment becomes
+extractable. Every blockchain using these schemes loses its security
+guarantees -- not going forward, but *retroactively*, for all historical
+proofs.
+
+| System | Prover Quantum-Safe | Verifier Quantum-Safe | Migration Path |
+|--------|:---:|:---:|---|
+| StarkWare/Stwo | Yes (Circle STARKs) | Yes (native STARK) | None needed |
+| SP1 | Yes (FRI) | **No** (Groth16/BN254) | Fundamental redesign |
+| RISC Zero | Yes (0STARK) | **No** (Groth16/BN254) | Fundamental redesign |
+| Aleo | **No** (Pasta curves) | **No** (Pasta curves) | Complete crypto migration |
+| Mina | **No** (Pasta curves) | **No** (Pasta curves) | Complete crypto migration |
+| **Triton VM** | **Yes** (FRI + Tip5) | **Yes** (native STARK) | **None needed** |
+
+[Triton VM](https://triton-vm.org/) uses no elliptic curves anywhere. The
+proof system is [FRI](https://eccc.weizmann.ac.il/report/2017/134/) -- a
+proximity test over finite fields. The hash function is
+[Tip5](https://eprint.iacr.org/2023/107) -- an algebraic hash designed for
+STARK arithmetic. Security rests entirely on hash collision resistance and
+low-degree testing. No pairings. No groups. No discrete log. No trusted setup.
+
+### The Only System That Passes All Four Tests
 
 The [comparative analysis](analysis.md) evaluates every major ZK system
 against four requirements: quantum-safe, private, programmable, and mineable.
@@ -803,11 +600,61 @@ against four requirements: quantum-safe, private, programmable, and mineable.
 | Aleo | No (Pasta) | Yes | Yes | Partial | **No** |
 | Mina | No (Pasta) | Partial | Partial | No | **No** |
 | **Triton VM** | **Yes** | **Yes** | **Yes** | **Yes** | **Yes** |
-| NockVM | Yes | Yes | Partial | Yes | Partial |
 
 Triton VM is the only system that satisfies all four simultaneously, today,
 in production. [Neptune Cash](https://neptune.cash/) proves it works.
 Trident makes that system programmable by humans, not just assembly experts.
+
+### Formal Verification Is Decidable
+
+Trident programs are bounded, first-order, heap-free computations over finite
+fields. The verification problem is decidable: the compiler can automatically
+prove that a contract satisfies its specification for all possible inputs.
+No human constructs a proof. The compiler is the theorem prover. This makes
+Trident the first programming environment where LLMs can reliably produce
+formally verified code -- generate, verify in seconds, fix on failure, loop
+to convergence. See [Formal Verification](formal-verification.md).
+
+### Content-Addressed Code
+
+Every Trident function has a unique cryptographic identity derived from its
+normalized AST. Names are metadata; the hash is the identity. Audit
+certificates, verification results, and cost analyses are portable across
+projects, teams, and time. Two developers on different continents who write
+the same Merkle verifier with different variable names get the same hash --
+and share the same audit. See [Content-Addressed Code](content-addressed.md).
+
+### Write Once, Prove Anywhere
+
+The universal core compiles to any target. Backend extensions add power
+without limiting portability. Choosing Trident is not choosing a single
+ecosystem -- it is choosing all of them. A program written today for Triton
+VM is architecturally ready to compile to Miden, Cairo, and RISC-V zkVMs as
+those backends ship.
+
+### The Strategic Position
+
+Trident sits at a unique intersection:
+
+```
+             Expressiveness
+                  |
+     Rust/C++  *  |
+                  |     Cairo *
+                  |
+                  |          Trident *
+                  |
+        Circom *  |     Noir *
+                  |
+                  +---------------------->  Provability
+```
+
+It is not the most expressive language, and it is not the most minimal
+circuit DSL. It is the sweet spot for provable programs that need to be
+portable, auditable, and cost-transparent. Every trend -- more zkVMs
+launching, ZK expanding beyond crypto into data and AI, regulatory pressure
+for auditable code, cross-chain interoperability becoming critical -- makes
+this position stronger.
 
 ---
 
@@ -856,11 +703,12 @@ any target. Backend extensions add power without limiting portability. The
 architecture ensures that choosing Trident is not choosing a single
 ecosystem -- it is choosing all of them.
 
-The token example is 530 lines. The compiler is 16,700 lines of Rust. The
-test suite has 388 tests. The standard library is layered across `std/core/`,
-`std/io/`, `std/crypto/`, and `ext/triton/`. The cost model tracks 6 tables.
+The token example is 530 lines. The compiler is 36,848 lines of Rust. The
+test suite has 670 tests. 52 `.tri` files span `std/`, `ext/`, and
+`examples/`. The cost model tracks 6 tables. Formal verification is
+decidable. Code is content-addressed.
 
-The numbers are small. The foundation is solid. The rest is building.
+The numbers are growing. The foundation is solid. The rest is building.
 
 ---
 
@@ -870,15 +718,14 @@ The numbers are small. The foundation is solid. The rest is building.
 
 - [Tutorial](tutorial.md) -- Step-by-step guide from hello world to Merkle proofs
 - [Language Reference](reference.md) -- Quick lookup: types, operators, builtins, grammar, CLI flags
-- [Language Specification](spec.md) -- Complete reference for every construct
 - [Programming Model](programming-model.md) -- How Triton VM execution works
 - [Optimization Guide](optimization.md) -- Cost reduction strategies and table management
-- [Error Catalog](errors.md) -- Every error message explained with fixes
-- [Universal Design](universal-design.md) -- 3-layer architecture, backend extensions, target portability
 - [Comparative Analysis](analysis.md) -- Triton VM vs. every other ZK system
 - [Developer Guide](for-developers.md) -- Getting started with Trident
 - [Blockchain Developer Guide](for-blockchain-devs.md) -- Trident for Solidity/Cairo developers
-- [Fungible Token Example](../examples/fungible_token/) -- Complete private token implementation
+- [How STARK Proofs Work](stark-proofs.md) -- From execution traces to quantum-safe proofs
+- [Formal Verification](formal-verification.md) -- Automated correctness proofs for Trident programs
+- [Content-Addressed Code](content-addressed.md) -- Code identity by computation, not by name
 
 ### External Resources
 
@@ -887,7 +734,6 @@ The numbers are small. The foundation is solid. The rest is building.
 - [Neptune Cash](https://neptune.cash/) -- Proof-of-Work blockchain running Triton VM in production
 - [tasm-lib](https://github.com/TritonVM/tasm-lib) -- Reusable TASM snippets and patterns
 - [Tip5 Hash Function](https://eprint.iacr.org/2023/107) -- The algebraic hash (ePrint 2023/107)
-- [How STARK Proofs Work](stark-proofs.md) -- From execution traces to quantum-safe proofs
 - [FRI Protocol](https://eccc.weizmann.ac.il/report/2017/134/) -- The Fast Reed-Solomon IOP (ECCC 2017/134)
 - [Goldilocks Field](https://xn--2-umb.com/22/goldilocks/) -- The base field (p = 2^64 - 2^32 + 1)
 - [NIST Post-Quantum Cryptography](https://csrc.nist.gov/Projects/post-quantum-cryptography) -- The standardization effort

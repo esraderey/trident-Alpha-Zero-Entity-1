@@ -76,10 +76,10 @@ use std.crypto.auth
 
 fn main() {
     // Read kernel MAST hash from public input
-    let kernel_hash: Digest = io.pub_read_digest()
+    let kernel_hash: Digest = io.read5()
 
     // Divine the secret preimage
-    let preimage: Digest = io.divine_digest()
+    let preimage: Digest = io.divine5()
 
     // Verify: hash(preimage) matches expected lock hash
     std.crypto.auth.verify_preimage(preimage, kernel_hash)
@@ -160,7 +160,7 @@ functions that the abstraction layer maps to each backend's native instructions.
 # Current (only supported target)
 trident build program.tri --target triton -o program.tasm
 
-# Future (not yet implemented)
+# Future targets (architecture supports it, not yet implemented)
 trident build program.tri --target miden -o program.masm
 ```
 
@@ -291,29 +291,48 @@ identity -- the `program_digest` that verifiers will check proofs against.
 
 ---
 
-## Future: Package Registry and Deployment Tooling
+## Deployment Tooling
 
-The following features are on the roadmap but **not yet implemented**:
+### Content-Addressed Code
 
-- **Package manager**: Dependency resolution, versioned imports, and a global
-  registry of content-addressed Trident functions. Programs would be identified
-  and shared by their source hash. See [Content-Addressed Design](content-addressed.md)
-  for the architecture.
+Every Trident function is identified by its BLAKE3 content hash. This means
+deployments are reproducible: the same source always compiles to the same
+artifact with the same hash. The `trident hash` command computes a program's
+content hash, and the `trident ucm` codebase manager tracks definitions by
+hash. See [Content-Addressed Code](content-addressed.md) for details.
 
-- **Token factory**: A registry and tooling for deploying standard token types
-  on Neptune -- TSP-1 fungible tokens, NFTs, and other asset types -- from
-  templates rather than from scratch.
+### Token Standards
 
-- **Browser extension integration**: A library for web applications to interact
-  with Trident programs: constructing transactions, managing keys, and
-  triggering proof generation from browser contexts.
+Trident includes standard token implementations ready for deployment:
+
+- **TSP-1**: Fungible token standard with conservation laws, mint authority,
+  and burn support. See `examples/neptune/type_custom_token.tri`.
+- **TSP-2**: Non-fungible token standard with unique IDs and metadata.
+  See `examples/nft/nft.tri`.
+- **Native currency**: Neptune's built-in currency type script.
+  See `examples/neptune/type_native_currency.tri`.
+
+### On-Chain Registry
+
+The `ext.triton.registry` module provides an on-chain Merkle-tree registry
+for content-addressed definitions. Programs can be registered, verified,
+looked up, and updated via provable operations.
+
+### Proof Composition
+
+A Trident program can verify another program's proof internally using the
+`ext.triton.proof` library. This enables recursive proof structures where
+the inner program's hash becomes part of the outer program's public input.
+See `examples/neptune/proof_aggregator.tri` for a transaction batching
+example and `examples/neptune/transaction_validation.tri` for the full
+Neptune transaction validation orchestrator.
+
+### Not Yet Available
 
 - **Web playground**: An in-browser Trident compiler (via WASM) for
-  experimenting with programs without installing the toolchain.
-
-These are documented in the project roadmap. Today, deployment is a manual
-process: compile with `trident build`, integrate the `.tasm` artifact with
-your target system, and manage dependencies as local files.
+  experimenting without installing the toolchain.
+- **Browser extension integration**: A library for web applications to
+  construct transactions and trigger proof generation.
 
 ---
 

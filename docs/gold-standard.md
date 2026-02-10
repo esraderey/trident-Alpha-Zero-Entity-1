@@ -2,9 +2,25 @@
 
 ## ZK-Native Financial Primitives for Triton VM
 
-**Version:** 0.5 — Draft  
+**Version:** 0.5  
 **Date:** February 10, 2026  
-**Status:** Architecture Decision Record  
+
+### Implementation Status
+
+| Primitive | Status | Example Code |
+|-----------|--------|--------------|
+| **PLUMB framework** | Implemented | `ext/triton/kernel.tri`, `ext/triton/utxo.tri` |
+| **TSP-1** (Fungible tokens) | Implemented | `examples/neptune/type_custom_token.tri` |
+| **TSP-2** (NFTs) | Implemented | `examples/nft/nft.tri` |
+| **Native currency** | Implemented | `examples/neptune/type_native_currency.tri` |
+| **Lock scripts** | Implemented | `examples/neptune/lock_*.tri` (4 variants) |
+| **Transaction validation** | Implemented | `examples/neptune/transaction_validation.tri` |
+| **Proof composition** | Implemented | `ext/triton/proof.tri`, `examples/neptune/proof_aggregator.tri` |
+| **TIDE** (Liquidity) | Design only | Specified below, not yet implemented |
+| **COMPASS** (Oracle) | Design only | Specified below, not yet implemented |
+| **Hook library** | Design only | Architecture specified, hooks not yet codified |
+
+See the [Tutorial](tutorial.md) for language basics, [Programming Model](programming-model.md) for the Neptune transaction model, and [Deploying a Program](deploying-a-program.md) for deployment workflows.
 
 ---
 

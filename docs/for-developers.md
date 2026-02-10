@@ -632,6 +632,12 @@ target that supports the same feature set.
   fixes
 - [For Blockchain Devs](for-blockchain-devs.md) -- If you come from Solidity,
   Anchor, or CosmWasm, start here instead
+- [Compiling a Program](compiling-a-program.md) -- Build pipeline, cost
+  analysis, and error handling
+- [Formal Verification](formal-verification.md) -- Prove program properties
+  for all inputs via symbolic execution and SMT
+- [Content-Addressed Code](content-addressed.md) -- Poseidon2 hashing, UCM
+  codebase manager, verification caching
 - [Universal Design](universal-design.md) -- Multi-target architecture,
   backend extensions, and the universal core
 - [Vision](vision.md) -- Why Trident exists and what you can build with it

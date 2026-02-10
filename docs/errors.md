@@ -570,8 +570,10 @@ let p: Point = Point { x: 0, y: 0 }
 - [Tutorial](tutorial.md) -- Step-by-step guide with working examples
 - [Language Reference](reference.md) -- Quick lookup: types, operators, builtins, grammar
 - [Language Specification](spec.md) -- Complete language reference
+- [Compiling a Program](compiling-a-program.md) -- Build pipeline and compiler stages that produce these errors
 - [Programming Model](programming-model.md) -- How programs run in Triton VM
 - [Optimization Guide](optimization.md) -- Cost reduction strategies
+- [Formal Verification](formal-verification.md) -- Catch errors before runtime via symbolic verification
 - [How STARK Proofs Work](stark-proofs.md) -- The proof system behind every Trident program
 - [For Developers](for-developers.md) -- Why bounded loops? Why no heap? Concepts explained
 - [For Blockchain Devs](for-blockchain-devs.md) -- Where's My Revert? section maps error patterns

@@ -1,121 +1,56 @@
-# Content-Addressed Trident
+# Content-Addressed Code
 
-**Design Document — v0.1 Draft**
-**February 2026**
-
-*When code is identified by what it computes, not what it's called, everything changes.*
+*Every Trident function is identified by a cryptographic hash of what it computes,
+not what it is called. Names are metadata. The hash is the identity.*
 
 ---
 
-## 1. The Core Idea
+## 1. What Is Content-Addressed Code
 
-Every Trident function compiles to a deterministic constraint system. That constraint system has a unique mathematical identity — change one instruction and the identity changes. This is already true at the proving layer: zkVM verifiers check proofs against specific program hashes.
+In a traditional programming environment, code is identified by its file path, module
+name, or package version. These are all mutable, ambiguous, and external to the code
+itself. Two identical functions in different files have different identities; a renamed
+function appears to be a new function; a minor version bump may or may not change
+behavior.
 
-Content-Addressed Trident pushes this identity all the way up to the source level. Every function, every module, every contract is identified by a cryptographic hash of its normalized abstract syntax tree. Names are metadata. The hash is the identity.
+Content-addressed code inverts this model. Each function's identity is a cryptographic
+hash of its normalized abstract syntax tree (AST). Two functions that compute the same
+thing produce the same hash, regardless of variable names, formatting, or file location.
+A renamed function keeps its hash. A changed function gets a new hash automatically.
 
-```
-// Alice writes:
-pub fn verify_merkle(root: Digest, leaf: Digest, index: U32, depth: U32) { ... }
-// Source hash: #a7f3b2c1
+This model was pioneered by [Unison](https://www.unison-lang.org/). Trident applies it
+to a domain where content addressing is not merely convenient but cryptographically
+essential: **provable computation**.
 
-// Bob writes the same function with different names, on a different continent:
-pub fn check_proof(tree_root: Digest, value: Digest, pos: U32, height: U32) { ... }
-// Source hash: #a7f3b2c1  ← SAME HASH
+### Why It Matters for Provable Computation
 
-// The codebase stores one function. Alice's verification certificate covers Bob's code.
-// Bob's proving cost analysis applies to Alice's deployment.
-```
+A zkVM verifier already checks proofs against a program hash -- the program *is* its
+hash at the verification layer. Content addressing pushes this identity up to the
+source level, creating a single identity that spans from writing code to deploying
+verified proofs:
 
-This is inspired by Unison's content-addressed code, but applied to a domain where it becomes dramatically more powerful: **provable computation**, where the identity of code is not just convenient but cryptographically essential.
-
-### 1.1 Why Content Addressing Is Natural for ZK
-
-In conventional programming, content-addressed code is a clever optimization. In provable computation, it's fundamental:
-
-- A zkVM verifier already checks proofs against a program hash — the program IS its hash at the verification layer
-- A verification certificate proves properties of a specific computation — identified by hash
-- Cross-chain equivalence requires proving "chain A and chain B run the same program" — hash comparison
-- Audit results must be pinned to exact code, not a name that might point to different versions — hash pinning
-- Proving cost is deterministic for a given computation — hash-indexed cost cache
-
-Content addressing isn't bolted on. It's the natural representation for code whose purpose is to be proven.
-
-### 1.2 What Changes
-
-| Aspect | Text-file Trident (today) | Content-Addressed Trident |
-|--------|--------------------------|---------------------------|
-| Function identity | Name + file path | Cryptographic hash of normalized AST |
-| Dependencies | Module path (`use std.crypto.hash`) | Hash references (names are metadata) |
-| Builds | Recompile changed files | Never compile the same function twice |
-| Verification | Re-verify on every build | Cached by hash — verified once, valid forever |
-| Renaming | Find-and-replace, may break things | Instant, non-breaking (names are pointers to hashes) |
-| Version conflicts | Possible (two deps want different versions) | Impossible (same hash = same code, different hash = different code) |
-| Proving cost | Compute on every build | Cached by hash per target, instantly available |
-| Audit certificates | Attached to a repo + commit | Attached to a hash — immutable, unforgeable |
-| Cross-chain equivalence | Trust that "same source" was deployed | Verify that same source hash produced both target binaries |
-| Code sharing | Copy files, manage versions | Share hashes, pull from global registry |
+- **Verification certificates** prove properties of a specific computation, identified
+  by hash. Change the code, get a new hash; the old certificate no longer applies.
+- **Proving cost** is deterministic for a given computation. The hash indexes into the
+  cost cache -- same hash, same cost, always.
+- **Cross-chain equivalence** reduces to hash comparison. If two deployments share a
+  source hash, they run the same computation.
+- **Audit results** attach to hashes, not names. An audit of `#a7f3b2c1` is an audit
+  of that exact computation forever.
 
 ---
 
-## 2. Hash Function Design
+## 2. How It Works
 
-The hash function is the foundation of the entire system. It must be deterministic, collision-resistant, semantic-aware, and fast. Trident uses a two-layer hashing architecture.
+Trident's content hashing pipeline normalizes the AST, serializes it deterministically,
+and hashes the result with Poseidon2 over the Goldilocks field.
 
-### 2.1 Two-Layer Architecture
+### 2.1 AST Normalization
 
-```
-Trident Source
-    → Parse → Typecheck → Normalized AST
-        → LAYER 1: Canonical Source Hash (BLAKE3)
-            Universal identity. Target-independent.
-            What developers, registries, and auditors reference.
-            
-    → Compile to target
-        → LAYER 2: Target Artifact Hash (target-native)
-            Per-target identity. What on-chain verifiers check.
-            Triton: Tip5 hash of TASM bytecode
-            Miden: RPO hash of Miden Assembly
-            Cairo: Poseidon hash of Sierra IR
-            OpenVM: SHA3 hash of ELF binary
-```
+Before hashing, the AST is normalized so that semantically identical functions produce
+identical byte sequences. The normalization steps are:
 
-**Layer 1 (Source Hash)** is the canonical identity used throughout the development workflow, registry, verification certificates, and cross-target equivalence proofs.
-
-**Layer 2 (Target Hash)** is derived from Layer 1 by compilation. The registry maps source hashes to target hashes. On-chain verifiers use target hashes. The source hash proves that two target hashes came from the same computation.
-
-### 2.2 Layer 1: Canonical Source Hash
-
-#### 2.2.1 Hash Algorithm: BLAKE3
-
-BLAKE3 is the right choice for source hashing:
-
-| Property | BLAKE3 | SHA3-256 | Tip5 |
-|----------|--------|---------|------|
-| Speed | ~4 GB/s (single-threaded) | ~500 MB/s | ~100 MB/s (field ops) |
-| Output size | 256 bits (configurable) | 256 bits | 320 bits (5 × 64-bit) |
-| Standardized | Yes (IETF draft) | Yes (NIST) | No (Triton-specific) |
-| Deterministic | Yes | Yes | Yes |
-| Available everywhere | Yes (pure Rust, C, WASM) | Yes | No (requires field arithmetic) |
-| ZK-provable | Expensive (bitwise ops) | Expensive | Native on Triton only |
-| Incremental | Yes (built-in tree hashing) | No | No |
-
-BLAKE3's incremental tree-hashing mode is particularly valuable: when a function's dependency changes, we can rehash only the changed subtree rather than the entire AST.
-
-**Why not use the target VM's native hash (Tip5, RPO, Poseidon)?**
-
-Target-native hashes are optimized for ZK circuits, not for general-purpose hashing of AST structures. They operate over field elements, not bytes. Using Tip5 would make the source hash Triton-specific, defeating the purpose of a universal identity. BLAKE3 is the source identity; target-native hashes are the compiled identity.
-
-**Why not SHA3-256?**
-
-SHA3 is fine but BLAKE3 is 5-8x faster, supports incremental hashing natively, and is equally collision-resistant. For a development tool that hashes on every keystroke, speed matters.
-
-#### 2.2.2 What Gets Hashed: The Normalized AST
-
-The hash must be **semantic** — two functions with the same behavior should have the same hash, even if they use different variable names or formatting. This requires normalizing the AST before hashing.
-
-**Normalization steps:**
-
-**Step 1: Strip names, replace with de Bruijn indices.**
+**Step 1: Replace variable names with de Bruijn indices.**
 
 ```
 // Before normalization:
@@ -131,915 +66,517 @@ fn (#0: Field, #1: Field) -> Field {
 }
 ```
 
-Variable names are metadata, not identity. The function `transfer(a, b)` and `transfer(x, y)` with identical bodies produce identical hashes.
+Variable names are metadata, not identity. The function `transfer(a, b)` and
+`transfer(x, y)` with identical bodies produce identical hashes.
 
-**Step 2: Replace dependency references with their hashes.**
+**Step 2: Replace dependency references with their content hashes.**
 
 ```
 // Before:
-use std.crypto.hash
 let d = hash(input)
 
 // After:
-let d = #f8a2b1c3(input)    // #f8a2b1c3 is the hash of std.crypto.hash.hash
+let d = #f8a2b1c3(input)    // #f8a2b1c3 is the content hash of the hash function
 ```
 
-Dependencies are pinned by hash, not by name or path. If `std.crypto.hash.hash` changes, its hash changes, and all dependents get new hashes too.
+Dependencies are pinned by hash. If a called function changes, its hash changes,
+and all callers get new hashes too. Propagation is automatic and exact.
 
-**Step 3: Canonicalize type annotations.**
-
-```
-// Both produce the same normalized form:
-fn foo(x: Field) -> Field { x }
-fn foo(x: Field) -> Field { return x }    // (if return syntax existed)
-```
-
-Type inference results are made explicit. Implicit conversions are made explicit. The AST is fully elaborated before hashing.
-
-**Step 4: Normalize struct field ordering and expression structure.**
+**Step 3: Canonicalize struct field ordering.**
 
 ```
 // These produce the same hash:
 let p = Point { x: 1, y: 2 }
-let p = Point { y: 2, x: 1 }     // field order doesn't matter (alphabetized)
+let p = Point { y: 2, x: 1 }     // fields sorted alphabetically before hashing
 ```
 
-Struct fields are sorted alphabetically. Commutative operations are sorted by operand hash. Associative chains are flattened and sorted.
+**Step 4: Strip metadata.**
 
-**Step 5: Strip metadata.**
+Comments, documentation, source location, formatting, and specification annotations
+(`#[requires]`, `#[ensures]`) are all stripped before computing the computational hash.
+Only the executable content contributes.
 
-Comments, documentation, source location, formatting — all stripped. Only the computational content contributes to the hash.
+### 2.2 Deterministic Serialization
 
-#### 2.2.3 Hash Serialization Format
+The normalized AST is serialized to a deterministic byte sequence using a tagged binary
+encoding. Each node is prefixed with a one-byte type tag (e.g., `0x01` for function
+definitions, `0x03` for variables by de Bruijn index, `0x07` for addition). Types
+have their own tag range (e.g., `0x80` for `Field`, `0x86` for `Digest`).
 
-The normalized AST is serialized to bytes using a deterministic binary encoding before hashing. The encoding must be:
+A version byte (`0x01` for the current format) prefixes every serialized output. The
+format is frozen per version -- once released, it never changes. This guarantees that
+the same source code always produces the same hash within a given version.
 
-- **Canonical**: one and only one byte sequence per normalized AST
-- **Compact**: minimize hash input size for speed
-- **Self-describing**: each node prefixed with a type tag
-- **Stable**: the encoding format is versioned and frozen per version
+The full tag table is defined in `src/hash.rs`.
 
-```
-Encoding schema (simplified):
+### 2.3 Poseidon2 Hashing
 
-Node types (1-byte tag):
-  0x01 = FnDef { param_count: u16, body: Node }
-  0x02 = Let { binding: u16, value: Node, body: Node }
-  0x03 = Var { index: u16 }                              // de Bruijn index
-  0x04 = FieldLit { value: u64 }
-  0x05 = U32Lit { value: u32 }
-  0x06 = BoolLit { value: u8 }
-  0x07 = Add { lhs: Node, rhs: Node }
-  0x08 = Mul { lhs: Node, rhs: Node }
-  0x09 = Sub { lhs: Node, rhs: Node }
-  0x0A = Inv { operand: Node }
-  0x0B = Eq { lhs: Node, rhs: Node }
-  0x0C = Lt { lhs: Node, rhs: Node }
-  0x0D = And { lhs: Node, rhs: Node }
-  0x0E = Xor { lhs: Node, rhs: Node }
-  0x0F = If { cond: Node, then: Node, else: Node }
-  0x10 = For { bound: u32, max: u32, body: Node }
-  0x11 = Assert { cond: Node }
-  0x12 = Call { target_hash: [u8; 32], args: [Node] }    // dependency by hash
-  0x13 = PubRead { count: u8 }
-  0x14 = PubWrite { value: Node }
-  0x15 = Divine { count: u8 }
-  0x16 = Hash { inputs: [Node] }                          // abstract hash
-  0x17 = SpongeInit
-  0x18 = SpongeAbsorb { inputs: [Node] }
-  0x19 = SpongeSqueeze
-  0x1A = ArrayInit { elements: [Node] }
-  0x1B = ArrayIndex { array: Node, index: Node }
-  0x1C = StructInit { fields: [(u16, Node)] }             // sorted by field id
-  0x1D = FieldAccess { base: Node, field: u16 }
-  0x1E = MerkleVerify { root: Node, leaf: Node, index: Node, depth: Node }
-  
-  // Backend extension intrinsics
-  0xF0 = ExtensionIntrinsic { target: u8, id: u16, args: [Node] }
-  
-  // Specification annotations (don't affect computational hash, 
-  // but contribute to verification hash — see §2.2.5)
-  0xE0 = Requires { cond: Node }
-  0xE1 = Ensures { cond: Node }
-  0xE2 = Invariant { cond: Node }
+The serialized bytes are hashed with **Poseidon2** over the Goldilocks field
+(p = 2^64 - 2^32 + 1). This is a SNARK-friendly algebraic hash:
 
-Type tags (1-byte):
-  0x80 = Field
-  0x81 = Bool
-  0x82 = U32
-  0x83 = Array { elem: Type, length: u32 }
-  0x84 = Tuple { elements: [Type] }
-  0x85 = Struct { fields: [(u16, Type)] }
-  0x86 = Digest                                           // abstract, width from target
-```
+- State width 8, rate 4, capacity 4
+- S-box x^7, 8 full rounds + 22 partial rounds
+- 256-bit output (4 Goldilocks field elements)
 
-#### 2.2.4 Hash Composition
+Poseidon2 was chosen over a conventional hash (SHA3, BLAKE3) because content hashes
+are cheaply provable inside ZK proofs. This enables trustless compilation verification
+and on-chain registries where the hash itself can be verified in-circuit. Round
+constants are derived deterministically from BLAKE3 for reproducibility.
 
-Functions hash their own AST plus the hashes of all dependencies. This creates a Merkle-like structure:
+### 2.4 Hash Display
 
-```
-Hash(transfer) = BLAKE3(
-    serialize(transfer_normalized_ast)
-)
+Hashes are displayed in two forms:
 
-// where transfer_normalized_ast contains:
-//   Call { target_hash: Hash(verify_merkle), args: [...] }
-//   Call { target_hash: Hash(check_balance), args: [...] }
-```
+| Form | Example | Use |
+|------|---------|-----|
+| Short (40-bit base-32) | `#a7f3b2c1` | CLI output, human reference |
+| Full (256-bit hex) | `a7f3b2c1d4e5...` | Internal storage, registry keys |
 
-If `verify_merkle` changes, its hash changes, which changes `transfer`'s hash (because the `Call` node contains the dependency hash). This propagation is automatic and exact — only truly affected functions get new hashes.
+The short form is for human convenience only. The full hash is always used internally.
 
-**Circular dependencies are impossible** by Trident's module DAG enforcement. The hash computation always terminates.
+### 2.5 Hash Composition
 
-#### 2.2.5 Computational Hash vs. Verification Hash
+A function's hash includes the hashes of all functions it calls. This creates a
+Merkle-like structure: if `verify_merkle` changes, its hash changes, which changes the
+hash of every function that calls it. Only truly affected functions get new hashes.
 
-The system maintains two related source-level hashes:
+Circular dependencies are impossible because Trident enforces a module DAG. The hash
+computation always terminates.
 
-**Computational Hash**: Hashes only the computational content — the code that actually executes. Specification annotations (`#[requires]`, `#[ensures]`, `#[invariant]`) are excluded. Two functions with the same logic but different specs have the same computational hash.
+### 2.6 What Does Not Affect the Hash
 
-**Verification Hash**: Hashes the computational content PLUS all specification annotations. Two functions with the same logic but different specs have different verification hashes. Verification certificates are keyed by verification hash.
-
-```
-fn foo(x: Field) -> Field { x * x }
-// Computational hash: #a1b2c3d4
-// Verification hash:  #a1b2c3d4 (no specs)
-
-#[ensures(result == x * x)]
-fn foo(x: Field) -> Field { x * x }
-// Computational hash: #a1b2c3d4 (same — computation unchanged)
-// Verification hash:  #e5f6g7h8 (different — spec added)
-```
-
-This separation means:
-- Compilation caches use the computational hash (specs don't affect output)
-- Verification caches use the verification hash (specs affect what's proven)
-- Two developers with the same logic but different specs share compilation work but have independent verification results
-
-#### 2.2.6 Hash Display Format
-
-Hashes are displayed as truncated base-32 strings for human readability:
-
-```
-Full hash (256 bits):  a7f3b2c1d4e5f6a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2
-Display (40 bits):     #a7f3b2c1
-
-// Collision probability at 40-bit truncation:
-// With 1 million definitions: ~0.00005% chance of display collision
-// Full hash always used internally; truncated display is for humans only
-```
-
-### 2.3 Layer 2: Target Artifact Hash
-
-Each compilation target produces a target-specific hash of the compiled output:
-
-| Target | Hash Function | Input | Output Size |
-|--------|--------------|-------|:-----------:|
-| Triton VM | Tip5 | TASM bytecode (as field elements) | 5 × 64-bit |
-| Miden VM | RPO | Miden Assembly (as field elements) | 4 × 64-bit |
-| Cairo | Poseidon | Sierra IR (as felts) | 1 × 252-bit |
-| OpenVM | BLAKE3 | ELF binary (as bytes) | 256-bit |
-
-Target hashes serve a different purpose than source hashes:
-- Source hash = developer identity, registry key, cross-target equivalence
-- Target hash = on-chain verifier identity, proof binding, deployment address
-
-The registry maintains the mapping:
-
-```
-Source #a7f3b2c1 →
-    Triton: Tip5(#t_8f2a3b4c5d...)
-    Miden:  RPO(#m_3c7b9a1d2e...)
-    Cairo:  Poseidon(#c_1d4e5f6a7b...)
-    OpenVM: BLAKE3(#o_9a5f2b3c4d...)
-```
-
-### 2.4 Hash Stability and Versioning
-
-The normalization and serialization format is versioned. Each version is frozen — once released, it never changes.
-
-```
-Hash prefix: version byte + hash bytes
-  v1: 0x01 || BLAKE3(serialize_v1(normalize_v1(ast)))
-  v2: 0x02 || BLAKE3(serialize_v2(normalize_v2(ast)))
-```
-
-A function hashed with v1 normalization has a different hash than the same function hashed with v2, even if the computation is identical. This is intentional — hash stability within a version is absolute, and version migration is explicit.
-
-The codebase stores which version was used for each hash. Migration between versions is a batch operation: re-normalize and re-hash all functions, update all references.
+| Element | Affects hash? |
+|---------|:------------:|
+| Variable names | No |
+| Function name | No |
+| Comments | No |
+| Formatting / whitespace | No |
+| `#[requires]` / `#[ensures]` annotations | No |
+| Source file path | No |
+| Struct field order in initializers | No |
+| Function body (computation) | **Yes** |
+| Parameter types | **Yes** |
+| Return type | **Yes** |
+| Called functions (by their hash) | **Yes** |
 
 ---
 
-## 3. The Codebase
+## 3. Using the Codebase Manager (UCM)
 
-### 3.1 Codebase Structure
+The Universal Codebase Manager (`trident ucm`) is a hash-keyed definitions store
+inspired by Unison's codebase model. Every function is stored by its content hash,
+with names as mutable pointers into the hash-keyed store.
 
-Trident's codebase is not a directory of text files. It's a content-addressed database of normalized, type-checked AST nodes. Source text is a view into this database — a way to display and edit code — not the source of truth.
+### 3.1 Codebase Location
 
-```
-Codebase Database:
-├── definitions/                    # Normalized ASTs keyed by hash
-│   ├── #a7f3b2c1 → { ast: ..., type: (Digest, Digest, U32, U32) -> (), deps: [...] }
-│   ├── #c4e9d1a8 → { ast: ..., type: (...) -> TransferResult, deps: [#a7f3b2c1, ...] }
-│   └── ...
-│
-├── names/                          # Name → hash mappings (mutable pointers)
-│   ├── verify_merkle → #a7f3b2c1
-│   ├── transfer_token → #c4e9d1a8
-│   └── ...
-│
-├── verification/                   # Verification results keyed by verification hash
-│   ├── #e5f6g7h8 → { status: verified, properties: [...], certificate: ... }
-│   └── ...
-│
-├── compilation/                    # Compiled artifacts keyed by (source hash, target)
-│   ├── (#a7f3b2c1, triton) → { tasm: ..., cost: 847cc, target_hash: #t_8f2a... }
-│   ├── (#a7f3b2c1, miden)  → { masm: ..., cost: 623cc, target_hash: #m_3c7b... }
-│   └── ...
-│
-├── types/                          # Type definitions keyed by hash
-│   ├── #b3d5e7f9 → struct TransferResult { sender: Field, receiver: Field }
-│   └── ...
-│
-└── metadata/                       # Human-readable metadata (names, docs, source locations)
-    ├── #a7f3b2c1 → { name: "verify_merkle", doc: "Verify a Merkle proof...", author: "alice" }
-    └── ...
-```
-
-### 3.2 Append-Only Semantics
-
-The definitions store is append-only. Once a hash is written, it is never modified or deleted. This guarantees:
-
-- **Reproducibility**: any historical state of the codebase can be reconstructed
-- **Auditability**: you can trace the evolution of any function through its hash history
-- **Cacheability**: compilation and verification results are valid forever for a given hash
-- **Concurrency**: multiple developers can add definitions simultaneously without conflicts
-
-Names (the mutable pointers) can be updated to point to new hashes. This is how "editing" works — you create a new definition with a new hash, and update the name pointer.
-
-### 3.3 Editing Workflow
+The codebase is stored at `~/.trident/codebase/` by default. Override with the
+`$TRIDENT_CODEBASE_DIR` environment variable.
 
 ```
-1. Developer asks to edit `verify_merkle`
-2. Codebase pretty-prints #a7f3b2c1 to the developer's editor
-3. Developer modifies the code and saves
-4. Codebase:
-   a. Parses the new code
-   b. Type-checks it
-   c. Normalizes the AST
-   d. Computes the new hash: #b8c4d2e5
-   e. Stores the new definition at #b8c4d2e5
-   f. Updates the name: verify_merkle → #b8c4d2e5
-   g. Identifies dependents: transfer_token depends on verify_merkle
-   h. Automatically produces new versions of dependents with updated hash references
-   i. If dependent type signatures still match: automatic propagation
-   j. If type signatures changed: adds to developer's "todo list"
-   k. Triggers re-verification of changed definitions
-5. Old definition #a7f3b2c1 remains in the database (immutable)
+~/.trident/codebase/
+  defs/
+    <2-char-prefix>/
+      <full-hex-hash>.def       # serialized definition
+  names.txt                     # name -> hash mappings
+  history.txt                   # name binding history
 ```
 
-### 3.4 Dependency Resolution
+### 3.2 Adding Definitions
 
-Dependencies are resolved by hash, not by name or version number.
-
-```
-// In the codebase, this function:
-pub fn transfer(balance: Field, amount: Field) -> Field {
-    let verified = verify_merkle(root, leaf, index, depth)
-    assert(verified)
-    balance - amount
-}
-
-// Is stored as:
-FnDef {
-    params: [(Field), (Field)],
-    body: [
-        Let(#0, Call(#a7f3b2c1, [Var(root), Var(leaf), Var(index), Var(depth)])),
-        Assert(Var(#0)),
-        Sub(Var(balance), Var(amount))
-    ]
-}
-// Hash: #c4e9d1a8
-```
-
-The `Call(#a7f3b2c1, ...)` node pins the dependency to an exact implementation. There is no ambiguity about which `verify_merkle` is being called — it's the one with hash `#a7f3b2c1`, forever.
-
-**Diamond dependency problem: eliminated.**
-
-If library A and library B both depend on `verify_merkle`, there are exactly two cases:
-1. They depend on the same hash → one copy, no conflict
-2. They depend on different hashes → different functions, both coexist
-
-There is no situation where "library A wants version 1.2 and library B wants version 1.3" because versions don't exist. Hashes exist.
-
-### 3.5 Source Text as a View
-
-Source text files (`.tri` files) are a **view** into the codebase, not the source of truth. The codebase can render any function as text on demand:
+Parse a `.tri` file and store all its function definitions in the codebase:
 
 ```bash
-# Render a function by name
-trident view verify_merkle
-
-# Render a function by hash
-trident view #a7f3b2c1
-
-# Render with all dependencies inlined
-trident view verify_merkle --inline-deps
-
-# Render with proving cost annotations
-trident view verify_merkle --costs --target triton
-
-# Render in a specific style (formatting is metadata, not identity)
-trident view verify_merkle --style compact
+trident ucm add myfile.tri
 ```
 
-Text files can still be used as the editing interface (just like Unison). The developer writes `.tri` files in their editor, and the codebase manager watches for changes, parses them, and integrates them into the database.
-
-**Formatting is not identity.** The codebase stores the AST, not the text. When rendering to text, any formatting style can be applied. There is no "tabs vs spaces" debate — the canonical form is the AST.
-
----
-
-## 4. Verification Cache
-
-### 4.1 Verified Once, Valid Forever
-
-When a function is verified (all assertions proven, all specifications satisfied), the result is cached by verification hash. Since the hash uniquely identifies the exact computation plus its specifications, and the definition is immutable, the verification result is valid forever.
+Output:
 
 ```
-Verification Cache:
-  #e5f6g7h8 (verify_merkle + specs) →
-    status: VERIFIED
-    properties:
-      - "all assertions hold for all valid inputs"
-      - "witness existence proven for divine_digest()"
-      - "loop invariant verified (bounded model checking, 64 iterations)"
-    solver: z3-4.13.0
-    time: 2.1s
-    certificate: #cert_8b2f...
-    timestamp: 2026-02-10T12:00:00Z
+Added 3 new definitions, updated 1, unchanged 2
+  #a7f3b2c1  verify_merkle      (new)
+  #c4e9d1a8  transfer_token     (new)
+  #b4c5d6e7  main               (updated)
 ```
 
-**When a developer writes a function that happens to match an existing verified hash:**
+Each function is hashed independently. If a function's hash already exists in the
+codebase (even from a different file or author), the existing definition is reused
+and the name pointer is updated.
 
-```
-$ trident add my_merkle_checker
-
-  ✓ Typechecks
-  ✓ Hash: #a7f3b2c1
-  ✓ Matches existing verified definition
-  ✓ Verification: CACHED (verified by alice, 2026-01-15)
-  ✓ Proving cost: triton=847cc, miden=623cc (cached)
-  
-  Skipped verification (0.0s instead of 2.1s)
-```
-
-### 4.2 Incremental Re-Verification
-
-When a dependency changes, only the affected functions need re-verification. The codebase tracks the dependency DAG:
-
-```
-#a7f3b2c1 (verify_merkle) — verified ✓
-    ↑ used by
-#c4e9d1a8 (transfer_token) — verified ✓
-    ↑ used by
-#f7a2b1c3 (main) — verified ✓
-```
-
-If `verify_merkle` is edited (new hash `#b8c4d2e5`):
-- `transfer_token` gets a new hash (because its dependency hash changed)
-- `main` gets a new hash (because `transfer_token`'s hash changed)
-- But `verify_merkle`'s OTHER dependents (if any) that weren't affected by the change: untouched
-
-The re-verification propagates up the DAG, but only re-verifies what actually changed. If the new `verify_merkle` has the same type signature and strengthened postconditions, downstream verification may succeed instantly (proven by the stronger upstream guarantee).
-
-### 4.3 Compilation Cache
-
-Compilation results are also cached by (source hash, target):
-
-```
-Compilation Cache:
-  (#a7f3b2c1, triton) →
-    tasm_bytecode: [...]
-    target_hash: Tip5(#t_8f2a3b4c5d...)
-    proving_cost: { processor: 847, hash: 12, u32: 34, ... }
-    padded_height: 1024
-    compiled_at: 2026-02-10T12:00:00Z
-    
-  (#a7f3b2c1, miden) →
-    masm_bytecode: [...]
-    target_hash: RPO(#m_3c7b9a1d2e...)
-    proving_cost: { chiplets: 623, ... }
-    padded_height: 1024
-    compiled_at: 2026-02-10T12:01:00Z
-```
-
-First compile to a new target takes full compilation time. Every subsequent request for the same (hash, target) pair is instant — return the cached artifact.
-
-### 4.4 Global Sharing
-
-Caches can be shared across developers and teams. A global cache server means:
-
-- Developer A compiles `verify_merkle` for Triton. Result cached.
-- Developer B (different team, different project) uses the same function. Compilation is instant — pulled from global cache.
-- Developer C verifies the function with a specification. Certificate cached.
-- Developer D writes the same specification independently. Verification result: "already verified, certificate available."
-
-This creates network effects: the more developers use content-addressed Trident, the more the global cache covers, and the faster everyone's development cycle becomes.
-
----
-
-## 5. The Registry
-
-### 5.1 Architecture
-
-The Trident Registry is a global, decentralized database of content-addressed functions, their verification status, compilation artifacts, and metadata.
-
-```
-┌─────────────────────────────────────────────────────┐
-│                  TRIDENT REGISTRY                   │
-│                                                     │
-│  Functions (keyed by source hash):                  │
-│    #a7f3b2c1 → {                                    │
-│      type: (Digest, Digest, U32, U32) -> (),        │
-│      deps: [#f8a2b1c3, #e2f1b3a9],                 │
-│      verification: VERIFIED (cert: #cert_8b2f),     │
-│      targets: {                                     │
-│        triton: { cost: 847cc, hash: #t_8f2a... },   │
-│        miden:  { cost: 623cc, hash: #m_3c7b... },   │
-│        cairo:  { cost: 1204,  hash: #c_1d4e... },   │
-│      },                                             │
-│      metadata: {                                    │
-│        names: ["verify_merkle", "check_proof"],     │
-│        authors: ["alice", "bob"],                   │
-│        description: "Merkle proof verification",    │
-│        tags: ["crypto", "merkle", "verification"],  │
-│        usage_count: 47,                             │
-│      }                                              │
-│    }                                                │
-│                                                     │
-│  Search indices:                                    │
-│    by type signature                                │
-│    by tags and description                          │
-│    by verification status                           │
-│    by proving cost per target                       │
-│    by dependency graph                              │
-└─────────────────────────────────────────────────────┘
-```
-
-### 5.2 Registry Operations
+### 3.3 Listing Definitions
 
 ```bash
-# Publish a verified function to the registry
-trident publish verify_merkle
-  Published #a7f3b2c1 (verified, 3 targets)
-
-# Search by type signature
-trident search --type "(Digest, Digest, U32, U32) -> ()"
-  #a7f3b2c1  verify_merkle      verified  triton=847cc  miden=623cc
-  #d4e5f6a7  merkle_check_v2    verified  triton=792cc  miden=601cc
-  #b2c3d4e5  old_merkle_verify  unverified
-
-# Search by property
-trident search --property "conservation" --verified
-  #c4e9d1a8  transfer_token     verified  "sum(outputs) == sum(inputs)"
-  #f1a2b3c4  atomic_swap        verified  "total_value preserved"
-
-# Pull a function by hash
-trident pull #a7f3b2c1
-  Pulled verify_merkle (#a7f3b2c1)
-  ✓ Verification certificate: valid
-  ✓ Available targets: triton, miden, cairo
-
-# Find the cheapest implementation for a given target
-trident search --type "(Digest, Digest, U32, U32) -> ()" --target miden --sort cost
-  #d4e5f6a7  merkle_check_v2    601cc
-  #a7f3b2c1  verify_merkle      623cc
+trident ucm list
 ```
 
-### 5.3 On-Chain Registry
-
-The registry itself can be stored on-chain as a Merkle tree of function hashes, verification certificates, and metadata hashes. This creates a trustless, censorship-resistant code repository.
+Shows all named definitions, sorted alphabetically:
 
 ```
-Registry Root (on-chain):
-  Merkle tree of:
-    leaf[0] = Hash(#a7f3b2c1 || type_hash || deps_hash || cert_hash || metadata_hash)
-    leaf[1] = Hash(#c4e9d1a8 || type_hash || deps_hash || cert_hash || metadata_hash)
+  #b4c5d6e7  main
+  #c4e9d1a8  transfer_token
+  #a7f3b2c1  verify_merkle
+```
+
+### 3.4 Viewing Definitions
+
+View a definition by name or by hash prefix:
+
+```bash
+trident ucm view verify_merkle
+trident ucm view #a7f3b2
+```
+
+Output includes the function source, its hash, spec annotations, and dependency list:
+
+```
+-- verify_merkle #a7f3b2c1
+pub fn verify_merkle(root: Digest, leaf: Digest, index: U32, depth: U32) {
     ...
+}
+
+-- Dependencies:
+--   hash #f8a2b1c3
+--   divine_digest #e2f1b3a9
 ```
 
-A smart contract can verify: "this computation (identified by source hash #a7f3b2c1) is registered and has a valid verification certificate" — all on-chain, trustlessly.
+### 3.5 Renaming Definitions
 
-### 5.4 Cross-Chain Equivalence
+Renaming is instant and non-breaking because it only updates the name pointer.
+The hash (and therefore all cached compilation and verification results) is unchanged:
 
-The registry provides the bridge for cross-chain equivalence proofs:
-
-```
-Claim: "The program on Triton (#t_8f2a...) computes the same function as the program on Miden (#m_3c7b...)"
-
-Proof:
-  1. Registry entry for source hash #a7f3b2c1 maps to:
-     - Triton target hash: #t_8f2a...  ✓
-     - Miden target hash: #m_3c7b...   ✓
-  2. Both target hashes derive from the same source hash
-  3. The compiler is deterministic (verifiable)
-  4. Therefore: same computation on both chains  QED
+```bash
+trident ucm rename old_name new_name
 ```
 
-This is a **construction-based equivalence proof** — not a testing-based claim. It's as strong as the compiler's correctness.
+### 3.6 Viewing Dependencies
+
+Show what a definition depends on and what depends on it:
+
+```bash
+trident ucm deps transfer_token
+```
+
+Output:
+
+```
+Dependencies:
+  #a7f3b2c1  verify_merkle
+  #d4e5f6a7  check_balance
+
+Dependents:
+  #f7a2b1c3  batch_transfer
+```
+
+### 3.7 Name History
+
+Show all hashes a name has pointed to over time:
+
+```bash
+trident ucm history verify_merkle
+```
+
+This is useful for tracking how a function has evolved. Old definitions remain in the
+codebase (append-only semantics) -- they are never deleted.
+
+### 3.8 Codebase Statistics
+
+```bash
+trident ucm stats
+```
+
+Shows the number of unique definitions, name bindings, and total source bytes.
+
+---
+
+## 4. Content Hashing
+
+The `trident hash` command computes content hashes for all functions in a file without
+storing them in the codebase.
+
+### 4.1 Basic Usage
+
+```bash
+trident hash myfile.tri
+```
+
+Output:
+
+```
+File: #e1d2c3b4 myfile.tri
+  #a7f3b2c1 verify_merkle
+  #c4e9d1a8 transfer_token
+  #b4c5d6e7 main
+```
+
+### 4.2 Full Hashes
+
+By default, hashes are shown in short (40-bit) form. Use `--full` for the complete
+256-bit hex:
+
+```bash
+trident hash myfile.tri --full
+```
+
+```
+File: a7f3b2c1d4e5f6a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2 myfile.tri
+  a7f3b2c1d4e5f6a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2 verify_merkle
+  ...
+```
+
+### 4.3 Project Hashing
+
+Point `trident hash` at a project directory (with `trident.toml`) to hash the entry
+file:
+
+```bash
+trident hash .
+```
+
+### 4.4 What Gets Hashed
+
+For each function, `trident hash` performs the full normalization pipeline:
+
+1. Parse the source file
+2. For each function: normalize the AST (de Bruijn indices, dependency substitution,
+   field-order canonicalization, metadata stripping)
+3. Serialize the normalized AST with version prefix and type tags
+4. Hash the serialized bytes with Poseidon2
+
+The file-level hash combines all function hashes (sorted by name for determinism)
+with the module name.
+
+### 4.5 Verifying Alpha-Equivalence
+
+Two functions with different variable names but identical computation produce the same
+hash. This is a quick way to check if a refactored function is alpha-equivalent to the
+original:
+
+```bash
+# In file_a.tri: fn add(a: Field, b: Field) -> Field { a + b }
+# In file_b.tri: fn add(x: Field, y: Field) -> Field { x + y }
+
+trident hash file_a.tri
+#   #c9d5e3f6 add
+
+trident hash file_b.tri
+#   #c9d5e3f6 add     <-- same hash
+```
+
+---
+
+## 5. Verification Caching
+
+Verification results are cached by content hash. Because a hash uniquely identifies an
+exact computation, and definitions are immutable once hashed, verification results are
+valid for as long as the cache exists.
+
+### 5.1 Cache Location
+
+```
+~/.trident/cache/
+  compile/
+    <source_hash_hex>.<target>.tasm     # compiled output
+    <source_hash_hex>.<target>.meta     # padded height metadata
+  verify/
+    <source_hash_hex>.verify            # verification result
+```
+
+Override with `$TRIDENT_CACHE_DIR`.
+
+### 5.2 How It Works
+
+When `trident verify` runs on a file:
+
+1. Each function is hashed via the content-addressing pipeline.
+2. The verification cache is checked for each hash.
+3. If a cached result exists, it is returned immediately -- no re-verification.
+4. If not cached, the function is verified (symbolic execution, algebraic solving,
+   random testing, bounded model checking).
+5. The result is stored in the cache, keyed by the content hash.
+
+```
+Verification Cache Entry:
+  safe=true
+  constraints=42
+  variables=10
+  verdict=Safe
+  timestamp=1707580800
+```
+
+### 5.3 Cache Semantics
+
+- **Append-only**: once written, a cache entry is never modified. First write wins.
+- **Keyed by content hash**: same computation always maps to the same result.
+- **Shared across projects**: any function with the same hash reuses the same cached
+  result, regardless of which project or file it came from.
+
+### 5.4 Compilation Caching
+
+Compilation results follow the same model. Each entry is keyed by
+`(source_hash, target)`:
+
+```bash
+# First compile: full compilation
+trident build myfile.tri --target triton
+
+# Second compile of the same code (even from a different file):
+# instant cache hit, no recompilation
+trident build other_file.tri --target triton
+```
+
+Compilation caches store the TASM output and padded height metadata.
+
+### 5.5 Cache Invalidation
+
+There is no manual cache invalidation. The content hash *is* the cache key.
+If the code changes, the hash changes, and the old cache entry is simply unused
+(a new entry is created for the new hash). If the code is unchanged, the old
+cache entry is still valid.
+
+This eliminates an entire class of build-system bugs where stale caches produce
+incorrect results.
 
 ---
 
 ## 6. Semantic Equivalence
 
-### 6.1 Beyond Syntactic Hashing
+The `trident equiv` command checks whether two functions are semantically equivalent --
+they produce the same output for all inputs, even if their ASTs differ.
 
-Content addressing based on AST hashing catches syntactic equivalence — same code structure, different names. But Trident can go further: **semantic equivalence**.
+### 6.1 Basic Usage
 
-Two functions with different ASTs but identical computational behavior should ideally share a hash. This is decidable for Trident programs because they're bounded, first-order, and operate over finite fields.
+Both functions must be in the same `.tri` file:
 
-```
-// Syntactically different:
-fn double_a(x: Field) -> Field { x + x }
-fn double_b(x: Field) -> Field { x * 2 }
-
-// Semantically equivalent (for all x in F_p, x + x == x * 2)
-// Should they share a hash?
+```bash
+trident equiv myfile.tri double_a double_b
 ```
 
-### 6.2 Equivalence Detection Strategy
-
-Full semantic hashing (hashing the mathematical function rather than the AST) is expensive. Instead, use a layered approach:
-
-**Level 1: Syntactic hash (always computed)**
-- Hash the normalized AST as described above
-- Fast, deterministic, catches exact structural matches
-
-**Level 2: Equivalence queries (on demand)**
-- When two functions have different syntactic hashes but the same type signature, offer to check semantic equivalence
-- Use the verification engine: prove `f(x) == g(x)` for all x
-- If proven equivalent, link the hashes in the registry as aliases
+Output for equivalent functions:
 
 ```
-$ trident add double_b
-
-  ✓ Typechecks
-  ✓ Hash: #d5e6f7a8 (new)
-  ℹ Similar function found: double_a (#c4d5e6f7)
-    Same type signature: (Field) -> Field
-    Checking equivalence... EQUIVALENT (algebraic: 0.05ms)
-    
-  Link as alias? (y/n) y
-  
-  Linked: #d5e6f7a8 ≡ #c4d5e6f7
-  Verification and compilation results shared.
+Equivalence check: double_a vs double_b
+  Method: polynomial normalization
+  Verdict: EQUIVALENT
 ```
 
-**Level 3: Canonical forms (research)**
-- For a subset of Trident (pure field arithmetic, no loops), canonical polynomial normal forms exist
-- `x + x` and `x * 2` both normalize to the polynomial `2x`
-- This is a future optimization, not required for the initial system
-
-### 6.3 Equivalence Classes in the Registry
-
-The registry groups semantically equivalent functions into equivalence classes:
+Output for non-equivalent functions:
 
 ```
-Equivalence class [merkle_verify]:
-  #a7f3b2c1 — verify_merkle (by alice)
-  #b8c4d2e5 — check_merkle_proof (by bob)
-  #c9d5e3f6 — merkle_auth (by carol)
-  
-  All three are semantically equivalent (proven by SMT solver).
-  Any verification certificate for one applies to all.
-  Proving costs may differ (different AST structure → different instruction count).
-  The cheapest per target is recommended as the canonical implementation.
+Equivalence check: f vs g
+  Method: differential testing (counterexample found)
+  Verdict: NOT EQUIVALENT
+  Counterexample:
+    __input_0 = 3
+    __input_1 = 5
+    f(...) = 8
+    g(...) = 15
 ```
+
+### 6.2 Equivalence Methods
+
+The checker uses a layered strategy, from cheapest to most expensive:
+
+**Level 1: Content hash comparison (alpha-equivalence)**
+
+If both functions produce the same content hash, they are structurally identical
+(up to variable renaming). This is instant.
+
+**Level 2: Polynomial normalization**
+
+For pure field-arithmetic functions (using only `+`, `*`, constants, and variables),
+the checker normalizes both functions to multivariate polynomial normal form over the
+Goldilocks field. If the polynomials match, the functions are equivalent.
+
+This catches cases like `x + x` vs `x * 2`, or `(a + b) * c` vs `a * c + b * c`.
+
+**Level 3: Differential testing**
+
+For functions that cannot be reduced to polynomials, the checker builds a synthetic
+"differential test program" that calls both functions with the same inputs and asserts
+their outputs are equal. It then runs the full verification pipeline (symbolic
+execution, random testing, bounded model checking) on this synthetic program.
+
+If verification passes, the functions are equivalent. If it finds a counterexample,
+the functions are not equivalent, and the counterexample is reported.
+
+### 6.3 Verbose Mode
+
+Use `--verbose` to see content hashes and detailed analysis:
+
+```bash
+trident equiv myfile.tri f g --verbose
+```
+
+### 6.4 Signature Requirements
+
+Both functions must have compatible signatures (same parameter types and return type).
+If signatures do not match, the checker reports `UNKNOWN` with a diagnostic message.
 
 ---
 
-## 7. LLM Integration
+## 7. On-Chain Registry
 
-### 7.1 Content Addressing Supercharges LLM Code Generation
+The file `ext/triton/registry.tri` implements an on-chain registry as a Merkle tree
+of content-addressed definitions, written in Trident itself. It runs as a Triton VM
+program, providing trustless, on-chain code registration and verification.
 
-The registry + verification cache transforms how LLMs generate ZK code:
+### 7.1 Registry Operations
 
-**Before content addressing:**
-```
-LLM generates code → compiler verifies (2-30 seconds) → iterate
-```
+The registry dispatches on an operation code:
 
-**With content addressing:**
-```
-LLM generates code → compiler hashes → registry lookup:
-  CASE 1: Hash matches existing verified function → DONE (0 seconds)
-  CASE 2: Hash matches unverified function → verify once, share result
-  CASE 3: New hash → verify, publish to registry for future reuse
-```
+| Op | Name | Description |
+|:--:|------|-------------|
+| 0 | `register` | Add a new definition to the registry Merkle tree |
+| 1 | `verify_membership` | Prove a definition is registered and verified |
+| 2 | `update_certificate` | Attach or update a verification certificate |
+| 3 | `lookup` | Authenticate a definition against the registry root |
+| 4 | `register_equivalence` | Record an equivalence claim between two definitions |
 
-Over time, the registry covers most common ZK computation patterns. The LLM increasingly hits Case 1 — instant verified code by recognizing that the requested computation already exists in the registry.
+### 7.2 Registry Entries
 
-### 7.2 Search-and-Compose Pattern
+Each leaf in the registry Merkle tree is a Tip5 hash of:
 
-Instead of generating code from scratch, the LLM can search the registry and compose from verified building blocks:
+- **Content hash** -- the Poseidon2 content hash of the definition
+- **Type signature hash** -- hash of the function's type signature
+- **Dependencies hash** -- hash of the dependency list
+- **Certificate hash** -- hash of the verification certificate (0 if unverified)
+- **Metadata hash** -- hash of tags, publisher, timestamp, bound name
 
-```
-Human: "Create a confidential token transfer"
+### 7.3 CLI Integration
 
-LLM reasoning:
-  1. This requires: Merkle verification, balance checking, conservation proof
-  2. Search registry:
-     - verify_merkle: #a7f3b2c1 (verified, 847cc on Triton)
-     - check_balance: #d4e5f6a7 (verified, 120cc on Triton)
-  3. Compose these with new glue code
-  4. Only the glue code needs verification — components are pre-verified
+The on-chain registry is accessed through `trident registry` subcommands:
 
-LLM output:
-  pub fn confidential_transfer(...) {
-      verify_merkle(...)     // #a7f3b2c1 — pre-verified
-      check_balance(...)     // #d4e5f6a7 — pre-verified
-      // New: 5 lines of glue code — needs verification
-      let sender_new = sender_balance - amount
-      let receiver_new = receiver_balance + amount
-      assert(sender_new + receiver_new == sender_balance + receiver_balance)
-  }
+```bash
+# Register a UCM definition on-chain
+trident registry onchain-register verify_merkle
 
-Compiler: only the composition needs verification (the components are cached)
-  → Verified in 0.3s instead of 3.7s
+# Verify a definition is registered
+trident registry onchain-verify verify_merkle
+
+# Attach a verification certificate
+trident registry onchain-certify verify_merkle --input myfile.tri
+
+# Show registry status
+trident registry onchain-status
 ```
 
-### 7.3 The Accumulating Intelligence
+Registration requires that the definition first exists in the local UCM codebase
+(via `trident ucm add`).
 
-Every interaction adds to the registry:
-- LLM generates a new verified function → published to registry
-- Next time any LLM (or human) needs similar functionality → found in registry
-- The registry becomes a growing library of verified ZK computation primitives
-- Eventually, most common ZK patterns are covered, and generation becomes assembly from verified parts
+### 7.4 Authorization
 
-This is a flywheel that gets faster over time.
+Registry mutations (register, update, equivalence claims) require publisher
+authorization. The registry verifies authorization by hashing a divined secret and
+checking it against a public authorization hash. This is enforced inside the ZK proof
+itself.
 
 ---
 
-## 8. The Codebase Manager (UCM)
+## 8. Links
 
-### 8.1 Interactive Development
-
-The Trident Codebase Manager (`trident ucm`) is the interactive interface to the content-addressed codebase:
-
-```
-$ trident ucm
-
-Welcome to Trident UCM (Content-Addressed Provable Computation)
-Codebase: ./my_project (142 definitions, 128 verified)
-Connected to registry: registry.trident.dev (1.2M definitions)
-
-trident> ls
-  verify_merkle      #a7f3b2c1  verified  ✓
-  transfer_token     #c4e9d1a8  verified  ✓
-  batch_transfer     #f7a2b1c3  verified  ✓
-  experimental_swap  #e1d3c5a7  UNVERIFIED ✗
-  main               #b4c5d6e7  verified  ✓
-
-trident> info verify_merkle
-  Hash:           #a7f3b2c1
-  Type:           (Digest, Digest, U32, U32) -> ()
-  Dependencies:   hash (#f8a2b1c3), divine_digest (#e2f1b3a9)
-  Dependents:     transfer_token, batch_transfer, main
-  Verified:       ✓ (8 properties, cert #cert_8b2f)
-  Proving cost:   triton=847cc  miden=623cc  cairo=1204 steps
-  Registry:       published ✓ (47 users)
-  Equivalents:    check_proof (#b8c4d2e5 by bob), merkle_auth (#c9d5e3f6 by carol)
-  Last modified:  2026-01-15 by alice
-
-trident> edit transfer_token
-  [opens in editor]
-  
-trident> update
-  Parsing transfer_token... ✓
-  Type checking... ✓
-  New hash: #c4e9d1a9 (changed)
-  Verifying... ✓ (5/5 properties, 1.3s)
-  Propagating to dependents:
-    batch_transfer: new hash #f7a2b1c4, re-verifying... ✓ (0.8s)
-    main: new hash #b4c5d6e8, re-verifying... ✓ (0.4s)
-  
-  All dependents updated and verified. ✓
-
-trident> cost transfer_token --all-targets
-  triton:  312cc (processor=280, hash=12, u32=20) — padded height: 512
-  miden:   289cc (chiplets=210, stack=79) — padded height: 512
-  cairo:   445 steps — padded height: 512
-  openvm:  ~2800 cycles (estimated)
-
-trident> publish transfer_token
-  Publishing #c4e9d1a9 to registry...
-  ✓ Published (verified, 3 targets)
-
-trident> search --type "(Field, Field) -> Field" --verified --target triton --sort cost
-  #d1e2f3a4  field_add_checked     23cc    "overflow-safe addition"
-  #e2f3a4b5  field_mul_checked     31cc    "overflow-safe multiplication"
-  #f3a4b5c6  safe_divide           89cc    "division with zero-check"
-  #a4b5c6d7  sqrt_verify           156cc   "verified square root"
-
-trident> generate "verify that a batch of 10 transfers all preserve total supply"
-  Searching registry for components...
-    ✓ Found: transfer_token (#c4e9d1a9) — verified
-    ✓ Found: sum_array (#g1h2i3j4) — verified
-  Generating composition... (LLM: attempt 1)
-  Verifying... ✓ (3 properties, 0.9s)
-  
-  Added: batch_verify_conservation (#k5l6m7n8)
-  ✓ Verified, published to registry
-```
-
-### 8.2 Project Configuration
-
-```toml
-# trident.toml
-[project]
-name = "neptune-consensus"
-edition = "2026"
-
-[codebase]
-path = ".trident/codebase.db"    # Local codebase database
-registry = "registry.trident.dev" # Remote registry
-
-[targets]
-default = "triton"
-supported = ["triton", "miden"]
-
-[verification]
-mode = "standard"                 # quick | standard | exhaustive
-timeout = 30                      # seconds per assertion
-auto_verify = true                # verify on every update
-
-[sharing]
-auto_publish = false              # require explicit `publish` command
-share_compilation = true          # share compilation cache with registry
-share_verification = true         # share verification results with registry
-```
-
----
-
-## 9. Implementation Plan
-
-### 9.1 Phase 1: Local Content Addressing (4-6 weeks)
-
-**Goal:** Functions are hashed and stored in a local database. Compilation and verification caching works.
-
-| Task | Effort |
-|------|--------|
-| AST normalization (de Bruijn indices, dependency hash substitution, canonicalization) | 2 weeks |
-| BLAKE3 hashing of serialized normalized AST | 3 days |
-| Local codebase database (SQLite or similar) | 1 week |
-| Compilation cache by (hash, target) | 3 days |
-| Verification cache by verification hash | 3 days |
-| `trident hash` command (show hash of any function) | 1 day |
-| Integration with existing `trident build` (cache lookups) | 3 days |
-| Tests: hash stability, normalization correctness, cache hit/miss | 1 week |
-
-**Deliverable:** `trident build` uses content-addressed caching. Unchanged functions are never recompiled or re-verified. Renaming a function doesn't trigger recompilation.
-
-### 9.2 Phase 2: Codebase Manager (6-8 weeks)
-
-**Goal:** Interactive development workflow with the content-addressed codebase.
-
-| Task | Effort |
-|------|--------|
-| `trident ucm` interactive CLI (REPL-like interface) | 2 weeks |
-| Edit/update workflow (watch files, parse, hash, store) | 1 week |
-| Dependency tracking and automatic propagation | 1 week |
-| "Todo list" for broken dependents (type-change propagation) | 3 days |
-| Pretty-printing from stored AST (view command) | 3 days |
-| Name management (rename, alias, deprecate) | 3 days |
-| History (show all versions of a name, diff between hashes) | 1 week |
-| Cost analysis per target (info command) | 3 days |
-
-**Deliverable:** Developers interact with the codebase through UCM. Editing feels like normal development but with instant verification feedback, automatic dependency propagation, and perfect caching.
-
-### 9.3 Phase 3: Global Registry (6-8 weeks)
-
-**Goal:** Shared registry for cross-developer, cross-project code sharing.
-
-| Task | Effort |
-|------|--------|
-| Registry server (simple HTTP API over a hash-keyed database) | 2 weeks |
-| `trident publish` / `trident pull` commands | 1 week |
-| Type-signature search index | 1 week |
-| Property and tag search | 3 days |
-| Verification certificate publishing and validation | 1 week |
-| Cross-target compilation artifact sharing | 3 days |
-| Registry integration in UCM (search, pull, publish from REPL) | 1 week |
-
-**Deliverable:** Developers can publish verified functions and pull from a global registry. Compilation and verification results are shared across the community.
-
-### 9.4 Phase 4: Semantic Equivalence (4-6 weeks)
-
-**Goal:** Detect and link semantically equivalent functions.
-
-| Task | Effort |
-|------|--------|
-| Equivalence checking via verification engine (prove f(x) == g(x) ∀x) | 2 weeks |
-| Equivalence class management in registry | 1 week |
-| Automatic equivalence suggestion (same type, different hash → offer check) | 1 week |
-| Canonical forms for pure field arithmetic (polynomial normalization) | 2 weeks (research) |
-
-### 9.5 Phase 5: On-Chain Registry (4-6 weeks)
-
-**Goal:** Trustless, decentralized registry stored on-chain.
-
-| Task | Effort |
-|------|--------|
-| Merkle tree registry contract (in Trident, naturally) | 2 weeks |
-| On-chain verification certificate validation | 1 week |
-| Cross-chain equivalence proof generation | 1 week |
-| Registry synchronization (local ↔ on-chain) | 1 week |
-
-### 9.6 Timeline
-
-```
-Month 1-2:     Phase 1 — Local content addressing
-Month 2-4:     Phase 2 — Codebase Manager
-Month 4-6:     Phase 3 — Global Registry
-Month 6-8:     Phase 4 — Semantic Equivalence
-Month 8-10:    Phase 5 — On-Chain Registry
-```
-
----
-
-## 10. How It All Fits Together
-
-Content-addressed Trident is not a standalone feature. It's the connective tissue that makes every other piece of the Trident ecosystem work better.
-
-```
-┌─────────────────────────────────────────────────────────┐
-│                    DEVELOPER                            │
-│  "I need a confidential token transfer"                 │
-└────────────────────────┬────────────────────────────────┘
-                         │
-                         ▼
-┌─────────────────────────────────────────────────────────┐
-│              LLM CODE GENERATION                        │
-│  Search registry → compose from verified parts          │
-│  Generate new glue code → verify                        │
-│  Result: verified function with hash #new_hash          │
-└────────────────────────┬────────────────────────────────┘
-                         │
-                         ▼
-┌─────────────────────────────────────────────────────────┐
-│            CONTENT-ADDRESSED CODEBASE                   │
-│  Store by hash. Cache compilation. Cache verification.  │
-│  Track dependencies. Propagate changes.                 │
-│  Names are metadata. Hashes are identity.               │
-└────────────────────────┬────────────────────────────────┘
-                         │
-                         ▼
-┌─────────────────────────────────────────────────────────┐
-│            EMBEDDED FORMAL VERIFICATION                 │
-│  Prove assertions for all inputs. Cache by hash.        │
-│  Generate certificates. Attach to hash permanently.     │
-│  Verification result valid forever (immutable code).    │
-└────────────────────────┬────────────────────────────────┘
-                         │
-                         ▼
-┌─────────────────────────────────────────────────────────┐
-│           MULTI-TARGET COMPILATION                      │
-│  Compile to Triton, Miden, Cairo, OpenVM.               │
-│  Each target artifact has its own hash.                 │
-│  Source hash → target hash mapping in registry.         │
-│  Cross-chain equivalence by shared source hash.         │
-└────────────────────────┬────────────────────────────────┘
-                         │
-                         ▼
-┌─────────────────────────────────────────────────────────┐
-│              GLOBAL REGISTRY                            │
-│  Publish verified, compiled functions.                  │
-│  Search by type, property, cost, target.                │
-│  Semantic equivalence detection.                        │
-│  On-chain registry for trustless code sharing.          │
-│  Network effects: more users → better cache → faster.   │
-└────────────────────────┬────────────────────────────────┘
-                         │
-                         ▼
-┌─────────────────────────────────────────────────────────┐
-│                  DEPLOYMENT                             │
-│  Deploy to any zkVM. Hash is the address.               │
-│  Verification certificate travels with the code.        │
-│  Auditors verify the hash, not the name.                │
-│  Cross-chain references by source hash.                 │
-│  Upgrade = new hash + pointer update.                   │
-└─────────────────────────────────────────────────────────┘
-```
-
-Each layer reinforces the others:
-- Content addressing makes verification caching possible
-- Verification caching makes LLM generation practical (fast feedback)
-- LLM generation populates the registry with verified functions
-- The registry makes future LLM generation faster (search before generate)
-- Multi-target compilation shares the source hash across chains
-- The on-chain registry makes cross-chain equivalence trustless
-
-The result: a self-reinforcing ecosystem where provable computation becomes easier to write, verify, share, and deploy over time.
-
----
-
-*Content-Addressed Trident — Code is what it computes, forever.*
+- [Tutorial](tutorial.md) -- Getting started with Trident, including first use of `trident hash` and `trident ucm`
+- [Formal Verification](formal-verification.md) -- How verification works, including how results are cached by content hash
+- [Language Reference](reference.md) -- Complete language syntax, types, and built-in functions
+- [Deploying a Program](deploying-a-program.md) -- Deployment by content hash, on-chain registry
+- [Universal Design](universal-design.md) -- Multi-target architecture and how hashes relate to backends
+- [Language Specification](spec.md) -- Formal hash computation rules
+- [Vision](vision.md) -- The broader vision for content-addressed provable computation

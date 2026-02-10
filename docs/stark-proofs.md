@@ -943,5 +943,14 @@ Cross-reference: [vision.md](vision.md) "Recursive STARK Verification",
   safety, recursive verification -- matter for real infrastructure intended
   to last decades.
 
+- [Generating Proofs](generating-proofs.md) -- Practical guide: execution
+  trace to STARK proof, cost optimization, recursive composition.
+
+- [Verifying Proofs](verifying-proofs.md) -- Proof checking, on-chain
+  verification, quantum safety properties.
+
+- [Formal Verification](formal-verification.md) -- Symbolic verification
+  of program properties before proving.
+
 - [Triton VM specification](https://triton-vm.org/spec/) -- The target VM's
   instruction set, table structure, and constraint system.

@@ -918,9 +918,12 @@ types, functions, modules, I/O, hashing, events, testing, and cost analysis.
 - [Tutorial](tutorial.md) -- Step-by-step Trident developer guide
 - [Language Reference](reference.md) -- Quick lookup: types, operators, builtins, grammar
 - [Language Specification](spec.md) -- Complete language reference
+- [Deploying a Program](deploying-a-program.md) -- Neptune UTXO scripts, lock/type scripts, multi-target deployment
+- [Gold Standard Libraries](gold-standard.md) -- Token standards (TSP-1/TSP-2), bridge clients, crypto gadgets
 - [Programming Model](programming-model.md) -- How programs run in Triton VM
 - [Optimization Guide](optimization.md) -- Cost reduction strategies
 - [Universal Design](universal-design.md) -- Multi-target architecture: universal core, backend extensions
+- [Formal Verification](formal-verification.md) -- Prove properties of your contracts, find bugs before deployment
 - [How STARK Proofs Work](stark-proofs.md) -- From execution traces to quantum-safe proofs
 - [For Developers](for-developers.md) -- Zero-knowledge from scratch (if you also need the ZK primer)
 - [Error Catalog](errors.md) -- All compiler error messages explained

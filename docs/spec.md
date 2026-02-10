@@ -1814,9 +1814,9 @@ The compiler is implemented and operational. Current status:
 | Content-Addressed UCM | Complete | ~800 |
 | Package Manager | Complete | ~400 |
 | CLI (14 commands) | Complete | ~650 |
-| Test Suite | 630 tests | — |
+| Test Suite | 670 tests | — |
 
-Compiler is written in Rust. Total: ~15,000 lines including all backends, verification, and tooling.
+Compiler is written in Rust. Total: ~37,000 lines including all backends, verification, and tooling.
 
 ---
 
@@ -1826,7 +1826,7 @@ Trident is successful if:
 
 1. Neptune Cash transaction validation can be written in Trident with trace length within 2x of hand-written TASM
 2. A developer familiar with Rust can write their first Trident program within 1 hour
-3. The compiler remains auditable by a single engineer (currently ~15,000 lines)
+3. The compiler remains auditable by a single engineer (currently ~37,000 lines)
 4. Security audit of the compiler takes less than 4 weeks
 5. The recursive STARK verifier can be expressed in Trident
 6. The same source compiles to at least 3 different zkVM targets

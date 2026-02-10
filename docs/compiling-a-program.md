@@ -357,7 +357,7 @@ degree = 0
 tables = ["cycles", "memory"]
 ```
 
-The architecture field (`stack` or `register`) determines how the emitter generates code. Stack architectures use direct emission; register architectures require a lightweight IR (not yet implemented).
+The architecture field (`stack` or `register`) determines how the emitter generates code. Stack architectures (like Triton VM) use direct emission; register architectures would require a lightweight IR. Currently only stack-based targets are supported.
 
 ## Formatting
 
@@ -428,10 +428,14 @@ trident test .
 
 ## See Also
 
+- [Tutorial](tutorial.md) -- Step-by-step guide: types, functions, modules, inline asm
 - [Error Catalog](errors.md) -- Every error message explained with fixes
 - [Optimization Guide](optimization.md) -- Cost reduction strategies for all six tables
 - [Language Reference](reference.md) -- Types, operators, builtins, grammar
 - [Programming Model](programming-model.md) -- How programs execute inside Triton VM
+- [Universal Design](universal-design.md) -- Multi-target architecture and the `--target` flag
+- [How STARK Proofs Work](stark-proofs.md) -- The six tables that determine proving cost
+- [Formal Verification](formal-verification.md) -- Verify program properties at compile time
 
 ## Next Step
 

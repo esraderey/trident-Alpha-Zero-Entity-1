@@ -12,7 +12,6 @@ are the remaining roadmap.
 - [x] Gadget library: SHA-256, Keccak (needed for bridge verification)
 - [x] Recursive STARK verifier via `xx_dot_step` / `xb_dot_step` builtins
 - [x] Language spec: clean up spec.md for public release (v0.5)
-- [ ] Landing page + web playground (compile .tri to TASM in browser)
 
 ## Milestone 2: Formal Verification (Embedded)
 
@@ -101,6 +100,7 @@ backend is fully implemented; others are stubs.
 - [x] Standard cryptographic library: secp256k1, ed25519, ECDSA, Poseidon, SHA-256, Keccak-256, bigint
 - [x] Token factory: TSP-1 fungible token, TSP-2 NFT standard
 - [x] Bridge validators: Bitcoin and Ethereum light clients
+- [ ] Landing page + web playground (compile .tri to TASM in browser)
 - [ ] Browser extension integration library
 - [ ] ZK coprocessor programs (Axiom, Brevis, Herodotus integration)
 - [ ] Editor extension download page + marketplace listings
