@@ -3,7 +3,205 @@ use std::collections::{HashMap, HashSet};
 use crate::ast::*;
 use crate::span::Spanned;
 use crate::stack::StackManager;
+use crate::target::TargetConfig;
 use crate::typeck::MonoInstance;
+
+/// Trait abstracting instruction emission for stack-machine backends.
+///
+/// Each method returns the target assembly string for a semantic operation.
+/// The Emitter calls these to produce target-specific output while sharing
+/// all AST-walking and stack-management logic.
+pub trait StackBackend {
+    /// Target name (e.g. "triton", "miden").
+    fn target_name(&self) -> &str;
+    /// File extension for output (e.g. ".tasm").
+    fn output_extension(&self) -> &str;
+
+    // --- Stack operations ---
+    fn inst_push(&self, value: u64) -> String;
+    fn inst_pop(&self, count: u32) -> String;
+    fn inst_dup(&self, depth: u32) -> String;
+    fn inst_swap(&self, depth: u32) -> String;
+
+    // --- Arithmetic ---
+    fn inst_add(&self) -> &'static str;
+    fn inst_mul(&self) -> &'static str;
+    fn inst_eq(&self) -> &'static str;
+    fn inst_invert(&self) -> &'static str;
+    fn inst_split(&self) -> &'static str;
+    fn inst_lt(&self) -> &'static str;
+    fn inst_and(&self) -> &'static str;
+    fn inst_xor(&self) -> &'static str;
+    fn inst_div_mod(&self) -> &'static str;
+    fn inst_log2(&self) -> &'static str;
+    fn inst_pow(&self) -> &'static str;
+    fn inst_pop_count(&self) -> &'static str;
+    fn inst_xb_mul(&self) -> &'static str;
+    fn inst_x_invert(&self) -> &'static str;
+
+    // --- I/O ---
+    fn inst_read_io(&self, count: u32) -> String;
+    fn inst_write_io(&self, count: u32) -> String;
+    fn inst_divine(&self, count: u32) -> String;
+
+    // --- Memory ---
+    fn inst_read_mem(&self, count: u32) -> String;
+    fn inst_write_mem(&self, count: u32) -> String;
+
+    // --- Hash ---
+    fn inst_hash(&self) -> &'static str;
+    fn inst_sponge_init(&self) -> &'static str;
+    fn inst_sponge_absorb(&self) -> &'static str;
+    fn inst_sponge_squeeze(&self) -> &'static str;
+    fn inst_sponge_absorb_mem(&self) -> &'static str;
+
+    // --- Merkle ---
+    fn inst_merkle_step(&self) -> &'static str;
+    fn inst_merkle_step_mem(&self) -> &'static str;
+
+    // --- Control flow ---
+    fn inst_assert(&self) -> &'static str;
+    fn inst_assert_vector(&self) -> &'static str;
+    fn inst_skiz(&self) -> &'static str;
+    fn inst_call(&self, label: &str) -> String;
+    fn inst_return(&self) -> &'static str;
+    fn inst_recurse(&self) -> &'static str;
+
+    // --- STARK-specific (optional, default to hash) ---
+    fn inst_xx_dot_step(&self) -> &'static str {
+        "xx_dot_step"
+    }
+    fn inst_xb_dot_step(&self) -> &'static str {
+        "xb_dot_step"
+    }
+}
+
+/// Triton VM backend — emits Triton Assembly (TASM).
+pub struct TritonBackend;
+
+impl StackBackend for TritonBackend {
+    fn target_name(&self) -> &str {
+        "triton"
+    }
+    fn output_extension(&self) -> &str {
+        ".tasm"
+    }
+
+    fn inst_push(&self, value: u64) -> String {
+        format!("push {}", value)
+    }
+    fn inst_pop(&self, count: u32) -> String {
+        format!("pop {}", count)
+    }
+    fn inst_dup(&self, depth: u32) -> String {
+        format!("dup {}", depth)
+    }
+    fn inst_swap(&self, depth: u32) -> String {
+        format!("swap {}", depth)
+    }
+
+    fn inst_add(&self) -> &'static str {
+        "add"
+    }
+    fn inst_mul(&self) -> &'static str {
+        "mul"
+    }
+    fn inst_eq(&self) -> &'static str {
+        "eq"
+    }
+    fn inst_invert(&self) -> &'static str {
+        "invert"
+    }
+    fn inst_split(&self) -> &'static str {
+        "split"
+    }
+    fn inst_lt(&self) -> &'static str {
+        "lt"
+    }
+    fn inst_and(&self) -> &'static str {
+        "and"
+    }
+    fn inst_xor(&self) -> &'static str {
+        "xor"
+    }
+    fn inst_div_mod(&self) -> &'static str {
+        "div_mod"
+    }
+    fn inst_log2(&self) -> &'static str {
+        "log_2_floor"
+    }
+    fn inst_pow(&self) -> &'static str {
+        "pow"
+    }
+    fn inst_pop_count(&self) -> &'static str {
+        "pop_count"
+    }
+    fn inst_xb_mul(&self) -> &'static str {
+        "xb_mul"
+    }
+    fn inst_x_invert(&self) -> &'static str {
+        "x_invert"
+    }
+
+    fn inst_read_io(&self, count: u32) -> String {
+        format!("read_io {}", count)
+    }
+    fn inst_write_io(&self, count: u32) -> String {
+        format!("write_io {}", count)
+    }
+    fn inst_divine(&self, count: u32) -> String {
+        format!("divine {}", count)
+    }
+
+    fn inst_read_mem(&self, count: u32) -> String {
+        format!("read_mem {}", count)
+    }
+    fn inst_write_mem(&self, count: u32) -> String {
+        format!("write_mem {}", count)
+    }
+
+    fn inst_hash(&self) -> &'static str {
+        "hash"
+    }
+    fn inst_sponge_init(&self) -> &'static str {
+        "sponge_init"
+    }
+    fn inst_sponge_absorb(&self) -> &'static str {
+        "sponge_absorb"
+    }
+    fn inst_sponge_squeeze(&self) -> &'static str {
+        "sponge_squeeze"
+    }
+    fn inst_sponge_absorb_mem(&self) -> &'static str {
+        "sponge_absorb_mem"
+    }
+
+    fn inst_merkle_step(&self) -> &'static str {
+        "merkle_step"
+    }
+    fn inst_merkle_step_mem(&self) -> &'static str {
+        "merkle_step_mem"
+    }
+
+    fn inst_assert(&self) -> &'static str {
+        "assert"
+    }
+    fn inst_assert_vector(&self) -> &'static str {
+        "assert_vector"
+    }
+    fn inst_skiz(&self) -> &'static str {
+        "skiz"
+    }
+    fn inst_call(&self, label: &str) -> String {
+        format!("call {}", label)
+    }
+    fn inst_return(&self) -> &'static str {
+        "return"
+    }
+    fn inst_recurse(&self) -> &'static str {
+        "recurse"
+    }
+}
 
 /// A deferred block to emit after the current function.
 struct DeferredBlock {
@@ -51,6 +249,10 @@ pub struct Emitter {
     call_resolution_idx: usize,
     /// Active cfg flags for conditional compilation.
     cfg_flags: HashSet<String>,
+    /// Target VM configuration.
+    target_config: TargetConfig,
+    /// Backend for instruction emission.
+    backend: Box<dyn StackBackend>,
 }
 
 impl Default for Emitter {
@@ -61,10 +263,16 @@ impl Default for Emitter {
 
 impl Emitter {
     pub fn new() -> Self {
+        Self::with_backend(Box::new(TritonBackend), TargetConfig::triton())
+    }
+
+    pub fn with_backend(backend: Box<dyn StackBackend>, target_config: TargetConfig) -> Self {
+        let stack =
+            StackManager::with_config(target_config.stack_depth, target_config.spill_ram_base);
         Self {
             output: Vec::new(),
             label_counter: 0,
-            stack: StackManager::new(),
+            stack,
             deferred: Vec::new(),
             struct_layouts: HashMap::new(),
             fn_return_widths: HashMap::new(),
@@ -81,10 +289,26 @@ impl Emitter {
             call_resolutions: Vec::new(),
             call_resolution_idx: 0,
             cfg_flags: HashSet::from(["debug".to_string()]),
+            target_config,
+            backend,
         }
     }
 
-    /// Set active cfg flags for conditional compilation.
+    /// Output file extension for the current backend (e.g. ".tasm").
+    pub fn output_extension(&self) -> &str {
+        self.backend.output_extension()
+    }
+
+    /// Target name from the backend (e.g. "triton").
+    pub fn target_name(&self) -> &str {
+        self.backend.target_name()
+    }
+
+    /// Access the target configuration.
+    pub fn target_config(&self) -> &TargetConfig {
+        &self.target_config
+    }
+
     pub fn with_cfg_flags(mut self, flags: HashSet<String>) -> Self {
         self.cfg_flags = flags;
         self
@@ -153,7 +377,7 @@ impl Emitter {
                     let width = func
                         .return_ty
                         .as_ref()
-                        .map(|t| resolve_type_width(&t.node))
+                        .map(|t| resolve_type_width(&t.node, &self.target_config))
                         .unwrap_or(0);
                     self.fn_return_widths.insert(func.name.node.clone(), width);
                 }
@@ -170,7 +394,7 @@ impl Emitter {
                 let width = gdef
                     .return_ty
                     .as_ref()
-                    .map(|t| resolve_type_width_with_subs(&t.node, &subs))
+                    .map(|t| resolve_type_width_with_subs(&t.node, &subs, &self.target_config))
                     .unwrap_or(0);
                 let mangled = inst.mangled_name();
                 // Strip the leading __ from mangled_name for fn_return_widths lookup
@@ -248,8 +472,8 @@ impl Emitter {
                         "// ram[{}]: {} ({} field element{})",
                         addr,
                         crate::emit::format_type_name(&ty.node),
-                        resolve_type_width(&ty.node),
-                        if resolve_type_width(&ty.node) == 1 {
+                        resolve_type_width(&ty.node, &self.target_config),
+                        if resolve_type_width(&ty.node, &self.target_config) == 1 {
                             ""
                         } else {
                             "s"
@@ -305,7 +529,7 @@ impl Emitter {
 
         // Parameters are already on the real stack. Register them in the model.
         for param in &func.params {
-            let width = resolve_type_width(&param.ty.node);
+            let width = resolve_type_width(&param.ty.node, &self.target_config);
             self.stack.push_named(&param.name.node, width);
             self.flush_stack_effects();
         }
@@ -321,7 +545,7 @@ impl Emitter {
             let ret_width = func
                 .return_ty
                 .as_ref()
-                .map(|t| resolve_type_width(&t.node))
+                .map(|t| resolve_type_width(&t.node, &self.target_config))
                 .unwrap_or(0);
             let to_pop = total_width.saturating_sub(ret_width);
             for _ in 0..to_pop {
@@ -359,7 +583,11 @@ impl Emitter {
 
         // Parameters with substituted widths.
         for param in &func.params {
-            let width = resolve_type_width_with_subs(&param.ty.node, &self.current_subs);
+            let width = resolve_type_width_with_subs(
+                &param.ty.node,
+                &self.current_subs,
+                &self.target_config,
+            );
             self.stack.push_named(&param.name.node, width);
             self.flush_stack_effects();
         }
@@ -375,7 +603,9 @@ impl Emitter {
             let ret_width = func
                 .return_ty
                 .as_ref()
-                .map(|t| resolve_type_width_with_subs(&t.node, &self.current_subs))
+                .map(|t| {
+                    resolve_type_width_with_subs(&t.node, &self.current_subs, &self.target_config)
+                })
                 .unwrap_or(0);
             let to_pop = total_width.saturating_sub(ret_width);
             for _ in 0..to_pop {
@@ -440,7 +670,7 @@ impl Emitter {
                             // If type is an array, record elem_width
                             if let Some(sp_ty) = ty {
                                 if let Type::Array(inner_ty, _) = &sp_ty.node {
-                                    let ew = resolve_type_width(inner_ty);
+                                    let ew = resolve_type_width(inner_ty, &self.target_config);
                                     if let Some(top) = self.stack.last_mut() {
                                         top.elem_width = Some(ew);
                                     }
@@ -1006,14 +1236,14 @@ impl Emitter {
                             let total: u32 = sdef
                                 .fields
                                 .iter()
-                                .map(|f| resolve_type_width(&f.ty.node))
+                                .map(|f| resolve_type_width(&f.ty.node, &self.target_config))
                                 .sum();
                             if total != struct_width {
                                 continue;
                             }
                             let mut off = 0u32;
                             for sf in &sdef.fields {
-                                let fw = resolve_type_width(&sf.ty.node);
+                                let fw = resolve_type_width(&sf.ty.node, &self.target_config);
                                 if sf.name.node == field.node {
                                     found = Some((total - off - fw, fw));
                                     break;
@@ -1498,11 +1728,11 @@ impl Emitter {
                 let total: u32 = sdef
                     .fields
                     .iter()
-                    .map(|f| resolve_type_width(&f.ty.node))
+                    .map(|f| resolve_type_width(&f.ty.node, &self.target_config))
                     .sum();
                 let mut offset = 0u32;
                 for sf in &sdef.fields {
-                    let fw = resolve_type_width(&sf.ty.node);
+                    let fw = resolve_type_width(&sf.ty.node, &self.target_config);
                     let from_top = total - offset - fw;
                     field_map.insert(sf.name.node.clone(), (from_top, fw));
                     offset += fw;
@@ -1543,7 +1773,7 @@ impl Emitter {
                         return sdef
                             .fields
                             .iter()
-                            .map(|f| resolve_type_width(&f.ty.node))
+                            .map(|f| resolve_type_width(&f.ty.node, &self.target_config))
                             .collect();
                     }
                 }
@@ -1596,36 +1826,36 @@ fn format_type_name(ty: &Type) -> String {
     }
 }
 
-fn resolve_type_width(ty: &Type) -> u32 {
+fn resolve_type_width(ty: &Type, tc: &TargetConfig) -> u32 {
     match ty {
         Type::Field | Type::Bool | Type::U32 => 1,
-        Type::XField => 3,
-        Type::Digest => 5,
+        Type::XField => tc.xfield_width,
+        Type::Digest => tc.digest_width,
         Type::Array(inner, n) => {
             let size = n.as_literal().unwrap_or(0);
-            resolve_type_width(inner) * (size as u32)
+            resolve_type_width(inner, tc) * (size as u32)
         }
-        Type::Tuple(elems) => elems.iter().map(resolve_type_width).sum(),
+        Type::Tuple(elems) => elems.iter().map(|t| resolve_type_width(t, tc)).sum(),
         Type::Named(_) => 1,
     }
 }
 
 /// Like `resolve_type_width` but substitutes `ArraySize::Param` with concrete values.
-fn resolve_type_width_with_subs(ty: &Type, subs: &HashMap<String, u64>) -> u32 {
+fn resolve_type_width_with_subs(ty: &Type, subs: &HashMap<String, u64>, tc: &TargetConfig) -> u32 {
     match ty {
         Type::Field | Type::Bool | Type::U32 => 1,
-        Type::XField => 3,
-        Type::Digest => 5,
+        Type::XField => tc.xfield_width,
+        Type::Digest => tc.digest_width,
         Type::Array(inner, n) => {
             let size = match n {
                 ArraySize::Literal(v) => *v,
                 ArraySize::Param(name) => subs.get(name).copied().unwrap_or(0),
             };
-            resolve_type_width_with_subs(inner, subs) * (size as u32)
+            resolve_type_width_with_subs(inner, subs, tc) * (size as u32)
         }
         Type::Tuple(elems) => elems
             .iter()
-            .map(|t| resolve_type_width_with_subs(t, subs))
+            .map(|t| resolve_type_width_with_subs(t, subs, tc))
             .sum(),
         Type::Named(_) => 1,
     }

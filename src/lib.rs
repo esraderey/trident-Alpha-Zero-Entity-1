@@ -91,8 +91,8 @@ pub fn compile_with_options(
         }
     };
 
-    // Emit TASM
-    let tasm = Emitter::new()
+    // Emit target assembly
+    let tasm = Emitter::with_backend(Box::new(emit::TritonBackend), options.target_config.clone())
         .with_cfg_flags(options.cfg_flags.clone())
         .with_mono_instances(exports.mono_instances)
         .with_call_resolutions(exports.call_resolutions)
@@ -221,14 +221,15 @@ pub fn compile_project_with_options(
             .get(i)
             .map(|e| e.call_resolutions.clone())
             .unwrap_or_default();
-        let tasm = Emitter::new()
-            .with_cfg_flags(options.cfg_flags.clone())
-            .with_intrinsics(intrinsic_map.clone())
-            .with_module_aliases(module_aliases.clone())
-            .with_constants(external_constants.clone())
-            .with_mono_instances(mono)
-            .with_call_resolutions(call_res)
-            .emit_file(file);
+        let tasm =
+            Emitter::with_backend(Box::new(emit::TritonBackend), options.target_config.clone())
+                .with_cfg_flags(options.cfg_flags.clone())
+                .with_intrinsics(intrinsic_map.clone())
+                .with_module_aliases(module_aliases.clone())
+                .with_constants(external_constants.clone())
+                .with_mono_instances(mono)
+                .with_call_resolutions(call_res)
+                .emit_file(file);
         tasm_modules.push(ModuleTasm {
             module_name: file.name.node.clone(),
             is_program,
