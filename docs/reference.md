@@ -1,8 +1,8 @@
 # Trident Quick Reference
 
-Version 0.3 -- Cheat sheet for the Trident language targeting Triton VM.
+Version 0.3 -- Cheat sheet for the Trident universal provable-computation language.
 
-File extension: `.tri` | Compiler: `trident` | Field: Goldilocks (p = 2^64 - 2^32 + 1)
+File extension: `.tri` | Compiler: `trident` | Default target: Triton VM (Goldilocks field, p = 2^64 - 2^32 + 1)
 
 ---
 
@@ -11,7 +11,7 @@ File extension: `.tri` | Compiler: `trident` | Field: Goldilocks (p = 2^64 - 2^3
 | Type | Width (field elements) | Description | Literal examples |
 |------|----------------------:|-------------|------------------|
 | `Field` | 1 | Base field element mod p | `0`, `42`, `18446744069414584321` |
-| `XField` | 3 | Extension field element (F_p[X]/<X^3-X+1>) | `xfield(1, 2, 3)` |
+| `XField` | 3 | Extension field element (F_p[X]/<X^3-X+1>) -- Triton VM target | `xfield(1, 2, 3)` |
 | `Bool` | 1 | Field constrained to {0, 1} | `true`, `false` |
 | `U32` | 1 | Unsigned 32-bit integer (range-checked) | `0`, `4294967295` |
 | `Digest` | 5 | Tip5 hash digest ([Field; 5]) | `divine5()` |
@@ -39,7 +39,7 @@ No enums. No sum types. No references. No pointers. No implicit conversions.
 
 No subtraction operator (`-`). No division operator (`/`). No comparison operators
 other than `<` and `==`. No `!=`, `>`, `<=`, `>=` -- compose from `==`, `<`, and
-`std.logic.not()`. No `&&`, `||`, `!` -- use `std.logic.*`.
+`not()`. No `&&`, `||`, `!` -- use boolean combinators from `std.core.bool`.
 
 ---
 
@@ -65,7 +65,7 @@ other than `<` and `==`. No `!=`, `>`, `<=`, `>=` -- compose from `==`, `<`, and
 | `neg(a: Field) -> Field` | `push -1; mul` | 2/0/0 | Additive inverse (p - a) |
 | `sub(a: Field, b: Field) -> Field` | `push -1; mul; add` | 3/0/0 | Field subtraction (a + (p - b)) |
 
-Also available as `std.field.inv`, `std.field.neg`, `std.field.sub`, `std.field.mul`, `std.field.add`.
+Also available as `std.core.field.inv`, `std.core.field.neg`, `std.core.field.sub`, `std.core.field.mul`, `std.core.field.add`.
 
 ### U32 Operations
 
@@ -88,7 +88,10 @@ Also available as `std.field.inv`, `std.field.neg`, `std.field.sub`, `std.field.
 | `sponge_absorb_mem(ptr: Field)` | `sponge_absorb_mem` | 1/6/0 | Absorb 10 fields from RAM |
 | `sponge_squeeze() -> [Field; 10]` | `sponge_squeeze` | 1/6/0 | Squeeze 10 fields |
 
-### Merkle
+### Merkle (Triton VM target)
+
+Native Merkle tree instructions. On other targets, use `std.crypto.merkle` which
+provides a portable implementation via hash-loop fallback.
 
 | Signature | TASM | Cost (cc/hash/u32) | Description |
 |-----------|------|---------------------|-------------|
@@ -112,7 +115,10 @@ Also available as `std.field.inv`, `std.field.neg`, `std.field.sub`, `std.field.
 | `ram_read_block(addr) -> [Field; 5]` | `read_mem 5; pop 1` | 2/0/0/5 | Read 5 words |
 | `ram_write_block(addr, vals)` | `write_mem 5; pop 1` | 2/0/0/5 | Write 5 words |
 
-### Extension Field
+### Extension Field (Triton VM target)
+
+These builtins are specific to Triton VM's cubic extension field. In multi-target
+projects, access them via `ext.triton.xfield`.
 
 | Signature | TASM | Cost | Description |
 |-----------|------|------|-------------|
@@ -263,15 +269,19 @@ Visibility: `pub` (cross-module) or default (private). Two levels only.
 | `module.fn()` | `call` (resolved address) | body + 2 |
 | `fn_name<N>(...)` | `call` (monomorphized label) | body + 2 |
 | `asm { ... }` | verbatim TASM | varies |
+| `asm(target) { ... }` | verbatim target assembly | varies |
 
 ---
 
 ## 7. Cost Per Instruction
 
-Each instruction contributes rows to multiple [Triton VM](https://triton-vm.org/) tables simultaneously.
+The cost table below shows Triton VM proving costs. Each instruction contributes
+rows to multiple [Triton VM](https://triton-vm.org/) tables simultaneously.
 Proving cost is determined by the **tallest** table (padded to next power of 2).
-See [How STARK Proofs Work](stark-proofs.md) Section 4 for why there are six tables,
-and the [Optimization Guide](optimization.md) for strategies to reduce the dominant table.
+Other targets have different cost models -- use `trident build --target <t> --costs`
+to see target-specific costs. See [How STARK Proofs Work](stark-proofs.md) Section 4
+for why there are six tables, and the [Optimization Guide](optimization.md) for
+strategies to reduce the dominant table.
 
 | Trident construct | TASM | Processor | Hash | U32 | OpStack | RAM |
 |-------------------|------|----------:|-----:|----:|--------:|----:|
@@ -371,7 +381,8 @@ match_arm     = (literal | "_") "=>" block ;
 assert_stmt   = "assert" "(" expr ")"
               | "assert_eq" "(" expr "," expr ")"
               | "assert_digest" "(" expr "," expr ")" ;
-asm_stmt      = "asm" asm_effect? "{" TASM_BODY "}" ;
+asm_stmt      = "asm" asm_target? asm_effect? "{" TASM_BODY "}" ;
+asm_target    = "(" IDENT ")" ;
 asm_effect    = "(" ("+" | "-") INTEGER ")" ;
 emit_stmt     = "emit" IDENT "{" (IDENT ":" expr ",")* "}" ;
 seal_stmt     = "seal" IDENT "{" (IDENT ":" expr ",")* "}" ;
@@ -407,6 +418,8 @@ Compile `.tri` to TASM.
 ```
 trident build <file>                        # Output to <file>.tasm
 trident build <file> -o <out.tasm>          # Custom output path
+trident build <file> --target triton        # Compile for Triton VM (default)
+trident build <file> --target miden         # Compile for Miden VM
 trident build <file> --target release       # Release target (cfg flags)
 trident build <file> --costs                # Print cost analysis table
 trident build <file> --hotspots             # Show top cost contributors
@@ -464,25 +477,79 @@ spilled to RAM before the block executes.
 Raw TASM instructions are emitted verbatim -- no parsing, validation, or
 optimization by the compiler.
 
+### Target-Tagged Assembly Blocks
+
+For multi-target builds, `asm` blocks can be tagged with a target name so the
+compiler knows which backend should process them:
+
+```
+// Triton VM assembly (explicit target tag)
+asm(triton) {
+    dup 0
+    add
+    swap 5 pop 1
+}
+
+// Miden VM assembly
+asm(miden) {
+    dup.0
+    add
+    movdn.5 drop
+}
+
+// Cairo assembly
+asm(cairo) {
+    [ap] = [ap-1] + [ap-2]; ap++
+}
+```
+
+A bare `asm { ... }` (no target tag) is treated as `asm(triton) { ... }` for
+backward compatibility. In multi-target projects, bare `asm` blocks emit a
+deprecation warning -- use `asm(triton) { ... }` explicitly instead.
+
+Target-tagged blocks can be combined with stack-effect annotations:
+
+```
+asm(triton)(+1) { push 42 }
+```
+
+Blocks tagged for a different target than the current `--target` are silently
+skipped during compilation. Combine with `#[cfg(target)]` guards for
+conditional logic around the assembly.
+
 ---
 
 ## Standard Library Modules
 
+### Universal (`std.*`)
+
 | Module | Key functions |
 |--------|---------------|
-| `std.io` | `pub_read`, `pub_write`, `divine` |
-| `std.hash` | `tip5`, `sponge_init`, `sponge_absorb`, `sponge_squeeze` |
-| `std.field` | `add`, `sub`, `mul`, `neg`, `inv` |
-| `std.convert` | `as_u32`, `as_field`, `split` |
-| `std.u32` | `log2`, `pow`, `popcount` |
-| `std.assert` | `is_true`, `eq`, `digest` |
-| `std.xfield` | `new`, `inv` |
-| `std.mem` | `read`, `write`, `read_block`, `write_block` |
-| `std.storage` | `read`, `write`, `read_digest`, `write_digest` |
-| `std.merkle` | `verify1`..`verify4`, `authenticate_leaf3` |
-| `std.auth` | `verify_preimage`, `verify_digest_preimage` |
-| `std.kernel` | `authenticate_field`, `tree_height` |
-| `std.utxo` | `authenticate` |
+| `std.core.field` | `add`, `sub`, `mul`, `neg`, `inv` |
+| `std.core.convert` | `as_u32`, `as_field`, `split` |
+| `std.core.u32` | `log2`, `pow`, `popcount` |
+| `std.core.assert` | `is_true`, `eq`, `digest` |
+| `std.io.io` | `pub_read`, `pub_write`, `divine` |
+| `std.io.mem` | `read`, `write`, `read_block`, `write_block` |
+| `std.io.storage` | `read`, `write`, `read_digest`, `write_digest` |
+| `std.crypto.hash` | `hash`, `sponge_init`, `sponge_absorb`, `sponge_squeeze` |
+| `std.crypto.merkle` | `verify1`..`verify4`, `authenticate_leaf3` |
+| `std.crypto.auth` | `verify_preimage`, `verify_digest_preimage` |
+
+### Triton VM Extensions (`ext.triton.*`)
+
+These modules are available only when compiling with `--target triton` (the default).
+Programs that import `ext.triton.*` are bound to the Triton VM backend.
+
+| Module | Key functions / types |
+|--------|----------------------|
+| `ext.triton.xfield` | `XField` type, `xx_add`, `xx_mul`, `x_invert`, `xx_dot_step`, `xb_dot_step` |
+| `ext.triton.kernel` | `authenticate_field`, `tree_height` (Neptune kernel interface) |
+| `ext.triton.utxo` | `authenticate` (UTXO verification) |
+
+Import with `use ext.triton.xfield`, etc. The compiler enforces target
+consistency -- importing an `ext.triton.*` module while targeting a different
+backend is a compile error.
 
 ---
 
@@ -490,7 +557,8 @@ optimization by the compiler.
 
 - [Language Specification](spec.md) -- Complete language reference (sections 1-18)
 - [Tutorial](tutorial.md) -- Step-by-step developer guide
-- [Programming Model](programming-model.md) -- Triton VM execution model
+- [Programming Model](programming-model.md) -- Execution model (Triton VM default)
+- [Universal Design](universal-design.md) -- Multi-target architecture and backend extensions
 - [Optimization Guide](optimization.md) -- Cost reduction strategies
 - [How STARK Proofs Work](stark-proofs.md) -- Section 4 (six tables), Section 11 (proving cost formula)
 - [Error Catalog](errors.md) -- All error messages with explanations

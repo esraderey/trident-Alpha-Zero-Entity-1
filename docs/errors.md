@@ -26,11 +26,11 @@ error: unexpected '-'; Trident has no subtraction operator
 
 **Cause:** Trident deliberately omits the `-` operator (see [design rationale](spec.md)). The `->` arrow for return types uses `-`, but standalone `-` is not allowed.
 
-**Fix:** Use `std.field.sub(a, b)` or `std.field.neg(a)`:
+**Fix:** Use `std.core.field.sub(a, b)` or `std.core.field.neg(a)`:
 
 ```
-use std.field
-let diff: Field = std.field.sub(a, b)
+use std.core.field
+let diff: Field = std.core.field.sub(a, b)
 ```
 
 ---
@@ -182,8 +182,8 @@ error: undefined function 'foo'
 **Fix:** Either define the function or import the module that contains it:
 
 ```
-use std.hash
-let d: Digest = std.hash.tip5(a, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+use std.crypto.hash
+let d: Digest = std.crypto.hash.tip5(a, 0, 0, 0, 0, 0, 0, 0, 0, 0)
 ```
 
 ---
@@ -416,12 +416,32 @@ error: event 'Transfer' expects fields: from, to, amount
 ### Unused import
 
 ```
-warning: unused import 'std.hash'
+warning: unused import 'std.crypto.hash'
 ```
 
 **Cause:** A module was imported with `use` but none of its items are used.
 
 **Fix:** Remove the unused `use` statement.
+
+---
+
+### Asm block target mismatch
+
+```
+warning: asm block tagged for 'risc_v' will be skipped (current target: 'triton')
+```
+
+**Cause:** An inline `asm` block is annotated with a target that does not match the current compilation target. The block will be silently skipped during code generation, producing no instructions.
+
+**Fix:** This warning is informational when you intentionally provide target-specific asm blocks. If the block should run on the current target, update its tag:
+
+```
+// Runs only when compiling for triton:
+asm(triton, +1) { push 42 }
+
+// Runs on any target (no tag):
+asm(+1) { push 42 }
+```
 
 ---
 

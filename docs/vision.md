@@ -62,9 +62,13 @@ That is why Trident exists.
 
 ## What Trident Makes Possible
 
-Trident is a minimal, security-first language that compiles directly to TASM
-for [Triton VM](https://triton-vm.org/). No intermediate representation. No
-optimization engine. What you write is what gets proved.
+Trident is a minimal, security-first language with a universal compilation
+architecture. Its 3-layer design -- universal core, abstraction layer, and
+backend extensions -- compiles to any zkVM target. The default target is
+[Triton VM](https://triton-vm.org/) (`--target triton`), with the
+architecture ready for Miden, Cairo, and RISC-V zkVM backends. For stack-
+machine targets, there is no intermediate representation. No optimization
+engine. What you write is what gets proved.
 
 ```
 program hello
@@ -77,10 +81,13 @@ fn main() {
 }
 ```
 
-That is a complete provable program. Build it with `trident build hello.tri`,
-feed it to the Triton VM prover, and you get a [STARK](stark-proofs.md)
-proof that `a + b = sum` for secret values of `a` and `b`. Quantum-safe.
-Zero-knowledge. No trusted setup. No elliptic curves. No vendor lock-in.
+That is a complete provable program. Build it with
+`trident build hello.tri --target triton` (or omit `--target` for the
+default), feed it to the Triton VM prover, and you get a
+[STARK](stark-proofs.md) proof that `a + b = sum` for secret values of `a`
+and `b`. Because this program uses only the universal core, it can also
+compile to other backends as they come online. Quantum-safe. Zero-knowledge.
+No trusted setup. No elliptic curves. No vendor lock-in.
 
 Here is what the language gives you:
 
@@ -104,12 +111,12 @@ cost is computable before you ever run the prover.
 `seal` hashes them and writes only the digest -- the verifier sees that
 *something* happened, but not what. This is how you build private transfers.
 
-**Inline assembly with declared stack effects.** When you need the VM's raw
-power, drop into TASM:
+**Inline assembly with target tags and declared stack effects.** When you
+need the VM's raw power, drop into target-specific assembly:
 
 ```
 fn custom_hash(a: Field, b: Field) -> Field {
-    asm(-1) {
+    asm(triton) -1 {
         hash
         swap 5 pop 1
         swap 4 pop 1
@@ -120,8 +127,11 @@ fn custom_hash(a: Field, b: Field) -> Field {
 }
 ```
 
-The `(-1)` tells the compiler the net stack change. You get full control when
-you need it, structured code when you don't.
+The target tag `(triton)` binds the block to a specific backend -- the
+compiler rejects it when compiling for a different target. The `-1` declares
+the net stack change. You get full control when you need it, structured code
+when you don't. Programs that omit the target tag default to `(triton)` for
+backward compatibility.
 
 ---
 
@@ -656,7 +666,43 @@ Five operations. Twelve security properties. One file.
 
 ## The Architecture
 
+Trident's compiler is built on a 3-layer universal design:
+
+```
+┌───────────────────────────────────────────┐
+│         Trident Universal Core            │
+│   (types, control flow, modules, field    │
+│    arithmetic, I/O, cost transparency)    │
+├───────────────────────────────────────────┤
+│         Abstraction Layer                 │
+│   (hash, memory, stack/register mgmt,    │
+│    Merkle ops, cost model, events)        │
+├─────────┬─────────┬─────────┬────────────┤
+│ Triton  │  Miden  │  Cairo  │  SP1/RZ    │
+│ Backend │ Backend │ Backend │  Backend   │
+│  + ext  │  + ext  │  + ext  │  + ext     │
+└─────────┴─────────┴─────────┴────────────┘
+```
+
+The **universal core** (~56% of the language surface) compiles identically to
+every target: types, field arithmetic, bounded loops, modules, functions. The
+**abstraction layer** (~22%) provides the same syntax with per-target dispatch:
+I/O, hashing, Merkle operations, memory, events. **Backend extensions** (~22%)
+expose target-specific capabilities -- `XField` on Triton, account models on
+Miden, precompiles on SP1 -- through a uniform extension mechanism under
+`ext/<target>/`.
+
+The `--target` flag selects the backend (default: `triton`):
+
+```bash
+trident build main.tri                     # default: --target triton
+trident build main.tri --target triton
+trident build main.tri --target miden      # when backend ships
+```
+
 ### Compilation: Source to TASM, Nothing in Between
+
+For the Triton backend, the pipeline is direct:
 
 ```
 Source (.tri) --> Parse --> AST --> Type Check --> TASM Emit --> Link
@@ -669,26 +715,54 @@ table rows, 5 elements out. No optimization pass reorders your operations.
 No IR introduces instructions you did not write. **What you see is what you
 prove.**
 
+Register-machine targets (Cairo, SP1/RISC Zero) will use a minimal IR
+between type checking and emission. Stack-machine targets (Triton, Miden)
+keep the direct-emission model.
+
 The compiler is 16,700 lines of Rust with 4 runtime dependencies. Small
 enough for one person to read in a day. Small enough for a security auditor
 to verify the source-to-TASM translation in a week. A compiler that
 generates proofs of computation must itself be trustworthy, and
 trustworthiness scales inversely with complexity.
 
-### Standard Library: 13 Modules
+### Standard Library: Layered for Portability
 
-13 modules wrap every Triton VM primitive: I/O (`std.io`), Tip5 hashing
-(`std.hash`), Goldilocks field arithmetic (`std.field`), type conversions
-(`std.convert`), U32 operations (`std.u32`), assertions (`std.assert`),
-extension field ops (`std.xfield`), RAM access (`std.mem`), persistent
-storage (`std.storage`), Merkle tree proofs (`std.merkle`), authorization
-patterns (`std.auth`), Neptune kernel access (`std.kernel`), and UTXO
-verification (`std.utxo`). See the [Language Specification](spec.md) for
-the complete API.
+The standard library mirrors the 3-layer architecture:
+
+```
+std/
+├── core/               Universal -- zero VM dependencies
+│   ├── field.tri         Goldilocks field arithmetic
+│   ├── u32.tri           U32 operations
+│   ├── convert.tri       Type conversions (as_u32, as_field)
+│   └── assert.tri        Assertions (is_true, eq, digest)
+│
+├── io/                 Abstraction layer -- per-target intrinsic dispatch
+│   ├── io.tri            pub_read, pub_write, divine
+│   ├── mem.tri           ram_read, ram_write, block operations
+│   └── storage.tri       Persistent storage
+│
+└── crypto/             Abstraction layer -- hash-parameterized
+    ├── hash.tri          hash(), sponge_init/absorb/squeeze
+    ├── merkle.tri        Merkle tree verification
+    └── auth.tri          Hash-preimage authorization
+
+ext/
+└── triton/             Backend extensions -- Triton VM specific
+    ├── xfield.tri        XField type, xx_add, xx_mul, x_invert
+    ├── kernel.tri        Neptune kernel interface
+    └── utxo.tri          UTXO verification
+```
+
+Modules under `std/core/` compile identically to every target. Modules under
+`std/io/` and `std/crypto/` use the same syntax everywhere but dispatch to
+target-native instructions. Modules under `ext/triton/` are available only
+when compiling with `--target triton`. See the [Language Specification](spec.md)
+and the [Universal Design](universal-design.md) document for details.
 
 Every function in the standard library has a known, fixed cost in table rows.
-When you call `std.merkle.verify1(root, leaf, index, depth)`, the compiler
-knows exactly how many Hash rows, Processor rows, and RAM rows that
+When you call `std.crypto.merkle.verify(root, leaf, index, depth)`, the
+compiler knows exactly how many Hash rows, Processor rows, and RAM rows that
 verification adds to your trace.
 
 ### Hash Performance: The Categorical Advantage
@@ -740,20 +814,30 @@ Trident makes that system programmable by humans, not just assembly experts.
 ## The Vision
 
 **Sovereign, private, provable computation should be accessible to every
-developer, not just the three people who can write TASM by hand.**
+developer, not just the three people who can write TASM by hand -- and it
+should not be locked to a single virtual machine.**
 
 [Neptune Cash](https://neptune.cash/) proves the architecture works. Miners
 generate STARK proofs. Transactions are private. The chain is secured by
 hash functions. Recursive verification runs in production. What was missing
 was the language.
 
-Trident fills that gap. Deliberately minimal -- no metaprogramming, no
-dynamic dispatch, no heap, no recursion -- because every feature that makes
-cost prediction harder makes the system less trustworthy. The
-[Vyper](https://docs.vyperlang.org/) philosophy: deliberate limitation as a
-feature. One obvious way to do everything. What you see is what you prove.
+Trident fills that gap. Its universal compilation architecture -- a shared
+core, an abstraction layer, and per-target backend extensions -- means that
+programs written today for Triton VM are architecturally ready to compile to
+Miden, Cairo, and RISC-V zkVMs as those backends ship. The 3-layer design is
+implemented: `std/core/` for portable logic, `std/io/` and `std/crypto/` for
+abstracted primitives, and `ext/triton/` for Triton-specific power. The
+`--target` flag selects the backend; `asm(triton) { ... }` blocks tag
+target-specific assembly. Write once, prove anywhere.
 
-The bet is threefold:
+Deliberately minimal -- no metaprogramming, no dynamic dispatch, no heap, no
+recursion -- because every feature that makes cost prediction harder makes
+the system less trustworthy. The [Vyper](https://docs.vyperlang.org/)
+philosophy: deliberate limitation as a feature. One obvious way to do
+everything. What you see is what you prove.
+
+The bet is fourfold:
 
 **Quantum computers will break elliptic curves within our professional
 lifetimes.** Every SNARK system in production has an expiration date.
@@ -767,9 +851,14 @@ foundation. Raw TASM is the wrong interface. Cairo proved this for StarkWare.
 Leo proved this for Aleo. Trident proves this for the only VM that gets all
 four properties right.
 
+**No program should be stranded on one VM.** The universal core compiles to
+any target. Backend extensions add power without limiting portability. The
+architecture ensures that choosing Trident is not choosing a single
+ecosystem -- it is choosing all of them.
+
 The token example is 530 lines. The compiler is 16,700 lines of Rust. The
-test suite has 388 tests. The standard library has 13 modules. The cost
-model tracks 6 tables.
+test suite has 388 tests. The standard library is layered across `std/core/`,
+`std/io/`, `std/crypto/`, and `ext/triton/`. The cost model tracks 6 tables.
 
 The numbers are small. The foundation is solid. The rest is building.
 
@@ -785,6 +874,7 @@ The numbers are small. The foundation is solid. The rest is building.
 - [Programming Model](programming-model.md) -- How Triton VM execution works
 - [Optimization Guide](optimization.md) -- Cost reduction strategies and table management
 - [Error Catalog](errors.md) -- Every error message explained with fixes
+- [Universal Design](universal-design.md) -- 3-layer architecture, backend extensions, target portability
 - [Comparative Analysis](analysis.md) -- Triton VM vs. every other ZK system
 - [Developer Guide](for-developers.md) -- Getting started with Trident
 - [Blockchain Developer Guide](for-blockchain-devs.md) -- Trident for Solidity/Cairo developers

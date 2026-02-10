@@ -5,11 +5,12 @@ fundamentally differently. This guide maps your existing mental model -- whether
 it comes from Solidity, Vyper, Anchor, CosmWasm, or Substrate -- to the
 zero-knowledge paradigm.
 
-Trident compiles to [TASM](https://triton-vm.org/spec/) for
-[Triton VM](https://triton-vm.org/), a STARK-based zero-knowledge virtual
-machine. The result is not a contract deployed on-chain. It is a program that
-runs locally, produces a cryptographic proof, and lets anyone verify that proof
-in milliseconds without re-executing anything.
+Trident compiles to multiple STARK-based zero-knowledge virtual machines.
+The primary target is [Triton VM](https://triton-vm.org/) via
+[TASM](https://triton-vm.org/spec/), but the same source code can target other
+backends without modification. The result is not a contract deployed on-chain.
+It is a program that runs locally, produces a cryptographic proof, and lets
+anyone verify that proof in milliseconds without re-executing anything.
 
 ---
 
@@ -25,11 +26,70 @@ in milliseconds without re-executing anything.
 | Verifier re-executes the transaction | Verifier checks a STARK proof (milliseconds, constant cost) |
 | Deployed bytecode lives on-chain | Program is identified by its Tip5 hash |
 | Upgradeable via proxy patterns | Config commitments with admin auth; code hash is identity |
+| Locked to one VM (EVM, SVM, CairoVM) | Multi-target: same source compiles to Triton VM, Miden VM, etc. |
 | Security from elliptic curves (secp256k1, ed25519) | Security from hash functions only (quantum-safe) |
 
 The deepest shift: a smart contract is *imperative middleware* that mutates
 shared state. A ZK program is a *claim about computation* -- "I ran this
 program on these inputs and got these outputs, and here is the proof."
+
+---
+
+## Write Once, Prove Anywhere
+
+Smart contracts are locked to a single VM. A Solidity contract runs on the EVM.
+A CosmWasm contract runs on Cosmos chains. If you want to target a different
+chain, you rewrite the program from scratch in a different language.
+
+Trident separates the **program** from the **proving backend**. The same source
+compiles to multiple STARK VMs:
+
+| Layer | What It Contains | Example |
+|-------|-----------------|---------|
+| **Universal core** | Types, control flow, I/O, hashing, Merkle proofs | `std.crypto.hash`, `std.crypto.merkle`, `std.io.io` |
+| **Backend extensions** | Target-specific intrinsics | `ext.triton.xfield`, `ext.triton.kernel` |
+
+Programs that use only `std.*` modules are **fully portable** -- they compile
+and generate valid proofs on any supported backend. Programs that import
+`ext.*` modules are backend-specific and will only compile for that target.
+
+```
+// Portable program -- compiles to any backend
+use std.crypto.merkle
+use std.io.io
+
+fn verify_membership(root: Digest, leaf: Digest, index: U32, depth: U32) {
+    std.crypto.merkle.verify(root, leaf, index, depth)
+}
+```
+
+```
+// Triton-specific program -- uses extension field arithmetic
+use std.crypto.merkle
+use ext.triton.xfield           // binds to Triton VM backend
+
+fn verify_with_xfield(root: Digest) {
+    // ext.triton.xfield provides extension field operations
+    // that map directly to Triton VM instructions
+}
+```
+
+```bash
+# Compile for the default target (Triton VM)
+trident build program.tri -o program.tasm
+
+# Compile for a different target
+trident build program.tri --target miden -o program.masm
+```
+
+**Why this matters for blockchain developers**: You write your proof logic once.
+If you later need to generate proofs on a different VM (because of cost,
+performance, or ecosystem requirements), you recompile -- you do not rewrite.
+The cryptographic guarantees are identical across targets because the same
+source code defines the same computation.
+
+For the full architecture, see the [Universal Design](universal-design.md)
+document. For backend extension authoring, see the `ext/` directory.
 
 ---
 
@@ -71,17 +131,21 @@ divine-and-authenticate pattern (see [Programming Model](programming-model.md) f
 
 ```
 // Trident — read an account from the state tree
-let state_root: Digest = pub_read5()          // verifier provides the root
+use std.io.io
+use std.crypto.hash
 
-let account_id: Field = divine()              // prover secretly inputs the data
-let balance: Field = divine()
-let nonce: Field = divine()
-let auth_hash: Field = divine()
-let lock_until: Field = divine()
+let state_root: Digest = std.io.io.pub_read5()    // verifier provides the root
+
+let account_id: Field = std.io.io.divine()         // prover secretly inputs the data
+let balance: Field = std.io.io.divine()
+let nonce: Field = std.io.io.divine()
+let auth_hash: Field = std.io.io.divine()
+let lock_until: Field = std.io.io.divine()
 
 // Hash the leaf and prove it belongs to the tree
-let leaf: Digest = hash(account_id, balance, nonce, auth_hash, lock_until,
-                        0, 0, 0, 0, 0)
+let leaf: Digest = std.crypto.hash.tip5(account_id, balance, nonce,
+                                        auth_hash, lock_until,
+                                        0, 0, 0, 0, 0)
 // Merkle proof authenticates leaf against root
 // (the sibling hashes are also divined and verified internally)
 ```
@@ -103,14 +167,18 @@ function balanceOf(address who) view returns (uint256) {
 
 ```
 // Trident
+use std.io.io
+use std.crypto.hash
+
 fn load_account() -> (Field, Field, Field, Field, Field) {
-    let id: Field = divine()
-    let bal: Field = divine()
-    let nonce: Field = divine()
-    let auth: Field = divine()
-    let lock: Field = divine()
+    let id: Field = std.io.io.divine()
+    let bal: Field = std.io.io.divine()
+    let nonce: Field = std.io.io.divine()
+    let auth: Field = std.io.io.divine()
+    let lock: Field = std.io.io.divine()
     // prove this data is in the state tree (Merkle proof)
-    let leaf: Digest = hash(id, bal, nonce, auth, lock, 0, 0, 0, 0, 0)
+    let leaf: Digest = std.crypto.hash.tip5(id, bal, nonce, auth, lock,
+                                            0, 0, 0, 0, 0)
     (id, bal, nonce, auth, lock)
 }
 ```
@@ -149,12 +217,16 @@ it and asserting the hash matches an expected value.
 
 ```
 // Trident — authorization via hash preimage
+use std.io.io
+use std.crypto.hash
+use std.core.assert
+
 fn verify_auth(auth_hash: Field) {
-    let secret: Field = divine()                       // prover inputs secret
-    let computed: Digest = hash(secret, 0, 0, 0, 0,
-                                0, 0, 0, 0, 0)
+    let secret: Field = std.io.io.divine()             // prover inputs secret
+    let computed: Digest = std.crypto.hash.tip5(secret, 0, 0, 0, 0,
+                                                0, 0, 0, 0, 0)
     let (h0, _, _, _, _) = computed
-    assert_eq(auth_hash, h0)                           // must match stored hash
+    std.core.assert.assert_eq(auth_hash, h0)           // must match stored hash
 }
 ```
 
@@ -188,14 +260,16 @@ function setConfig(uint256 val) external onlyOwner {
 
 ```
 // Trident — admin auth pattern
-fn update() {
-    let old_config: Digest = pub_read5()
-    let new_config: Digest = pub_read5()
+use std.io.io
 
-    let admin_auth: Field = divine()          // divine the admin auth hash
+fn update() {
+    let old_config: Digest = std.io.io.pub_read5()
+    let new_config: Digest = std.io.io.pub_read5()
+
+    let admin_auth: Field = std.io.io.divine()    // divine the admin auth hash
     // ... divine and verify full config ...
 
-    verify_auth(admin_auth)                   // prove knowledge of admin secret
+    verify_auth(admin_auth)                       // prove knowledge of admin secret
 
     // ... verify new config commitment ...
 }
@@ -322,12 +396,15 @@ exists.
 
 ```
 // Trident — range check pattern (balance >= amount)
+use std.core.convert
+use std.core.field
+
 fn assert_non_negative(val: Field) {
-    let checked: U32 = as_u32(val)    // fails if val > 2^32 or negative in field
+    let checked: U32 = std.core.convert.as_u32(val)   // fails if val > 2^32 or negative in field
 }
 
-let new_balance: Field = sub(balance, amount)
-assert_non_negative(new_balance)       // no proof if balance < amount
+let new_balance: Field = std.core.field.sub(balance, amount)
+assert_non_negative(new_balance)                       // no proof if balance < amount
 ```
 
 The `as_u32()` conversion is how Trident checks that a field element is in a
@@ -410,18 +487,22 @@ function transfer(address to, uint256 amount) external returns (bool) {
 
 ```
 // Trident (simplified from fungible_token/token.tri)
+use std.io.io
+use std.core.field
+use std.crypto.auth
+
 fn pay() {
-    let old_root: Digest = pub_read5()
-    let new_root: Digest = pub_read5()
-    let amount: Field = pub_read()
+    let old_root: Digest = std.io.io.pub_read5()
+    let new_root: Digest = std.io.io.pub_read5()
+    let amount: Field = std.io.io.pub_read()
 
     // Divine and verify sender account from Merkle tree
-    let s_bal: Field = divine()
+    let s_bal: Field = std.io.io.divine()
     // ... authenticate against old_root ...
 
-    verify_auth(s_auth)                           // prove ownership
-    let new_s_bal: Field = sub(s_bal, amount)
-    assert_non_negative(new_s_bal)                // balance check
+    verify_auth(s_auth)                               // prove ownership
+    let new_s_bal: Field = std.core.field.sub(s_bal, amount)
+    assert_non_negative(new_s_bal)                     // balance check
 
     // Divine and verify receiver, compute new leaves
     let new_r_bal: Field = r_bal + amount
@@ -444,11 +525,16 @@ modifier onlyOwner() {
 
 ```
 // Trident
+use std.io.io
+use std.crypto.hash
+use std.core.assert
+
 fn verify_auth(auth_hash: Field) {
-    let secret: Field = divine()
-    let computed: Digest = hash(secret, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+    let secret: Field = std.io.io.divine()
+    let computed: Digest = std.crypto.hash.tip5(secret, 0, 0, 0, 0,
+                                                0, 0, 0, 0, 0)
     let (h0, _, _, _, _) = computed
-    assert_eq(auth_hash, h0)
+    std.core.assert.assert_eq(auth_hash, h0)
 }
 ```
 
@@ -461,9 +547,12 @@ require(block.timestamp >= unlockTime, "locked");
 
 ```
 // Trident
-let current_time: Field = pub_read()            // verifier provides timestamp
-let time_diff: Field = sub(current_time, lock_until)
-assert_non_negative(time_diff)                  // current_time >= lock_until
+use std.io.io
+use std.core.field
+
+let current_time: Field = std.io.io.pub_read()          // verifier provides timestamp
+let time_diff: Field = std.core.field.sub(current_time, lock_until)
+assert_non_negative(time_diff)                           // current_time >= lock_until
 ```
 
 ### 4. Mappings --> Merkle Tree Leaves
@@ -477,8 +566,10 @@ uint256 bal = balances[user];
 
 ```
 // Trident — state is a Merkle tree, each "mapping entry" is a leaf
-let leaf: Digest = hash(account_id, balance, nonce, auth, lock,
-                        0, 0, 0, 0, 0)
+use std.crypto.hash
+
+let leaf: Digest = std.crypto.hash.tip5(account_id, balance, nonce, auth, lock,
+                                        0, 0, 0, 0, 0)
 // Leaf membership proven via Merkle proof against state root
 ```
 
@@ -494,10 +585,12 @@ constructor(string memory name_, uint256 supply_) {
 
 ```
 // Trident — config is a hash commitment, provided as public input
-let config: Digest = pub_read5()
+use std.io.io
+
+let config: Digest = std.io.io.pub_read5()
 // Divine and verify config fields
-let admin_auth: Field = divine()
-let mint_auth: Field = divine()
+let admin_auth: Field = std.io.io.divine()
+let mint_auth: Field = std.io.io.divine()
 // ... hash all fields and assert match ...
 ```
 
@@ -512,11 +605,13 @@ function balanceOf(address who) view returns (uint256) {
 
 ```
 // Trident — prove a value and output it publicly
+use std.io.io
+
 fn balance_proof() {
-    let root: Digest = pub_read5()
-    let bal: Field = divine()
+    let root: Digest = std.io.io.pub_read5()
+    let bal: Field = std.io.io.divine()
     // ... authenticate bal against root ...
-    pub_write(bal)                  // verifier sees the balance
+    std.io.io.pub_write(bal)           // verifier sees the balance
 }
 ```
 
@@ -543,7 +638,9 @@ uint256 ts = block.timestamp;     // injected by EVM
 
 ```
 // Trident
-let current_time: Field = pub_read()   // verifier provides the timestamp
+use std.io.io
+
+let current_time: Field = std.io.io.pub_read()   // verifier provides the timestamp
 // The verifier is responsible for providing the correct value.
 // The program can authenticate it against a kernel MAST hash
 // if running inside Neptune's transaction model.
@@ -560,14 +657,16 @@ function upgradeTo(address newImpl) external onlyOwner {
 
 ```
 // Trident — config update operation (Op 2 in fungible token)
+use std.io.io
+
 fn update() {
-    let old_config: Digest = pub_read5()
-    let new_config: Digest = pub_read5()
+    let old_config: Digest = std.io.io.pub_read5()
+    let new_config: Digest = std.io.io.pub_read5()
 
     // Verify old config and authenticate admin
-    let old_admin: Field = divine()
+    let old_admin: Field = std.io.io.divine()
     // ... verify old config hash ...
-    verify_auth(old_admin)         // prove admin knowledge
+    verify_auth(old_admin)             // prove admin knowledge
 
     // Verify new config is well-formed
     // ... verify new config hash ...
@@ -588,15 +687,18 @@ function mint(address to, uint256 amount) external onlyMinter {
 
 ```
 // Trident
-fn mint() {
-    let old_supply: Field = pub_read()
-    let new_supply: Field = pub_read()
-    let amount: Field = pub_read()
+use std.io.io
+use std.core.assert
 
-    verify_auth(cfg_mint_auth)                    // mint authority required
+fn mint() {
+    let old_supply: Field = std.io.io.pub_read()
+    let new_supply: Field = std.io.io.pub_read()
+    let amount: Field = std.io.io.pub_read()
+
+    verify_auth(cfg_mint_auth)                        // mint authority required
 
     let expected: Field = old_supply + amount
-    assert_eq(new_supply, expected)               // supply accounting
+    std.core.assert.assert_eq(new_supply, expected)   // supply accounting
 
     // Update recipient leaf in Merkle tree
     let new_r_bal: Field = r_bal + amount
@@ -619,8 +721,10 @@ you feed private data into a proof. The program must verify any divined value
 is legitimate (via hashing, Merkle proofs, or range checks).
 
 ```
-let secret: Field = divine()        // one field element, invisible to verifier
-let preimage: Digest = divine5()    // five field elements (a Digest)
+use std.io.io
+
+let secret: Field = std.io.io.divine()       // one field element, invisible to verifier
+let preimage: Digest = std.io.io.divine5()   // five field elements (a Digest)
 ```
 
 In EVM, all calldata is public. In Trident, `divine` is the default way to
@@ -707,6 +811,7 @@ major ZK system scores on quantum safety.
 | "Block.timestamp" | "`pub_read()` -- verifier provides it" |
 | "Contract storage" | "Merkle root commitment (one Digest)" |
 | "Function visibility" | "`pub` keyword on module functions" |
+| "Target one chain" | "Write once, compile to any STARK backend" |
 | "ABI encoding" | "Field elements (everything is field elements)" |
 | "uint256" | "`Field` (mod 2^64 - 2^32 + 1) or `U32` (range-checked)" |
 | "bytes32" | "`Digest` (5 field elements, 320 bits)" |
@@ -721,8 +826,9 @@ major ZK system scores on quantum safety.
 ### Coming from EVM (Solidity / Vyper)
 
 - **No reentrancy.** There are no external calls. Programs are isolated.
-- **No overflow/underflow.** Arithmetic wraps in the prime field. Use `as_u32()`
-  for explicit range checks when you need bounded integers.
+- **No overflow/underflow.** Arithmetic wraps in the prime field. Use
+  `std.core.convert.as_u32()` for explicit range checks when you need bounded
+  integers.
 - **No `address` type.** Identity is a `Digest` (hash of an auth secret) or
   a `Field` (single element of a hash). There are no 20-byte addresses.
 - **No ABI.** Public I/O is a sequence of field elements. No encoding/decoding.
@@ -814,6 +920,7 @@ types, functions, modules, I/O, hashing, events, testing, and cost analysis.
 - [Language Specification](spec.md) -- Complete language reference
 - [Programming Model](programming-model.md) -- How programs run in Triton VM
 - [Optimization Guide](optimization.md) -- Cost reduction strategies
+- [Universal Design](universal-design.md) -- Multi-target architecture: universal core, backend extensions
 - [How STARK Proofs Work](stark-proofs.md) -- From execution traces to quantum-safe proofs
 - [For Developers](for-developers.md) -- Zero-knowledge from scratch (if you also need the ZK primer)
 - [Error Catalog](errors.md) -- All compiler error messages explained

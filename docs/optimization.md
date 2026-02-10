@@ -1,12 +1,14 @@
 # Optimization Guide
 
-Strategies for reducing the proving cost of Trident programs on [Triton VM](https://triton-vm.org/).
+Strategies for reducing the proving cost of Trident programs. The cost model, table structure, and specific cycle counts described here are **target-dependent**; this guide focuses on the [Triton VM](https://triton-vm.org/) target. Other backends may have different cost profiles.
 
 ## Understanding Cost
 
 [Triton VM](https://triton-vm.org/) proves computation correctness using [six execution tables](stark-proofs.md#4-triton-vms-six-tables). The **proving cost** is determined by the **tallest table**, padded to the next power of two. Reducing the tallest table has the most impact; reducing a table that is already shorter than the tallest has no effect on proving cost. See [How STARK Proofs Work](stark-proofs.md) Section 11 for the exact proving time formula.
 
-### The Six Tables
+### The Six Tables (Triton VM Target)
+
+> The following tables are specific to the Triton VM target. Other targets may partition execution cost differently.
 
 | Table | Grows With | Typical Driver |
 |-------|-----------|----------------|
@@ -23,7 +25,7 @@ Strategies for reducing the proving cost of Trident programs on [Triton VM](http
 trident build main.tri --costs
 ```
 
-Output shows each function's cost across all tables. The **dominant table** is the one that determines the padded height. Focus optimization efforts there.
+Output shows each function's cost across all tables (cost varies by target; the tables shown are for Triton VM). The **dominant table** is the one that determines the padded height. Focus optimization efforts there.
 
 ### Tracking Costs Over Time
 
@@ -39,9 +41,9 @@ The comparison shows which functions got cheaper or more expensive.
 
 ## Optimization Strategies
 
-### 1. Reduce Hash Table Cost
+### 1. Reduce Hash Table Cost (Triton VM Target)
 
-The Hash table is often the tallest because each `hash` / [`tip5`](https://eprint.iacr.org/2023/107) call adds 6 rows.
+The Hash table is often the tallest because each `hash` / [`tip5`](https://eprint.iacr.org/2023/107) call adds 6 rows. (Row cost varies by target; 6 rows per hash is Triton VM-specific.)
 
 **Strategies:**
 
@@ -68,9 +70,9 @@ let d: Digest = sponge_squeeze()
 
 - **Reduce [Merkle tree](https://en.wikipedia.org/wiki/Merkle_tree) depth**: Each level costs 6 hash rows. Depth-3 = 18 hash rows per proof. Depth-4 = 24. Depth-20 = 120. If you're near a power-of-2 boundary, even one extra level can double proving cost.
 
-### 2. Reduce Processor Table Cost
+### 2. Reduce Processor Table Cost (Triton VM Target)
 
-The Processor table grows with every instruction. Loops are the main contributor.
+The Processor table grows with every instruction. Loops are the main contributor. (Instruction cost varies by target.)
 
 **Strategies:**
 
@@ -94,9 +96,9 @@ for i in 0..100 bounded 100 {
 
 - **Use tighter bounds**: The `bounded` value determines the worst-case unrolling. Set it as tight as possible.
 
-### 3. Reduce U32 Table Cost
+### 3. Reduce U32 Table Cost (Triton VM Target)
 
-U32 operations (range checks, bitwise ops) are relatively expensive.
+U32 operations (range checks, bitwise ops) are relatively expensive. (The U32 table is Triton VM-specific; cost varies by target.)
 
 **Strategies:**
 
@@ -118,9 +120,9 @@ let sum: Field = a + b
 
 - **Avoid unnecessary `split`**: The `/% (divmod)` operator implicitly uses `split`. If you only need the quotient, you still pay for both.
 
-### 4. Reduce Op Stack and RAM Table Cost
+### 4. Reduce Op Stack and RAM Table Cost (Triton VM Target)
 
-These grow with deep variable access and memory operations.
+These grow with deep variable access and memory operations. (Op Stack and RAM tables are Triton VM-specific; cost varies by target.)
 
 **Strategies:**
 
@@ -130,9 +132,9 @@ These grow with deep variable access and memory operations.
 
 - **Prefer stack over RAM**: Direct stack operations (dup, swap) are cheaper than RAM read/write. The compiler manages this automatically, but keeping your function's live variable count under 16 field elements avoids spilling entirely.
 
-### 5. Reduce Jump Stack Cost
+### 5. Reduce Jump Stack Cost (Triton VM Target)
 
-Every function call adds 2 rows (call + return) to the Jump Stack table. Every if/else branch also uses calls internally.
+Every function call adds 2 rows (call + return) to the Jump Stack table. Every if/else branch also uses calls internally. (Jump Stack is Triton VM-specific; cost varies by target.)
 
 **Strategies:**
 
@@ -170,7 +172,7 @@ Use `--annotate` to see which lines contribute most:
 trident build main.tri --annotate
 ```
 
-Each line shows its cost contribution in compact form: `cc` (clock cycles), `hash`, `u32`. Lines with no cost are unmarked. Focus on the lines with the highest numbers.
+Each line shows its cost contribution in compact form: `cc` (clock cycles), `hash`, `u32`. Lines with no cost are unmarked. Focus on the lines with the highest numbers. (Annotation labels reflect the Triton VM target; cost varies by target.)
 
 ## Hotspot Analysis
 
@@ -186,7 +188,7 @@ This immediately shows where to focus optimization efforts.
 
 ### [Merkle](https://en.wikipedia.org/wiki/Merkle_tree) Proof Verification
 
-Merkle proofs are hash-heavy. Each level adds 6 hash rows + U32 table rows. Use the shallowest tree that fits your data:
+Merkle proofs are hash-heavy. Each level adds 6 hash rows + U32 table rows (Triton VM target; cost varies by target). Use the shallowest tree that fits your data:
 
 | Depth | Hash Rows | Padded Height Impact |
 |-------|-----------|---------------------|
@@ -198,10 +200,10 @@ Merkle proofs are hash-heavy. Each level adds 6 hash rows + U32 table rows. Use 
 
 ```
 // Depth 3: 3 hash calls = 18 hash rows (Neptune default)
-std.merkle.verify3(leaf, root, idx)
+std.crypto.merkle.verify3(leaf, root, idx)
 
 // Depth 1: 1 hash call = 6 hash rows
-std.merkle.verify1(leaf, root, idx)
+std.crypto.merkle.verify1(leaf, root, idx)
 ```
 
 ### Token Operations
@@ -218,8 +220,8 @@ Minimize the number of Merkle operations per transaction.
 Comparing digests requires comparing all 5 field elements:
 
 ```
-// Use the std.assert.digest builtin (5 equality checks)
-std.assert.digest(actual, expected)
+// Use the std.debug.assert.digest builtin (5 equality checks)
+std.debug.assert.digest(actual, expected)
 ```
 
 This is cheaper than manual element-by-element comparison because it uses native `assert` instructions.
@@ -230,12 +232,12 @@ When absorbing data that's already in RAM, prefer `sponge_absorb_mem` over readi
 
 ```
 // Expensive: 10 RAM reads + sponge_absorb = 10 cc + 10 RAM rows + 6 hash rows
-let a: Field = std.mem.read(addr)
+let a: Field = std.io.mem.read(addr)
 // ... read 9 more values ...
-std.hash.sponge_absorb(a, b, c, d, e, f, g, h, i, j)
+std.crypto.hash.sponge_absorb(a, b, c, d, e, f, g, h, i, j)
 
 // Cheaper: sponge_absorb_mem = 1 cc + 10 RAM rows + 6 hash rows
-std.hash.sponge_absorb_mem(addr)
+std.crypto.hash.sponge_absorb_mem(addr)
 ```
 
 Both cost the same 6 Hash Table rows, but `sponge_absorb_mem` saves ~10 processor cycles by avoiding individual `read_mem` instructions.

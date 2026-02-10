@@ -2,7 +2,16 @@
 
 **From execution traces to quantum-safe cryptographic proofs**
 
-This article explains the proof system underlying every Trident program.
+> **Triton VM target.** This document describes the proof system used by the
+> Triton VM backend -- Trident's current default compilation target. Other
+> backends (future or third-party) may use different proof systems, different
+> arithmetizations, or different hash functions. The concepts here -- execution
+> traces, AIR constraints, FRI, Fiat-Shamir -- are broadly applicable to all
+> STARK systems, but the specific tables, cost numbers, and instruction
+> references are Triton VM specific.
+
+This article explains the proof system underlying Trident programs compiled
+to the Triton VM target.
 It covers the full pipeline: how an execution trace becomes a polynomial,
 how polynomials become commitments, how commitments become a proof, and
 why that proof is secure against both classical and quantum adversaries.

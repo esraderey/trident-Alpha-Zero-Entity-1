@@ -4,6 +4,10 @@ A guide to Trident and zero-knowledge programming for developers coming from
 Rust, Python, Go, JavaScript, C++, or any conventional language. No prior
 knowledge of cryptography, ZK proofs, or field arithmetic is assumed.
 
+Trident is a universal language for provable computation. It currently targets
+Triton VM by default, with a multi-target architecture designed to compile to
+any zkVM (Miden, Cairo, SP1/RISC Zero, and others) from a single source.
+
 ---
 
 ## 1. What Is a Zero-Knowledge Proof?
@@ -21,7 +25,8 @@ In programming terms: a prover runs a computation with some secret inputs and
 produces a small certificate (the "proof"). Anyone can check that certificate
 in milliseconds and be convinced the computation was done correctly -- without
 learning what the secret inputs were. Trident is the language you use to write
-that computation.
+that computation. Because Trident targets multiple zkVMs, the same source can
+be compiled and proved on whichever backend suits your deployment.
 
 ---
 
@@ -32,7 +37,8 @@ silently or throw exceptions. In Trident, the basic numeric type is a **field
 element** -- an integer that wraps around at a specific prime number instead of
 at a power of two.
 
-The prime used by Triton VM is `p = 2^64 - 2^32 + 1`, known as the
+Each target VM uses its own prime. Triton VM (the default target) uses
+`p = 2^64 - 2^32 + 1`, known as the
 [Goldilocks prime](https://xn--2-umb.com/22/goldilocks/). Think of it as a
 64-bit integer where arithmetic wraps at `p` instead of at `2^64`:
 
@@ -81,7 +87,7 @@ for i in 0..n bounded 100 {
 }
 ```
 
-The reason is the **execution trace**. When Triton VM runs your program, it
+The reason is the **execution trace**. When a zkVM runs your program, it
 records every single instruction executed -- every addition, every comparison,
 every stack operation -- into a giant table called the execution trace. This
 trace is what gets turned into a proof.
@@ -143,8 +149,8 @@ depth becomes your bound.
 Trident has no `malloc`, no `free`, no garbage collector, no dynamically-sized
 data structures. Every piece of data has a size known at compile time.
 
-This is because Triton VM is a **stack machine with fixed-size RAM**. The
-execution model has:
+This is because the target VMs (such as Triton VM) use **stack machines with
+fixed-size RAM**. The execution model has:
 
 - An **operand stack** (16 elements directly accessible, with automatic spill
   to memory for deeper values)
@@ -266,10 +272,10 @@ making them extremely efficient -- one hash instruction per tree level. In
 Trident:
 
 ```
-use std.merkle
+use std.crypto.merkle
 
 fn verify_membership(root: Digest, leaf: Digest, index: U32, depth: U32) {
-    std.merkle.verify(root, leaf, index, depth)
+    std.crypto.merkle.verify(root, leaf, index, depth)
 }
 ```
 
@@ -346,12 +352,16 @@ balance."
 
 ```bash
 trident build balance_check.tri -o balance_check.tasm
+trident build balance_check.tri -o balance_check.tasm --target triton   # Explicit target (default)
 ```
 
-The compiler translates your Trident source directly into TASM (Triton
-Assembly) -- the instruction set of Triton VM. There is no intermediate
-representation. Each Trident construct maps predictably to specific TASM
-instructions. The output file is human-readable assembly.
+The `--target` flag selects which backend the compiler emits code for. The
+default is `triton`. When targeting Triton VM, the compiler translates your
+Trident source directly into TASM (Triton Assembly) -- the instruction set of
+Triton VM. There is no intermediate representation. Each Trident construct maps
+predictably to specific TASM instructions. The output file is human-readable
+assembly. Other targets (e.g., `--target miden`) emit the corresponding VM's
+assembly from the same source.
 
 ### Step 3: The prover executes the program
 
@@ -401,16 +411,20 @@ the program's assertions failed.
 ### The CLI commands in sequence
 
 ```bash
-# 1. Compile
+# 1. Compile (default target: triton)
 trident build balance_check.tri -o balance_check.tasm
+
+# 1b. Compile for a different target
+trident build balance_check.tri --target miden -o balance_check.masm
 
 # 2. See what it will cost to prove
 trident build balance_check.tri --costs
+trident build balance_check.tri --target miden --costs
 
-# 3. The proving and verification steps happen in the Triton VM runtime,
+# 3. The proving and verification steps happen in the target VM's runtime,
 #    outside of the Trident compiler. Trident's job ends at producing
-#    the .tasm file. The Triton VM toolchain (Rust library) handles
-#    execution, proof generation, and verification.
+#    the assembly file. The VM toolchain (e.g., Triton VM Rust library)
+#    handles execution, proof generation, and verification.
 ```
 
 ---
@@ -550,7 +564,7 @@ restrictive. Here is an honest accounting of what you give up and what you get.
 | Generics | `<T: Trait>`, type parameters | Size-generic functions only (`<N>`) |
 | Exceptions | `try/catch`, `Result`, `?` | `assert` only -- failure = no proof |
 | Concurrency | Threads, async/await | Single-threaded, sequential execution |
-| Standard library | Huge ecosystem | 13 modules for VM primitives |
+| Standard library | Huge ecosystem | Layered std modules (`std.core`, `std.crypto`, `std.io`) for VM primitives |
 
 ### What you gain
 
@@ -563,6 +577,12 @@ can prove properties of data without exposing the data itself.
 
 **Quantum safety.** STARK proofs are based on hash functions, not elliptic
 curves. When quantum computers arrive, your proofs remain secure.
+
+**Multi-target deployment.** The same Trident source compiles to multiple zkVMs
+via `--target`. Write your program once, then deploy to Triton VM, Miden VM,
+Cairo, or other backends without rewriting. The universal core of the language
+is portable across all targets; backend extensions let you access
+target-specific capabilities when needed.
 
 **Cost certainty.** The compiler tells you exactly how much proving will cost
 before you run anything. `trident build --costs` gives you the precise trace
@@ -587,7 +607,10 @@ verifiability matter more than expressiveness.
 The restrictions (bounded loops, no heap, no recursion) are not limitations of
 the language design. They are fundamental requirements of the proof system.
 Any language targeting a STARK VM faces the same constraints. Trident makes
-them explicit rather than hiding them behind abstractions.
+them explicit rather than hiding them behind abstractions. The multi-target
+architecture means these constraints are enforced uniformly across all
+backends -- programs that compile for one target will compile for any other
+target that supports the same feature set.
 
 ---
 
@@ -609,12 +632,14 @@ them explicit rather than hiding them behind abstractions.
   fixes
 - [For Blockchain Devs](for-blockchain-devs.md) -- If you come from Solidity,
   Anchor, or CosmWasm, start here instead
+- [Universal Design](universal-design.md) -- Multi-target architecture,
+  backend extensions, and the universal core
 - [Vision](vision.md) -- Why Trident exists and what you can build with it
 - [Comparative Analysis](analysis.md) -- Triton VM vs. every other ZK system
 
 ### External resources
 
-- [Triton VM](https://triton-vm.org/) -- The virtual machine Trident targets
+- [Triton VM](https://triton-vm.org/) -- The default target virtual machine
 - [Triton VM specification](https://triton-vm.org/spec/) -- The TASM
   instruction set
 - [Neptune Cash](https://neptune.cash/) -- Production blockchain built on

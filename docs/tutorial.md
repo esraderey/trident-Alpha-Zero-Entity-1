@@ -1,6 +1,6 @@
 # Trident Tutorial
 
-A step-by-step guide to writing provable programs with Trident for [Triton VM](https://triton-vm.org/).
+A step-by-step guide to writing provable programs with Trident, a language for provable computation currently targeting [Triton VM](https://triton-vm.org/).
 
 ## Prerequisites
 
@@ -32,7 +32,7 @@ This program reads two public field elements, adds them, and writes the result. 
 Build it:
 
 ```bash
-trident build hello.tri -o hello.tasm
+trident build hello.tri --target triton -o hello.tasm
 ```
 
 This compiles Trident source to [TASM](https://triton-vm.org/spec/) (Triton Assembly) -- the instruction set of [Triton VM](https://triton-vm.org/). The output `hello.tasm` is what the VM executes and proves.
@@ -56,15 +56,15 @@ let x: Field = 42
 let y: Field = x + x
 ```
 
-There is no `-` operator. Use `sub(a, b)` from `std.field`. This is deliberate -- in a prime field, `1 - 2` gives `p - 1`, not `-1`. Making subtraction explicit avoids this footgun:
+There is no `-` operator. Use `sub(a, b)` from `std.core.field`. This is deliberate -- in a prime field, `1 - 2` gives `p - 1`, not `-1`. Making subtraction explicit avoids this footgun:
 
 ```
 program example
 
-use std.field
+use std.core.field
 
 fn main() {
-    let diff: Field = std.field.sub(10, 3)
+    let diff: Field = std.core.field.sub(10, 3)
     pub_write(diff)
 }
 ```
@@ -94,7 +94,7 @@ let m: U32 = n + n
 Extension field element (3 base field elements). Used for [FRI](https://eccc.weizmann.ac.il/report/2017/134/) and IPA operations.
 
 ```
-let x: XField = std.xfield.new(1, 0, 0)
+let x: XField = std.core.xfield.new(1, 0, 0)
 ```
 
 ### Digest
@@ -156,7 +156,7 @@ fn abs_diff(a: Field, b: Field) -> Field {
     if a == b {
         return 0
     }
-    std.field.sub(a, b)
+    std.core.field.sub(a, b)
 }
 ```
 
@@ -293,7 +293,7 @@ for i in 0..10 bounded 10 {
 }
 ```
 
-The `bounded N` annotation tells the compiler the maximum number of iterations. This is required because [Triton VM](https://triton-vm.org/) cannot execute unbounded loops. The compiler uses the bound (not the runtime count) to compute worst-case proving cost -- so `bounded 100` always costs 100 iterations in the trace, even if the actual count is lower. The loop variable `i` has type `Field`.
+The `bounded N` annotation tells the compiler the maximum number of iterations. This is required because provable VMs (including [Triton VM](https://triton-vm.org/)) cannot execute unbounded loops. The compiler uses the bound (not the runtime count) to compute worst-case proving cost -- so `bounded 100` always costs 100 iterations in the trace, even if the actual count is lower. The loop variable `i` has type `Field`.
 
 Dynamic ranges are allowed with `bounded`:
 
@@ -351,11 +351,11 @@ Every `.tri` file is either a `program` (with a `main()` entry point) or a `modu
 program my_app
 
 use helpers
-use std.hash
+use std.crypto.hash
 
 fn main() {
     let x: Field = pub_read()
-    let d: Digest = std.hash.tip5(x, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+    let d: Digest = std.crypto.hash.tip5(x, 0, 0, 0, 0, 0, 0, 0, 0, 0)
     pub_write(d.0)
 }
 ```
@@ -373,7 +373,7 @@ pub fn double(x: Field) -> Field {
 
 - `use helpers` looks for `helpers.tri` in the project directory
 - `use crypto.hash` looks for `crypto/hash.tri`
-- `use std.hash` looks for `hash.tri` in the standard library
+- `use std.crypto.hash` looks for `crypto/hash.tri` in the standard library
 
 ### Calling Module Functions
 
@@ -381,7 +381,7 @@ Prefix the function name with the module name:
 
 ```
 let result: Field = helpers.double(x)
-let d: Digest = std.hash.tip5(x, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+let d: Digest = std.crypto.hash.tip5(x, 0, 0, 0, 0, 0, 0, 0, 0, 0)
 ```
 
 ### Visibility
@@ -424,7 +424,7 @@ The program must verify divine values are correct:
 ```
 let claimed_root: Digest = divine5()
 let actual_root: Digest = compute_root(data)
-std.assert.digest(claimed_root, actual_root)
+std.core.assert.digest(claimed_root, actual_root)
 ```
 
 ## 10. Hashing
@@ -432,10 +432,10 @@ std.assert.digest(claimed_root, actual_root)
 [Tip5](https://eprint.iacr.org/2023/107) is Triton VM's native algebraic hash function (see [How STARK Proofs Work](stark-proofs.md) Section 5 for why this hash matters for proofs). It always takes exactly 10 field elements as input and produces a 5-element Digest. Pad unused inputs with zeros:
 
 ```
-use std.hash
+use std.crypto.hash
 
 fn hash_pair(a: Field, b: Field) -> Digest {
-    std.hash.tip5(a, b, 0, 0, 0, 0, 0, 0, 0, 0)
+    std.crypto.hash.tip5(a, b, 0, 0, 0, 0, 0, 0, 0, 0)
 }
 ```
 
@@ -443,10 +443,10 @@ For streaming data, use the sponge API:
 
 ```
 fn hash_stream() -> Digest {
-    std.hash.sponge_init()
-    std.hash.sponge_absorb(a, b, c, d, e, f, g, h, i, j)
-    std.hash.sponge_absorb(k, l, m, n, o, p, q, r, s, t)
-    std.hash.sponge_squeeze()
+    std.crypto.hash.sponge_init()
+    std.crypto.hash.sponge_absorb(a, b, c, d, e, f, g, h, i, j)
+    std.crypto.hash.sponge_absorb(k, l, m, n, o, p, q, r, s, t)
+    std.crypto.hash.sponge_squeeze()
 }
 ```
 
@@ -556,26 +556,26 @@ Every operation in [Triton VM](https://triton-vm.org/) has a measurable proving 
 
 ```bash
 # Full cost report
-trident build main.tri --costs
+trident build main.tri --target triton --costs
 
 # Top cost contributors
-trident build main.tri --hotspots
+trident build main.tri --target triton --hotspots
 
 # Optimization suggestions
-trident build main.tri --hints
+trident build main.tri --target triton --hints
 
 # Per-line cost annotations
-trident build main.tri --annotate
+trident build main.tri --target triton --annotate
 ```
 
 Track costs across builds:
 
 ```bash
 # Save baseline
-trident build main.tri --save-costs baseline.json
+trident build main.tri --target triton --save-costs baseline.json
 
 # After changes, compare
-trident build main.tri --compare baseline.json
+trident build main.tri --target triton --compare baseline.json
 ```
 
 See the [Optimization Guide](optimization.md) for strategies to reduce proving cost, and [How STARK Proofs Work](stark-proofs.md) Section 11 for the proving time formula.
@@ -600,7 +600,7 @@ Use with care: the compiler trusts the effect annotation. An incorrect annotatio
 
 - [Language Reference](reference.md) -- Quick lookup for types, operators, builtins, and grammar
 - [Language Specification](spec.md) -- Complete reference for all language constructs
-- [Programming Model](programming-model.md) -- How programs run in [Triton VM](https://triton-vm.org/)
+- [Programming Model](programming-model.md) -- How programs run (currently targeting [Triton VM](https://triton-vm.org/))
 - [Optimization Guide](optimization.md) -- Strategies to reduce proving cost
 - [How STARK Proofs Work](stark-proofs.md) -- The proof system behind every Trident program
 - [Error Catalog](errors.md) -- All error messages explained

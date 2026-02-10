@@ -2,7 +2,7 @@
 name = "trident"
 version = "0.1.0"
 edition = "2021"
-description = "A minimal, security-first language for provable computation on Triton VM"
+description = "A minimal, security-first universal language for provable computation"
 
 [dependencies]
 clap = { version = "4", features = ["derive"] }

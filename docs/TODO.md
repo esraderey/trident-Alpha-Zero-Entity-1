@@ -6,6 +6,11 @@
 - [x] Inline TASM: `asm { push 1 add }` with type annotations
 - [x] Conditional compilation: `#[cfg(debug)]` / `#[cfg(release)]` with `--target` flag
 - [x] Pattern matching: syntactic sugar over nested if/else
+- [x] TargetConfig and `targets/triton.toml`
+- [x] TypeChecker parameterized with TargetConfig
+- [x] StackBackend trait + TritonBackend
+- [x] CostModel trait + TritonCostModel
+- [x] Target-tagged asm blocks: `asm(triton) { ... }`
 
 ## CLI
 
@@ -14,6 +19,7 @@
 - [x] `trident build --annotate` — per-line cost annotations in source
 - [x] `trident build --compare` — diff function costs across builds
 - [x] `trident build --save-costs` — JSON cost serialization
+- [x] `--target` CLI flag for VM targets
 
 ## LSP
 
@@ -28,6 +34,11 @@
 
 - [x] Security audit (path traversal, stack overflow, parser depth, emit safety)
 
+## Tooling
+
+- [x] Tree-sitter grammar updated (match, asm target tags)
+- [x] Editor extensions updated
+
 ## Documentation
 
 - [x] README with quick start
@@ -39,6 +50,7 @@
 - [x] For Blockchain Devs guide: mental model migration from EVM/SVM/CosmWasm
 - [x] Quick Reference card: types, operators, builtins, grammar, CLI
 - [x] STARK education article: arithmetization, FRI, Triton VM tables, recursive verification
+- [x] Documentation updated for universality
 - [ ] Language spec: clean up spec.md for public release
 
 ## Website
@@ -47,18 +59,11 @@
 - [ ] Web playground: compile .tri to TASM in browser
 - [ ] Editor extension download links
 
-## Ecosystem
-
-- [ ] Token factory: registry for token deploy
-- [ ] Package manager
-- [ ] Browser extension integration library
-- [ ] Browser extension
-
 ## Standard Library
 
+- [x] Restructured: `std/core/`, `std/io/`, `std/crypto/` + `ext/triton/`
 - [ ] Gadget library: SHA-256, Keccak, secp256k1, BLS12-381
 - [ ] Recursive STARK verifier via xx_dot_step/xb_dot_step
-- [ ] Bridge validators: Bitcoin and Ethereum light clients
 
 ## Verification
 
@@ -66,6 +71,19 @@
 - [ ] Benchmark suite: Trident vs hand-optimized TASM
 - [ ] Formal verification of compiler correctness
 
+## Ecosystem
+
+- [ ] Token factory: registry for token deploy
+- [ ] Package manager
+- [ ] Browser extension integration library
+- [ ] Browser extension
+- [ ] Bridge validators: Bitcoin and Ethereum light clients
+
+## Multi-Target
+
+- [ ] Additional VM backends (Miden, Cairo, SP1)
+- [ ] Cross-target testing framework
+- [ ] Target-specific optimizations
 ---
 
 ## Done
@@ -76,22 +94,27 @@ multi-module compilation, module constants, recursion detection, dead code
 detection, unused import warnings, optimization hints H0001-H0004,
 type-checker warnings surfaced in build/check output, pattern matching
 (match/wildcard desugared to if/else), inline TASM blocks with stack
-effect annotations.
+effect annotations. Universal refactoring: TargetConfig with
+`targets/triton.toml`, TypeChecker parameterized by target, StackBackend
+trait + TritonBackend, CostModel trait + TritonCostModel, target-tagged
+asm blocks (`asm(triton) { ... }`).
 
 **Standard Library** — 13 modules: std.io, std.hash, std.field,
 std.convert, std.u32, std.xfield, std.mem, std.assert, std.merkle,
 std.auth, std.kernel, std.utxo, std.storage. Digest destructuring.
-`#[intrinsic]` restricted to std modules.
+`#[intrinsic]` restricted to std modules. Restructured for universality:
+`std/core/`, `std/io/`, `std/crypto/` + `ext/triton/`.
 
 **CLI** — `trident build` (--costs, --hotspots, --hints, --annotate,
---save-costs, --compare), `trident check` (--costs), `trident fmt`
-(directories, --check), `trident init`, `trident test`, `trident doc`,
-`trident lsp`.
+--save-costs, --compare, --target), `trident check` (--costs),
+`trident fmt` (directories, --check), `trident init`, `trident test`,
+`trident doc`, `trident lsp`.
 
 **LSP** — diagnostics, formatting, project-aware type checking, document
 symbols, go-to-definition, hover (with cost), completions, signature help.
 
-**Editor** — Zed extension, tree-sitter grammar with highlights.
+**Editor** — Zed extension, tree-sitter grammar with highlights. Updated
+for universality: match support, asm target tags in grammar and extensions.
 
 **Tests (352)** — formatter (29), diagnostics (7), LSP (27),
 integration (27), emitter (20), type checker (21), parser (13), lexer (7),
@@ -108,3 +131,5 @@ defense-in-depth.
 tutorial, optimization guide, error catalog, fungible token example,
 vision manifesto, developer guide (zero-to-ZK), blockchain developer
 guide (EVM/SVM migration), quick reference card, comparative analysis.
+Updated for universality (multi-target architecture, TargetConfig, backend
+traits).

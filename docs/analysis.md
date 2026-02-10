@@ -304,8 +304,10 @@ SP1 and RISC Zero do STARK→SNARK wrapping because Ethereum gas costs make raw 
 | Memory | Linear | Flat | Flat | Records | 8 fields/contract | Stack (16) + RAM | Immutable tree |
 | Non-determinism | `extern` hints | Implicit | Implicit | Implicit | Implicit | `divine()` (first-class) | Not native |
 | Recursive verify | Supported | Supported | Supported | Supported | Native (Pickles) | Purpose-built (xx/xb_dot_step) | Not integrated |
-| Cost predictability | Gas model | Runtime | Runtime | Transaction cost | Proving time varies | Static (compile-time) | Undecidable |
+| Cost predictability | Gas model | Runtime | Runtime | Transaction cost | Proving time varies | Static (compile-time)* | Undecidable |
 | Trusted setup | None | None (FRI) | None (FRI) | MPC ceremony (universal SRS) | None (bulletproof) | None | None |
+
+*\*Triton VM's static cost model produces exact table-height predictions for a given target. Cost tables and instruction costs are inherently target-dependent: a different backend (e.g., RISC-V STARK) would have a different cost model for the same source program.*
 
 ### 4.4 Hash Performance (Critical for Graph Operations)
 
@@ -316,6 +318,8 @@ SP1 and RISC Zero do STARK→SNARK wrapping because Ethereum gas costs make raw 
 | SP1 | SHA-256 (software) | ~3,000+ cc | ~3,000× |
 | RISC Zero | SHA-256 (accelerated) | ~1,000 cc | ~1,000× |
 | NockVM | In-circuit | Variable (jet-dependent) | ~100-1,000× |
+
+**Note:** These costs are target-dependent. Each VM defines its own instruction set, coprocessor layout, and cost model; the numbers above reflect each system's native target. A language compiling to multiple backends (e.g., Trident targeting both Triton VM and a future RISC-V backend) would see different absolute costs for the same source program depending on the target VM.
 
 For graph-heavy workloads where every edge involves hashing (content addressing, Merkle trees, sponge accumulation), this difference dominates total proving cost.
 
@@ -337,7 +341,7 @@ For graph-heavy workloads where every edge involves hashing (content addressing,
 
 ## 5. Bridge Feasibility Comparison
 
-How each system handles trustless verification of external chain data (Bitcoin, Ethereum):
+How each system handles trustless verification of external chain data (Bitcoin, Ethereum). Cost estimates below are target-specific -- they assume each system's native VM and proof pipeline. Porting the same bridge logic to a different target VM would change the absolute cycle counts and dominant cost tables.
 
 ### Bitcoin Light Client
 
@@ -374,10 +378,12 @@ Triton's recursive proof-of-proof architecture is uniquely powerful here: rather
 | Loops | Bounded only | Bounded + gas | Bounded | Bounded | Bounded | Unbounded (recursion) |
 | Heap | No | Yes | No | No | No | Tree (immutable) |
 | Recursion | No (by design) | Yes | No | No | Yes (Pickles) | Yes (core feature) |
-| Cost visible | Static, compile-time | Gas model | Transaction cost | No | Proving time | Undecidable |
+| Cost visible | Static, compile-time* | Gas model | Transaction cost | No | Proving time | Undecidable |
 | Quantum-safe | Yes | Partial | No | No | No | Yes |
 | Trusted setup | None | None | MPC (universal SRS) | SRS | None (bulletproof) | None |
 | Maturity | **Not yet implemented** | Production | Production | Production | Production | Early |
+
+*\*Trident's static cost visibility applies to the Triton VM target. If the compiler gains additional backends, cost tables and instruction weights will differ per target; the compiler must carry a separate cost model for each.*
 
 ---
 
@@ -421,7 +427,7 @@ If selecting Triton VM as the verification layer (the only system meeting all fo
 - Each module (bridge gadgets, crypto primitives) benefits the broader Triton ecosystem, attracting contributors
 
 **Proving performance:**
-- Power-of-2 cliff awareness through Trident's static cost model (unique advantage — no other system offers compile-time proving cost prediction)
+- Power-of-2 cliff awareness through Trident's static cost model (unique advantage — no other system offers compile-time proving cost prediction). Note that the cost tables themselves are target-dependent; if additional backends are introduced, each requires its own cost model.
 - Recursive composition for large computations — break expensive proofs into chains of manageable sub-proofs
 - Prover hardware improvements are inevitable as STARK adoption grows
 
@@ -451,7 +457,7 @@ Triton VM is the pragmatic choice that works today. Its advantages are immediate
 - **Recursive STARK verification is production-tested** — Neptune's recursive verifier works. `xx_dot_step`/`xb_dot_step` instructions exist specifically for this. Proof-of-proof composition for bridging Bitcoin and Ethereum is architecturally sound.
 - **Programming is possible right now** — TASM is documented, tasm-lib provides reusable snippets, Neptune has working transaction validation programs. The Trident language specification is complete and implementation-ready, providing a clear path from assembly to high-level development.
 - **PoW mining with useful work is demonstrated** — Neptune miners actually verify computation. The economic flywheel (hardware investment → network commitment → ecosystem growth) is proven.
-- **Static cost analysis is unique** — no other system offers compile-time proving cost prediction. For consensus (all nodes must agree on resource consumption), this property is essential.
+- **Static cost analysis is unique** — no other system offers compile-time proving cost prediction. The cost model is target-dependent (instruction weights and table shapes are defined by the target VM), but the property of *static decidability* holds for any target with fixed-cost instructions. For consensus (all nodes must agree on resource consumption), this property is essential.
 - **The codebase is small enough to own** — ~30K lines of Rust, Apache 2.0 licensed. Fork it, maintain it independently, build CORE's verification layer regardless of Neptune's commercial trajectory.
 
 The risk is real: a 3-person team, a $0.57 token, an inflation bug in history, and an ecosystem that barely exists. But these are engineering and community risks — solvable by contributing, forking, and building. NockVM's risks are research risks — unsolvable by effort alone, requiring breakthroughs that may or may not come.

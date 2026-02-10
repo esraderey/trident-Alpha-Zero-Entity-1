@@ -2,24 +2,29 @@
 
 **Correct. Bounded. Provable.**
 
-**Version 0.3 — Draft**
+**Version 0.4 — Draft**
 **February 2026**
 
-A minimal, security-first language for provable computation on Triton VM.
+A minimal, security-first language for provable computation on zero-knowledge virtual machines.
 
 > **Quick lookup?** See [reference.md](reference.md) for types, operators, builtins, grammar, and CLI flags.
 > **New to ZK?** Start with [for-developers.md](for-developers.md).
 > **Coming from Solidity/Anchor?** See [for-blockchain-devs.md](for-blockchain-devs.md).
+> **Multi-target architecture?** See [universal-design.md](universal-design.md).
 
 ---
 
 ## 1. Executive Summary
 
-Trident is a minimal, security-first programming language targeting [Triton VM](https://triton-vm.org/) — a [STARK](stark-proofs.md)-native virtual machine designed for recursive [zero-knowledge proof](https://en.wikipedia.org/wiki/Zero-knowledge_proof) verification. The language follows the [Vyper](https://docs.vyperlang.org/) philosophy: **deliberate limitation as a feature**, not a compromise.
+Trident is a minimal, security-first programming language for [zero-knowledge proof](https://en.wikipedia.org/wiki/Zero-knowledge_proof) systems. The language follows the [Vyper](https://docs.vyperlang.org/) philosophy: **deliberate limitation as a feature**, not a compromise.
 
-Trident compiles directly to [TASM](https://triton-vm.org/spec/) (Triton Assembly) with no intermediate representation. Every language construct maps predictably to known TASM patterns. The compiler is a thin, auditable translation layer — not an optimization engine.
+Trident is a **universal language with pluggable backends**. The core language — types, control flow, modules, field arithmetic, I/O — is target-agnostic. Each backend implements a thin compilation layer for a specific zkVM. The primary backend targets [Triton VM](https://triton-vm.org/), compiling directly to [TASM](https://triton-vm.org/spec/) (Triton Assembly) with no intermediate representation. Additional backends (Miden VM, Cairo VM, SP1/RISC-V) follow the same architecture. See [universal-design.md](universal-design.md) for the full multi-target design.
 
-The language exists to solve one problem: **writing provable programs for Triton VM without spending months in assembly**. It explicitly does not aim to be a general-purpose language.
+Every language construct maps predictably to known instruction patterns in the target VM. The compiler is a thin, auditable translation layer — not an optimization engine.
+
+The language exists to solve one problem: **writing provable programs without spending months in assembly**. It explicitly does not aim to be a general-purpose language.
+
+> **Target abstraction principle.** `Field` means "element of the target VM's native field." Programs reason about field arithmetic abstractly; the backend implements it concretely. A program that multiplies two field elements and asserts the result means the same thing on every zkVM. Programs should never depend on the specific field modulus.
 
 **File extension**: `.tri`
 **Compiler**: `trident`
@@ -29,6 +34,8 @@ The language exists to solve one problem: **writing provable programs for Triton
 ## 2. Design Rationale
 
 ### 2.1 Why Not an IR?
+
+> *The rationale below applies to the Triton VM backend. Other backends may introduce a minimal IR where the target architecture requires it (e.g., register-machine targets). See [universal-design.md](universal-design.md) Section 8.*
 
 [Triton VM's ISA](https://triton-vm.org/spec/) (~45 instructions) is already cleaner than most assembly languages. An intermediate representation would:
 
@@ -85,14 +92,16 @@ We learn from [Cairo](https://www.cairo-lang.org/)'s successes (hint architectur
 ### 3.1 Primitive Types
 
 ```
-Field           // B-field element: integers mod p (p = 2^64 - 2^32 + 1, the Goldilocks prime)
-XField          // Extension field element: F_p[X] / <X^3 - X + 1>
+Field           // Native field element of the target VM
+XField          // Extension field element (target-dependent degree)
 Bool            // 0 or 1 (a Field element, constrained)
 U32             // Unsigned 32-bit integer (a Field element, range-checked)
-Digest          // [Field; 5] — a Tip5 hash digest
+Digest          // [Field; DIGEST_WIDTH] — a hash digest (width is target-dependent)
 ```
 
-**Design note**: There is no general integer type. Triton VM operates natively on field elements. `U32` exists because the ISA has dedicated u32 instructions (`lt`, `and`, `xor`, `div_mod`, `log_2_floor`, `pow`, `pop_count`). Attempting u32 operations on values outside the u32 range crashes the VM — the type system prevents this at compile time where possible, and the VM enforces it at runtime where not.
+> **Triton VM target.** On Triton VM: `Field` is the Goldilocks field (integers mod p, where p = 2^64 - 2^32 + 1). `XField` is the cubic extension F_p[X] / (X^3 - X + 1), width 3. `Digest` is [Field; 5] (Tip5 hash output). `U32` exists because the Triton ISA has dedicated u32 instructions (`lt`, `and`, `xor`, `div_mod`, `log_2_floor`, `pow`, `pop_count`). Attempting u32 operations on values outside the u32 range crashes the VM.
+
+**Design note**: There is no general integer type. The target VM operates natively on field elements. The type system prevents field/u32 misuse at compile time where possible, and the VM enforces it at runtime where not.
 
 **No implicit conversions.** `Field` and `U32` do not auto-convert. Use explicit `as_field()` and `as_u32()` (the latter inserts a range check via `split`).
 
@@ -254,22 +263,33 @@ No package registry in v1. Dependencies are local paths or git URLs. This avoids
 
 ### 4.6 Standard Library as Modules
 
-The standard library ships as Trident modules, not compiler built-ins:
+The standard library ships as Trident modules organized in a layered hierarchy, not as compiler built-ins:
 
 ```
-use std.hash          // std.hash.tip5(), std.hash.sponge_*
-use std.merkle        // std.merkle.verify(), std.merkle.step()
-use std.convert       // std.convert.as_u32(), std.convert.as_field()
-use std.math          // std.math.neg(), std.math.sub(), std.math.inv()
-use std.io            // std.io.pub_read(), std.io.pub_write()
-use std.logic         // std.logic.not(), std.logic.and(), std.logic.or()
+// Core modules — field and integer operations
+use std.core.convert  // as_u32(), as_field()
+use std.core.field    // neg(), sub(), inv()
+use std.core.u32      // u32 arithmetic helpers
+use std.core.assert   // assertion helpers
+
+// Cryptography modules
+use std.crypto.hash   // tip5(), sponge_init(), sponge_absorb(), sponge_squeeze()
+use std.crypto.merkle // verify(), step()
+use std.crypto.auth   // authentication path utilities
+
+// I/O modules
+use std.io.io         // pub_read(), pub_write()
+use std.io.mem        // ram_read(), ram_write()
+use std.io.storage    // persistent storage helpers
 ```
 
-These modules are backed by optimized TASM from [tasm-lib](https://github.com/TritonVM/tasm-lib) but are written in Trident syntax with `#[intrinsic]` annotations that tell the compiler to emit specific TASM patterns:
+**Legacy flat paths.** For backward compatibility, the compiler accepts flat paths and rewrites them to layered equivalents: `std.hash` resolves to `std.crypto.hash`, `std.convert` to `std.core.convert`, `std.io` to `std.io.io`, and so on. New code should use the layered paths.
+
+These modules are backed by optimized target-specific code (e.g., [tasm-lib](https://github.com/TritonVM/tasm-lib) patterns on the Triton VM backend) but are written in Trident syntax with `#[intrinsic]` annotations that tell the compiler to emit target-appropriate instruction sequences:
 
 ```
-// std/hash.tri
-module std.hash
+// std/crypto/hash.tri
+module std.crypto.hash
 
 #[intrinsic(hash)]
 pub fn tip5(a: Field, b: Field, c: Field, d: Field, e: Field,
@@ -286,7 +306,7 @@ pub fn sponge_absorb(a: Field, b: Field, c: Field, d: Field, e: Field,
 pub fn sponge_squeeze() -> [Field; 10]
 ```
 
-The `#[intrinsic]` annotation is **only** allowed in `std` modules shipped with the compiler. User code cannot use it. This is the one place where the compiler knows more than the language — and it's explicitly marked and auditable.
+The `#[intrinsic]` annotation is **only** allowed in `std` modules shipped with the compiler. User code cannot use it. This is the one place where the compiler knows more than the language -- and it's explicitly marked and auditable.
 
 ### 4.7 Compilation Model
 
@@ -311,8 +331,8 @@ Every Trident program has exactly one entry point:
 ```
 program my_program
 
-use std.io
-use std.hash
+use std.io.io
+use std.crypto.hash
 
 // Public I/O declarations
 pub input:  [Field; 3]
@@ -420,6 +440,8 @@ Currently, size parameters can only appear as standalone array sizes, not in ari
 
 ## 6. Expressions and Operators
 
+> *The TASM instruction mappings shown in this section are for the Triton VM target. Other backends emit equivalent instructions in their native instruction sets. The Trident source syntax is the same across all targets.*
+
 ### 6.1 Field Arithmetic
 
 ```
@@ -477,11 +499,11 @@ if a { ... }
 `Bool` is a `Field` constrained to `{0, 1}`. The `if` construct compiles to `skiz`. There is no `&&` or `||` — use the standard library:
 
 ```
-use std.logic
+use std.core.field
 
-std.logic.and(a, b)    // a * b
-std.logic.or(a, b)     // a + b - a * b
-std.logic.not(a)       // 1 - a
+std.core.field.and(a, b)    // a * b
+std.core.field.or(a, b)     // a + b - a * b
+std.core.field.not(a)       // 1 - a
 ```
 
 This is consistent with how boolean logic works in arithmetic circuits.
@@ -537,7 +559,7 @@ for i in 0..n bounded 64 {
 ```
 let mut done: Bool = false
 for i in 0..MAX {
-    if std.logic.not(done) {
+    if std.core.field.not(done) {
         // actual work
         if exit_condition {
             done = true
@@ -556,13 +578,43 @@ assert_eq(a, b)                     // → assert(a == b)
 assert_digest(d1, d2)               // → TASM: assert_vector
 ```
 
-Assertions are the primary verification mechanism. Failed assertions crash the VM and make proof generation impossible — which is exactly the desired behavior.
+Assertions are the primary verification mechanism. Failed assertions crash the VM and make proof generation impossible -- which is exactly the desired behavior.
+
+### 7.4 Match
+
+Pattern matching over integer and boolean values:
+
+```
+match op_code {
+    0 => { handle_pay() }
+    1 => { handle_lock() }
+    2 => { handle_update() }
+    _ => { reject() }
+}
+```
+
+The wildcard `_` arm is required unless all values are covered. For `Bool`, both `true` and `false` must be covered:
+
+```
+match flag {
+    true  => { accept() }
+    false => { reject() }
+}
+```
+
+**Semantics.** `match` is syntactic sugar over nested `if`/`else` chains. The compiler desugars it at the AST level -- there is no dedicated match instruction in the target VM. Each arm's pattern is compared with `eq`, and the corresponding block executes on match. Arms are tested in source order; the first match wins.
+
+**Supported patterns:** integer literals, `true`, `false`, and `_` (wildcard). No struct destructuring, no nested patterns, no guards. This keeps the construct a thin translation layer over `if`/`else` rather than a complex pattern-matching engine.
+
+**Exhaustiveness.** The compiler rejects `match` expressions that are neither exhaustive nor have a wildcard arm.
 
 ---
 
 ## 8. ZK-Native Constructs
 
-These constructs distinguish Trident from general-purpose languages. They map directly to Triton VM's specialized instructions.
+These constructs distinguish Trident from general-purpose languages. They map to specialized instructions in the target VM.
+
+> *The TASM mappings below are for the **Triton VM target**. Other backends provide equivalent semantics through their native instruction sets. The Trident source syntax is identical across targets.*
 
 ### 8.1 Non-Deterministic Hints
 
@@ -614,8 +666,8 @@ fn merkle_step_mem(ptr: Field, node_index: U32, digest: Digest)
     // → TASM: merkle_step_mem
 
 // High-level verification (stdlib)
-use std.merkle
-std.merkle.verify(root, leaf, leaf_index, depth)
+use std.crypto.merkle
+std.crypto.merkle.verify(root, leaf, leaf_index, depth)
 ```
 
 ### 8.4 Dot Products (for [STARK](stark-proofs.md) Verification)
@@ -644,11 +696,29 @@ fn double_top() {
 
 The `asm` block contains raw TASM instructions that are emitted verbatim into the output. The compiler does not parse, validate, or optimize the assembly contents.
 
+**Target-tagged blocks.** In a multi-target project, `asm` blocks must be tagged with the target VM name so the compiler knows which backend should process them:
+
+```
+fn double_top() {
+    asm(triton) { dup 0 add }   // Triton VM assembly
+}
+
+fn double_top_miden() {
+    asm(miden) { dup.0 add }    // Miden VM assembly
+}
+```
+
+A bare `asm { ... }` (without a target tag) is treated as `asm(triton) { ... }` for backward compatibility, but new code in multi-target projects should always use the tagged form. The compiler rejects `asm` blocks tagged for a target other than the current compilation target.
+
 **Stack effect annotations.** By default, the compiler assumes an `asm` block has zero net stack effect (pushes and pops cancel out). If the block changes the stack height, declare the effect explicitly:
 
 ```
 fn push_magic() -> Field {
-    asm(+1) { push 42 }        // pushes one element
+    asm(+1) { push 42 }        // pushes one element (single-target shorthand)
+}
+
+fn push_magic_tagged() -> Field {
+    asm(triton, +1) { push 42 } // target tag + stack effect
 }
 
 fn consume_two(a: Field, b: Field) {
@@ -656,7 +726,7 @@ fn consume_two(a: Field, b: Field) {
 }
 ```
 
-The annotation `(+N)` or `(-N)` declares the net change in stack depth. The compiler uses this to track stack layout correctly across `asm` boundaries.
+The annotation `(+N)` or `(-N)` declares the net change in stack depth. When combined with a target tag, the target comes first: `asm(triton, +1) { ... }`. The compiler uses the effect annotation to track stack layout correctly across `asm` boundaries.
 
 **Interleaving with Trident code.** Inline assembly can appear between regular statements:
 
@@ -791,7 +861,7 @@ error[E0042]: u32 operation on unchecked Field value
    |                  ^^^^^ `a` is Field, not U32
    |
    = note: this would emit `lt` which crashes if operands are not u32
-   = help: use std.convert.as_u32(a) to insert a range check
+   = help: use std.core.convert.as_u32(a) to insert a range check
 ```
 
 ### 11.4 What the Compiler Rejects
@@ -809,6 +879,8 @@ error[E0042]: u32 operation on unchecked Field value
 ---
 
 ## 12. Cost Computation
+
+> *The cost model in this section describes the **Triton VM target**. Each backend has its own cost model (e.g., Miden uses cycle counts, Cairo uses steps, RISC-V zkVMs use cycle counts). The compiler reports costs in the target's native units. The Trident cost infrastructure (static analysis, per-function annotations, `--costs` flag) works identically across all targets.*
 
 ### 12.1 Why Cost Matters
 
@@ -1146,8 +1218,8 @@ Understanding the cost model informs several architectural decisions in Trident 
 // main.tri
 program sum_of_squares
 
-use std.io
-use std.convert
+use std.io.io
+use std.core.convert
 
 pub input: [Field; 1]
 sec input: [Field; 3]
@@ -1181,7 +1253,7 @@ fn main() {
 // merkle.tri
 module merkle
 
-use std.convert
+use std.core.convert
 
 pub const MAX_DEPTH: U32 = 64
 
@@ -1210,8 +1282,8 @@ pub fn verify_mem(root: Digest, leaf: Digest, index: U32, depth: U32, path_ptr: 
 program merkle_verifier
 
 use merkle
-use std.io
-use std.convert
+use std.io.io
+use std.core.convert
 
 pub input: [Field; 6]       // root (5) + leaf_index (1)
 sec input: [Field; 5]       // leaf digest
@@ -1219,7 +1291,7 @@ pub output: []
 
 fn main() {
     let root: Digest = pub_read5()
-    let leaf_index: U32 = std.convert.as_u32(pub_read())
+    let leaf_index: U32 = std.core.convert.as_u32(pub_read())
     let leaf: Digest = divine5()
 
     merkle.verify(root, leaf, leaf_index, 20)
@@ -1234,8 +1306,8 @@ module neptune.transaction
 
 use merkle
 use neptune.mutator_set
-use std.hash
-use std.convert
+use std.crypto.hash
+use std.core.convert
 
 pub struct TxKernel {
     inputs_hash: Digest,
@@ -1253,12 +1325,12 @@ pub fn validate_kernel(kernel: TxKernel) {
     assert_digest(kernel.outputs_hash, computed_out)
 
     // Fee must be non-negative (u32 range)
-    let _: U32 = std.convert.as_u32(kernel.fee)
+    let _: U32 = std.core.convert.as_u32(kernel.fee)
 }
 
 fn compute_inputs_hash() -> Digest {
     sponge_init()
-    let n_inputs: U32 = std.convert.as_u32(divine())
+    let n_inputs: U32 = std.core.convert.as_u32(divine())
     for i in 0..n_inputs bounded 128 {
         let input: [Field; 10] = divine_10()
         sponge_absorb(
@@ -1273,7 +1345,7 @@ fn compute_inputs_hash() -> Digest {
 fn compute_outputs_hash() -> Digest {
     // similar pattern
     sponge_init()
-    let n_outputs: U32 = std.convert.as_u32(divine())
+    let n_outputs: U32 = std.core.convert.as_u32(divine())
     for i in 0..n_outputs bounded 128 {
         let output: [Field; 10] = divine_10()
         sponge_absorb(
@@ -1302,7 +1374,7 @@ fn digest_from(a: Field, b: Field, c: Field, d: Field, e: Field) -> Digest {
 program neptune_tx_validator
 
 use neptune.transaction
-use std.io
+use std.io.io
 
 pub input: [Field; 15]    // tx kernel fields
 sec input: [Field; ?]     // all secret witness data
@@ -1326,8 +1398,8 @@ module stark.verifier
 
 use stark.fri
 use merkle
-use std.hash
-use std.convert
+use std.crypto.hash
+use std.core.convert
 
 pub const NUM_ROUNDS: U32 = 32
 pub const FRI_DEPTH: U32 = 16
@@ -1344,7 +1416,7 @@ pub fn verify(claim: Claim) {
 
     // 2. Verify Merkle commitments for each query
     for i in 0..NUM_ROUNDS {
-        let idx: U32 = std.convert.as_u32(divine())
+        let idx: U32 = std.core.convert.as_u32(divine())
         let leaf: Digest = divine5()
         merkle.verify(commitment, leaf, idx, FRI_DEPTH)
     }
@@ -1396,9 +1468,9 @@ These are **design decisions**, not roadmap items:
 
 ### 14.1 Possible Future Additions (post-v1.0)
 
-- ~~**Size-generic functions**~~: implemented — see Section 5.4
-- ~~**Inline TASM**~~: implemented — see Section 8.5
-- **Pattern matching**: syntactic sugar over nested if/else
+- ~~**Size-generic functions**~~: implemented -- see Section 5.4
+- ~~**Inline TASM**~~: implemented -- see Section 8.5
+- ~~**Pattern matching**~~: implemented -- see Section 7.4
 - **Package registry**: when the ecosystem justifies it
 - **Conditional compilation**: for debug/release proving targets
 
@@ -1445,9 +1517,15 @@ array_size    = INTEGER | IDENT ;                  (* IDENT for size params *)
 (* Blocks and Statements *)
 block         = "{" statement* expr? "}" ;
 statement     = let_stmt | assign_stmt | if_stmt | for_stmt
-              | assert_stmt | asm_stmt | expr_stmt | return_stmt ;
-asm_stmt      = "asm" asm_effect? "{" TASM_BODY "}" ;
-asm_effect    = "(" ("+" | "-") INTEGER ")" ;
+              | assert_stmt | asm_stmt | match_stmt
+              | expr_stmt | return_stmt ;
+asm_stmt      = "asm" asm_annotation? "{" TASM_BODY "}" ;
+asm_annotation = "(" asm_target ("," asm_effect)? ")"
+               | "(" asm_effect ")" ;
+asm_target    = IDENT ;                            (* "triton", "miden", etc. *)
+asm_effect    = ("+" | "-") INTEGER ;
+match_stmt    = "match" expr "{" match_arm* "}" ;
+match_arm     = (literal | "_") "=>" block ;
 let_stmt      = "let" "mut"? IDENT (":" type)? "=" expr ;
 assign_stmt   = place "=" expr ;
 place         = IDENT | place "." IDENT | place "[" expr "]" ;
@@ -1544,7 +1622,7 @@ Trident is successful if:
 
 ---
 
-## Appendix A: TASM Instruction Mapping
+## Appendix A: TASM Instruction Mapping (Triton VM Target)
 
 | Trident | TASM | Trace Rows |
 |---------|------|------------|
@@ -1578,7 +1656,9 @@ Trident is successful if:
 | `if cond { }` | `skiz` + jump | body + 2-3 |
 | `module.fn()` | `call` (resolved address) | body + 2 |
 | `fn_name<N>(...)` | `call` (monomorphized label) | body + 2 |
+| `match v { ... }` | `eq` + `skiz` chain (desugared) | arms + N comparisons |
 | `asm { ... }` | verbatim TASM | varies |
+| `asm(triton) { ... }` | verbatim TASM (target-tagged) | varies |
 
 ---
 
@@ -1632,5 +1712,5 @@ Every valid execution produces a STARK proof. The proof is [zero-knowledge](http
 
 ---
 
-*Trident v0.3 — Correct. Bounded. Provable.*
+*Trident v0.4 — Correct. Bounded. Provable.*
 *This specification is a living document. Extensions are driven by ecosystem needs, not theoretical completeness.*

@@ -1,16 +1,16 @@
 # Trident
 
-A minimal, security-first language for provable computation on [Triton VM](https://triton-vm.org/).
+A universal language for provable computation. Currently targets [Triton VM](https://triton-vm.org/), with architecture designed for any zkVM.
 
-Trident compiles directly to [TASM](https://triton-vm.org/spec/) (Triton Assembly) with no intermediate representation. Every language construct maps predictably to known TASM patterns. The compiler is a thin, auditable translation layer -- not an optimization engine.
+Trident has a three-layer architecture: a **universal core** (`std/core/`, `std/io/`, `std/crypto/`) that is target-agnostic, an **abstraction layer** that mediates between language semantics and backend specifics, and **backend extensions** (`ext/triton/`) that emit target-specific instructions. The default backend compiles directly to [TASM](https://triton-vm.org/spec/) (Triton Assembly) with no intermediate representation. Every language construct maps predictably to known instruction patterns. The compiler is a thin, auditable translation layer -- not an optimization engine.
 
-## Why Triton VM
+## Why Triton VM (Default Target)
 
-[Triton VM](https://triton-vm.org/) is the only zero-knowledge virtual machine that is simultaneously **quantum-safe**, **private**, **programmable**, and **mineable**. No elliptic curves anywhere in the proof pipeline -- security rests entirely on hash functions ([Tip5](https://eprint.iacr.org/2023/107) + [FRI](https://eccc.weizmann.ac.il/report/2017/134/)), making proofs resistant to quantum attacks with no trusted setup.
+Trident currently targets Triton VM as its default backend. [Triton VM](https://triton-vm.org/) is the only zero-knowledge virtual machine that is simultaneously **quantum-safe**, **private**, **programmable**, and **mineable**. No elliptic curves anywhere in the proof pipeline -- security rests entirely on hash functions ([Tip5](https://eprint.iacr.org/2023/107) + [FRI](https://eccc.weizmann.ac.il/report/2017/134/)), making proofs resistant to quantum attacks with no trusted setup.
 
 The VM is purpose-built for ZK: hash operations cost 1 clock cycle + 6 coprocessor rows (vs. thousands of cycles in RISC-V zkVMs). Native instructions for [Merkle tree](https://en.wikipedia.org/wiki/Merkle_tree) authentication, sponge hashing, and extension field dot products make recursive [STARK](docs/stark-proofs.md) verification practical inside the VM itself. [Neptune Cash](https://neptune.cash/) demonstrates this architecture in production as a Proof-of-Work blockchain where miners generate STARK proofs of arbitrary computation.
 
-Trident exists because writing programs in raw TASM assembly doesn't scale. The language gives developers structured types, modules, bounded loops, and a cost model -- while preserving the direct, auditable mapping to the VM that makes formal reasoning about proving cost possible.
+Trident exists because writing programs in raw TASM assembly doesn't scale. The language gives developers structured types, modules, bounded loops, match expressions, and a cost model -- while preserving the direct, auditable mapping to the VM that makes formal reasoning about proving cost possible.
 
 For a detailed comparison of Triton VM against StarkWare, SP1, RISC Zero, Aleo, Mina, and NockVM, see the [comparative analysis](docs/analysis.md).
 
@@ -166,11 +166,11 @@ fn pay() {
 
 ### Inline Assembly
 
-The effect annotation (`-1`) declares the net stack change. The compiler trusts it to track stack layout across `asm` boundaries:
+The effect annotation (`-1`) declares the net stack change. The compiler trusts it to track stack layout across `asm` boundaries. The optional target tag restricts a block to a specific backend:
 
 ```
 fn custom_hash(a: Field, b: Field) -> Field {
-    asm(-1) {
+    asm(triton, -1) {
         hash
         swap 5 pop 1
         swap 4 pop 1
@@ -181,25 +181,34 @@ fn custom_hash(a: Field, b: Field) -> Field {
 }
 ```
 
+When no target tag is provided, `asm(-1) { ... }` applies to all backends. Use `asm(triton) { ... }` to emit instructions only when compiling for Triton VM.
+
 ## Standard Library
 
-13 modules providing Triton VM primitives:
+The standard library is layered: **universal modules** (`std.core.*`, `std.io.*`, `std.crypto.*`) work across all targets, while **backend extensions** (`ext.triton.*`) expose target-specific primitives.
+
+### Universal Core (`std/core/`, `std/io/`, `std/crypto/`)
 
 | Module | Functions | Purpose |
 |--------|-----------|---------|
-| `std.io` | `pub_read`, `pub_write`, `divine` | Public and secret I/O |
-| `std.hash` | `tip5`, `sponge_init/absorb/squeeze` | [Tip5](https://eprint.iacr.org/2023/107) hashing |
-| `std.field` | `add`, `sub`, `mul`, `neg`, `inv` | Field arithmetic |
-| `std.convert` | `as_u32`, `as_field`, `split` | Type conversions |
-| `std.u32` | `log2`, `pow`, `popcount` | U32 operations |
-| `std.assert` | `is_true`, `eq`, `digest` | Assertions |
-| `std.xfield` | `new`, `inv` | Extension field ops |
-| `std.mem` | `read`, `write`, `read_block`, `write_block` | RAM access |
-| `std.storage` | `read`, `write`, `read_digest`, `write_digest` | Persistent storage |
-| `std.merkle` | `verify1`..`verify4`, `authenticate_leaf3` | [Merkle proofs](https://en.wikipedia.org/wiki/Merkle_tree) |
-| `std.auth` | `verify_preimage`, `verify_digest_preimage` | Authorization |
-| `std.kernel` | `authenticate_field`, `tree_height` | [Neptune](https://neptune.cash/) kernel |
-| `std.utxo` | `authenticate` | UTXO verification |
+| `std.io.io` | `pub_read`, `pub_write`, `divine` | Public and secret I/O |
+| `std.crypto.hash` | `tip5`, `sponge_init/absorb/squeeze` | [Tip5](https://eprint.iacr.org/2023/107) hashing |
+| `std.core.field` | `add`, `sub`, `mul`, `neg`, `inv` | Field arithmetic |
+| `std.core.convert` | `as_u32`, `as_field`, `split` | Type conversions |
+| `std.core.u32` | `log2`, `pow`, `popcount` | U32 operations |
+| `std.core.assert` | `is_true`, `eq`, `digest` | Assertions |
+| `std.core.mem` | `read`, `write`, `read_block`, `write_block` | RAM access |
+| `std.crypto.merkle` | `verify1`..`verify4`, `authenticate_leaf3` | [Merkle proofs](https://en.wikipedia.org/wiki/Merkle_tree) |
+| `std.crypto.auth` | `verify_preimage`, `verify_digest_preimage` | Authorization |
+
+### Backend Extensions (`ext/triton/`)
+
+| Module | Functions | Purpose |
+|--------|-----------|---------|
+| `ext.triton.xfield` | `new`, `inv` | Extension field ops |
+| `ext.triton.storage` | `read`, `write`, `read_digest`, `write_digest` | Persistent storage |
+| `ext.triton.kernel` | `authenticate_field`, `tree_height` | [Neptune](https://neptune.cash/) kernel |
+| `ext.triton.utxo` | `authenticate` | UTXO verification |
 
 ## CLI Reference
 
@@ -216,7 +225,7 @@ trident build main.tri --hints            # Show optimization hints
 trident build main.tri --annotate         # Per-line cost annotations
 trident build main.tri --save-costs c.json  # Save costs as JSON
 trident build main.tri --compare c.json   # Diff costs with previous build
-trident build main.tri --target release   # Release target
+trident build main.tri --target triton    # VM target (default: triton)
 ```
 
 ### `trident check`
@@ -269,7 +278,7 @@ Start the Language Server Protocol server.
 
 ## Cost Model
 
-Trident tracks proving cost across all six [Triton VM](https://triton-vm.org/) tables:
+When targeting Triton VM, Trident tracks proving cost across all six [Triton VM](https://triton-vm.org/) tables:
 
 | Table | What It Measures |
 |-------|-----------------|
@@ -295,7 +304,12 @@ my_project/
   trident.toml    # Project configuration
   main.tri        # Entry point (program)
   helpers.tri     # Library module
-  std/            # Standard library (auto-discovered)
+  std/            # Universal standard library (auto-discovered)
+    core/         #   Field, U32, memory, assertions, conversions
+    io/           #   Public/secret I/O
+    crypto/       #   Hashing, Merkle proofs, authorization
+  ext/            # Backend extensions
+    triton/       #   Triton VM-specific: xfield, storage, kernel, utxo
 ```
 
 ### trident.toml
@@ -306,11 +320,8 @@ name = "my_project"
 version = "0.1.0"
 entry = "main.tri"
 
-[targets.debug]
-flags = ["debug"]
-
-[targets.release]
-flags = ["release"]
+[targets.triton]
+backend = "triton"
 ```
 
 ## Documentation
@@ -321,7 +332,7 @@ flags = ["release"]
 |---|---|
 | New to zero-knowledge | [For Developers](docs/for-developers.md) &#8594; [Tutorial](docs/tutorial.md) &#8594; [How STARK Proofs Work](docs/stark-proofs.md) &#8594; [Optimization Guide](docs/optimization.md) |
 | Coming from Solidity / Anchor / CosmWasm | [For Blockchain Devs](docs/for-blockchain-devs.md) &#8594; [Tutorial](docs/tutorial.md) &#8594; [Programming Model](docs/programming-model.md) &#8594; [Optimization Guide](docs/optimization.md) |
-| Evaluating Triton VM for your project | [Vision](docs/vision.md) &#8594; [Comparative Analysis](docs/analysis.md) &#8594; [How STARK Proofs Work](docs/stark-proofs.md) &#8594; [Programming Model](docs/programming-model.md) |
+| Evaluating Trident for your project | [Vision](docs/vision.md) &#8594; [Comparative Analysis](docs/analysis.md) &#8594; [How STARK Proofs Work](docs/stark-proofs.md) &#8594; [Programming Model](docs/programming-model.md) |
 | Already writing Trident | [Language Reference](docs/reference.md) &#8729; [Error Catalog](docs/errors.md) &#8729; [Optimization Guide](docs/optimization.md) |
 
 ### All Documents
@@ -340,7 +351,7 @@ flags = ["release"]
 
 ## Design Principles
 
-1. No intermediate representation: source to TASM directly, for auditability
+1. No intermediate representation: source to target assembly directly, for auditability
 2. Deliberate limitation: one obvious way to do everything ([Vyper](https://docs.vyperlang.org/) philosophy)
 3. Cost transparency: every function annotated with proving cost
 4. Bounded execution: all loops require explicit bounds, no recursion

@@ -4,7 +4,25 @@ This document describes the [Neptune](https://neptune.cash/) blockchain programm
 Trident programs. It covers how programs run inside [Triton VM](https://triton-vm.org/), what blockchain
 state they can access, and how the standard library exposes these capabilities.
 
-## Triton VM Execution Model
+## The Universal Primitive: `Field`
+
+Every zkVM computes over a finite field. `Field` is the **universal primitive
+type** of provable computation -- the specific prime is an implementation detail
+of the proof system, not a semantic property of the program. A Trident program
+that multiplies two field elements and asserts the result means the same thing
+on every target. The developer reasons about field arithmetic abstractly; the
+backend implements it concretely.
+
+All Trident values decompose into `Field` elements: a `Digest` is five `Field`
+elements, a `u128` is four, and so on. I/O channels, memory, and the stack all
+traffic in `Field`. This is true regardless of the compilation target.
+
+> **Target-dependent detail.** The Triton VM default field is the Goldilocks
+> prime `p = 2^64 - 2^32 + 1`. Other targets use different primes. Programs
+> should never depend on the specific modulus -- see
+> [Universal Design](universal-design.md) for the multi-target story.
+
+## Triton VM Execution Model *(Triton VM default)*
 
 Trident compiles to [TASM](https://triton-vm.org/spec/) (Triton Assembly), which runs inside [Triton VM](https://triton-vm.org/) -- a
 [STARK](stark-proofs.md)-based [zero-knowledge](https://en.wikipedia.org/wiki/Zero-knowledge_proof) virtual machine. Programs are **isolated**: they have
@@ -24,12 +42,16 @@ The verifier only ever sees the **Claim** and the **Proof** (a [STARK proof](sta
 
 ```
 Claim {
-    program_digest: Digest,   // Tip5 hash of the program (see https://eprint.iacr.org/2023/107)
+    program_digest: Digest,   // hash of the program (Triton VM default: Tip5)
     version: u32,
     input: Vec<Field>,        // public input consumed by read_io
     output: Vec<Field>,       // public output produced by write_io
 }
 ```
+
+> **Target-dependent detail.** The hash function used for `program_digest` and
+> the digest width (5 `Field` elements on Triton VM) vary by target. Use
+> `std.target.DIGEST_WIDTH` rather than hardcoding `5`.
 
 Everything else (secret input, RAM, stack states, execution trace) remains
 hidden. This is the zero-knowledge property.
@@ -45,7 +67,8 @@ hidden. This is the zero-knowledge property.
 
 - **`merkle.step()` / `merkle_step`**: Reads a sibling digest from the secret
   digest queue and computes one [Merkle tree](https://en.wikipedia.org/wiki/Merkle_tree) step. Used to authenticate data
-  against a known root hash.
+  against a known root hash. *(Triton VM default: Tip5-based Merkle; other
+  targets use their native hash.)*
 
 ### The Divine-and-Authenticate Pattern
 
@@ -192,7 +215,7 @@ Both address types use the same fundamental pattern -- a **hash lock**:
 ```trident
 // Standard Neptune lock script pattern:
 // 1. Divine the secret preimage (unlock key)
-// 2. Hash it
+// 2. Hash it (target-dependent hash function; Triton VM default: Tip5)
 // 3. Compare against the expected postimage (hardcoded in the script)
 // 4. Also read the kernel hash (to bind proof to this transaction)
 
@@ -202,6 +225,10 @@ let computed: Digest = hash.tip5(preimage[0], preimage[1], preimage[2],
 let kernel_hash: Digest = io.read5()
 assert.digest(computed, EXPECTED_POSTIMAGE)
 ```
+
+> **Target-dependent detail.** The `hash.tip5()` call and its 10-element rate
+> are specific to Triton VM. Portable code should use `std.crypto.hash.compress()`
+> and `std.target.HASH_RATE`.
 
 The key difference between Generation and Symmetric is **how the preimage is
 derived from the seed** and **how UTXO notifications are encrypted**, not the
@@ -241,39 +268,39 @@ lock script structure itself.
 
 ## Standard Library Reference
 
-### Low-Level Intrinsics
+### Low-Level Intrinsics (`std.core`, `std.io`)
 
-These modules wrap individual Triton VM instructions:
+These modules wrap individual VM instructions:
 
-| Module         | Key Functions                                    |
-|----------------|--------------------------------------------------|
-| `std.io`       | `read`, `read5`, `write`, `write5`, `divine`, `divine5` |
-| `std.hash`     | `tip5`, `sponge_init`, `sponge_absorb`, `sponge_squeeze` |
-| `std.field`    | `add`, `mul`, `sub`, `neg`, `inv`                |
-| `std.u32`      | `log2`, `pow`, `popcount`                        |
-| `std.convert`  | `as_u32`, `as_field`, `split`                    |
-| `std.mem`      | `read`, `write`, `read_block`, `write_block`     |
-| `std.assert`   | `is_true`, `eq`, `digest`                        |
-| `std.xfield`   | `new`, `inv`, `xx_dot_step`, `xb_dot_step`       |
+| Module              | Key Functions                                    |
+|---------------------|--------------------------------------------------|
+| `std.io.io`         | `read`, `read5`, `write`, `write5`, `divine`, `divine5` |
+| `std.crypto.hash`   | `tip5`, `sponge_init`, `sponge_absorb`, `sponge_squeeze` |
+| `std.core.field`    | `add`, `mul`, `sub`, `neg`, `inv`                |
+| `std.core.u32`      | `log2`, `pow`, `popcount`                        |
+| `std.core.convert`  | `as_u32`, `as_field`, `split`                    |
+| `std.io.mem`        | `read`, `write`, `read_block`, `write_block`     |
+| `std.core.assert`   | `is_true`, `eq`, `digest`                        |
+| `std.core.xfield`   | `new`, `inv`, `xx_dot_step`, `xb_dot_step`       |
 
-### High-Level Blockchain Modules
+### High-Level Blockchain Modules (`std.crypto`, `std.io`)
 
 These modules compose intrinsics into Neptune-specific patterns:
 
-| Module         | Purpose                                          |
-|----------------|--------------------------------------------------|
-| `std.merkle`   | Merkle tree step + verify inclusion proofs        |
-| `std.kernel`   | Authenticate transaction kernel fields            |
-| `std.auth`     | Hash-lock authentication (lock script patterns)   |
-| `std.storage`  | Key-value RAM storage patterns                    |
+| Module              | Purpose                                          |
+|---------------------|--------------------------------------------------|
+| `std.crypto.merkle` | Merkle tree step + verify inclusion proofs        |
+| `std.crypto.auth`   | Hash-lock authentication (lock script patterns)   |
+| `std.io.storage`    | Key-value RAM storage patterns                    |
 
-### std.kernel -- Transaction Kernel Access
+### std.neptune.kernel -- Transaction Kernel Access
 
 The kernel module provides functions to authenticate transaction kernel fields
-against the kernel MAST hash received as public input.
+against the kernel MAST hash received as public input. This module is
+Neptune-specific.
 
 ```trident
-use std.kernel
+use std.neptune.kernel
 
 // Read the kernel MAST hash from public input
 let kh: Digest = io.read5()
@@ -289,10 +316,10 @@ Internally, each function:
 3. Uses `merkle_step` to walk up to the MAST root
 4. Asserts the computed root matches the provided kernel hash
 
-### std.merkle -- Merkle Tree Operations
+### std.crypto.merkle -- Merkle Tree Operations
 
 ```trident
-use std.merkle
+use std.crypto.merkle
 
 // Single step up the tree (intrinsic, uses divine sibling)
 let (parent_idx, parent): (U32, Digest) = merkle.step(idx, d0, d1, d2, d3, d4)
@@ -301,10 +328,10 @@ let (parent_idx, parent): (U32, Digest) = merkle.step(idx, d0, d1, d2, d3, d4)
 merkle.verify(leaf, root, leaf_index, depth)
 ```
 
-### std.auth -- Lock Script Authentication
+### std.crypto.auth -- Lock Script Authentication
 
 ```trident
-use std.auth
+use std.crypto.auth
 
 // Simple hash-preimage lock (standard Neptune pattern)
 auth.verify_preimage(expected_hash)
@@ -312,15 +339,21 @@ auth.verify_preimage(expected_hash)
 
 ## Arithmetic
 
-All arithmetic in [Triton VM](https://triton-vm.org/) operates in the [prime field](https://en.wikipedia.org/wiki/Finite_field) with
-`p = 2^64 - 2^32 + 1` elements (the [Goldilocks prime](https://xn--2-umb.com/22/goldilocks/)). This means:
+All arithmetic in Trident operates on `Field` elements. The `+` and `*`
+operators map to field addition and multiplication, which wrap modulo the
+target's prime automatically -- there is no overflow error. This is true on
+every compilation target.
 
-- Field elements range from 0 to p-1
-- Addition and multiplication wrap modulo p automatically -- there is no overflow error
-- `1 - 2` in field arithmetic gives `p - 1`, not `-1`. Use `std.field.sub()` to make this explicit
-- `+`, `*` operators in Trident map to field arithmetic
+> **Triton VM default.** The native field is the [Goldilocks prime](https://xn--2-umb.com/22/goldilocks/)
+> `p = 2^64 - 2^32 + 1`. Other targets use different primes (see
+> [Universal Design](universal-design.md)).
+
+Practical consequences:
+
+- `Field` elements range from 0 to p-1
+- `1 - 2` in field arithmetic gives `p - 1`, not `-1`. Use `std.core.field.sub()` to make this explicit
 - Integer comparison (`<`, `>`) requires explicit `as_u32` conversion
-- For amounts/balances, use u128 encoding (4 field elements)
+- For amounts/balances, use u128 encoding (4 `Field` elements)
 
 ## Data Flow Summary
 
@@ -357,6 +390,7 @@ NonDeterminism {              |                    version,
 - [For Developers](for-developers.md) -- Zero-knowledge concepts explained for conventional programmers
 - [For Blockchain Devs](for-blockchain-devs.md) -- Mental model migration from smart contracts
 - [Vision](vision.md) -- Why Trident exists and what you can build
+- [Universal Design](universal-design.md) -- Multi-target compilation and the Field abstraction
 - [Comparative Analysis](analysis.md) -- Triton VM vs. every other ZK system
 - [Neptune Cash](https://neptune.cash/) -- Reference blockchain using Triton VM
 - [Triton VM specification](https://triton-vm.org/spec/) -- Target VM instruction set
