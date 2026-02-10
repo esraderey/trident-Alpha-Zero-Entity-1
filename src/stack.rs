@@ -280,7 +280,7 @@ impl StackManager {
                 let elem_depth = depth_from_top + (var.width - 1 - i);
                 let ram_addr = addr + i as u64;
                 // Bring element to top, write to RAM
-                if elem_depth > 0 && elem_depth <= 15 {
+                if elem_depth > 0 && elem_depth <= self.max_stack_depth - 1 {
                     self.side_effects.push(format!("    swap {}", elem_depth));
                 }
                 self.side_effects.push(format!("    push {}", ram_addr));

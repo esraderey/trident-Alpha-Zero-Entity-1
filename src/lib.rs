@@ -620,7 +620,7 @@ pub fn generate_docs(
                 let mut total_width: u32 = 0;
                 for field in &sdef.fields {
                     let ty_str = format_ast_type(&field.ty.node);
-                    let width = ast_type_width(&field.ty.node);
+                    let width = ast_type_width(&field.ty.node, &options.target_config);
                     total_width += width;
                     entry.push_str(&format!(
                         "| {} | {} | {} |\n",
@@ -756,17 +756,17 @@ fn format_ast_type(ty: &ast::Type) -> String {
 }
 
 /// Compute the width in field elements for an AST type (best-effort).
-fn ast_type_width(ty: &ast::Type) -> u32 {
+fn ast_type_width(ty: &ast::Type, config: &TargetConfig) -> u32 {
     match ty {
         ast::Type::Field | ast::Type::Bool | ast::Type::U32 => 1,
-        ast::Type::XField => 3,
-        ast::Type::Digest => 5,
+        ast::Type::XField => config.xfield_width,
+        ast::Type::Digest => config.digest_width,
         ast::Type::Array(inner, size) => {
-            let inner_w = ast_type_width(inner);
+            let inner_w = ast_type_width(inner, config);
             let n = size.as_literal().unwrap_or(1) as u32;
             inner_w * n
         }
-        ast::Type::Tuple(elems) => elems.iter().map(ast_type_width).sum(),
+        ast::Type::Tuple(elems) => elems.iter().map(|e| ast_type_width(e, config)).sum(),
         ast::Type::Named(_) => 1, // unknown, default to 1
     }
 }

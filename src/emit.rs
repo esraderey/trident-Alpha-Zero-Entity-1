@@ -280,7 +280,7 @@ impl Emitter {
             event_defs: HashMap::new(),
             struct_types: HashMap::new(),
             constants: HashMap::new(),
-            temp_ram_addr: 1 << 29,
+            temp_ram_addr: target_config.spill_ram_base / 2,
             intrinsic_map: HashMap::new(),
             module_aliases: HashMap::new(),
             mono_instances: Vec::new(),

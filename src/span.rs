@@ -8,11 +8,19 @@ pub struct Span {
 
 impl Span {
     pub fn new(file_id: u16, start: u32, end: u32) -> Self {
-        Self { file_id, start, end }
+        Self {
+            file_id,
+            start,
+            end,
+        }
     }
 
     pub fn dummy() -> Self {
-        Self { file_id: 0, start: 0, end: 0 }
+        Self {
+            file_id: 0,
+            start: 0,
+            end: 0,
+        }
     }
 
     pub fn merge(self, other: Span) -> Span {
@@ -38,10 +46,16 @@ impl<T> Spanned<T> {
     }
 
     pub fn dummy(node: T) -> Self {
-        Self { node, span: Span::dummy() }
+        Self {
+            node,
+            span: Span::dummy(),
+        }
     }
 
     pub fn map<U>(self, f: impl FnOnce(T) -> U) -> Spanned<U> {
-        Spanned { node: f(self.node), span: self.span }
+        Spanned {
+            node: f(self.node),
+            span: self.span,
+        }
     }
 }
