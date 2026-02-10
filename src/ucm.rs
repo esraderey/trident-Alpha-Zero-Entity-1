@@ -38,6 +38,7 @@ pub struct Codebase {
 }
 
 /// A stored function definition.
+#[derive(Clone)]
 pub struct Definition {
     /// The source code of the function (formatted).
     pub source: String,
@@ -380,6 +381,21 @@ impl Codebase {
         std::fs::write(&history_path, &history_content)?;
 
         Ok(())
+    }
+
+    /// Store a definition directly by hash (used by registry publish).
+    pub fn store_definition(&mut self, hash: ContentHash, def: Definition) {
+        self.definitions.insert(hash, def);
+    }
+
+    /// Bind a name to a hash directly (used by registry pull).
+    pub fn bind_name(&mut self, name: &str, hash: ContentHash) {
+        self.names.insert(name.to_string(), hash);
+        let entry = NameEntry {
+            name: name.to_string(),
+            timestamp: unix_timestamp(),
+        };
+        self.name_history.entry(hash).or_default().push(entry);
     }
 
     /// Pretty-print a definition by name.

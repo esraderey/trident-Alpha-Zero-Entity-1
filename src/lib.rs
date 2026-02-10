@@ -13,6 +13,7 @@ pub mod linker;
 pub mod lsp;
 pub mod parser;
 pub mod project;
+pub mod registry;
 pub mod report;
 pub mod resolve;
 pub mod scaffold;
