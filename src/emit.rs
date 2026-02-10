@@ -2383,12 +2383,7 @@ impl Emitter {
                     let size_args: Vec<u64> = if !generic_args.is_empty() {
                         generic_args
                             .iter()
-                            .map(|ga| match &ga.node {
-                                ArraySize::Literal(n) => *n,
-                                ArraySize::Param(p) => {
-                                    self.current_subs.get(p).copied().unwrap_or(0)
-                                }
-                            })
+                            .map(|ga| ga.node.eval(&self.current_subs))
                             .collect()
                     } else if !self.current_subs.is_empty() {
                         // Inside a monomorphized body: resolve through current_subs.
@@ -2759,17 +2754,14 @@ fn resolve_type_width(ty: &Type, tc: &TargetConfig) -> u32 {
     }
 }
 
-/// Like `resolve_type_width` but substitutes `ArraySize::Param` with concrete values.
+/// Like `resolve_type_width` but substitutes size parameters with concrete values.
 fn resolve_type_width_with_subs(ty: &Type, subs: &HashMap<String, u64>, tc: &TargetConfig) -> u32 {
     match ty {
         Type::Field | Type::Bool | Type::U32 => 1,
         Type::XField => tc.xfield_width,
         Type::Digest => tc.digest_width,
         Type::Array(inner, n) => {
-            let size = match n {
-                ArraySize::Literal(v) => *v,
-                ArraySize::Param(name) => subs.get(name).copied().unwrap_or(0),
-            };
+            let size = n.eval(subs);
             resolve_type_width_with_subs(inner, subs, tc) * (size as u32)
         }
         Type::Tuple(elems) => elems

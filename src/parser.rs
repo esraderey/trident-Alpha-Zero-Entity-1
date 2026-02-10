@@ -516,21 +516,7 @@ impl Parser {
                 self.advance();
                 let inner = self.parse_type();
                 self.expect(&Lexeme::Semicolon);
-                // Array size: integer literal or generic param name
-                let size = if let Lexeme::Integer(n) = self.peek() {
-                    let n = *n;
-                    self.advance();
-                    ArraySize::Literal(n)
-                } else if let Lexeme::Ident(_) = self.peek() {
-                    let ident = self.expect_ident();
-                    ArraySize::Param(ident.node)
-                } else {
-                    self.error_with_help(
-                        "expected array size (integer literal or size parameter name)",
-                        "array types are written as `[T; N]` where N is a number or generic parameter",
-                    );
-                    ArraySize::Literal(0)
-                };
+                let size = self.parse_array_size_expr();
                 self.expect(&Lexeme::RBracket);
                 Type::Array(Box::new(inner.node), size)
             }
@@ -557,6 +543,52 @@ impl Parser {
         };
         let span = start.merge(self.prev_span());
         Spanned::new(ty, span)
+    }
+
+    // --- Array size expression parsing (compile-time arithmetic) ---
+
+    /// Parse a compile-time size expression: `N`, `3`, `M + N`, `N * 2`, `M + N * 2`.
+    /// Precedence: `*` binds tighter than `+`.
+    fn parse_array_size_expr(&mut self) -> ArraySize {
+        let mut left = self.parse_array_size_mul();
+        while self.at(&Lexeme::Plus) {
+            self.advance();
+            let right = self.parse_array_size_mul();
+            left = ArraySize::Add(Box::new(left), Box::new(right));
+        }
+        left
+    }
+
+    fn parse_array_size_mul(&mut self) -> ArraySize {
+        let mut left = self.parse_array_size_atom();
+        while self.at(&Lexeme::Star) {
+            self.advance();
+            let right = self.parse_array_size_atom();
+            left = ArraySize::Mul(Box::new(left), Box::new(right));
+        }
+        left
+    }
+
+    fn parse_array_size_atom(&mut self) -> ArraySize {
+        if let Lexeme::Integer(n) = self.peek() {
+            let n = *n;
+            self.advance();
+            ArraySize::Literal(n)
+        } else if let Lexeme::Ident(_) = self.peek() {
+            let ident = self.expect_ident();
+            ArraySize::Param(ident.node)
+        } else if self.at(&Lexeme::LParen) {
+            self.advance();
+            let inner = self.parse_array_size_expr();
+            self.expect(&Lexeme::RParen);
+            inner
+        } else {
+            self.error_with_help(
+                "expected array size (integer literal or size parameter name)",
+                "array sizes are written as `N`, `3`, `M + N`, or `N * 2`",
+            );
+            ArraySize::Literal(0)
+        }
     }
 
     // --- Block and statement parsing ---
@@ -1164,8 +1196,14 @@ impl Parser {
         let after_val = &self.tokens[self.pos + 2].node;
         let looks_generic = match after_lt {
             Lexeme::Integer(_) | Lexeme::Ident(_) => {
-                matches!(after_val, Lexeme::Gt | Lexeme::Comma)
+                // `<N>`, `<N,`, `<N +`, `<N *` all look like generic args
+                matches!(
+                    after_val,
+                    Lexeme::Gt | Lexeme::Comma | Lexeme::Plus | Lexeme::Star
+                )
             }
+            // `<(M + N) * 2>` — parenthesized size expression
+            Lexeme::LParen => true,
             _ => false,
         };
         if !looks_generic {
@@ -1176,21 +1214,7 @@ impl Parser {
         let mut args = Vec::new();
         while !self.at(&Lexeme::Gt) && !self.at(&Lexeme::Eof) {
             let start = self.current_span();
-            let size = if let Lexeme::Integer(n) = self.peek() {
-                let n = *n;
-                self.advance();
-                ArraySize::Literal(n)
-            } else if let Lexeme::Ident(_) = self.peek() {
-                let ident = self.expect_ident();
-                ArraySize::Param(ident.node)
-            } else {
-                self.error_with_help(
-                    "expected integer or size parameter in generic arguments",
-                    "generic size arguments are written as `fn_name<3>(...)` or `fn_name<N>(...)`",
-                );
-                self.advance();
-                ArraySize::Literal(0)
-            };
+            let size = self.parse_array_size_expr();
             let span = start.merge(self.prev_span());
             args.push(Spanned::new(size, span));
             if !self.eat(&Lexeme::Comma) {
@@ -1966,5 +1990,107 @@ mod tests {
             diags[0].help.is_some(),
             "expected item error should have help text"
         );
+    }
+
+    // --- Const generic expression parsing ---
+
+    #[test]
+    fn test_parse_array_size_add() {
+        let file = parse("program test\nfn f(a: [Field; M + N]) {}");
+        let func = match &file.items[0].node {
+            Item::Fn(f) => f,
+            _ => panic!("expected fn"),
+        };
+        match &func.params[0].ty.node {
+            Type::Array(_, size) => {
+                assert_eq!(format!("{}", size), "M + N");
+            }
+            other => panic!("expected array type, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_parse_array_size_mul() {
+        let file = parse("program test\nfn f(a: [Field; N * 2]) {}");
+        let func = match &file.items[0].node {
+            Item::Fn(f) => f,
+            _ => panic!("expected fn"),
+        };
+        match &func.params[0].ty.node {
+            Type::Array(_, size) => {
+                assert_eq!(format!("{}", size), "N * 2");
+            }
+            other => panic!("expected array type, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_parse_array_size_precedence() {
+        // M + N * 2 should parse as M + (N * 2), not (M + N) * 2
+        let file = parse("program test\nfn f(a: [Field; M + N * 2]) {}");
+        let func = match &file.items[0].node {
+            Item::Fn(f) => f,
+            _ => panic!("expected fn"),
+        };
+        match &func.params[0].ty.node {
+            Type::Array(_, size) => {
+                assert_eq!(format!("{}", size), "M + N * 2");
+                // Verify structure: Add(Param("M"), Mul(Param("N"), Literal(2)))
+                match size {
+                    ArraySize::Add(a, b) => {
+                        assert!(matches!(a.as_ref(), ArraySize::Param(n) if n == "M"));
+                        assert!(matches!(b.as_ref(), ArraySize::Mul(..)));
+                    }
+                    other => panic!("expected Add, got {:?}", other),
+                }
+            }
+            other => panic!("expected array type, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_parse_array_size_parenthesized() {
+        let file = parse("program test\nfn f(a: [Field; (M + N) * 2]) {}");
+        let func = match &file.items[0].node {
+            Item::Fn(f) => f,
+            _ => panic!("expected fn"),
+        };
+        match &func.params[0].ty.node {
+            Type::Array(_, size) => {
+                assert_eq!(format!("{}", size), "(M + N) * 2");
+                // Verify structure: Mul(Add(Param("M"), Param("N")), Literal(2))
+                match size {
+                    ArraySize::Mul(a, b) => {
+                        assert!(matches!(a.as_ref(), ArraySize::Add(..)));
+                        assert!(matches!(b.as_ref(), ArraySize::Literal(2)));
+                    }
+                    other => panic!("expected Mul, got {:?}", other),
+                }
+            }
+            other => panic!("expected array type, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_parse_generic_call_size_expr() {
+        let file = parse("program test\nfn f() { g<M + N>() }");
+        let func = match &file.items[0].node {
+            Item::Fn(f) => f,
+            _ => panic!("expected fn"),
+        };
+        let body = func.body.as_ref().unwrap();
+        // g<M + N>() is parsed as a tail expression (last expr before })
+        let tail = body
+            .node
+            .tail_expr
+            .as_ref()
+            .expect("expected tail expression");
+        match &tail.node {
+            Expr::Call { generic_args, .. } => {
+                assert_eq!(generic_args.len(), 1);
+                assert_eq!(format!("{}", generic_args[0].node), "M + N");
+            }
+            other => panic!("expected Call, got {:?}", other),
+        }
     }
 }

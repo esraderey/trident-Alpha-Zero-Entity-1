@@ -1273,15 +1273,14 @@ impl TypeChecker {
                         }
                         let mut sizes = Vec::new();
                         for ga in generic_args {
-                            match &ga.node {
-                                ArraySize::Literal(n) => sizes.push(*n),
-                                ArraySize::Param(name) => {
-                                    self.error(
-                                        format!("expected concrete size, got parameter '{}'", name),
-                                        ga.span,
-                                    );
-                                    sizes.push(0);
-                                }
+                            if let Some(n) = ga.node.as_literal() {
+                                sizes.push(n);
+                            } else {
+                                self.error(
+                                    format!("expected concrete size, got '{}'", ga.node),
+                                    ga.span,
+                                );
+                                sizes.push(0);
                             }
                         }
                         sizes
@@ -1718,10 +1717,7 @@ impl TypeChecker {
             Type::U32 => Ty::U32,
             Type::Digest => Ty::Digest(self.target_config.digest_width),
             Type::Array(inner, n) => {
-                let size = match n {
-                    ArraySize::Literal(v) => *v,
-                    ArraySize::Param(name) => subs.get(name).copied().unwrap_or(0),
-                };
+                let size = n.eval(subs);
                 Ty::Array(Box::new(self.resolve_type_with_subs(inner, subs)), size)
             }
             Type::Tuple(elems) => Ty::Tuple(

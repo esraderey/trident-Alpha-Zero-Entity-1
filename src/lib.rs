@@ -2278,4 +2278,28 @@ fn main() {
             "v2 should have higher cost than v1, showing + delta"
         );
     }
+
+    #[test]
+    fn test_const_generic_add_expression() {
+        // Parameter type uses M + N size expression
+        let source = "program test\nfn first_of<M, N>(a: [Field; M + N]) -> Field {\n    a[0]\n}\nfn main() {\n    let a: [Field; 5] = [1, 2, 3, 4, 5]\n    let r = first_of<3, 2>(a)\n    assert(r == 1)\n}";
+        let result = compile(source, "test.tri");
+        assert!(
+            result.is_ok(),
+            "const generic add should compile: {:?}",
+            result.err()
+        );
+    }
+
+    #[test]
+    fn test_const_generic_mul_expression() {
+        // Parameter type uses N * 2 size expression
+        let source = "program test\nfn sum_pairs<N>(a: [Field; N * 2]) -> Field {\n    a[0] + a[1]\n}\nfn main() {\n    let a: [Field; 4] = [1, 2, 3, 4]\n    let r = sum_pairs<2>(a)\n    assert(r == 3)\n}";
+        let result = compile(source, "test.tri");
+        assert!(
+            result.is_ok(),
+            "const generic mul should compile: {:?}",
+            result.err()
+        );
+    }
 }

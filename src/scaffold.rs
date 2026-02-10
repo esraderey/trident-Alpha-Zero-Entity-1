@@ -4,7 +4,7 @@
 /// (`#[requires(...)]` and `#[ensures(...)]`), and empty or stub bodies.
 /// `trident generate` fills in scaffolding: TODO comments, placeholder
 /// return values, and assertion stubs that mirror the spec annotations.
-use crate::ast::{ArraySize, File, FnDef, Item, Param, Type};
+use crate::ast::{File, FnDef, Item, Param, Type};
 
 // ---------------------------------------------------------------------------
 // Public API
@@ -229,15 +229,12 @@ pub fn default_value(ty: &Type) -> String {
         Type::Digest => "0".to_string(),
         Type::Array(inner, size) => {
             let elem = default_value(inner);
-            match size {
-                ArraySize::Literal(n) => {
-                    let elems: Vec<String> = (0..*n).map(|_| elem.clone()).collect();
-                    format!("[{}]", elems.join(", "))
-                }
-                ArraySize::Param(p) => {
-                    // Cannot generate a concrete array for a generic size
-                    format!("[{}; {}]", elem, p)
-                }
+            if let Some(n) = size.as_literal() {
+                let elems: Vec<String> = (0..n).map(|_| elem.clone()).collect();
+                format!("[{}]", elems.join(", "))
+            } else {
+                // Cannot generate a concrete array for a generic/expression size
+                format!("[{}; {}]", elem, size)
             }
         }
         Type::Tuple(elems) => {
@@ -405,6 +402,7 @@ fn ensures_to_assertion(clause: &str, _ret_ty: &Type) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::ast::ArraySize;
     use crate::parse_source_silent;
 
     #[test]

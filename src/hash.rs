@@ -297,6 +297,29 @@ impl Normalizer {
 
     // ─── Type Serialization ────────────────────────────────────
 
+    fn serialize_array_size(&mut self, size: &ArraySize) {
+        match size {
+            ArraySize::Literal(n) => {
+                self.write_u8(0);
+                self.write_u32(*n as u32);
+            }
+            ArraySize::Param(name) => {
+                self.write_u8(1);
+                self.write_str(name);
+            }
+            ArraySize::Add(a, b) => {
+                self.write_u8(2);
+                self.serialize_array_size(a);
+                self.serialize_array_size(b);
+            }
+            ArraySize::Mul(a, b) => {
+                self.write_u8(3);
+                self.serialize_array_size(a);
+                self.serialize_array_size(b);
+            }
+        }
+    }
+
     fn serialize_type(&mut self, ty: &Type) {
         match ty {
             Type::Field => self.write_u8(TAG_TY_FIELD),
@@ -307,14 +330,7 @@ impl Normalizer {
             Type::Array(elem, size) => {
                 self.write_u8(TAG_TY_ARRAY);
                 self.serialize_type(elem);
-                match size {
-                    ArraySize::Literal(n) => self.write_u32(*n as u32),
-                    ArraySize::Param(name) => {
-                        // Generic param: write a marker + name
-                        self.write_u32(0xFFFFFFFF);
-                        self.write_str(name);
-                    }
-                }
+                self.serialize_array_size(size);
             }
             Type::Tuple(elems) => {
                 self.write_u8(TAG_TY_TUPLE);
@@ -599,16 +615,7 @@ impl Normalizer {
                 // Generic args
                 self.write_u16(generic_args.len() as u16);
                 for ga in generic_args {
-                    match &ga.node {
-                        ArraySize::Literal(n) => {
-                            self.write_u8(0);
-                            self.write_u32(*n as u32);
-                        }
-                        ArraySize::Param(name) => {
-                            self.write_u8(1);
-                            self.write_str(name);
-                        }
-                    }
+                    self.serialize_array_size(&ga.node);
                 }
 
                 // Args

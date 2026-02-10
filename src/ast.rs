@@ -117,19 +117,35 @@ pub struct Param {
     pub ty: Spanned<Type>,
 }
 
-/// Array size: either a compile-time literal or a generic size parameter.
+/// Array size: a compile-time expression over literals and generic size parameters.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ArraySize {
     Literal(u64),
     Param(String),
+    /// Compile-time addition: `M + N` or `N + 1`.
+    Add(Box<ArraySize>, Box<ArraySize>),
+    /// Compile-time multiplication: `M * N` or `N * 2`.
+    Mul(Box<ArraySize>, Box<ArraySize>),
 }
 
 impl ArraySize {
-    /// Return the concrete size, or `None` for unresolved params.
+    /// Return the concrete size, or `None` for unresolved params/expressions.
     pub fn as_literal(&self) -> Option<u64> {
         match self {
             ArraySize::Literal(n) => Some(*n),
+            ArraySize::Add(a, b) => Some(a.as_literal()? + b.as_literal()?),
+            ArraySize::Mul(a, b) => Some(a.as_literal()? * b.as_literal()?),
             ArraySize::Param(_) => None,
+        }
+    }
+
+    /// Evaluate with substitutions for size parameters.
+    pub fn eval(&self, subs: &std::collections::HashMap<String, u64>) -> u64 {
+        match self {
+            ArraySize::Literal(n) => *n,
+            ArraySize::Param(name) => subs.get(name).copied().unwrap_or(0),
+            ArraySize::Add(a, b) => a.eval(subs) + b.eval(subs),
+            ArraySize::Mul(a, b) => a.eval(subs) * b.eval(subs),
         }
     }
 }
@@ -139,6 +155,21 @@ impl std::fmt::Display for ArraySize {
         match self {
             ArraySize::Literal(n) => write!(f, "{}", n),
             ArraySize::Param(name) => write!(f, "{}", name),
+            ArraySize::Add(a, b) => write!(f, "{} + {}", a, b),
+            ArraySize::Mul(a, b) => {
+                // Parenthesize addition inside multiplication
+                let a_str = if matches!(a.as_ref(), ArraySize::Add(..)) {
+                    format!("({})", a)
+                } else {
+                    format!("{}", a)
+                };
+                let b_str = if matches!(b.as_ref(), ArraySize::Add(..)) {
+                    format!("({})", b)
+                } else {
+                    format!("{}", b)
+                };
+                write!(f, "{} * {}", a_str, b_str)
+            }
         }
     }
 }
