@@ -504,6 +504,271 @@ pub(crate) fn cost_builtin(name: &str) -> TableCost {
     TritonCostModel.builtin_cost(name)
 }
 
+// ─── Miden Cost Model ──────────────────────────────────────────────
+
+/// Miden VM cost model — simplified 4-table model.
+pub(crate) struct MidenCostModel;
+
+impl CostModel for MidenCostModel {
+    fn table_names(&self) -> &[&str] {
+        &["processor", "hash", "chiplets", "stack"]
+    }
+    fn table_short_names(&self) -> &[&str] {
+        &["cc", "hash", "chip", "stk"]
+    }
+    fn target_name(&self) -> &str {
+        "miden"
+    }
+
+    fn builtin_cost(&self, name: &str) -> TableCost {
+        match name {
+            "hash" | "hperm" => TableCost {
+                processor: 1,
+                hash: 8,
+                ..Default::default()
+            },
+            "split" | "u32split" => TableCost {
+                processor: 1,
+                u32_table: 16,
+                ..Default::default()
+            },
+            _ => TableCost {
+                processor: 1,
+                ..Default::default()
+            },
+        }
+    }
+
+    fn binop_cost(&self, _op: &crate::ast::BinOp) -> TableCost {
+        TableCost {
+            processor: 1,
+            op_stack: 2,
+            ..Default::default()
+        }
+    }
+
+    fn call_overhead(&self) -> TableCost {
+        TableCost {
+            processor: 2,
+            jump_stack: 2,
+            ..Default::default()
+        }
+    }
+
+    fn stack_op(&self) -> TableCost {
+        TableCost {
+            processor: 1,
+            op_stack: 1,
+            ..Default::default()
+        }
+    }
+
+    fn if_overhead(&self) -> TableCost {
+        TableCost {
+            processor: 2,
+            op_stack: 1,
+            ..Default::default()
+        }
+    }
+
+    fn loop_overhead(&self) -> TableCost {
+        TableCost {
+            processor: 3,
+            op_stack: 1,
+            ..Default::default()
+        }
+    }
+
+    fn hash_rows_per_permutation(&self) -> u64 {
+        8
+    }
+}
+
+// ─── Cycle-Based Cost Model (OpenVM, SP1) ──────────────────────────
+
+/// Generic cycle-based cost model for RISC-V backends (OpenVM, SP1).
+/// These VMs measure cost in CPU cycles rather than per-table rows.
+pub(crate) struct CycleCostModel {
+    name: &'static str,
+}
+
+impl CycleCostModel {
+    #[allow(dead_code)]
+    pub(crate) fn openvm() -> Self {
+        Self { name: "openvm" }
+    }
+    #[allow(dead_code)]
+    pub(crate) fn sp1() -> Self {
+        Self { name: "sp1" }
+    }
+}
+
+impl CostModel for CycleCostModel {
+    fn table_names(&self) -> &[&str] {
+        &["cycles"]
+    }
+    fn table_short_names(&self) -> &[&str] {
+        &["cyc"]
+    }
+    fn target_name(&self) -> &str {
+        self.name
+    }
+
+    fn builtin_cost(&self, name: &str) -> TableCost {
+        match name {
+            "hash" => TableCost {
+                processor: 400,
+                ..Default::default()
+            },
+            "sponge_init" | "sponge_absorb" | "sponge_squeeze" => TableCost {
+                processor: 200,
+                ..Default::default()
+            },
+            "merkle_step" => TableCost {
+                processor: 500,
+                ..Default::default()
+            },
+            "split" => TableCost {
+                processor: 2,
+                ..Default::default()
+            },
+            _ => TableCost {
+                processor: 1,
+                ..Default::default()
+            },
+        }
+    }
+
+    fn binop_cost(&self, _op: &crate::ast::BinOp) -> TableCost {
+        TableCost {
+            processor: 1,
+            ..Default::default()
+        }
+    }
+
+    fn call_overhead(&self) -> TableCost {
+        TableCost {
+            processor: 4,
+            ..Default::default()
+        }
+    }
+
+    fn stack_op(&self) -> TableCost {
+        TableCost {
+            processor: 1,
+            ..Default::default()
+        }
+    }
+
+    fn if_overhead(&self) -> TableCost {
+        TableCost {
+            processor: 3,
+            ..Default::default()
+        }
+    }
+
+    fn loop_overhead(&self) -> TableCost {
+        TableCost {
+            processor: 5,
+            ..Default::default()
+        }
+    }
+
+    fn hash_rows_per_permutation(&self) -> u64 {
+        1
+    }
+}
+
+// ─── Cairo Cost Model ──────────────────────────────────────────────
+
+/// Cairo cost model — measures in steps and builtin invocations.
+pub(crate) struct CairoCostModel;
+
+impl CostModel for CairoCostModel {
+    fn table_names(&self) -> &[&str] {
+        &["steps", "builtins"]
+    }
+    fn table_short_names(&self) -> &[&str] {
+        &["stp", "blt"]
+    }
+    fn target_name(&self) -> &str {
+        "cairo"
+    }
+
+    fn builtin_cost(&self, name: &str) -> TableCost {
+        match name {
+            "hash" | "pedersen" => TableCost {
+                processor: 3,
+                hash: 1,
+                ..Default::default()
+            },
+            "sponge_init" | "sponge_absorb" | "sponge_squeeze" => TableCost {
+                processor: 5,
+                hash: 1,
+                ..Default::default()
+            },
+            _ => TableCost {
+                processor: 1,
+                ..Default::default()
+            },
+        }
+    }
+
+    fn binop_cost(&self, _op: &crate::ast::BinOp) -> TableCost {
+        TableCost {
+            processor: 1,
+            ..Default::default()
+        }
+    }
+
+    fn call_overhead(&self) -> TableCost {
+        TableCost {
+            processor: 2,
+            ..Default::default()
+        }
+    }
+
+    fn stack_op(&self) -> TableCost {
+        TableCost {
+            processor: 1,
+            ..Default::default()
+        }
+    }
+
+    fn if_overhead(&self) -> TableCost {
+        TableCost {
+            processor: 2,
+            ..Default::default()
+        }
+    }
+
+    fn loop_overhead(&self) -> TableCost {
+        TableCost {
+            processor: 4,
+            ..Default::default()
+        }
+    }
+
+    fn hash_rows_per_permutation(&self) -> u64 {
+        1
+    }
+}
+
+// ─── Cost Model Factory ───────────────────────────────────────────
+
+/// Create the appropriate cost model for a target name.
+#[allow(dead_code)]
+pub(crate) fn create_cost_model(target_name: &str) -> Box<dyn CostModel> {
+    match target_name {
+        "triton" => Box::new(TritonCostModel),
+        "miden" => Box::new(MidenCostModel),
+        "openvm" => Box::new(CycleCostModel::openvm()),
+        "sp1" => Box::new(CycleCostModel::sp1()),
+        "cairo" => Box::new(CairoCostModel),
+        _ => Box::new(TritonCostModel),
+    }
+}
+
 // --- Per-function cost result ---
 
 /// Cost analysis result for a single function.

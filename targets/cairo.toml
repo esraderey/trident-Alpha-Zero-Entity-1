@@ -1,0 +1,24 @@
+[target]
+name = "cairo"
+display_name = "Cairo"
+architecture = "register"
+output_extension = ".sierra"
+
+[field]
+prime = "2^251 + 17 * 2^192 + 1"
+limbs = 4
+
+[stack]
+depth = 0
+spill_ram_base = 0
+
+[hash]
+function = "Pedersen"
+digest_width = 1
+rate = 2
+
+[extension_field]
+degree = 0
+
+[cost]
+tables = ["steps", "builtins"]

@@ -134,7 +134,7 @@ impl TargetConfig {
             format!("unknown target '{}' (looked for '{}')", name, filename),
             Span::dummy(),
         )
-        .with_help("available built-in targets: triton".to_string()))
+        .with_help("available targets: triton, miden, openvm, sp1, cairo".to_string()))
     }
 
     fn parse_toml(content: &str, path: &Path) -> Result<Self, Diagnostic> {
