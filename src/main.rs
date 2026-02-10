@@ -373,9 +373,8 @@ fn cmd_build(
     // Cost analysis, hotspots, and optimization hints
     if costs || hotspots || hints || save_costs.is_some() || compare.is_some() {
         if let Some(source_path) = find_program_source(&input) {
-            let source = std::fs::read_to_string(&source_path).unwrap_or_default();
-            let filename = source_path.to_string_lossy().to_string();
-            if let Ok(program_cost) = trident::analyze_costs(&source, &filename) {
+            let options = resolve_options(target, profile, None);
+            if let Ok(program_cost) = trident::analyze_costs_project(&source_path, &options) {
                 if costs || hotspots {
                     eprintln!("\n{}", program_cost.format_report());
                     if hotspots {
@@ -476,9 +475,8 @@ fn cmd_check(input: PathBuf, costs: bool, _target: &str, _profile: &str) {
 
     if costs {
         if let Some(source_path) = find_program_source(&input) {
-            let source = std::fs::read_to_string(&source_path).unwrap_or_default();
-            let filename = source_path.to_string_lossy().to_string();
-            if let Ok(program_cost) = trident::analyze_costs(&source, &filename) {
+            let options = trident::CompileOptions::default();
+            if let Ok(program_cost) = trident::analyze_costs_project(&source_path, &options) {
                 eprintln!("\n{}", program_cost.format_report());
             }
         }

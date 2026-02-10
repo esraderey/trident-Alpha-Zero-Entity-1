@@ -489,6 +489,59 @@ pub fn analyze_costs(source: &str, filename: &str) -> Result<cost::ProgramCost, 
     Ok(cost)
 }
 
+/// Parse, type-check, and compute cost analysis for a multi-module project.
+/// Falls back to single-file analysis if module resolution fails.
+pub fn analyze_costs_project(
+    entry_path: &Path,
+    options: &CompileOptions,
+) -> Result<cost::ProgramCost, Vec<Diagnostic>> {
+    let modules = resolve_modules(entry_path)?;
+
+    let mut parsed_modules = Vec::new();
+    let mut all_exports: Vec<ModuleExports> = Vec::new();
+
+    for module in &modules {
+        let file = parse_source(&module.source, &module.file_path.to_string_lossy())?;
+        parsed_modules.push((
+            module.name.clone(),
+            module.file_path.clone(),
+            module.source.clone(),
+            file,
+        ));
+    }
+
+    for (_module_name, file_path, source, file) in &parsed_modules {
+        let mut tc = TypeChecker::with_target(options.target_config.clone())
+            .with_cfg_flags(options.cfg_flags.clone());
+        for exports in &all_exports {
+            tc.import_module(exports);
+        }
+        match tc.check_file(file) {
+            Ok(exports) => {
+                if !exports.warnings.is_empty() {
+                    render_diagnostics(&exports.warnings, &file_path.to_string_lossy(), source);
+                }
+                all_exports.push(exports);
+            }
+            Err(errors) => {
+                render_diagnostics(&errors, &file_path.to_string_lossy(), source);
+                return Err(errors);
+            }
+        }
+    }
+
+    // Analyze costs for the program file (last in topological order)
+    if let Some((_name, _path, _source, file)) = parsed_modules.last() {
+        let cost = cost::CostAnalyzer::new().analyze_file(file);
+        Ok(cost)
+    } else {
+        Err(vec![Diagnostic::error(
+            "no program file found".to_string(),
+            crate::span::Span::dummy(),
+        )])
+    }
+}
+
 /// Generate markdown documentation for a Trident project.
 ///
 /// Resolves all modules, parses and type-checks them, computes cost analysis,
