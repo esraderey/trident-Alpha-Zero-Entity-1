@@ -1,0 +1,14 @@
+// Hand-written TASM: loop sum (16 bounded iterations)
+// Read n, loop: divine value, accumulate, write total
+    read_io 1
+    push 0
+    push 0
+    // loop body: i < n check, divine, add, increment
+loop_start:
+    dup 2 dup 1 eq skiz return
+    divine 1
+    swap 2 add swap 1
+    push 1 add
+    recurse_or_return
+    write_io 1
+    halt
