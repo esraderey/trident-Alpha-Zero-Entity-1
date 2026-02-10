@@ -200,6 +200,8 @@ module.exports = grammar({
         $.if_statement,
         $.for_statement,
         $.return_statement,
+        $.match_statement,
+        $.asm_block,
         $.emit_statement,
         $.seal_statement,
         $.assignment_statement,
@@ -266,6 +268,67 @@ module.exports = grammar({
 
     return_statement: ($) =>
       prec.left(seq("return", optional($._expression))),
+
+    match_statement: ($) =>
+      seq(
+        "match",
+        field("scrutinee", $._path_expr),
+        "{",
+        optional(commaSep1($.match_arm)),
+        optional(","),
+        "}",
+      ),
+
+    match_arm: ($) =>
+      seq(
+        field("pattern", $.match_pattern),
+        "=>",
+        field("body", $.block),
+      ),
+
+    match_pattern: ($) =>
+      choice($.integer_literal, $.boolean_literal, "_"),
+
+    asm_block: ($) =>
+      prec(
+        20,
+        seq(
+          "asm",
+          optional($.asm_annotation),
+          "{",
+          optional($.asm_body),
+          "}",
+        ),
+      ),
+
+    asm_annotation: ($) =>
+      seq(
+        "(",
+        choice(
+          // target and effect: asm(triton, +3)
+          seq(
+            field("target", $.identifier),
+            ",",
+            field("effect", $.asm_effect),
+          ),
+          // target only: asm(triton)
+          field("target", $.identifier),
+          // effect only: asm(+3) or asm(-2)
+          field("effect", $.asm_effect),
+        ),
+        ")",
+      ),
+
+    asm_effect: ($) => /[+-][0-9]+/,
+
+    asm_body: ($) => repeat1($.asm_instruction),
+
+    asm_instruction: ($) =>
+      choice(
+        $.identifier,
+        $.integer_literal,
+        $.line_comment,
+      ),
 
     emit_statement: ($) =>
       seq(

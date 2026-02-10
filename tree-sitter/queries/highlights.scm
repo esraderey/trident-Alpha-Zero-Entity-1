@@ -16,6 +16,8 @@
   "in"
   "bounded"
   "return"
+  "match"
+  "asm"
   "event"
   "emit"
   "seal"
@@ -101,6 +103,20 @@
 (event_field
   name: (identifier) @property)
 
+; Match arm patterns
+(match_pattern) @constant
+
+; Asm block target tag
+(asm_annotation
+  target: (identifier) @label)
+
+; Asm effect annotation
+(asm_effect) @number
+
+; Asm body instructions
+(asm_instruction
+  (identifier) @keyword.directive)
+
 ; Operators
 [
   "+"
@@ -114,6 +130,7 @@
   "="
   "->"
   ".."
+  "=>"
 ] @operator
 
 ; Punctuation
