@@ -191,7 +191,7 @@ fn cmd_init(name: Option<String>) {
 
 // --- trident build ---
 
-/// Resolve a target name to CompileOptions, using project targets if available.
+/// Resolve a profile name to CompileOptions, using project targets if available.
 fn resolve_target(
     target: &str,
     project: Option<&trident::project::Project>,
@@ -199,12 +199,13 @@ fn resolve_target(
     if let Some(proj) = project {
         if let Some(flags) = proj.targets.get(target) {
             return trident::CompileOptions {
-                target: target.to_string(),
+                profile: target.to_string(),
                 cfg_flags: flags.iter().cloned().collect(),
+                target_config: trident::target::TargetConfig::triton(),
             };
         }
     }
-    // Built-in targets: the target name is itself the single cfg flag
+    // Built-in profiles: the profile name is itself the single cfg flag
     trident::CompileOptions::for_target(target)
 }
 

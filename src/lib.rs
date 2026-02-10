@@ -12,6 +12,7 @@ pub mod project;
 pub mod resolve;
 pub mod span;
 pub mod stack;
+pub mod target;
 pub mod typeck;
 pub mod types;
 
@@ -25,31 +26,43 @@ use lexer::Lexer;
 use linker::{link, ModuleTasm};
 use parser::Parser;
 use resolve::resolve_modules;
+use target::TargetConfig;
 use typeck::{ModuleExports, TypeChecker};
 
-/// Options controlling conditional compilation.
+/// Options controlling compilation: VM target + conditional compilation flags.
 #[derive(Clone, Debug)]
 pub struct CompileOptions {
-    pub target: String,
+    /// Profile name for cfg flags (e.g. "debug", "release").
+    pub profile: String,
+    /// Active cfg flags for conditional compilation.
     pub cfg_flags: HashSet<String>,
+    /// Target VM configuration.
+    pub target_config: TargetConfig,
 }
 
 impl Default for CompileOptions {
     fn default() -> Self {
         Self {
-            target: "debug".to_string(),
+            profile: "debug".to_string(),
             cfg_flags: HashSet::from(["debug".to_string()]),
+            target_config: TargetConfig::triton(),
         }
     }
 }
 
 impl CompileOptions {
-    /// Create options for a named built-in target.
-    pub fn for_target(target: &str) -> Self {
+    /// Create options for a named profile (debug/release/custom).
+    pub fn for_profile(profile: &str) -> Self {
         Self {
-            target: target.to_string(),
-            cfg_flags: HashSet::from([target.to_string()]),
+            profile: profile.to_string(),
+            cfg_flags: HashSet::from([profile.to_string()]),
+            target_config: TargetConfig::triton(),
         }
+    }
+
+    /// Create options for a named built-in target (backward compat alias).
+    pub fn for_target(target: &str) -> Self {
+        Self::for_profile(target)
     }
 }
 

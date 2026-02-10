@@ -1,0 +1,27 @@
+# Triton VM target configuration
+# https://triton-vm.org/spec/
+
+[target]
+name = "triton"
+display_name = "Triton VM"
+architecture = "stack"
+output_extension = ".tasm"
+
+[field]
+prime = "2^64 - 2^32 + 1"
+limbs = 2
+
+[stack]
+depth = 16
+spill_ram_base = 1073741824  # 2^30
+
+[hash]
+function = "Tip5"
+digest_width = 5
+rate = 10
+
+[extension_field]
+degree = 3
+
+[cost]
+tables = ["processor", "hash", "u32", "op_stack", "ram", "jump_stack"]
