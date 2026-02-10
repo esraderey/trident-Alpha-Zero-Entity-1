@@ -190,7 +190,8 @@ impl TypeChecker {
     }
 
     pub fn check_file(mut self, file: &File) -> Result<ModuleExports, Vec<Diagnostic>> {
-        let is_std_module = file.name.node.starts_with("std.");
+        let is_std_module =
+            file.name.node.starts_with("std.") || file.name.node.starts_with("ext.");
 
         // First pass: register all structs, function signatures, and constants
         for item in &file.items {
@@ -216,7 +217,7 @@ impl TypeChecker {
                     if func.intrinsic.is_some() && !is_std_module {
                         self.error(
                             format!(
-                                "#[intrinsic] is only allowed in std.* modules, \
+                                "#[intrinsic] is only allowed in std.*/ext.* modules, \
                                  not in '{}'",
                                 file.name.node
                             ),

@@ -1,10 +1,10 @@
-module std.merkle
+module std.crypto.merkle
 
-use std.io
+use std.io.io
 
-use std.assert
+use std.core.assert
 
-use std.convert
+use std.core.convert
 
 // One step up a Merkle tree: given a node index and digest (as 5 Fields),
 // divine the sibling and compute the parent.

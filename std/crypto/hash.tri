@@ -1,4 +1,4 @@
-module std.hash
+module std.crypto.hash
 
 // Tip5 hash: 10 field elements -> 5-element Digest
 #[intrinsic(hash)]

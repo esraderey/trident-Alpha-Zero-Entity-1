@@ -1,4 +1,4 @@
-module std.xfield
+module ext.triton.xfield
 
 // Construct extension field element from 3 base field elements
 #[intrinsic(xfield)]

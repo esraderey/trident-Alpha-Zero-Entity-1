@@ -1,4 +1,4 @@
-module std.u32
+module std.core.u32
 
 // Floor of base-2 logarithm
 #[intrinsic(log2)]

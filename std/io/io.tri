@@ -1,4 +1,4 @@
-module std.io
+module std.io.io
 
 #[intrinsic(pub_read)]
 pub fn read() -> Field

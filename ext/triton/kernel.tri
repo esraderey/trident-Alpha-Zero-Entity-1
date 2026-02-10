@@ -1,12 +1,12 @@
-module std.kernel
+module ext.triton.kernel
 
-use std.io
+use std.io.io
 
-use std.merkle
+use std.crypto.merkle
 
-use std.assert
+use std.core.assert
 
-use std.convert
+use std.core.convert
 
 // Transaction Kernel MAST tree layout (height 3, 8 leaves):
 //   leaf 0: inputs          (Vec<RemovalRecord>)

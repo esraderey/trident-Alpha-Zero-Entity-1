@@ -72,11 +72,76 @@ pub fn find_stdlib_dir() -> Option<PathBuf> {
     None
 }
 
+/// Find the extension library directory.
+/// Search order mirrors `find_stdlib_dir` but looks for `ext/`.
+///   1. TRIDENT_EXTLIB environment variable
+///   2. `ext/` relative to the compiler binary (and ancestors)
+///   3. `ext/` in the current working directory (development)
+pub fn find_ext_dir() -> Option<PathBuf> {
+    if let Ok(p) = std::env::var("TRIDENT_EXTLIB") {
+        let path = PathBuf::from(p);
+        if path.is_dir() {
+            return Some(path);
+        }
+    }
+
+    if let Ok(exe) = std::env::current_exe() {
+        if let Some(dir) = exe.parent() {
+            let path = dir.join("ext");
+            if path.is_dir() {
+                return Some(path);
+            }
+            if let Some(parent) = dir.parent() {
+                let path = parent.join("ext");
+                if path.is_dir() {
+                    return Some(path);
+                }
+                if let Some(grandparent) = parent.parent() {
+                    let path = grandparent.join("ext");
+                    if path.is_dir() {
+                        return Some(path);
+                    }
+                }
+            }
+        }
+    }
+
+    let cwd_ext = PathBuf::from("ext");
+    if cwd_ext.is_dir() {
+        return Some(cwd_ext);
+    }
+
+    None
+}
+
+/// Legacy flat-path fallback map for backward compatibility.
+/// Maps old `std.X` names to their new layered locations.
+fn legacy_stdlib_fallback(name: &str) -> Option<&'static str> {
+    match name {
+        "std.assert" => Some("std.core.assert"),
+        "std.convert" => Some("std.core.convert"),
+        "std.field" => Some("std.core.field"),
+        "std.u32" => Some("std.core.u32"),
+        "std.io" => Some("std.io.io"),
+        "std.mem" => Some("std.io.mem"),
+        "std.storage" => Some("std.io.storage"),
+        "std.hash" => Some("std.crypto.hash"),
+        "std.merkle" => Some("std.crypto.merkle"),
+        "std.auth" => Some("std.crypto.auth"),
+        "std.xfield" => Some("ext.triton.xfield"),
+        "std.kernel" => Some("ext.triton.kernel"),
+        "std.utxo" => Some("ext.triton.utxo"),
+        _ => None,
+    }
+}
+
 struct ModuleResolver {
     /// Root directory of the project.
     root_dir: PathBuf,
     /// Standard library directory (if found).
     stdlib_dir: Option<PathBuf>,
+    /// Extension library directory (if found).
+    ext_dir: Option<PathBuf>,
     /// All discovered modules by name.
     modules: HashMap<String, ModuleInfo>,
     /// Queue of modules to process.
@@ -114,6 +179,7 @@ impl ModuleResolver {
         Ok(Self {
             root_dir,
             stdlib_dir: find_stdlib_dir(),
+            ext_dir: find_ext_dir(),
             modules,
             queue: deps,
             diagnostics: Vec::new(),
@@ -178,9 +244,14 @@ impl ModuleResolver {
     }
 
     /// Resolve a dotted module name to a file path.
-    /// "std.hash" → stdlib_dir/hash.tri
+    /// "std.core.assert" → stdlib_dir/core/assert.tri
+    /// "std.crypto.hash" → stdlib_dir/crypto/hash.tri
+    /// "ext.triton.xfield" → ext_dir/triton/xfield.tri
     /// "crypto.sponge" → root_dir/crypto/sponge.tri
     /// "merkle" → root_dir/merkle.tri
+    ///
+    /// Legacy backward compatibility: "std.hash" tries stdlib_dir/hash.tri
+    /// first, then falls back to the layered path (std.crypto.hash).
     fn resolve_path(&self, module_name: &str) -> PathBuf {
         // Validate: reject path traversal components
         let raw_parts: Vec<&str> = module_name.split('.').collect();
@@ -195,6 +266,18 @@ impl ModuleResolver {
             }
         }
 
+        // Extension modules resolve from ext_dir
+        if let Some(rest) = module_name.strip_prefix("ext.") {
+            if let Some(ref ext_dir) = self.ext_dir {
+                let parts: Vec<&str> = rest.split('.').collect();
+                let mut path = ext_dir.clone();
+                for part in &parts {
+                    path = path.join(part);
+                }
+                return path.with_extension("tri");
+            }
+        }
+
         // Standard library modules resolve from stdlib_dir
         if let Some(rest) = module_name.strip_prefix("std.") {
             if let Some(ref stdlib_dir) = self.stdlib_dir {
@@ -203,7 +286,17 @@ impl ModuleResolver {
                 for part in &parts {
                     path = path.join(part);
                 }
-                return path.with_extension("tri");
+                let candidate = path.with_extension("tri");
+                // If the layered path exists, use it
+                if candidate.exists() {
+                    return candidate;
+                }
+                // Legacy fallback: try remapped path for old flat names
+                if let Some(new_name) = legacy_stdlib_fallback(module_name) {
+                    return self.resolve_path(new_name);
+                }
+                // Return the original candidate (will fail with good error)
+                return candidate;
             }
         }
 

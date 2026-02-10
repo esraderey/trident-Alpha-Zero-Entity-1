@@ -1,4 +1,4 @@
-module std.mem
+module std.io.mem
 
 // Read one field element from RAM
 #[intrinsic(ram_read)]

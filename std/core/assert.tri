@@ -1,4 +1,4 @@
-module std.assert
+module std.core.assert
 
 // Assert condition is true (halts VM if false)
 #[intrinsic(assert)]

@@ -1,4 +1,4 @@
-module std.field
+module std.core.field
 
 // Addition: a + b (mod p)
 #[intrinsic(field_add)]
