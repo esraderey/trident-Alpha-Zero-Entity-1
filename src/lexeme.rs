@@ -50,6 +50,7 @@ pub enum Lexeme {
     Star,         // *
     StarDot,      // *.
     Lt,           // <
+    Gt,           // >
     Amp,          // &
     Caret,        // ^
     SlashPercent, // /%
@@ -147,6 +148,7 @@ impl Lexeme {
             Lexeme::Star => "'*'",
             Lexeme::StarDot => "'*.'",
             Lexeme::Lt => "'<'",
+            Lexeme::Gt => "'>'",
             Lexeme::Amp => "'&'",
             Lexeme::Caret => "'^'",
             Lexeme::SlashPercent => "'/%'",

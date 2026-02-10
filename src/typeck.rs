@@ -12,6 +12,34 @@ struct FnSig {
     return_ty: Ty,
 }
 
+/// A generic (size-parameterized) function definition, stored unresolved.
+#[derive(Clone, Debug)]
+struct GenericFnDef {
+    /// Size parameter names, e.g. `["N"]`.
+    type_params: Vec<String>,
+    /// Parameter types as AST types (may contain `ArraySize::Param`).
+    params: Vec<(String, Type)>,
+    /// Return type as AST type (may contain `ArraySize::Param`).
+    return_ty: Option<Type>,
+}
+
+/// A monomorphized instance of a generic function.
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub struct MonoInstance {
+    /// Original function name.
+    pub name: String,
+    /// Concrete size values for each type parameter.
+    pub size_args: Vec<u64>,
+}
+
+impl MonoInstance {
+    /// Mangled label: `sum` with N=3 → `__sum__N3`.
+    pub fn mangled_name(&self) -> String {
+        let suffix: Vec<String> = self.size_args.iter().map(|n| format!("{}", n)).collect();
+        format!("__{}__N{}", self.name, suffix.join("_"))
+    }
+}
+
 /// Variable info in scope.
 #[derive(Clone, Debug)]
 struct VarInfo {
@@ -30,6 +58,11 @@ pub struct ModuleExports {
     pub constants: Vec<(String, Ty, u64)>, // (name, ty, value)
     pub structs: Vec<StructTy>,            // exported struct types
     pub warnings: Vec<Diagnostic>,         // non-fatal diagnostics
+    /// Unique monomorphized instances of generic functions to emit.
+    pub mono_instances: Vec<MonoInstance>,
+    /// Per-call-site resolution: each generic call in AST order maps to a MonoInstance.
+    /// The emitter consumes these in order to know which mangled name to call.
+    pub call_resolutions: Vec<MonoInstance>,
 }
 
 pub struct TypeChecker {
@@ -47,6 +80,12 @@ pub struct TypeChecker {
     diagnostics: Vec<Diagnostic>,
     /// Variables proven to be in U32 range (via as_u32, split, or U32 type).
     u32_proven: HashSet<String>,
+    /// Generic (size-parameterized) function definitions.
+    generic_fns: HashMap<String, GenericFnDef>,
+    /// Unique monomorphized instances collected during type checking.
+    mono_instances: Vec<MonoInstance>,
+    /// Per-call-site resolutions in AST walk order.
+    call_resolutions: Vec<MonoInstance>,
 }
 
 impl Default for TypeChecker {
@@ -65,6 +104,9 @@ impl TypeChecker {
             events: HashMap::new(),
             diagnostics: Vec::new(),
             u32_proven: HashSet::new(),
+            generic_fns: HashMap::new(),
+            mono_instances: Vec::new(),
+            call_resolutions: Vec::new(),
         };
         tc.register_builtins();
         tc
@@ -143,18 +185,33 @@ impl TypeChecker {
                             func.name.span,
                         );
                     }
-                    let params: Vec<(String, Ty)> = func
-                        .params
-                        .iter()
-                        .map(|p| (p.name.node.clone(), self.resolve_type(&p.ty.node)))
-                        .collect();
-                    let return_ty = func
-                        .return_ty
-                        .as_ref()
-                        .map(|t| self.resolve_type(&t.node))
-                        .unwrap_or(Ty::Unit);
-                    self.functions
-                        .insert(func.name.node.clone(), FnSig { params, return_ty });
+                    if func.type_params.is_empty() {
+                        // Non-generic function: resolve immediately.
+                        let params: Vec<(String, Ty)> = func
+                            .params
+                            .iter()
+                            .map(|p| (p.name.node.clone(), self.resolve_type(&p.ty.node)))
+                            .collect();
+                        let return_ty = func
+                            .return_ty
+                            .as_ref()
+                            .map(|t| self.resolve_type(&t.node))
+                            .unwrap_or(Ty::Unit);
+                        self.functions
+                            .insert(func.name.node.clone(), FnSig { params, return_ty });
+                    } else {
+                        // Generic function: store unresolved for monomorphization.
+                        let gdef = GenericFnDef {
+                            type_params: func.type_params.iter().map(|p| p.node.clone()).collect(),
+                            params: func
+                                .params
+                                .iter()
+                                .map(|p| (p.name.node.clone(), p.ty.node.clone()))
+                                .collect(),
+                            return_ty: func.return_ty.as_ref().map(|t| t.node.clone()),
+                        };
+                        self.generic_fns.insert(func.name.node.clone(), gdef);
+                    }
                 }
                 Item::Const(cdef) => {
                     if let Expr::Literal(Literal::Integer(v)) = &cdef.value.node {
@@ -276,6 +333,8 @@ impl TypeChecker {
                 constants: exported_consts,
                 structs: exported_structs,
                 warnings: self.diagnostics,
+                mono_instances: self.mono_instances,
+                call_resolutions: self.call_resolutions,
             })
         }
     }
@@ -452,7 +511,7 @@ impl TypeChecker {
 
     fn collect_used_modules_expr(expr: &Expr, used: &mut HashSet<String>) {
         match expr {
-            Expr::Call { path, args } => {
+            Expr::Call { path, args, .. } => {
                 let dotted = path.node.as_dotted();
                 // "module.func" → module is used
                 if let Some(dot_pos) = dotted.rfind('.') {
@@ -498,7 +557,7 @@ impl TypeChecker {
 
     fn collect_calls_expr(expr: &Expr, calls: &mut Vec<String>) {
         match expr {
-            Expr::Call { path, args } => {
+            Expr::Call { path, args, .. } => {
                 // Extract the function name (last segment for cross-module calls)
                 let dotted = path.node.as_dotted();
                 let fn_name = dotted.rsplit('.').next().unwrap_or(&dotted);
@@ -531,6 +590,9 @@ impl TypeChecker {
     fn check_fn(&mut self, func: &FnDef) {
         if func.body.is_none() {
             return; // intrinsic, no body to check
+        }
+        if !func.type_params.is_empty() {
+            return; // generic — body checked per monomorphized instance
         }
 
         self.push_scope();
@@ -582,7 +644,7 @@ impl TypeChecker {
             Stmt::Return(_) => true,
             // assert(false) is an unconditional halt
             Stmt::Expr(expr) => {
-                if let Expr::Call { path, args } = &expr.node {
+                if let Expr::Call { path, args, .. } = &expr.node {
                     let name = path.node.as_dotted();
                     if (name == "assert" || name == "assert.is_true") && args.len() == 1 {
                         if let Expr::Literal(Literal::Bool(false)) = &args[0].node {
@@ -918,14 +980,124 @@ impl TypeChecker {
                 let rhs_ty = self.check_expr(&rhs.node, rhs.span);
                 self.check_binop(*op, &lhs_ty, &rhs_ty, span)
             }
-            Expr::Call { path, args } => {
+            Expr::Call {
+                path,
+                generic_args,
+                args,
+            } => {
                 let fn_name = path.node.as_dotted();
                 let arg_tys: Vec<Ty> = args
                     .iter()
                     .map(|a| self.check_expr(&a.node, a.span))
                     .collect();
 
-                if let Some(sig) = self.functions.get(&fn_name).cloned() {
+                // Check if this is a generic function call.
+                if let Some(gdef) = self.generic_fns.get(&fn_name).cloned() {
+                    // Resolve size arguments: explicit or inferred.
+                    let size_args = if !generic_args.is_empty() {
+                        // Explicit: sum<3>(...)
+                        if generic_args.len() != gdef.type_params.len() {
+                            self.error(
+                                format!(
+                                    "function '{}' expects {} size parameters, got {}",
+                                    fn_name,
+                                    gdef.type_params.len(),
+                                    generic_args.len()
+                                ),
+                                span,
+                            );
+                            return Ty::Field;
+                        }
+                        let mut sizes = Vec::new();
+                        for ga in generic_args {
+                            match &ga.node {
+                                ArraySize::Literal(n) => sizes.push(*n),
+                                ArraySize::Param(name) => {
+                                    self.error(
+                                        format!("expected concrete size, got parameter '{}'", name),
+                                        ga.span,
+                                    );
+                                    sizes.push(0);
+                                }
+                            }
+                        }
+                        sizes
+                    } else {
+                        // Infer from argument types.
+                        self.infer_size_args(&gdef, &arg_tys, span)
+                    };
+
+                    // Build substitution map.
+                    let mut subs = HashMap::new();
+                    for (param_name, size_val) in gdef.type_params.iter().zip(size_args.iter()) {
+                        subs.insert(param_name.clone(), *size_val);
+                    }
+
+                    // Monomorphize the signature.
+                    let params: Vec<(String, Ty)> = gdef
+                        .params
+                        .iter()
+                        .map(|(name, ty)| (name.clone(), self.resolve_type_with_subs(ty, &subs)))
+                        .collect();
+                    let return_ty = gdef
+                        .return_ty
+                        .as_ref()
+                        .map(|t| self.resolve_type_with_subs(t, &subs))
+                        .unwrap_or(Ty::Unit);
+
+                    // Type-check arguments against the monomorphized signature.
+                    if arg_tys.len() != params.len() {
+                        self.error(
+                            format!(
+                                "function '{}' expects {} arguments, got {}",
+                                fn_name,
+                                params.len(),
+                                arg_tys.len()
+                            ),
+                            span,
+                        );
+                    } else {
+                        for (i, ((_, expected), actual)) in
+                            params.iter().zip(arg_tys.iter()).enumerate()
+                        {
+                            if expected != actual {
+                                self.error(
+                                    format!(
+                                        "argument {} of '{}': expected {} but got {}",
+                                        i + 1,
+                                        fn_name,
+                                        expected.display(),
+                                        actual.display()
+                                    ),
+                                    args[i].span,
+                                );
+                            }
+                        }
+                    }
+
+                    // Record this monomorphized instance.
+                    let instance = MonoInstance {
+                        name: fn_name.clone(),
+                        size_args: size_args.clone(),
+                    };
+                    if !self.mono_instances.contains(&instance) {
+                        self.mono_instances.push(instance.clone());
+                    }
+                    // Record per-call-site resolution for the emitter.
+                    self.call_resolutions.push(instance);
+
+                    return_ty
+                } else if let Some(sig) = self.functions.get(&fn_name).cloned() {
+                    // Non-generic function call — existing logic.
+                    if !generic_args.is_empty() {
+                        self.error(
+                            format!(
+                                "function '{}' is not generic but called with size arguments",
+                                fn_name
+                            ),
+                            span,
+                        );
+                    }
                     if arg_tys.len() != sig.params.len() {
                         self.error(
                             format!(
@@ -1213,23 +1385,83 @@ impl TypeChecker {
             || matches!(expr, Expr::Var(name) if self.constants.contains_key(name))
     }
 
+    /// Infer size arguments for a generic function from argument types.
+    /// E.g. if param is `[Field; N]` and arg type is `[Field; 5]`, infer N=5.
+    fn infer_size_args(&mut self, gdef: &GenericFnDef, arg_tys: &[Ty], span: Span) -> Vec<u64> {
+        let mut subs: HashMap<String, u64> = HashMap::new();
+
+        for ((_, param_ty), arg_ty) in gdef.params.iter().zip(arg_tys.iter()) {
+            Self::unify_sizes(param_ty, arg_ty, &mut subs);
+        }
+
+        let mut result = Vec::new();
+        for param_name in &gdef.type_params {
+            if let Some(&val) = subs.get(param_name) {
+                result.push(val);
+            } else {
+                self.error(
+                    format!(
+                        "cannot infer size parameter '{}'; provide explicit size argument",
+                        param_name
+                    ),
+                    span,
+                );
+                result.push(0);
+            }
+        }
+        result
+    }
+
+    /// Recursively match an AST type pattern against a concrete Ty to extract
+    /// size parameter bindings. E.g. `[Field; N]` vs `[Field; 5]` → N=5.
+    fn unify_sizes(pattern: &Type, concrete: &Ty, subs: &mut HashMap<String, u64>) {
+        match (pattern, concrete) {
+            (Type::Array(inner_pat, ArraySize::Param(name)), Ty::Array(inner_ty, size)) => {
+                subs.insert(name.clone(), *size);
+                Self::unify_sizes(inner_pat, inner_ty, subs);
+            }
+            (Type::Array(inner_pat, _), Ty::Array(inner_ty, _)) => {
+                Self::unify_sizes(inner_pat, inner_ty, subs);
+            }
+            (Type::Tuple(pats), Ty::Tuple(tys)) => {
+                for (p, t) in pats.iter().zip(tys.iter()) {
+                    Self::unify_sizes(p, t, subs);
+                }
+            }
+            _ => {}
+        }
+    }
+
     fn resolve_type(&self, ty: &Type) -> Ty {
+        self.resolve_type_with_subs(ty, &HashMap::new())
+    }
+
+    /// Resolve an AST type to a semantic type, substituting size parameters.
+    fn resolve_type_with_subs(&self, ty: &Type, subs: &HashMap<String, u64>) -> Ty {
         match ty {
             Type::Field => Ty::Field,
             Type::XField => Ty::XField,
             Type::Bool => Ty::Bool,
             Type::U32 => Ty::U32,
             Type::Digest => Ty::Digest,
-            Type::Array(inner, n) => Ty::Array(Box::new(self.resolve_type(inner)), *n),
-            Type::Tuple(elems) => Ty::Tuple(elems.iter().map(|t| self.resolve_type(t)).collect()),
+            Type::Array(inner, n) => {
+                let size = match n {
+                    ArraySize::Literal(v) => *v,
+                    ArraySize::Param(name) => subs.get(name).copied().unwrap_or(0),
+                };
+                Ty::Array(Box::new(self.resolve_type_with_subs(inner, subs)), size)
+            }
+            Type::Tuple(elems) => Ty::Tuple(
+                elems
+                    .iter()
+                    .map(|t| self.resolve_type_with_subs(t, subs))
+                    .collect(),
+            ),
             Type::Named(path) => {
                 let name = path.as_dotted();
                 if let Some(sty) = self.structs.get(&name) {
                     Ty::Struct(sty.clone())
                 } else {
-                    // Unknown named type — treated as Field to allow forward
-                    // references in type annotations, but struct init/field access
-                    // will catch actual errors downstream.
                     Ty::Field
                 }
             }
@@ -1849,5 +2081,90 @@ mod tests {
         let result =
             check("program test\nfn main() {\n    asm(+1) { push 42 }\n    asm(-1) { pop 1 }\n}");
         assert!(result.is_ok(), "asm with effect should type check");
+    }
+
+    // --- Size-generic function tests ---
+
+    #[test]
+    fn test_generic_fn_explicit_size_arg() {
+        let result = check(
+            "program test\nfn sum<N>(arr: [Field; N]) -> Field {\n    arr[0]\n}\nfn main() {\n    let a: [Field; 3] = [1, 2, 3]\n    let s: Field = sum<3>(a)\n    pub_write(s)\n}",
+        );
+        assert!(
+            result.is_ok(),
+            "explicit size arg should type check: {:?}",
+            result.err()
+        );
+    }
+
+    #[test]
+    fn test_generic_fn_inferred_size() {
+        let result = check(
+            "program test\nfn first<N>(arr: [Field; N]) -> Field {\n    arr[0]\n}\nfn main() {\n    let a: [Field; 3] = [1, 2, 3]\n    let f: Field = first(a)\n    pub_write(f)\n}",
+        );
+        assert!(
+            result.is_ok(),
+            "inferred size arg should type check: {:?}",
+            result.err()
+        );
+    }
+
+    #[test]
+    fn test_generic_fn_wrong_size_arg() {
+        // Call sum<2> with a [Field; 3] — should fail type check
+        let result = check(
+            "program test\nfn sum<N>(arr: [Field; N]) -> Field {\n    arr[0]\n}\nfn main() {\n    let a: [Field; 3] = [1, 2, 3]\n    let s: Field = sum<2>(a)\n}",
+        );
+        assert!(
+            result.is_err(),
+            "mismatched size arg should fail type check"
+        );
+    }
+
+    #[test]
+    fn test_generic_fn_wrong_param_count() {
+        // Function has 1 size param but call provides 2
+        let result = check(
+            "program test\nfn sum<N>(arr: [Field; N]) -> Field {\n    arr[0]\n}\nfn main() {\n    let a: [Field; 3] = [1, 2, 3]\n    let s: Field = sum<3, 5>(a)\n}",
+        );
+        assert!(result.is_err(), "wrong number of size params should fail");
+    }
+
+    #[test]
+    fn test_generic_fn_records_mono_instance() {
+        let result = check(
+            "program test\nfn id<N>(arr: [Field; N]) -> [Field; N] {\n    arr\n}\nfn main() {\n    let a: [Field; 3] = [1, 2, 3]\n    let b: [Field; 3] = id<3>(a)\n}",
+        );
+        assert!(result.is_ok());
+        let exports = result.unwrap();
+        assert_eq!(exports.mono_instances.len(), 1);
+        assert_eq!(exports.mono_instances[0].name, "id");
+        assert_eq!(exports.mono_instances[0].size_args, vec![3]);
+    }
+
+    #[test]
+    fn test_generic_fn_multiple_instantiations() {
+        let result = check(
+            "program test\nfn first<N>(arr: [Field; N]) -> Field {\n    arr[0]\n}\nfn main() {\n    let a: [Field; 3] = [1, 2, 3]\n    let b: [Field; 5] = [1, 2, 3, 4, 5]\n    let x: Field = first<3>(a)\n    let y: Field = first<5>(b)\n    pub_write(x + y)\n}",
+        );
+        assert!(result.is_ok());
+        let exports = result.unwrap();
+        assert_eq!(
+            exports.mono_instances.len(),
+            2,
+            "should have 2 distinct instantiations"
+        );
+    }
+
+    #[test]
+    fn test_generic_fn_non_generic_with_size_args_fails() {
+        // Calling a non-generic function with size args should error
+        let result = check(
+            "program test\nfn add(a: Field, b: Field) -> Field {\n    a + b\n}\nfn main() {\n    let x: Field = add<3>(1, 2)\n}",
+        );
+        assert!(
+            result.is_err(),
+            "non-generic fn called with size args should fail"
+        );
     }
 }

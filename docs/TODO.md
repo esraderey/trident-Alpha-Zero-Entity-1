@@ -1,21 +1,17 @@
 # Trident Development Plan
 
-197 tests. 0 warnings. Core complete.
+238 tests. 0 warnings. Core complete.
 
 ---
 
 ## Compiler
 
-- [ ] Size-generic functions: `fn sum<N>(arr: [Field; N]) -> Field`
-- [ ] Inline TASM: `asm { push 1 add }` with type annotations
+- [x] Size-generic functions: `fn sum<N>(arr: [Field; N]) -> Field`
+- [x] Inline TASM: `asm { push 1 add }` with type annotations
 - [ ] Conditional compilation: debug/release proving targets
 - [ ] Pattern matching: syntactic sugar over nested if/else
 
-## Standard Library
 
-- [ ] Gadget library: SHA-256, Keccak, secp256k1, BLS12-381
-- [ ] Recursive STARK verifier via xx_dot_step/xb_dot_step
-- [ ] Bridge validators: Bitcoin and Ethereum light clients
 
 ## CLI
 
@@ -53,6 +49,12 @@
 - [ ] Package manager
 - [ ] Browser extension integration library
 - [ ] Browser extension
+
+## Standard Library
+
+- [ ] Gadget library: SHA-256, Keccak, secp256k1, BLS12-381
+- [ ] Recursive STARK verifier via xx_dot_step/xb_dot_step
+- [ ] Bridge validators: Bitcoin and Ethereum light clients
 
 ## Verification
 

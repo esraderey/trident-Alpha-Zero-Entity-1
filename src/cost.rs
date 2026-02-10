@@ -777,7 +777,7 @@ impl CostAnalyzer {
                 let rhs_cost = self.cost_expr(&rhs.node);
                 lhs_cost.add(&rhs_cost).add(&cost_binop(op))
             }
-            Expr::Call { path, args } => {
+            Expr::Call { path, args, .. } => {
                 let fn_name = path.node.as_dotted();
                 let args_cost = args
                     .iter()

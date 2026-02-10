@@ -95,6 +95,8 @@ pub struct FnDef {
     pub is_pub: bool,
     pub intrinsic: Option<Spanned<String>>,
     pub name: Spanned<String>,
+    /// Size-generic parameters, e.g. `<N>` in `fn sum<N>(arr: [Field; N])`.
+    pub type_params: Vec<Spanned<String>>,
     pub params: Vec<Param>,
     pub return_ty: Option<Spanned<Type>>,
     pub body: Option<Spanned<Block>>,
@@ -106,6 +108,32 @@ pub struct Param {
     pub ty: Spanned<Type>,
 }
 
+/// Array size: either a compile-time literal or a generic size parameter.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum ArraySize {
+    Literal(u64),
+    Param(String),
+}
+
+impl ArraySize {
+    /// Return the concrete size, or `None` for unresolved params.
+    pub fn as_literal(&self) -> Option<u64> {
+        match self {
+            ArraySize::Literal(n) => Some(*n),
+            ArraySize::Param(_) => None,
+        }
+    }
+}
+
+impl std::fmt::Display for ArraySize {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ArraySize::Literal(n) => write!(f, "{}", n),
+            ArraySize::Param(name) => write!(f, "{}", name),
+        }
+    }
+}
+
 /// Syntactic types (as written in source).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Type {
@@ -114,7 +142,7 @@ pub enum Type {
     Bool,
     U32,
     Digest,
-    Array(Box<Type>, u64),
+    Array(Box<Type>, ArraySize),
     Tuple(Vec<Type>),
     Named(ModulePath),
 }
@@ -200,6 +228,8 @@ pub enum Expr {
     },
     Call {
         path: Spanned<ModulePath>,
+        /// Explicit size-generic arguments, e.g. `sum<3>(...)`.
+        generic_args: Vec<Spanned<ArraySize>>,
         args: Vec<Spanned<Expr>>,
     },
     FieldAccess {

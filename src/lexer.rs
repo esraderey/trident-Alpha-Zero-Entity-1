@@ -243,6 +243,7 @@ impl<'src> Lexer<'src> {
             b';' => Lexeme::Semicolon,
             b'+' => Lexeme::Plus,
             b'<' => Lexeme::Lt,
+            b'>' => Lexeme::Gt,
             b'&' => Lexeme::Amp,
             b'^' => Lexeme::Caret,
             b'#' => Lexeme::Hash,

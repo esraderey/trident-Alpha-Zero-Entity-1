@@ -353,6 +353,65 @@ const GENERATOR: Field = 7
 
 Constants are inlined at compile time. No runtime cost. Constants can be `pub` for cross-module use.
 
+### 5.4 Size-Generic Functions
+
+Functions can be parameterized over array sizes using compile-time size parameters:
+
+```
+fn sum<N>(arr: [Field; N]) -> Field {
+    let mut total: Field = 0
+    for i in 0..N {
+        total = total + arr[i]
+    }
+    total
+}
+```
+
+Size parameters appear in angle brackets after the function name. They can be used anywhere an array size is expected in the function signature and body. Only integer size parameters are supported — Trident has no type-level generics (see Section 14).
+
+**Explicit size arguments:**
+
+```
+let a: [Field; 3] = [1, 2, 3]
+let total: Field = sum<3>(a)
+```
+
+**Inferred size arguments:**
+
+```
+let a: [Field; 3] = [1, 2, 3]
+let total: Field = sum(a)       // N=3 inferred from argument type
+```
+
+When the size argument is omitted, the compiler infers it by matching the concrete argument types against the generic parameter types. If `arr` has type `[Field; 5]` and the parameter expects `[Field; N]`, the compiler deduces `N=5`.
+
+**Monomorphization.** Each unique combination of size arguments produces a specialized copy of the function at compile time. Calling `sum<3>(...)` and `sum<5>(...)` in the same program emits two distinct TASM functions (`__sum__N3` and `__sum__N5`). There is no runtime dispatch.
+
+```
+fn first<N>(arr: [Field; N]) -> Field {
+    arr[0]
+}
+
+fn main() {
+    let a: [Field; 3] = [1, 2, 3]
+    let b: [Field; 5] = [10, 20, 30, 40, 50]
+    let x: Field = first(a)    // emits __first__N3
+    let y: Field = first(b)    // emits __first__N5
+}
+```
+
+**Multiple size parameters:**
+
+```
+fn concat<M, N>(a: [Field; M], b: [Field; N]) -> [Field; ???] {
+    // not yet supported — return type cannot reference M+N
+}
+```
+
+Currently, size parameters can only appear as standalone array sizes, not in arithmetic expressions. Size-dependent return types require computed size expressions, which are not yet supported.
+
+**Design rationale:** Size-generic functions solve the most common source of code duplication in Triton VM programs — array-processing functions that differ only in length. Full type-level generics (like Rust's `<T>`) are permanently excluded (Section 14) because they would require trait resolution, vtables or monomorphization over types, and significantly complicate the compiler. Size parameters are the minimal extension that covers the practical need.
+
 ---
 
 ## 6. Expressions and Operators
@@ -568,6 +627,55 @@ fn xb_dot_step(acc: XField, ptr_a: Field, ptr_b: Field)
     -> (XField, Field, Field)
     // → TASM: xb_dot_step
 ```
+
+### 8.5 Inline TASM
+
+For cases where hand-written assembly is needed — performance-critical inner loops, access to new VM instructions not yet exposed as builtins, or precise stack manipulation — Trident provides an inline assembly escape hatch:
+
+```
+fn double_top() {
+    asm { dup 0 add }
+}
+```
+
+The `asm` block contains raw TASM instructions that are emitted verbatim into the output. The compiler does not parse, validate, or optimize the assembly contents.
+
+**Stack effect annotations.** By default, the compiler assumes an `asm` block has zero net stack effect (pushes and pops cancel out). If the block changes the stack height, declare the effect explicitly:
+
+```
+fn push_magic() -> Field {
+    asm(+1) { push 42 }        // pushes one element
+}
+
+fn consume_two(a: Field, b: Field) {
+    asm(-2) { pop 1 pop 1 }    // pops two elements
+}
+```
+
+The annotation `(+N)` or `(-N)` declares the net change in stack depth. The compiler uses this to track stack layout correctly across `asm` boundaries.
+
+**Interleaving with Trident code.** Inline assembly can appear between regular statements:
+
+```
+fn example() {
+    let x: Field = pub_read()
+    asm { dup 0 add }           // doubles top of stack
+    pub_write(x)
+}
+```
+
+**When to use inline TASM:**
+
+- Accessing VM instructions not yet exposed as Trident builtins
+- Hand-optimizing a proven hot loop
+- Implementing new intrinsics during language development
+
+**When not to use it:**
+
+- For anything the language already supports — prefer Trident syntax for auditability
+- In security-critical code where formal verification of the Trident→TASM mapping matters
+
+**Design rationale:** Every Triton VM language eventually needs an escape hatch. By providing one explicitly with mandatory stack effect declarations, the compiler can continue tracking types and stack layout across inline blocks rather than giving up entirely. The effect annotation is the minimal contract between hand-written assembly and the compiler's stack model.
 
 ---
 
@@ -1284,8 +1392,8 @@ These are **design decisions**, not roadmap items:
 
 ### 14.1 Possible Future Additions (post-v1.0)
 
-- **Size-generic functions**: parameterized over array sizes (not types), e.g., `fn sum(arr: [Field; N]) -> Field`
-- **Inline TASM**: escape hatch for hand-optimization (explicit opt-in)
+- ~~**Size-generic functions**~~: implemented — see Section 5.4
+- ~~**Inline TASM**~~: implemented — see Section 8.5
 - **Pattern matching**: syntactic sugar over nested if/else
 - **Package registry**: when the ecosystem justifies it
 - **Conditional compilation**: for debug/release proving targets
@@ -1317,21 +1425,25 @@ const_decl    = "pub"? "const" IDENT ":" type "=" expr ;
 struct_def    = "pub"? "struct" IDENT "{" struct_fields "}" ;
 struct_fields = struct_field ("," struct_field)* ","? ;
 struct_field  = "pub"? IDENT ":" type ;
-fn_def        = "pub"? attribute? "fn" IDENT "(" params? ")" ("->" type)? block ;
+fn_def        = "pub"? attribute? "fn" IDENT type_params? "(" params? ")" ("->" type)? block ;
+type_params   = "<" IDENT ("," IDENT)* ">" ;
 attribute     = "#[" IDENT "(" IDENT ")" "]" ;    (* only #[intrinsic(...)] *)
 params        = param ("," param)* ;
 param         = IDENT ":" type ;
 
 (* Types *)
 type          = "Field" | "XField" | "Bool" | "U32" | "Digest"
-              | "[" type ";" INTEGER "]"
+              | "[" type ";" array_size "]"
               | "(" type ("," type)* ")"
               | module_path ;
+array_size    = INTEGER | IDENT ;                  (* IDENT for size params *)
 
 (* Blocks and Statements *)
 block         = "{" statement* expr? "}" ;
 statement     = let_stmt | assign_stmt | if_stmt | for_stmt
-              | assert_stmt | expr_stmt | return_stmt ;
+              | assert_stmt | asm_stmt | expr_stmt | return_stmt ;
+asm_stmt      = "asm" asm_effect? "{" TASM_BODY "}" ;
+asm_effect    = "(" ("+" | "-") INTEGER ")" ;
 let_stmt      = "let" "mut"? IDENT (":" type)? "=" expr ;
 assign_stmt   = place "=" expr ;
 place         = IDENT | place "." IDENT | place "[" expr "]" ;
@@ -1348,7 +1460,8 @@ expr          = literal | place | bin_op | call | struct_init
               | array_init | tuple_expr | block ;
 bin_op        = expr ("+" | "*" | "==" | "<" | "&" | "^" | "/%"
               | "*." ) expr ;
-call          = module_path "(" (expr ("," expr)*)? ")" ;
+call          = module_path generic_args? "(" (expr ("," expr)*)? ")" ;
+generic_args  = "<" array_size ("," array_size)* ">" ;
 struct_init   = module_path "{" (IDENT ":" expr ",")* "}" ;
 array_init    = "[" (expr ("," expr)*)? "]" ;
 tuple_expr    = "(" expr ("," expr)+ ")" ;
@@ -1460,6 +1573,8 @@ Trident is successful if:
 | `fn call` | `call` + `return` | body + 2 |
 | `if cond { }` | `skiz` + jump | body + 2-3 |
 | `module.fn()` | `call` (resolved address) | body + 2 |
+| `fn_name<N>(...)` | `call` (monomorphized label) | body + 2 |
+| `asm { ... }` | verbatim TASM | varies |
 
 ---
 
@@ -1476,10 +1591,10 @@ Trident is successful if:
 | Loop model | Bounded only | Bounded + gas | Bounded | Unbounded | Bounded |
 | Heap | No | Yes | No | No | No |
 | Recursion | No | Yes | No | No | No |
-| Generics | No | Yes | Yes | No | Yes |
+| Generics | Size only | Yes | Yes | No | Yes |
 | Post-quantum | Yes | Partial | No | No | No |
 | Cost visible | Yes | Yes (gas) | No | Yes (gas) | No |
-| Inline asm | No (v1) | No | No | No | No |
+| Inline asm | Yes | No | No | No | No |
 
 ---
 

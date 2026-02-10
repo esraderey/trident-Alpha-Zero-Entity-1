@@ -31,16 +31,19 @@ pub fn compile(source: &str, filename: &str) -> Result<String, Vec<Diagnostic>> 
     let file = parse_source(source, filename)?;
 
     // Type check
-    match TypeChecker::new().check_file(&file) {
-        Ok(_) => {}
+    let exports = match TypeChecker::new().check_file(&file) {
+        Ok(exports) => exports,
         Err(errors) => {
             render_diagnostics(&errors, filename, source);
             return Err(errors);
         }
-    }
+    };
 
     // Emit TASM
-    let tasm = Emitter::new().emit_file(&file);
+    let tasm = Emitter::new()
+        .with_mono_instances(exports.mono_instances)
+        .with_call_resolutions(exports.call_resolutions)
+        .emit_file(&file);
     Ok(tasm)
 }
 
@@ -146,12 +149,22 @@ pub fn compile_project(entry_path: &Path) -> Result<String, Vec<Diagnostic>> {
 
     // Emit TASM for each module
     let mut tasm_modules = Vec::new();
-    for (_module_name, _file_path, _source, file) in &parsed_modules {
+    for (i, (_module_name, _file_path, _source, file)) in parsed_modules.iter().enumerate() {
         let is_program = file.kind == FileKind::Program;
+        let mono = all_exports
+            .get(i)
+            .map(|e| e.mono_instances.clone())
+            .unwrap_or_default();
+        let call_res = all_exports
+            .get(i)
+            .map(|e| e.call_resolutions.clone())
+            .unwrap_or_default();
         let tasm = Emitter::new()
             .with_intrinsics(intrinsic_map.clone())
             .with_module_aliases(module_aliases.clone())
             .with_constants(external_constants.clone())
+            .with_mono_instances(mono)
+            .with_call_resolutions(call_res)
             .emit_file(file);
         tasm_modules.push(ModuleTasm {
             module_name: file.name.node.clone(),
@@ -799,5 +812,154 @@ fn main() {
         let source = "program test\nfn main( {\n}";
         let result = parse_source_silent(source, "test.tri");
         assert!(result.is_err());
+    }
+
+    // --- Size-generic function integration tests ---
+
+    #[test]
+    fn test_generic_fn_compile_explicit() {
+        let source = r#"program test
+
+fn first<N>(arr: [Field; N]) -> Field {
+    arr[0]
+}
+
+fn main() {
+    let a: [Field; 3] = [1, 2, 3]
+    let s: Field = first<3>(a)
+    pub_write(s)
+}
+"#;
+        let result = compile(source, "test.tri");
+        assert!(
+            result.is_ok(),
+            "generic fn should compile: {:?}",
+            result.err()
+        );
+        let tasm = result.unwrap();
+        assert!(
+            tasm.contains("__first__N3:"),
+            "should emit monomorphized label"
+        );
+    }
+
+    #[test]
+    fn test_generic_fn_compile_inferred() {
+        let source = r#"program test
+
+fn first<N>(arr: [Field; N]) -> Field {
+    arr[0]
+}
+
+fn main() {
+    let a: [Field; 3] = [1, 2, 3]
+    let s: Field = first(a)
+    pub_write(s)
+}
+"#;
+        let result = compile(source, "test.tri");
+        assert!(
+            result.is_ok(),
+            "generic fn with inference should compile: {:?}",
+            result.err()
+        );
+    }
+
+    #[test]
+    fn test_generic_fn_type_error() {
+        let source = r#"program test
+
+fn first<N>(arr: [Field; N]) -> Field {
+    arr[0]
+}
+
+fn main() {
+    let a: [Field; 3] = [1, 2, 3]
+    let s: Field = first<5>(a)
+}
+"#;
+        let result = compile(source, "test.tri");
+        assert!(result.is_err(), "wrong size arg should fail compilation");
+    }
+
+    #[test]
+    fn test_generic_fn_multiple_instantiations_compile() {
+        let source = r#"program test
+
+fn first<N>(arr: [Field; N]) -> Field {
+    arr[0]
+}
+
+fn main() {
+    let a: [Field; 3] = [1, 2, 3]
+    let b: [Field; 5] = [1, 2, 3, 4, 5]
+    pub_write(first<3>(a) + first<5>(b))
+}
+"#;
+        let result = compile(source, "test.tri");
+        assert!(
+            result.is_ok(),
+            "multiple instantiations should compile: {:?}",
+            result.err()
+        );
+        let tasm = result.unwrap();
+        assert!(tasm.contains("__first__N3:"));
+        assert!(tasm.contains("__first__N5:"));
+    }
+
+    #[test]
+    fn test_generic_fn_existing_code_unaffected() {
+        // Non-generic code should still work exactly as before
+        let source = r#"program test
+
+fn add(a: Field, b: Field) -> Field {
+    a + b
+}
+
+fn main() {
+    let x: Field = pub_read()
+    let y: Field = pub_read()
+    pub_write(add(x, y))
+}
+"#;
+        let result = compile(source, "test.tri");
+        assert!(result.is_ok());
+        let tasm = result.unwrap();
+        assert!(tasm.contains("call __add"));
+        assert!(tasm.contains("__add:"));
+    }
+
+    #[test]
+    fn test_generic_fn_check_only() {
+        let source = r#"program test
+
+fn sum<N>(arr: [Field; N]) -> Field {
+    arr[0]
+}
+
+fn main() {
+    let a: [Field; 3] = [1, 2, 3]
+    let s: Field = sum<3>(a)
+    pub_write(s)
+}
+"#;
+        assert!(
+            check(source, "test.tri").is_ok(),
+            "type-check only should work"
+        );
+    }
+
+    #[test]
+    fn test_generic_fn_format_roundtrip() {
+        let source = "program test\n\nfn first<N>(arr: [Field; N]) -> Field {\n    arr[0]\n}\n\nfn main() {\n    let a: [Field; 3] = [1, 2, 3]\n    let s: Field = first<3>(a)\n    pub_write(s)\n}\n";
+        let formatted = format_source(source, "test.tri").expect("should format");
+        assert!(
+            formatted.contains("<N>"),
+            "formatted output should preserve <N>"
+        );
+        assert!(
+            formatted.contains("first<3>"),
+            "formatted output should preserve first<3>"
+        );
     }
 }

@@ -269,6 +269,10 @@ impl Parser {
     fn parse_fn_with_attr(&mut self, is_pub: bool, intrinsic: Option<Spanned<String>>) -> FnDef {
         self.expect(&Lexeme::Fn);
         let name = self.expect_ident();
+
+        // Parse optional size-generic parameters: fn name<N, M>(...)
+        let type_params = self.parse_type_params();
+
         self.expect(&Lexeme::LParen);
         let params = self.parse_params();
         self.expect(&Lexeme::RParen);
@@ -289,10 +293,27 @@ impl Parser {
             is_pub,
             intrinsic,
             name,
+            type_params,
             params,
             return_ty,
             body,
         }
+    }
+
+    /// Parse `<N, M>` size-generic parameter list (if present).
+    fn parse_type_params(&mut self) -> Vec<Spanned<String>> {
+        if !self.eat(&Lexeme::Lt) {
+            return Vec::new();
+        }
+        let mut params = Vec::new();
+        while !self.at(&Lexeme::Gt) && !self.at(&Lexeme::Eof) {
+            params.push(self.expect_ident());
+            if !self.eat(&Lexeme::Comma) {
+                break;
+            }
+        }
+        self.expect(&Lexeme::Gt);
+        params
     }
 
     fn parse_attribute(&mut self) -> Spanned<String> {
@@ -351,7 +372,18 @@ impl Parser {
                 self.advance();
                 let inner = self.parse_type();
                 self.expect(&Lexeme::Semicolon);
-                let size = self.expect_integer();
+                // Array size: integer literal or generic param name
+                let size = if let Lexeme::Integer(n) = self.peek() {
+                    let n = *n;
+                    self.advance();
+                    ArraySize::Literal(n)
+                } else if let Lexeme::Ident(_) = self.peek() {
+                    let ident = self.expect_ident();
+                    ArraySize::Param(ident.node)
+                } else {
+                    self.error_at_current("expected integer or size parameter");
+                    ArraySize::Literal(0)
+                };
                 self.expect(&Lexeme::RBracket);
                 Type::Array(Box::new(inner.node), size)
             }
@@ -756,6 +788,9 @@ impl Parser {
             Lexeme::Ident(_) => {
                 let path = self.parse_module_path();
 
+                // Check for generic args: name<3>(...) or name<N>(...)
+                let generic_args = self.parse_call_generic_args();
+
                 if self.at(&Lexeme::LParen) {
                     // Function call
                     self.advance();
@@ -765,6 +800,7 @@ impl Parser {
                     Spanned::new(
                         Expr::Call {
                             path: Spanned::new(path, start),
+                            generic_args,
                             args,
                         },
                         span,
@@ -817,6 +853,56 @@ impl Parser {
                 break;
             }
         }
+        args
+    }
+
+    /// Parse optional `<3, 5>` generic size arguments at a call site.
+    /// Only consumed if `<` is followed by integer/ident and then `>` or `,`.
+    fn parse_call_generic_args(&mut self) -> Vec<Spanned<ArraySize>> {
+        // Only try if next token is `<` and the token after is int/ident
+        // (disambiguates from `a < b` comparison)
+        if !self.at(&Lexeme::Lt) {
+            return Vec::new();
+        }
+        // Lookahead: after `<`, expect int or ident, then `,` or `>`
+        if self.pos + 2 >= self.tokens.len() {
+            return Vec::new();
+        }
+        let after_lt = &self.tokens[self.pos + 1].node;
+        let after_val = &self.tokens[self.pos + 2].node;
+        let looks_generic = match after_lt {
+            Lexeme::Integer(_) | Lexeme::Ident(_) => {
+                matches!(after_val, Lexeme::Gt | Lexeme::Comma)
+            }
+            _ => false,
+        };
+        if !looks_generic {
+            return Vec::new();
+        }
+
+        self.advance(); // consume <
+        let mut args = Vec::new();
+        while !self.at(&Lexeme::Gt) && !self.at(&Lexeme::Eof) {
+            let start = self.current_span();
+            let size = if let Lexeme::Integer(n) = self.peek() {
+                let n = *n;
+                self.advance();
+                ArraySize::Literal(n)
+            } else if let Lexeme::Ident(_) = self.peek() {
+                let ident = self.expect_ident();
+                ArraySize::Param(ident.node)
+            } else {
+                self.error_at_current("expected integer or size parameter in generic args");
+                self.advance();
+                ArraySize::Literal(0)
+            };
+            let span = start.merge(self.prev_span());
+            args.push(Spanned::new(size, span));
+            if !self.eat(&Lexeme::Comma) {
+                break;
+            }
+        }
+        self.expect(&Lexeme::Gt);
         args
     }
 

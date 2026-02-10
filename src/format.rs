@@ -248,12 +248,31 @@ impl<'a> FormatCtx<'a> {
         self.output.push_str("fn ");
         self.output.push_str(&f.name.node);
 
+        // Emit size-generic parameters: <N, M>
+        if !f.type_params.is_empty() {
+            self.output.push('<');
+            for (i, tp) in f.type_params.iter().enumerate() {
+                if i > 0 {
+                    self.output.push_str(", ");
+                }
+                self.output.push_str(&tp.node);
+            }
+            self.output.push('>');
+        }
+
         // Format signature
         let sig = self.format_signature(f);
+        let generic_len: usize = if f.type_params.is_empty() {
+            0
+        } else {
+            2 + f.type_params.iter().map(|tp| tp.node.len()).sum::<usize>()
+                + (f.type_params.len().saturating_sub(1)) * 2
+        };
         let prefix_len = indent.len()
             + if f.is_pub { 4 } else { 0 }
             + 3  // "fn "
-            + f.name.node.len();
+            + f.name.node.len()
+            + generic_len;
 
         if prefix_len + sig.len() <= MAX_WIDTH {
             self.output.push_str(&sig);
@@ -570,7 +589,7 @@ impl<'a> FormatCtx<'a> {
         let current_line_len = self.current_line_len();
         if current_line_len + flat.len() <= MAX_WIDTH {
             self.output.push_str(&flat);
-        } else if let Expr::Call { path, args } = expr {
+        } else if let Expr::Call { path, args, .. } = expr {
             // Try wrapping call args
             if args.is_empty() {
                 self.output.push_str(&flat);
@@ -643,9 +662,23 @@ fn format_expr(expr: &Expr) -> String {
             let r = format_expr_precedence(&rhs.node, op, false);
             format!("{} {} {}", l, op.as_str(), r)
         }
-        Expr::Call { path, args } => {
+        Expr::Call {
+            path,
+            args,
+            generic_args,
+        } => {
             let args_str: Vec<String> = args.iter().map(|a| format_expr(&a.node)).collect();
-            format!("{}({})", path.node.as_dotted(), args_str.join(", "))
+            if generic_args.is_empty() {
+                format!("{}({})", path.node.as_dotted(), args_str.join(", "))
+            } else {
+                let ga: Vec<String> = generic_args.iter().map(|a| a.node.to_string()).collect();
+                format!(
+                    "{}<{}>({})",
+                    path.node.as_dotted(),
+                    ga.join(", "),
+                    args_str.join(", ")
+                )
+            }
         }
         Expr::FieldAccess { expr, field } => {
             format!("{}.{}", format_expr(&expr.node), field.node)
@@ -938,7 +971,7 @@ fn main() {
         assert_eq!(format_type(&Type::U32), "U32");
         assert_eq!(format_type(&Type::Digest), "Digest");
         assert_eq!(
-            format_type(&Type::Array(Box::new(Type::Field), 10)),
+            format_type(&Type::Array(Box::new(Type::Field), ArraySize::Literal(10))),
             "[Field; 10]"
         );
         assert_eq!(

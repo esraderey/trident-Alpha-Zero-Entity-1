@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use crate::ast::*;
 use crate::span::Spanned;
 use crate::stack::StackManager;
+use crate::typeck::MonoInstance;
 
 /// A deferred block to emit after the current function.
 struct DeferredBlock {
@@ -38,6 +39,16 @@ pub struct Emitter {
     intrinsic_map: HashMap<String, String>,
     /// Module alias map: short name → full module name (e.g. "hash" → "std.hash").
     module_aliases: HashMap<String, String>,
+    /// Monomorphized generic function instances to emit.
+    mono_instances: Vec<MonoInstance>,
+    /// Generic function AST definitions (name → FnDef), for emitting monomorphized copies.
+    generic_fn_defs: HashMap<String, FnDef>,
+    /// Current size parameter substitutions during monomorphized emission.
+    current_subs: HashMap<String, u64>,
+    /// Per-call-site resolutions from the type checker (consumed in AST order).
+    call_resolutions: Vec<MonoInstance>,
+    /// Index into call_resolutions for the next generic call.
+    call_resolution_idx: usize,
 }
 
 impl Default for Emitter {
@@ -62,6 +73,11 @@ impl Emitter {
             temp_ram_addr: 1 << 29,
             intrinsic_map: HashMap::new(),
             module_aliases: HashMap::new(),
+            mono_instances: Vec::new(),
+            generic_fn_defs: HashMap::new(),
+            current_subs: HashMap::new(),
+            call_resolutions: Vec::new(),
+            call_resolution_idx: 0,
         }
     }
 
@@ -83,16 +99,55 @@ impl Emitter {
         self
     }
 
+    /// Set monomorphized generic function instances to emit.
+    pub fn with_mono_instances(mut self, instances: Vec<MonoInstance>) -> Self {
+        self.mono_instances = instances;
+        self
+    }
+
+    /// Set per-call-site resolutions from the type checker.
+    pub fn with_call_resolutions(mut self, resolutions: Vec<MonoInstance>) -> Self {
+        self.call_resolutions = resolutions;
+        self
+    }
+
     pub fn emit_file(mut self, file: &File) -> String {
-        // Pre-scan: collect return widths for all user-defined functions.
+        // Pre-scan: collect return widths and detect generic functions.
         for item in &file.items {
             if let Item::Fn(func) = &item.node {
-                let width = func
+                if !func.type_params.is_empty() {
+                    // Generic function: store AST for later monomorphized emission.
+                    self.generic_fn_defs
+                        .insert(func.name.node.clone(), func.clone());
+                } else {
+                    let width = func
+                        .return_ty
+                        .as_ref()
+                        .map(|t| resolve_type_width(&t.node))
+                        .unwrap_or(0);
+                    self.fn_return_widths.insert(func.name.node.clone(), width);
+                }
+            }
+        }
+
+        // Pre-scan: register return widths for monomorphized instances.
+        for inst in &self.mono_instances {
+            if let Some(gdef) = self.generic_fn_defs.get(&inst.name) {
+                let mut subs = HashMap::new();
+                for (param, val) in gdef.type_params.iter().zip(inst.size_args.iter()) {
+                    subs.insert(param.node.clone(), *val);
+                }
+                let width = gdef
                     .return_ty
                     .as_ref()
-                    .map(|t| resolve_type_width(&t.node))
+                    .map(|t| resolve_type_width_with_subs(&t.node, &subs))
                     .unwrap_or(0);
-                self.fn_return_widths.insert(func.name.node.clone(), width);
+                let mangled = inst.mangled_name();
+                // Strip the leading __ from mangled_name for fn_return_widths lookup
+                let base = mangled.trim_start_matches("__");
+                self.fn_return_widths.insert(base.to_string(), width);
+                // Also register under full mangled name
+                self.fn_return_widths.insert(mangled.clone(), width);
             }
         }
 
@@ -171,7 +226,17 @@ impl Emitter {
 
         for item in &file.items {
             if let Item::Fn(func) = &item.node {
-                self.emit_fn(func);
+                if func.type_params.is_empty() {
+                    self.emit_fn(func);
+                }
+            }
+        }
+
+        // Emit monomorphized copies of generic functions.
+        let instances = self.mono_instances.clone();
+        for inst in &instances {
+            if let Some(gdef) = self.generic_fn_defs.get(&inst.name).cloned() {
+                self.emit_mono_fn(&gdef, inst);
             }
         }
 
@@ -228,6 +293,60 @@ impl Emitter {
         // Emit deferred blocks
         self.flush_deferred();
         self.stack.clear();
+    }
+
+    /// Emit a monomorphized copy of a generic function with concrete size substitutions.
+    fn emit_mono_fn(&mut self, func: &FnDef, inst: &MonoInstance) {
+        if func.body.is_none() {
+            return;
+        }
+
+        // Set up substitution context.
+        self.current_subs.clear();
+        for (param, val) in func.type_params.iter().zip(inst.size_args.iter()) {
+            self.current_subs.insert(param.node.clone(), *val);
+        }
+
+        let label = inst.mangled_name();
+        self.emit_label(&label);
+        self.stack.clear();
+        self.deferred.clear();
+
+        // Parameters with substituted widths.
+        for param in &func.params {
+            let width = resolve_type_width_with_subs(&param.ty.node, &self.current_subs);
+            self.stack.push_named(&param.name.node, width);
+            self.flush_stack_effects();
+        }
+
+        let body = func.body.as_ref().unwrap();
+        self.emit_block(&body.node);
+
+        // Clean up: pop everything except return value.
+        let has_return = func.return_ty.is_some();
+        let total_width = self.stack.stack_depth();
+
+        if has_return && total_width > 0 {
+            let ret_width = func
+                .return_ty
+                .as_ref()
+                .map(|t| resolve_type_width_with_subs(&t.node, &self.current_subs))
+                .unwrap_or(0);
+            let to_pop = total_width.saturating_sub(ret_width);
+            for _ in 0..to_pop {
+                self.inst("swap 1");
+                self.inst("pop 1");
+            }
+        } else if !has_return {
+            self.emit_pop(total_width);
+        }
+
+        self.inst("return");
+        self.raw("");
+
+        self.flush_deferred();
+        self.stack.clear();
+        self.current_subs.clear();
     }
 
     fn flush_deferred(&mut self) {
@@ -662,9 +781,13 @@ impl Emitter {
                 self.stack.push_temp(result_width);
                 self.flush_stack_effects();
             }
-            Expr::Call { path, args } => {
+            Expr::Call {
+                path,
+                generic_args,
+                args,
+            } => {
                 let fn_name = path.node.as_dotted();
-                self.emit_call(&fn_name, args);
+                self.emit_call(&fn_name, generic_args, args);
             }
             Expr::Tuple(elements) => {
                 for elem in elements {
@@ -867,7 +990,12 @@ impl Emitter {
         }
     }
 
-    fn emit_call(&mut self, name: &str, args: &[Spanned<Expr>]) {
+    fn emit_call(
+        &mut self,
+        name: &str,
+        generic_args: &[Spanned<ArraySize>],
+        args: &[Spanned<Expr>],
+    ) {
         // Evaluate arguments — each pushes a temp
         for arg in args {
             self.emit_expr(&arg.node);
@@ -1078,9 +1206,63 @@ impl Emitter {
 
             // User-defined function
             _ => {
-                let (call_inst, base_name) = if name.contains('.') {
+                // Check if this is a generic function call.
+                let is_generic = self.generic_fn_defs.contains_key(name);
+
+                let (call_inst, base_name) = if is_generic {
+                    // Resolve size args: explicit from call site, current_subs
+                    // for calls inside generic bodies, or call_resolutions
+                    // from the type checker for inferred calls.
+                    let size_args: Vec<u64> = if !generic_args.is_empty() {
+                        generic_args
+                            .iter()
+                            .map(|ga| match &ga.node {
+                                ArraySize::Literal(n) => *n,
+                                ArraySize::Param(p) => {
+                                    self.current_subs.get(p).copied().unwrap_or(0)
+                                }
+                            })
+                            .collect()
+                    } else if !self.current_subs.is_empty() {
+                        // Inside a monomorphized body: resolve through current_subs.
+                        if let Some(gdef) = self.generic_fn_defs.get(name) {
+                            gdef.type_params
+                                .iter()
+                                .map(|p| self.current_subs.get(&p.node).copied().unwrap_or(0))
+                                .collect()
+                        } else {
+                            vec![]
+                        }
+                    } else {
+                        // Inferred call: consume from call_resolutions.
+                        let idx = self.call_resolution_idx;
+                        if idx < self.call_resolutions.len()
+                            && self.call_resolutions[idx].name == name
+                        {
+                            self.call_resolution_idx += 1;
+                            self.call_resolutions[idx].size_args.clone()
+                        } else {
+                            // Fallback: search for a matching resolution.
+                            let mut found = vec![];
+                            for (i, res) in self.call_resolutions.iter().enumerate() {
+                                if i >= self.call_resolution_idx && res.name == name {
+                                    self.call_resolution_idx = i + 1;
+                                    found = res.size_args.clone();
+                                    break;
+                                }
+                            }
+                            found
+                        }
+                    };
+                    let inst = MonoInstance {
+                        name: name.to_string(),
+                        size_args,
+                    };
+                    let mangled = inst.mangled_name();
+                    let base = mangled.clone();
+                    (format!("call {}", mangled), base)
+                } else if name.contains('.') {
                     // Cross-module call: "merkle.verify" → "call merkle__verify"
-                    // Resolve module aliases: "hash" → "std.hash" → "std_hash"
                     let parts: Vec<&str> = name.rsplitn(2, '.').collect();
                     let fn_name = parts[0];
                     let short_module = parts[1];
@@ -1265,8 +1447,32 @@ fn resolve_type_width(ty: &Type) -> u32 {
         Type::Field | Type::Bool | Type::U32 => 1,
         Type::XField => 3,
         Type::Digest => 5,
-        Type::Array(inner, n) => resolve_type_width(inner) * (*n as u32),
+        Type::Array(inner, n) => {
+            let size = n.as_literal().unwrap_or(0);
+            resolve_type_width(inner) * (size as u32)
+        }
         Type::Tuple(elems) => elems.iter().map(resolve_type_width).sum(),
+        Type::Named(_) => 1,
+    }
+}
+
+/// Like `resolve_type_width` but substitutes `ArraySize::Param` with concrete values.
+fn resolve_type_width_with_subs(ty: &Type, subs: &HashMap<String, u64>) -> u32 {
+    match ty {
+        Type::Field | Type::Bool | Type::U32 => 1,
+        Type::XField => 3,
+        Type::Digest => 5,
+        Type::Array(inner, n) => {
+            let size = match n {
+                ArraySize::Literal(v) => *v,
+                ArraySize::Param(name) => subs.get(name).copied().unwrap_or(0),
+            };
+            resolve_type_width_with_subs(inner, subs) * (size as u32)
+        }
+        Type::Tuple(elems) => elems
+            .iter()
+            .map(|t| resolve_type_width_with_subs(t, subs))
+            .sum(),
         Type::Named(_) => 1,
     }
 }
@@ -1629,5 +1835,67 @@ mod tests {
         eprintln!("=== asm zero-effect TASM ===\n{}", tasm);
         assert!(tasm.contains("dup 0"));
         assert!(!tasm.contains("ERROR"));
+    }
+
+    // --- Size-generic function emission tests ---
+
+    /// Full pipeline: parse → typecheck → emit (needed for generic functions).
+    fn compile_full(source: &str) -> String {
+        crate::compile(source, "test.tri").expect("compilation should succeed")
+    }
+
+    #[test]
+    fn test_generic_fn_emits_mangled_label() {
+        let tasm = compile_full(
+            "program test\nfn first<N>(arr: [Field; N]) -> Field {\n    arr[0]\n}\nfn main() {\n    let a: [Field; 3] = [1, 2, 3]\n    let s: Field = first<3>(a)\n    pub_write(s)\n}",
+        );
+        eprintln!("=== generic TASM ===\n{}", tasm);
+        // Should have mangled label for first with N=3
+        assert!(
+            tasm.contains("__first__N3:"),
+            "should emit mangled label __first__N3"
+        );
+        assert!(
+            tasm.contains("call __first__N3"),
+            "should call mangled label"
+        );
+    }
+
+    #[test]
+    fn test_generic_fn_two_instantiations() {
+        let tasm = compile_full(
+            "program test\nfn first<N>(arr: [Field; N]) -> Field {\n    arr[0]\n}\nfn main() {\n    let a: [Field; 3] = [1, 2, 3]\n    let b: [Field; 5] = [1, 2, 3, 4, 5]\n    let x: Field = first<3>(a)\n    let y: Field = first<5>(b)\n    pub_write(x + y)\n}",
+        );
+        eprintln!("=== two instantiations TASM ===\n{}", tasm);
+        assert!(tasm.contains("__first__N3:"), "should emit first<3>");
+        assert!(tasm.contains("__first__N5:"), "should emit first<5>");
+        assert!(tasm.contains("call __first__N3"), "should call first<3>");
+        assert!(tasm.contains("call __first__N5"), "should call first<5>");
+    }
+
+    #[test]
+    fn test_generic_fn_inferred_emission() {
+        let tasm = compile_full(
+            "program test\nfn first<N>(arr: [Field; N]) -> Field {\n    arr[0]\n}\nfn main() {\n    let a: [Field; 3] = [1, 2, 3]\n    let s: Field = first(a)\n    pub_write(s)\n}",
+        );
+        eprintln!("=== inferred generic TASM ===\n{}", tasm);
+        // Inferred N=3 from [Field; 3]
+        assert!(
+            tasm.contains("__first__N3:"),
+            "should emit __first__N3 via inference"
+        );
+        assert!(tasm.contains("call __first__N3"), "should call __first__N3");
+    }
+
+    #[test]
+    fn test_generic_fn_not_emitted_as_regular() {
+        let tasm = compile_full(
+            "program test\nfn first<N>(arr: [Field; N]) -> Field {\n    arr[0]\n}\nfn main() {\n    let a: [Field; 3] = [1, 2, 3]\n    let s: Field = first<3>(a)\n    pub_write(s)\n}",
+        );
+        // Generic function should NOT be emitted with the un-mangled label
+        assert!(
+            !tasm.contains("\n__first:"),
+            "generic fn should not emit un-mangled label"
+        );
     }
 }

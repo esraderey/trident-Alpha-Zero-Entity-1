@@ -1061,6 +1061,7 @@ mod tests {
             is_pub: false,
             intrinsic: None,
             name: crate::span::Spanned::dummy("main".to_string()),
+            type_params: vec![],
             params: vec![],
             return_ty: None,
             body: None,
@@ -1074,6 +1075,7 @@ mod tests {
             is_pub: true,
             intrinsic: None,
             name: crate::span::Spanned::dummy("add".to_string()),
+            type_params: vec![],
             params: vec![
                 crate::ast::Param {
                     name: crate::span::Spanned::dummy("a".to_string()),
@@ -1105,7 +1107,7 @@ mod tests {
         assert_eq!(
             format_ast_type(&crate::ast::Type::Array(
                 Box::new(crate::ast::Type::Field),
-                5
+                crate::ast::ArraySize::Literal(5)
             )),
             "[Field; 5]"
         );
