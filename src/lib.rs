@@ -4,6 +4,7 @@ pub mod common;
 pub mod cost;
 pub mod frontend;
 pub mod kir;
+pub mod linker;
 pub mod lir;
 pub mod pkgmgmt;
 pub mod tir;
@@ -14,7 +15,6 @@ pub mod verify;
 // Re-exports — preserves all `crate::X` paths
 // Old emitter kept for comparison tests; not part of public API.
 pub(crate) use codegen::emitter as emit;
-pub use codegen::linker;
 pub use codegen::stack;
 pub use common::diagnostic;
 pub use common::span;
