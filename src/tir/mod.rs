@@ -26,7 +26,7 @@ use std::fmt;
 /// **Tier 3 — Structure & control flow**
 ///   Control flow (6), Program structure (5), Passthrough (2) = 13
 ///
-/// **Target-specific** (not universal; Triton-native extension field) = 4
+/// **Recursion extension** (STARK-in-STARK verification; Triton-only for now) = 4
 ///
 /// Total: 24 + 12 + 13 + 4 = 53 variants
 pub enum TIROp {
@@ -168,12 +168,13 @@ pub enum TIROp {
     },
 
     // ═══════════════════════════════════════════════════════════════
-    // Target-specific (not part of the universal core)
-    // Triton VM cubic extension field. Native on Triton, no equivalent
-    // on other backends. Programs using these are Triton-specific.
+    // Recursion extension — STARK-in-STARK verification primitives
+    // Extension field arithmetic and FRI folding steps required for
+    // recursive proof verification. Currently Triton-only; any backend
+    // that supports recursive verification will need equivalents.
     // ═══════════════════════════════════════════════════════════════
 
-    // ── Extension field — Triton-only (4) ──
+    // ── Recursion — extension field & FRI (4) ──
     XbMul,
     XInvert,
     XxDotStep,

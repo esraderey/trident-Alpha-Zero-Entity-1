@@ -137,23 +137,27 @@ Each backend lowers structural ops differently:
 The condition/counter is already consumed from the stack when the structural op
 executes. Target filtering (`asm(triton) { }`) happens before IR building.
 
-### Target-specific (4 variants, outside the universal core)
+### Recursion extension (4 variants — STARK-in-STARK verification)
 
-**Extension field** — Triton VM cubic extension (width=3). Native Triton
-instructions with no equivalent on other backends. Miden lowering emits
-them as comments.
+Extension field arithmetic and FRI folding steps required for **recursive
+proof verification** — verifying a STARK proof inside another STARK program.
 
 ```
-XbMul   XInvert   XxDotStep   XbDotStep
+XbMul       — base × extension field multiply
+XInvert     — extension field inverse
+XxDotStep   — FRI inner-loop: ext × ext dot-product step
+XbDotStep   — FRI inner-loop: base × ext dot-product step
 ```
 
-These exist because Trident's type system exposes `XField` as a first-class
-type and `*x` lowers to `XbMul`. Programs using extension field arithmetic
-are Triton-specific unless a backend provides its own emulation.
+These are the primitives that make recursion practical. Every STARK-based
+system that supports recursive verification needs equivalent functionality:
+Triton has native instructions, Miden has `fri_ext2fold`, SP1/OpenVM would
+use precompile syscalls. The math is universal — only the acceleration
+mechanism differs per backend.
 
-> **Design note:** A cleaner future design would lower these through the
-> abstract op mechanism (like `EmitEvent`) or gate them behind target
-> capability checks at the type-checker level.
+Currently only Triton provides native support. As backends gain recursion
+capabilities, these ops will generalize into abstract operations (like
+`EmitEvent`) where each backend supplies its own implementation.
 
 ---
 

@@ -67,11 +67,11 @@ impl MidenLowering {
             TIROp::Pow => self.emit(out, "exp"),
             TIROp::PopCount => self.emit(out, "u32popcnt"),
 
-            // ── Extension field (Triton-native; no Miden equivalent) ──
-            TIROp::XbMul => self.emit(out, "# xb_mul (Triton-only, no Miden equivalent)"),
-            TIROp::XInvert => self.emit(out, "# x_invert (Triton-only, no Miden equivalent)"),
-            TIROp::XxDotStep => self.emit(out, "# xx_dot_step (Triton-only, no Miden equivalent)"),
-            TIROp::XbDotStep => self.emit(out, "# xb_dot_step (Triton-only, no Miden equivalent)"),
+            // ── Recursion — extension field & FRI (not yet supported on Miden) ──
+            TIROp::XbMul => self.emit(out, "# xb_mul (recursion: not yet supported)"),
+            TIROp::XInvert => self.emit(out, "# x_invert (recursion: not yet supported)"),
+            TIROp::XxDotStep => self.emit(out, "# xx_dot_step (recursion: not yet supported)"),
+            TIROp::XbDotStep => self.emit(out, "# xb_dot_step (recursion: not yet supported)"),
 
             // ── I/O ──
             TIROp::ReadIo(n) => {
