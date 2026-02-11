@@ -1,13 +1,13 @@
 # Code Generation
 
-The codegen module translates a type-checked AST into target assembly for stack-machine VMs. A single AST walker ([emitter.rs](emitter.rs)) drives the entire process, delegating instruction selection to a pluggable [backend/](backend/) trait. This design means all control flow, variable management, and optimization logic is written once and shared across all five compilation targets.
+The codegen module translates a type-checked AST into target assembly for stack-machine VMs. The [emitter/](emitter/) directory drives the entire process, delegating instruction selection to a pluggable [backend/](backend/) trait. This design means all control flow, variable management, and optimization logic is written once and shared across all five compilation targets.
 
 ```
          AST (from typecheck/)
               |
               v
      ┌────────────────┐
-     │    Emitter      │  emitter.rs — walks the AST
+     │    Emitter      │  emitter/ — walks the AST
      │                 │
      │  emit_file()    │  top-level: items, structs, constants
      │  emit_fn()      │  function prologue, body, epilogue
@@ -41,10 +41,22 @@ The codegen module translates a type-checked AST into target assembly for stack-
 
 | File | LOC | Role |
 |------|-----|------|
-| [emitter.rs](emitter.rs) | 2,775 | AST walker — the core of code generation |
+| [emitter/](emitter/) | 2,035 | AST walker — the core of code generation (see below) |
 | [stack.rs](stack.rs) | 474 | LRU-based stack manager with automatic RAM spill/reload |
 | [linker.rs](linker.rs) | 134 | Multi-module linker with label mangling |
 | [backend/](backend/) | 703 | StackBackend trait + 5 target implementations |
+
+### Emitter Modules
+
+| File | LOC | Concern |
+|------|-----|---------|
+| [emitter/mod.rs](emitter/mod.rs) | 564 | Emitter struct, constructors, `emit_file()`, `emit_fn()`, output helpers |
+| [emitter/stmt.rs](emitter/stmt.rs) | 552 | `emit_block()`, `emit_stmt()` — let, if, for, match, emit, seal, asm |
+| [emitter/expr.rs](emitter/expr.rs) | 339 | `emit_expr()` — literals, variables, binops, indexing, field access |
+| [emitter/call.rs](emitter/call.rs) | 313 | `emit_call()` — intrinsic dispatch + user/generic function resolution |
+| [emitter/inst.rs](emitter/inst.rs) | 139 | 44 `b_*()` backend instruction wrappers |
+| [emitter/helpers.rs](emitter/helpers.rs) | 128 | Stack model interaction, struct layout tracking |
+| [emitter/tests.rs](emitter/tests.rs) | 775 | 54 tests covering all backends and language features |
 
 ## Emitter
 
