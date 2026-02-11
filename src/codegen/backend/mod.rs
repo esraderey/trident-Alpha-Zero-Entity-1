@@ -206,6 +206,7 @@ pub(crate) use triton::TritonBackend;
 // ─── Backend Factory ──────────────────────────────────────────────
 
 /// Create the appropriate backend for a target name.
+#[cfg(test)]
 pub(crate) fn create_backend(target_name: &str) -> Box<dyn StackBackend> {
     match target_name {
         "triton" => Box::new(TritonBackend),

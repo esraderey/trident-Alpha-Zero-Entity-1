@@ -9,7 +9,8 @@ pub mod typecheck;
 pub mod verify;
 
 // Re-exports — preserves all `crate::X` paths
-pub use codegen::emitter as emit;
+// Old emitter kept for comparison tests; not part of public API.
+pub(crate) use codegen::emitter as emit;
 pub use codegen::linker;
 pub use codegen::stack;
 pub use common::diagnostic;
@@ -44,8 +45,9 @@ use std::collections::{HashMap, HashSet};
 use std::path::Path;
 
 use ast::FileKind;
+use codegen::ir::builder::IRBuilder;
+use codegen::ir::lower::{Lowering, TritonLowering};
 use diagnostic::{render_diagnostics, Diagnostic};
-use emit::Emitter;
 use lexer::Lexer;
 use linker::{link, ModuleTasm};
 use parser::Parser;
@@ -119,13 +121,14 @@ pub fn compile_with_options(
         }
     };
 
-    // Emit target assembly
-    let backend = emit::create_backend(&options.target_config.name);
-    let tasm = Emitter::with_backend(backend, options.target_config.clone())
+    // Build IR and lower to target assembly
+    let ir = IRBuilder::new(options.target_config.clone())
         .with_cfg_flags(options.cfg_flags.clone())
         .with_mono_instances(exports.mono_instances)
         .with_call_resolutions(exports.call_resolutions)
-        .emit_file(&file);
+        .build_file(&file);
+    let lowering = TritonLowering::new();
+    let tasm = lowering.lower(&ir).join("\n");
     Ok(tasm)
 }
 
@@ -254,15 +257,16 @@ pub fn compile_project_with_options(
             .get(i)
             .map(|e| e.call_resolutions.clone())
             .unwrap_or_default();
-        let backend = emit::create_backend(&options.target_config.name);
-        let tasm = Emitter::with_backend(backend, options.target_config.clone())
+        let ir = IRBuilder::new(options.target_config.clone())
             .with_cfg_flags(options.cfg_flags.clone())
             .with_intrinsics(intrinsic_map.clone())
             .with_module_aliases(module_aliases.clone())
             .with_constants(external_constants.clone())
             .with_mono_instances(mono)
             .with_call_resolutions(call_res)
-            .emit_file(file);
+            .build_file(file);
+        let lowering = TritonLowering::new();
+        let tasm = lowering.lower(&ir).join("\n");
         tasm_modules.push(ModuleTasm {
             module_name: file.name.node.clone(),
             is_program,

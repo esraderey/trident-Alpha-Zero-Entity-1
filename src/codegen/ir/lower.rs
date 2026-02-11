@@ -25,6 +25,7 @@ struct DeferredBlock {
 ///
 /// Structural control flow (`IfElse`, `IfOnly`, `Loop`) is lowered to
 /// Triton's deferred-subroutine pattern with `skiz` + `call` branching.
+#[derive(Default)]
 pub struct TritonLowering {
     /// Collected deferred blocks (flushed after each function).
     deferred: Vec<DeferredBlock>,
@@ -34,10 +35,7 @@ pub struct TritonLowering {
 
 impl TritonLowering {
     pub fn new() -> Self {
-        Self {
-            deferred: Vec::new(),
-            label_counter: 0,
-        }
+        Self::default()
     }
 
     fn fresh_label(&mut self, prefix: &str) -> String {
