@@ -113,7 +113,7 @@ struct Vault {
 
 fn deposit(vault_id: Field, amount: Field) {
     let vault: Vault = storage.read_struct(vault_id)
-    assert(!vault.locked)
+    assert(vault.locked == 0)
     let new_vault: Vault = Vault {
         owner: vault.owner,
         balance: vault.balance + amount,
@@ -126,10 +126,11 @@ fn deposit(vault_id: Field, amount: Field) {
 fn withdraw(vault_id: Field, amount: Field, caller: Field) {
     let vault: Vault = storage.read_struct(vault_id)
     assert(vault.owner == caller)
-    assert(vault.balance >= amount)
+    // Subtraction wraps modulo p; the prover must supply valid witness
+    let new_balance: Field = sub(vault.balance, amount)
     let new_vault: Vault = Vault {
         owner: vault.owner,
-        balance: vault.balance - amount,
+        balance: new_balance,
         locked: vault.locked,
     }
     storage.write_struct(vault_id, new_vault)
@@ -287,8 +288,7 @@ fn main() {
 
     // Same arithmetic as Level 1
     let sender_bal: Field = divine()
-    let new_bal: Field = sender_bal - amount
-    assert(new_bal >= 0)
+    let new_bal: Field = sub(sender_bal, amount)
 
     // Merkle proof (Level 2)
     merkle.verify(old_root, sender_leaf, index, DEPTH)
@@ -373,7 +373,7 @@ This creates a spectrum of trust: deploy the same logic directly (transparent, a
 
 ### What exists today
 
-- **Triton VM backend:** Production-quality. Full type system, bounded loops, modules, cost analysis, 714 tests.
+- **Triton VM backend:** Production-quality. Full type system, bounded loops, modules, cost analysis, 740+ tests.
 - **Miden VM backend:** Lowering implemented. Inline `if.true/else/end` control flow, correct instruction set. Not validated against Miden runtime.
 - **TIR pipeline:** Operational. `TIRBuilder` produces `Vec<TIROp>` from AST. `TritonLowering` and `MidenLowering` produce assembly from TIR. Adding new lowerings is mechanical.
 - **5 target configurations:** Triton, Miden, OpenVM, SP1, Cairo. TOML configs with field parameters, stack depth, cost tables.

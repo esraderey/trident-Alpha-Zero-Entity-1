@@ -98,7 +98,7 @@ All types have compile-time known widths measured in field elements. There are n
 | `Field` | 1 | Base field element mod p (Goldilocks: p = 2^64 - 2^32 + 1) |
 | `Bool` | 1 | Field constrained to 0 or 1 |
 | `U32` | 1 | Unsigned 32-bit integer, range-checked by the VM |
-| `Digest` | 5 | Tip5 hash digest (5 field elements) |
+| `Digest` | 5* | Tip5 hash digest (5 field elements on Triton VM; width varies by target) |
 | `XField` | 3 | Extension field element (Triton VM target) |
 | `[T; N]` | N * width(T) | Fixed-size array, N known at compile time |
 | `(T, U)` | width(T) + width(U) | Tuple (up to 16 elements) |
@@ -853,8 +853,8 @@ These constraints make every Trident program a fixed, bounded computation -- exa
 - [Formal Verification](../explanation/formal-verification.md) -- `#[requires]`, `#[ensures]`, `#[invariant]`, and `#[pure]`
 - [For Developers](for-developers.md) -- Zero-knowledge concepts explained for conventional programmers
 - [For Blockchain Devs](for-blockchain-devs.md) -- Mental model migration from Solidity/Anchor/CosmWasm
-- [Content-Addressed Code](../explanation/content-addressed.md) -- Content-addressed code and the UCM model
+- [Content-Addressed Code](../explanation/content-addressing.md) -- Content-addressed code and the UCM model
 - [Vision](../explanation/vision.md) -- Why Trident exists and what you can build
-- [Comparative Analysis](../explanation/analysis.md) -- Triton VM vs. every other ZK system
+- [Comparative Analysis](../explanation/provable-computing.md) -- Triton VM vs. every other ZK system
 - [Triton VM specification](https://triton-vm.org/spec/) -- Target VM instruction set
 - [tasm-lib](https://github.com/TritonVM/tasm-lib) -- Reusable TASM snippets

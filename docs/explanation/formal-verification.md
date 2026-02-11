@@ -545,7 +545,7 @@ checking currently requires manual unrolling or relies on the synthesizer.
 - [Tutorial](../tutorials/tutorial.md) -- getting started with Trident programs
 - [Language Reference](../reference/language.md) -- complete syntax and type reference, including `#[pure]` and specification annotations
 - [Target Reference](../reference/targets.md) -- Target profiles, cost models, and OS model
-- [Content-Addressed Code](content-addressed.md) -- how verification results are cached and shared via content hashing
+- [Content-Addressed Code](content-addressing.md) -- how verification results are cached and shared via content hashing
 - [Optimization Guide](../guides/optimization.md) -- cost reduction strategies (verification can identify redundant assertions)
 - [Compiling a Program](../guides/compiling-a-program.md) -- build pipeline and `--costs` flag
 - [For Developers](../tutorials/for-developers.md) -- zero-knowledge concepts for general developers

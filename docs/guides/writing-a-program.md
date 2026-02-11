@@ -1,10 +1,10 @@
 # Writing a Program
 
-This page has been merged into the [Tutorial](tutorials/tutorial.md), which covers the complete first stage of the Trident program lifecycle.
+This page has been merged into the [Tutorial](../tutorials/tutorial.md), which covers the complete first stage of the Trident program lifecycle.
 
-**Writing** > [Compiling](guides/compiling-a-program.md) > [Running](guides/running-a-program.md) > [Deploying](guides/deploying-a-program.md) > [Generating Proofs](guides/generating-proofs.md) > [Verifying Proofs](guides/verifying-proofs.md)
+**Writing** > [Compiling](compiling-a-program.md) > [Running](running-a-program.md) > [Deploying](deploying-a-program.md) > [Generating Proofs](generating-proofs.md) > [Verifying Proofs](verifying-proofs.md)
 
-See the [Tutorial](tutorials/tutorial.md) for:
+See the [Tutorial](../tutorials/tutorial.md) for:
 - Program structure and file layout
 - Types, structs, and arrays
 - Variables, constants, and operators
@@ -13,7 +13,7 @@ See the [Tutorial](tutorials/tutorial.md) for:
 - Modules and imports
 - I/O and secret input
 - Hashing and Merkle proofs
-- Events (emit/seal)
+- Events (reveal/seal)
 - Testing and cost analysis
 - Inline assembly
 - Key differences from conventional languages

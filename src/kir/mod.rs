@@ -8,6 +8,7 @@
 //! ```text
 //! AST → TIR ─→ StackLowering     → Vec<String>  (stack targets)
 //!           ├→ LIR → RegisterLow  → Vec<u8>      (register targets)
+//!           ├→ TreeLowering       → Noun         (tree targets: Nock)
 //!           └→ KIR → KernelLow    → String        (GPU kernel source)
 //! ```
 //!

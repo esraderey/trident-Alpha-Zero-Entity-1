@@ -117,7 +117,7 @@ exhaustive analysis. See [Formal Verification](formal-verification.md).
 constraint system with a unique cryptographic identity. Two functions with
 different names but identical computation share the same hash. Audit
 certificates, cost analyses, and verification results travel with the code
-regardless of naming. See [Content-Addressed Code](content-addressed.md).
+regardless of naming. See [Content-Addressed Code](content-addressing.md).
 
 **Proof composition.** Language-level support for verifying a proof inside a
 proof. The recursive verification pattern -- Triton VM's architectural sweet
@@ -440,7 +440,7 @@ Register-machine targets (Cairo, SP1/RISC Zero) will use a minimal IR
 between type checking and emission. Stack-machine targets (Triton, Miden)
 keep the direct-emission model.
 
-The compiler is 36,848 lines of Rust with 4 runtime dependencies. Small
+The compiler is ~43K lines of Rust with 4 runtime dependencies. Small
 enough for one person to audit in depth. A compiler that generates proofs
 of computation must itself be trustworthy, and trustworthiness scales
 inversely with complexity.
@@ -589,7 +589,7 @@ low-degree testing. No pairings. No groups. No discrete log. No trusted setup.
 
 ### The Only System That Passes All Four Tests
 
-The [comparative analysis](analysis.md) evaluates every major ZK system
+The [comparative analysis](provable-computing.md) evaluates every major ZK system
 against four requirements: quantum-safe, private, programmable, and mineable.
 
 | System | Quantum-Safe | Private | Programmable | Mineable | All Four |
@@ -622,7 +622,7 @@ normalized AST. Names are metadata; the hash is the identity. Audit
 certificates, verification results, and cost analyses are portable across
 projects, teams, and time. Two developers on different continents who write
 the same Merkle verifier with different variable names get the same hash --
-and share the same audit. See [Content-Addressed Code](content-addressed.md).
+and share the same audit. See [Content-Addressed Code](content-addressing.md).
 
 ### Write Once, Prove Anywhere
 
@@ -703,8 +703,8 @@ any target. Backend extensions add power without limiting portability. The
 architecture ensures that choosing Trident is not choosing a single
 ecosystem -- it is choosing all of them.
 
-The token example is 530 lines. The compiler is 36,848 lines of Rust. The
-test suite has 670 tests. 52 `.tri` files span `std/`, `ext/`, and
+The token example is 530 lines. The compiler is ~43K lines of Rust. The
+test suite has 740+ tests. 52 `.tri` files span `std/`, `ext/`, and
 `examples/`. The cost model tracks 6 tables. Formal verification is
 decidable. Code is content-addressed.
 
@@ -720,12 +720,12 @@ The numbers are growing. The foundation is solid. The rest is building.
 - [Language Reference](../reference/language.md) -- Quick lookup: types, operators, builtins, grammar, CLI flags
 - [Programming Model](programming-model.md) -- How Triton VM execution works
 - [Optimization Guide](../guides/optimization.md) -- Cost reduction strategies and table management
-- [Comparative Analysis](analysis.md) -- Triton VM vs. every other ZK system
+- [Comparative Analysis](provable-computing.md) -- Triton VM vs. every other ZK system
 - [Developer Guide](../tutorials/for-developers.md) -- Getting started with Trident
 - [Blockchain Developer Guide](../tutorials/for-blockchain-devs.md) -- Trident for Solidity/Cairo developers
 - [How STARK Proofs Work](stark-proofs.md) -- From execution traces to quantum-safe proofs
 - [Formal Verification](formal-verification.md) -- Automated correctness proofs for Trident programs
-- [Content-Addressed Code](content-addressed.md) -- Code identity by computation, not by name
+- [Content-Addressed Code](content-addressing.md) -- Code identity by computation, not by name
 
 ### External Resources
 

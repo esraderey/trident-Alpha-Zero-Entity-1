@@ -295,11 +295,11 @@ identity -- the `program_digest` that verifiers will check proofs against.
 
 ### Content-Addressed Code
 
-Every Trident function is identified by its BLAKE3 content hash. This means
+Every Trident function is identified by its content hash. This means
 deployments are reproducible: the same source always compiles to the same
 artifact with the same hash. The `trident hash` command computes a program's
 content hash, and the `trident ucm` codebase manager tracks definitions by
-hash. See [Content-Addressed Code](../explanation/content-addressed.md) for details.
+hash. See [Content-Addressed Code](../explanation/content-addressing.md) for details.
 
 ### Token Standards
 

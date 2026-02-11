@@ -10,8 +10,7 @@ are the remaining roadmap.
 - [x] Rewrite Neptune transaction validation in Trident (target: < 2x hand-written TASM)
 - [x] Benchmark suite: Trident vs hand-optimized TASM for standard patterns
 - [x] Gadget library: SHA-256, Keccak (needed for bridge verification)
-- [x] Recursive STARK verifier via `xx_
-- [ ] dot_step` / `xb_dot_step` builtins
+- [x] Recursive STARK verifier via `xx_dot_step` / `xb_dot_step` builtins
 - [x] Language spec: clean up spec.md for public release (v0.5)
 
 ## Milestone 2: Formal Verification (Embedded)
@@ -37,7 +36,7 @@ are the remaining roadmap.
 - [x] Machine-readable verification output (JSON via `report.rs`)
 - [x] `trident generate` command: spec-driven code scaffolding
 - [x] Structured counterexamples with fix suggestions
-- [x] LLM-optimized reference (`docs/llm-reference.md`)
+- [x] LLM-optimized reference (`docs/reference/briefing.md`)
 - [ ] Benchmark: 20 contract specs with known-correct implementations
 
 ### Phase 4: Automatic Invariant Synthesis — COMPLETE
@@ -184,7 +183,7 @@ CostModel trait, target-tagged asm blocks. Triton VM fully implemented.
 TSP-2), bridge validators (Bitcoin/Ethereum light clients), Neptune
 examples (lock contracts, token types).
 
-**Tests** — 658+ tests across all modules.
+**Tests** — 740+ tests across all modules.
 
 **Docs** — README, spec (v0.5), tutorial, reference, programming model,
 optimization guide, error catalog, vision, developer guides, lifecycle

@@ -115,15 +115,14 @@ is rejected.
 
 ## Backend Traits
 
-### StackBackend
+### StackLowering
 
-The `StackBackend` trait in `src/emit.rs` abstracts instruction emission for
-stack-machine targets. The `Emitter` calls trait methods to produce
-target-specific output while sharing all AST-walking, stack management, and
-control-flow logic.
+The `StackLowering` trait in `src/tir/lower/mod.rs` abstracts instruction
+emission for stack-machine targets. It converts TIR operations to target
+assembly text, sharing all stack management and control-flow logic.
 
 ```rust
-pub(crate) trait StackBackend {
+pub(crate) trait StackLowering {
     fn target_name(&self) -> &str;
     fn output_extension(&self) -> &str;
 
@@ -169,15 +168,15 @@ pub(crate) trait StackBackend {
 }
 ```
 
-The following backends implement this trait:
+The following targets implement this trait:
 
-- **`TritonBackend`** -- Triton Assembly (TASM). Production backend.
-- **`MidenBackend`** -- Miden Assembly (MASM). Uses `dup.N` / `movup.N` syntax,
+- **`TritonLowering`** -- Triton Assembly (TASM). Production target.
+- **`MidenLowering`** -- Miden Assembly (MASM). Uses `dup.N` / `movup.N` syntax,
   `adv_push.1` for divine, `hperm` for hashing.
-- **`OpenVMBackend`** -- RISC-V assembly for OpenVM. Register-machine mapped
-  through the stack trait interface.
-- **`SP1Backend`** -- RISC-V assembly for Succinct SP1.
-- **`CairoBackend`** -- Sierra intermediate language for StarkNet.
+
+Register targets use a separate `RegisterLowering` path via LIR. Tree targets
+(Nock) use `TreeLowering`. See [IR Reference](../reference/ir.md) for the
+full lowering architecture.
 
 The `create_backend(target_name)` factory function returns the appropriate
 implementation.
@@ -381,11 +380,13 @@ degree = 0
 tables = ["cycles"]
 ```
 
-### 2. Implement StackBackend
+### 2. Implement the Lowering Trait
 
-Add a new struct in `src/emit.rs` that implements the `StackBackend` trait.
-Every method maps a semantic operation (push, add, hash, etc.) to the target's
-assembly syntax. Register the new backend in `create_backend()`.
+For stack targets, add a new struct in `src/tir/lower/` that implements the
+`StackLowering` trait. Every method maps a semantic operation (push, add, hash,
+etc.) to the target's assembly syntax. For register targets, implement
+`RegisterLowering` via the LIR path. See [targets.md](../reference/targets.md)
+for which lowering path to use per VM family.
 
 ### 3. Implement CostModel
 
@@ -447,7 +448,7 @@ end-to-end proving and verification.
 - [Target Reference](../reference/targets.md) -- Target profiles, cost models, and OS model
 - [Compiling a Program](../guides/compiling-a-program.md) -- `--target` flag and build pipeline
 - [Programming Model](programming-model.md) -- bounded execution, cost transparency, auditability
-- [Content-Addressed Code](content-addressed.md) -- how target-independent hashing works
-- [Comparative Analysis](analysis.md) -- proving cost estimation and zkVM comparison
+- [Content-Addressed Code](content-addressing.md) -- how target-independent hashing works
+- [Comparative Analysis](provable-computing.md) -- proving cost estimation and zkVM comparison
 - [For Developers](../tutorials/for-developers.md) -- portability concepts for general developers
 - [Vision](vision.md) -- long-term direction for Trident

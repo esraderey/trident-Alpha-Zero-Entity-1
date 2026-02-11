@@ -17,7 +17,7 @@ Requirements:
 - No subtraction operator: use sub(a, b)
 - No division: use a * inv(b)
 - Type annotations required on all let bindings
-- Reference: docs/llm-reference.md
+- Reference: docs/reference/briefing.md
 
 Target: Triton VM (Goldilocks field, p = 2^64 - 2^32 + 1)
 ```
@@ -95,7 +95,7 @@ Key differences:
 - No mappings: use RAM (ram_read/ram_write) with address conventions
 - require() -> assert()
 - msg.sender -> pub_read() (caller provides identity)
-- Events: event + emit/seal syntax
+- Events: event + reveal/seal syntax
 - No reentrancy (single execution, no external calls)
 ```
 

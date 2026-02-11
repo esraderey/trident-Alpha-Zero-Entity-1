@@ -263,5 +263,5 @@ The goal is not to minimize every table, but to bring the tallest table down. On
 - [For Developers](../tutorials/for-developers.md) -- Why bounded loops determine cost (Section 3)
 - [For Blockchain Devs](../tutorials/for-blockchain-devs.md) -- Where's My Gas? section explains cost from a smart contract perspective
 - [Vision](../explanation/vision.md) -- The cost transparency story and why it matters
-- [Comparative Analysis](../explanation/analysis.md) -- Hash performance comparison across all ZK systems
+- [Comparative Analysis](../explanation/provable-computing.md) -- Hash performance comparison across all ZK systems
 - [Triton VM specification](https://triton-vm.org/spec/) -- Target VM instruction costs

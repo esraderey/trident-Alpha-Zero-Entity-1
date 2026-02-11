@@ -792,7 +792,7 @@ quantum safety argument.
 
 In contrast, every EVM chain's security (transaction signatures, precompiles,
 validator keys) depends on elliptic curves that a sufficiently powerful quantum
-computer could break. See [Comparative Analysis](../explanation/analysis.md) for how every
+computer could break. See [Comparative Analysis](../explanation/provable-computing.md) for how every
 major ZK system scores on quantum safety.
 
 ---
@@ -950,7 +950,7 @@ types, functions, modules, I/O, hashing, events, testing, and cost analysis.
 - [For Developers](for-developers.md) -- Zero-knowledge from scratch (if you also need the ZK primer)
 - [Error Catalog](../reference/errors.md) -- All compiler error messages explained
 - [Vision](../explanation/vision.md) -- Why Trident exists and what you can build
-- [Comparative Analysis](../explanation/analysis.md) -- Triton VM vs. every other ZK system
+- [Comparative Analysis](../explanation/provable-computing.md) -- Triton VM vs. every other ZK system
 
 ### External resources
 

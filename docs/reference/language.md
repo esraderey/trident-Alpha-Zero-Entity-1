@@ -382,8 +382,11 @@ fn foo(x: Field) -> Field {
 |-----------|-------------|
 | `hash(fields: Field x R) -> Digest` | Hash R field elements into a Digest (R = target hash rate) |
 
-`hash()` is Tier 1 — available on every target. The rate R and digest width D
-are target-dependent. See [targets.md](targets.md).
+`hash()` is the Tier 1 hash operation — available on every target. The rate R
+and digest width D are target-dependent. The user-facing function name varies
+by target: `std.crypto.hash.tip5()` on Triton VM, with other targets providing
+their native hash function. All compile to the `Hash` TIR operation internally.
+See [targets.md](targets.md) for per-VM hash functions.
 
 For sponge, Merkle, and extension field builtins (Tier 2-3), see
 [provable.md](provable.md).

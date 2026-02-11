@@ -625,7 +625,7 @@ For infrastructure intended to last decades, this distinction matters. A
 trusted setup is a single point of failure that cannot be audited after the
 fact. A transparent proof system has no such failure mode.
 
-Cross-reference: [analysis.md](analysis.md) for the full comparison of all
+Cross-reference: [analysis.md](provable-computing.md) for the full comparison of all
 ZK proof systems and their setup requirements.
 
 ---
@@ -927,7 +927,7 @@ Cross-reference: [vision.md](vision.md) "Recursive STARK Verification",
 - [Error Catalog](../reference/errors.md) -- All compiler error messages explained, with
   links back to relevant concepts.
 
-- [Comparative Analysis](analysis.md) -- Triton VM compared to every other
+- [Comparative Analysis](provable-computing.md) -- Triton VM compared to every other
   ZK system: StarkWare, SP1, RISC Zero, Aleo, Mina, NockVM. Covers quantum
   safety, privacy, performance, and ecosystem strength.
 
