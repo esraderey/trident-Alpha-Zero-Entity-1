@@ -3,7 +3,7 @@
 //! Each register-machine target implements `RegisterLowering` to perform
 //! instruction selection, register allocation, and binary encoding.
 //!
-//! This is the register-machine counterpart of `tir::lower::Lowering`,
+//! This is the register-machine counterpart of `tir::lower::StackLowering`,
 //! which produces assembly text for stack machines.
 
 mod arm64;

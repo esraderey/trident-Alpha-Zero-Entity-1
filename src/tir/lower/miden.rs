@@ -1,6 +1,6 @@
 //! Miden VM lowering — produces MASM from TIR.
 
-use super::Lowering;
+use super::StackLowering;
 use crate::tir::TIROp;
 
 /// Miden VM lowering — produces MASM from IR.
@@ -246,7 +246,7 @@ impl MidenLowering {
     }
 }
 
-impl Lowering for MidenLowering {
+impl StackLowering for MidenLowering {
     fn lower(&self, ops: &[TIROp]) -> Vec<String> {
         let mut lowerer = MidenLowering::new();
         let mut out = Vec::new();

@@ -6,7 +6,7 @@
 //! not within a single execution.
 //!
 //! This is the data-parallel counterpart of:
-//! - `tir::lower::Lowering` — stack targets → assembly text
+//! - `tir::lower::StackLowering` — stack targets → assembly text
 //! - `lir::lower::RegisterLowering` — register targets → machine code
 
 mod cuda;

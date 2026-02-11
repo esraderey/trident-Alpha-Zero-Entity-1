@@ -151,7 +151,7 @@ fn test_lower_already_prefixed_labels() {
     assert_eq!(out[1], "__my_label:");
 }
 
-// ─── Comparison Tests: TIRBuilder + TritonLowering == Emitter ─────
+// ─── Comparison Tests: TIRBuilder + StackLowering == Emitter ──────
 
 use crate::legacy::emitter::Emitter;
 use crate::lexer::Lexer;
@@ -166,7 +166,7 @@ fn compile_old(source: &str) -> String {
     Emitter::new().emit_file(&file)
 }
 
-/// Compile with new TIRBuilder + TritonLowering path.
+/// Compile with new TIRBuilder + StackLowering path.
 fn compile_new(source: &str) -> String {
     let (tokens, _, _) = Lexer::new(source, 0).tokenize();
     let file = Parser::new(tokens).parse_file().unwrap();

@@ -1,7 +1,7 @@
 //! TIR — Trident Intermediate Representation.
 //!
 //! The TIR is a list of stack operations with structural control flow.
-//! Each backend implements a `Lowering` that consumes `Vec<TIROp>` and
+//! Each backend implements a `StackLowering` that consumes `Vec<TIROp>` and
 //! produces target assembly text.
 
 pub mod builder;

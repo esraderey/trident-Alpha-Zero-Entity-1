@@ -2,7 +2,7 @@
 //!
 //! This is the core of Phase 2 — it replicates the Emitter's AST-walking
 //! logic but produces `Vec<TIROp>` instead of `Vec<String>`. The output is
-//! target-independent; a `Lowering` implementation converts it to assembly.
+//! target-independent; a `StackLowering` implementation converts it to assembly.
 //!
 //! Key differences from the Emitter:
 //! - No `StackBackend`: instructions are TIROp variants pushed directly.

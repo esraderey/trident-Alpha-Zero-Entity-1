@@ -1,6 +1,6 @@
 //! Triton VM lowering — produces TASM from TIR.
 
-use super::Lowering;
+use super::StackLowering;
 use crate::tir::TIROp;
 
 /// A deferred subroutine block collected during lowering.
@@ -292,7 +292,7 @@ impl TritonLowering {
     }
 }
 
-impl Lowering for TritonLowering {
+impl StackLowering for TritonLowering {
     fn lower(&self, ops: &[TIROp]) -> Vec<String> {
         let mut lowerer = TritonLowering::new();
         let mut out = Vec::new();

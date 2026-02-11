@@ -6,7 +6,7 @@
 //!
 //! Pipeline:
 //! ```text
-//! AST → TIR ─→ Lowering          → Vec<String>  (stack targets)
+//! AST → TIR ─→ StackLowering     → Vec<String>  (stack targets)
 //!           ├→ LIR → RegisterLow  → Vec<u8>      (register targets)
 //!           └→ KIR → KernelLow    → String        (GPU kernel source)
 //! ```

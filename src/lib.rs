@@ -55,7 +55,7 @@ use parser::Parser;
 use resolve::{resolve_modules, resolve_modules_with_deps};
 use target::TargetConfig;
 use tir::builder::TIRBuilder;
-use tir::lower::create_lowering;
+use tir::lower::create_stack_lowering;
 use typecheck::{ModuleExports, TypeChecker};
 
 /// Options controlling compilation: VM target + conditional compilation flags.
@@ -130,7 +130,7 @@ pub fn compile_with_options(
         .with_mono_instances(exports.mono_instances)
         .with_call_resolutions(exports.call_resolutions)
         .build_file(&file);
-    let lowering = create_lowering(&options.target_config.name);
+    let lowering = create_stack_lowering(&options.target_config.name);
     let tasm = lowering.lower(&ir).join("\n");
     Ok(tasm)
 }
@@ -268,7 +268,7 @@ pub fn compile_project_with_options(
             .with_mono_instances(mono)
             .with_call_resolutions(call_res)
             .build_file(file);
-        let lowering = create_lowering(&options.target_config.name);
+        let lowering = create_stack_lowering(&options.target_config.name);
         let tasm = lowering.lower(&ir).join("\n");
         tasm_modules.push(ModuleTasm {
             module_name: file.name.node.clone(),

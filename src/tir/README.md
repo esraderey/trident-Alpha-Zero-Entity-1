@@ -2,7 +2,7 @@
 
 Target-independent TIR between the AST and backend assembly.
 
-The compiler pipeline is: **parse -> typecheck -> TIRBuilder -> Lowering -> assembly text**.
+The compiler pipeline is: **parse -> typecheck -> TIRBuilder -> StackLowering -> assembly text**.
 
 ## Structure
 
@@ -24,4 +24,4 @@ Structural ops (`IfElse`, `IfOnly`, `Loop`) carry nested `Vec<TIROp>` bodies so 
 
 ## Entry point
 
-Compilation uses IR via [`src/lib.rs`](../lib.rs) — builds IR with [`TIRBuilder`](builder/mod.rs:37) then lowers with [`create_lowering`](lower/mod.rs:23).
+Compilation uses IR via [`src/lib.rs`](../lib.rs) — builds IR with [`TIRBuilder`](builder/mod.rs:37) then lowers with [`create_stack_lowering`](lower/mod.rs:23).

@@ -14,7 +14,7 @@ TypeChecker
   ▼
 TIRBuilder → Vec<TIROp>              ← 54 ops, target-independent
   │
-  ├─→ Lowering       → Vec<String>   ← stack targets (Triton, Miden, EVM)
+  ├─→ StackLow       → Vec<String>   ← stack targets (Triton, Miden, EVM)
   │
   ├─→ LIR → RegLow   → Vec<u8>      ← register targets (x86-64, ARM64, RISC-V)
   │
@@ -98,12 +98,12 @@ that use ops above the target's capability.
 
 ## Part II: Three Lowering Paths
 
-### Stack targets — TIR → Lowering → assembly text
+### Stack targets — TIR → StackLowering → assembly text
 
 For stack-machine VMs: Triton, Miden, EVM, WASM.
 
 ```rust
-pub trait Lowering {
+pub trait StackLowering {
     fn lower(&self, ops: &[TIROp]) -> Vec<String>;
 }
 ```
@@ -280,7 +280,7 @@ src/tir/                           ← stack-based IR (canonical)
 │   ├── layout.rs                  ← type widths, struct layouts
 │   └── tests.rs                   ← builder tests
 └── lower/                         ← TIR → assembly text
-    ├── mod.rs                     ← Lowering trait + factory
+    ├── mod.rs                     ← StackLowering trait + factory
     ├── triton.rs                  ← Triton VM (TASM)
     ├── miden.rs                   ← Miden VM (MASM)
     └── tests.rs                   ← lowering tests
@@ -314,8 +314,8 @@ src/legacy/                        ← old emitter (deprecated, comparison tests
 ### Stack target
 
 1. Create `src/tir/lower/new_target.rs`
-2. Implement `Lowering` — one method: `fn lower(&self, ops: &[TIROp]) -> Vec<String>`
-3. Register in `create_lowering()`
+2. Implement `StackLowering` — one method: `fn lower(&self, ops: &[TIROp]) -> Vec<String>`
+3. Register in `create_stack_lowering()`
 4. Add `TargetConfig`
 
 ### Register target

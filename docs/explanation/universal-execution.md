@@ -85,7 +85,7 @@ Source (.tri)
     ├── Type checker (+ level check)
     ├── TIRBuilder → Vec<TIROp>
     │
-    └── Lowering (per target)
+    └── StackLowering (per target)
          ├── TritonLowering  → TASM instructions
          ├── MidenLowering   → MASM instructions
          ├── EvmLowering     → EVM bytecode

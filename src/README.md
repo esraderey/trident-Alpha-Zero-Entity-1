@@ -71,7 +71,7 @@ Parallel to the main pipeline, several modules provide analysis, tooling, and pa
 
 **Direct mapping**. Every language construct maps to a known instruction pattern. The compiler is a thin translation layer, not an optimization engine. This makes proving costs predictable and the compiler auditable.
 
-**Target abstraction**. The [`Lowering`](tir/lower/mod.rs) trait and [`CostModel`](cost/model/mod.rs) trait isolate all target-specific knowledge. Adding a new backend means implementing these two traits -- the rest of the compiler is shared.
+**Target abstraction**. The [`StackLowering`](tir/lower/mod.rs) trait and [`CostModel`](cost/model/mod.rs) trait isolate all target-specific knowledge. Adding a new backend means implementing these two traits -- the rest of the compiler is shared.
 
 **Re-exports for stability**. [`lib.rs`](lib.rs) re-exports every module at the crate root (`crate::parser`, `crate::emit`, etc.) so that internal reorganization does not break downstream code or the binary crate.
 
