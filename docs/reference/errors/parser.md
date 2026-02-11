@@ -305,3 +305,31 @@ error: pointers and references ('&', '*') are not supported
 ```
 
 **Spec:** language.md Section 2, Section 8, Section 21 (no heap, no pointers).
+
+---
+
+### Unsupported visibility modifier **(planned)**
+
+```
+error: visibility modifier 'pub(crate)' is not supported
+  help: Trident has only `pub` (public) or default (private)
+```
+
+No `pub(crate)`, `friend`, or `internal` modifiers. Visibility is binary:
+`pub` or private.
+
+**Spec:** language.md Section 1 (no pub(crate), no friend, no internal).
+
+---
+
+### No heap allocation **(planned)**
+
+```
+error: 'alloc' is not supported; Trident has no heap
+  help: use stack variables or RAM (ram_read/ram_write)
+```
+
+No `alloc`, `free`, `new`, or garbage collection. All memory is either
+stack (16 elements, LRU spill) or word-addressed RAM.
+
+**Spec:** language.md Section 8, Section 21 (no heap, no GC).

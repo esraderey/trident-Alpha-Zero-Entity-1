@@ -67,3 +67,32 @@ error: unknown cfg flag 'unknown_flag'
 ```
 
 **Spec:** language.md Section 7 (cfg conditional compilation).
+
+---
+
+### Invalid requires/ensures predicate **(planned)**
+
+```
+error: invalid predicate in #[requires]: undefined variable 'x'
+  help: predicates may only reference parameter names and constants
+```
+
+The expression inside `#[requires(...)]` or `#[ensures(...)]` must be a
+valid boolean expression over the function's parameters (for requires)
+or parameters and `result` (for ensures).
+
+**Spec:** language.md Section 7 (#[requires]/#[ensures] predicates).
+
+---
+
+### Result in requires predicate **(planned)**
+
+```
+error: 'result' is not available in #[requires] predicates
+  help: 'result' refers to the return value and is only valid in #[ensures]
+```
+
+The `result` keyword represents the function's return value, which does
+not exist at the point of precondition checking.
+
+**Spec:** language.md Section 7 (result = return value, ensures only).

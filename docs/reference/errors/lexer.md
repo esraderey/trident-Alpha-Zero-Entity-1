@@ -178,6 +178,20 @@ error: unexpected '"'; Trident has no string type
 
 ---
 
+### No block comment **(planned)**
+
+```
+error: block comments '/* */' are not supported
+  help: use line comments: `// comment`
+```
+
+Trident only supports line comments (`//`). Block comments are not part of
+the grammar.
+
+**Spec:** language.md Section 20 (grammar: `comment = "//" .* NEWLINE`).
+
+---
+
 ### Integer too large
 
 ```

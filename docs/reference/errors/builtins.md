@@ -67,3 +67,18 @@ error: ram_read() address must be Field, got Bool
 ```
 
 **Spec:** language.md Section 6, Section 8 (RAM: word-addressed by Field).
+
+---
+
+### Inverse of zero **(planned)**
+
+```
+error: inv(0) is undefined — zero has no multiplicative inverse
+  help: guard with `assert(a == 0 == false)` before calling inv()
+```
+
+When the argument to `inv()` is a compile-time constant zero, the compiler
+rejects it statically. At runtime, `inv(0)` causes VM failure (no proof
+generated).
+
+**Spec:** language.md Section 6 (inv(a: Field) → Field, a must be nonzero).

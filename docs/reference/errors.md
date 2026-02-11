@@ -10,24 +10,63 @@ specification-required but not yet implemented in the compiler.
 
 ---
 
+## Derivation Methodology
+
+The catalog is derived systematically from the specification, not
+reverse-engineered from compiler source. Every violable rule produces
+at least one diagnostic entry.
+
+### The 5-step process
+
+1. **Extract** — Scan language.md, targets.md, and ir.md for prohibition
+   keywords: "must", "cannot", "only", "requires", "forbidden", "not
+   supported", "rejected", "maximum", "minimum".
+
+2. **Classify** — Is the constraint user-violable? Internal compiler
+   invariants don't need user-facing errors. Only rules that a programmer
+   could break in source code qualify.
+
+3. **Map** — Each violable constraint maps to at least one catalog entry.
+   Some constraints produce multiple errors (e.g., "no subtraction"
+   catches `-`, `--`, `-=`).
+
+4. **Audit** — Gaps cluster in predictable categories:
+   - Excluded-feature diagnostics (every Rust/C keyword users try)
+   - Tier-gating for compound features (seal uses sponge internally)
+   - Semantic domain errors (inv(0), hash rate mismatches)
+   - Attribute argument validation
+
+5. **Maintain** — When adding a language feature, add its violation modes
+   to the catalog simultaneously. The spec change and the error entry
+   ship together.
+
+### Completeness claim
+
+156 diagnostics cover every user-violable "must"/"cannot"/"only" constraint
+in language.md (Sections 1-22), targets.md, and ir.md. The derivation was
+audited by scanning all three documents for prohibition keywords and
+cross-referencing each against the catalog.
+
+---
+
 ## Categories
 
 | Category | File | Total | Impl | Planned |
 |----------|------|------:|-----:|--------:|
-| Lexer | [lexer.md](errors/lexer.md) | 19 | 7 | 12 |
-| Parser | [parser.md](errors/parser.md) | 24 | 8 | 16 |
+| Lexer | [lexer.md](errors/lexer.md) | 20 | 7 | 13 |
+| Parser | [parser.md](errors/parser.md) | 26 | 8 | 18 |
 | Type | [types.md](errors/types.md) | 34 | 24 | 10 |
 | Control flow | [control-flow.md](errors/control-flow.md) | 8 | 6 | 2 |
 | Size generics | [size-generics.md](errors/size-generics.md) | 6 | 4 | 2 |
 | Events | [events.md](errors/events.md) | 7 | 5 | 2 |
-| Annotations | [annotations.md](errors/annotations.md) | 6 | 3 | 3 |
+| Annotations | [annotations.md](errors/annotations.md) | 8 | 3 | 5 |
 | Module | [modules.md](errors/modules.md) | 10 | 4 | 6 |
-| Target | [targets.md](errors/targets.md) | 14 | 3 | 11 |
-| Builtin type | [builtins.md](errors/builtins.md) | 6 | 0 | 6 |
+| Target | [targets.md](errors/targets.md) | 16 | 3 | 13 |
+| Builtin type | [builtins.md](errors/builtins.md) | 7 | 0 | 7 |
 | Inline assembly | [assembly.md](errors/assembly.md) | 2 | 0 | 2 |
 | Warnings | [warnings.md](errors/warnings.md) | 7 | 3 | 4 |
 | Hints | [hints.md](errors/hints.md) | 5 | 4 | 1 |
-| **Total** | | **148** | **71** | **77** |
+| **Total** | | **156** | **71** | **85** |
 
 ---
 

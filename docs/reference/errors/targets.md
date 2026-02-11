@@ -90,6 +90,21 @@ error: builtin 'sponge_init' is not available on target 'sp1'
 
 ---
 
+### Seal on unsupported target **(planned)**
+
+```
+error: 'seal' requires sponge support (Tier 2)
+  help: seal hashes fields via sponge; use 'reveal' for public output on Tier 1 targets
+```
+
+`seal` internally uses the sponge construction to hash event fields before
+writing the commitment digest to public output. Targets without sponge
+support cannot execute `seal`.
+
+**Spec:** language.md Section 15 (seal requires sponge = Tier 2).
+
+---
+
 ### Merkle builtins on unsupported target **(planned)**
 
 ```
@@ -134,6 +149,19 @@ error: recursive proof verification (Tier 3) is only available on Triton VM
 ```
 
 **Spec:** ir.md (Tier 3 = Triton only), targets.md tier compatibility.
+
+---
+
+### Invalid proof_block program hash **(planned)**
+
+```
+error: proof_block() requires Digest argument, got Field
+```
+
+The `proof_block` construct takes a program hash of type `Digest` to
+identify which program's proof is being verified recursively.
+
+**Spec:** language.md Section 17 (proof_block(program_hash: Digest)).
 
 ---
 
