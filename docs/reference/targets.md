@@ -25,10 +25,18 @@ architecture runs multiple operating systems.
 | Process model | Multi-threaded | Sequential, deterministic |
 | Billing | None (or quotas) | Cost tables (rows, cycles, steps) |
 
-The compiler doesn't "target multiple chains." It targets multiple CPUs.
-Each CPU may run under one or more operating systems, but the compiler's job
-is instruction selection and code generation — the same job gcc does for
-x86-64 regardless of whether the binary runs on Linux or macOS.
+The compiler does two jobs, just like gcc:
+
+1. **Instruction selection** (CPU) — translate IR ops to the target VM's
+   native instructions. This is the same job gcc does for x86-64 vs ARM64.
+
+2. **Runtime binding** (OS) — link against OS-specific standard library
+   modules (`ext.<target>.*`) that provide transaction models, account
+   structures, storage layouts, and syscall conventions. This is the same
+   job libc does — it differs between Linux and macOS even on the same CPU.
+
+One VM can power multiple blockchains. The compiler targets the VM for code
+generation and the blockchain for runtime binding.
 
 ### VMs and Their Blockchains
 
