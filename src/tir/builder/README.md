@@ -1,12 +1,12 @@
-# ir/builder — AST to IR Translation
+# tir/builder — AST to TIR Translation
 
-Walks a type-checked AST and produces `Vec<IROp>`. Target-independent.
+Walks a type-checked AST and produces `Vec<TIROp>`. Target-independent.
 
 ## Files
 
 | File | Purpose | Key symbols |
 |------|---------|-------------|
-| [`mod.rs`](mod.rs) | Core struct and entry points | [`IRBuilder`](mod.rs:37), [`build_file`](mod.rs:144), [`build_fn`](mod.rs:291) |
+| [`mod.rs`](mod.rs) | Core struct and entry points | [`TIRBuilder`](mod.rs:37), [`build_file`](mod.rs:144), [`build_fn`](mod.rs:291) |
 | [`stmt.rs`](stmt.rs) | Statement emission | [`build_block`](stmt.rs:15), [`build_stmt`](stmt.rs:24), [`build_match`](stmt.rs:283) |
 | [`expr.rs`](expr.rs) | Expression emission | [`build_expr`](expr.rs:11), [`build_var_expr`](expr.rs:116), [`build_field_access`](expr.rs:200), [`build_index`](expr.rs:271) |
 | [`call.rs`](call.rs) | Function call dispatch | [`build_call`](call.rs:12) (~40 intrinsics), [`build_user_call`](call.rs:225) |
@@ -16,7 +16,7 @@ Walks a type-checked AST and produces `Vec<IROp>`. Target-independent.
 
 ## How it works
 
-[`IRBuilder`](mod.rs:37) maintains a [`StackManager`](../../codegen/stack.rs:58) that models the runtime stack with LRU spill/reload to RAM. As it walks the AST, it pushes [`IROp`](../mod.rs:18) variants and keeps the stack model in sync. Structural control flow (`IfElse`, `Loop`) captures nested bodies as `Vec<IROp>` rather than emitting flat labels.
+[`TIRBuilder`](mod.rs:37) maintains a [`StackManager`](../../codegen/stack.rs:58) that models the runtime stack with LRU spill/reload to RAM. As it walks the AST, it pushes [`TIROp`](../mod.rs:18) variants and keeps the stack model in sync. Structural control flow (`IfElse`, `Loop`) captures nested bodies as `Vec<TIROp>` rather than emitting flat labels.
 
 ## Data flow
 
@@ -28,7 +28,7 @@ Walks a type-checked AST and produces `Vec<IROp>`. Target-independent.
 
 ## Dependencies
 
-- [`IROp`](../mod.rs:18) — the IR operations this builder produces
+- [`TIROp`](../mod.rs:18) — the IR operations this builder produces
 - [`StackManager`](../../codegen/stack.rs:58) — stack depth tracking and spill/reload
 - [`TargetConfig`](../../tools/target.rs:20) — VM parameters (stack depth, field widths)
 - [`MonoInstance`](../../typecheck/mod.rs:32) — resolved generic instantiations

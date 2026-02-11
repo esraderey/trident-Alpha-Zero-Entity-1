@@ -1,15 +1,15 @@
-//! IRBuilder: lowers a type-checked AST into `Vec<IROp>`.
+//! TIRBuilder: lowers a type-checked AST into `Vec<TIROp>`.
 //!
 //! This is the core of Phase 2 — it replicates the Emitter's AST-walking
-//! logic but produces `Vec<IROp>` instead of `Vec<String>`. The output is
+//! logic but produces `Vec<TIROp>` instead of `Vec<String>`. The output is
 //! target-independent; a `Lowering` implementation converts it to assembly.
 //!
 //! Key differences from the Emitter:
-//! - No `StackBackend`: instructions are IROp variants pushed directly.
-//! - No `DeferredBlock`: if/else and loops use nested `Vec<IROp>` bodies
-//!   inside structural `IROp::IfElse`, `IROp::IfOnly`, and `IROp::Loop`.
+//! - No `StackBackend`: instructions are TIROp variants pushed directly.
+//! - No `DeferredBlock`: if/else and loops use nested `Vec<TIROp>` bodies
+//!   inside structural `TIROp::IfElse`, `TIROp::IfOnly`, and `TIROp::Loop`.
 //! - `StackManager` spill/reload effects are parsed from their string form
-//!   back into IROps via `parse_spill_effect`.
+//!   back into TIROps via `parse_spill_effect`.
 
 mod call;
 mod expr;
@@ -24,19 +24,19 @@ use std::collections::{HashMap, HashSet};
 
 use crate::ast::*;
 use crate::codegen::stack::StackManager;
-use crate::ir::IROp;
+use crate::tir::TIROp;
 use crate::stack::SpillFormatter;
 use crate::target::TargetConfig;
 use crate::typecheck::MonoInstance;
 
 use self::layout::{format_type_name, resolve_type_width, resolve_type_width_with_subs};
 
-// ─── IRBuilder ────────────────────────────────────────────────────
+// ─── TIRBuilder ────────────────────────────────────────────────────
 
 /// Builds IR from a type-checked AST.
-pub struct IRBuilder {
+pub struct TIRBuilder {
     /// Accumulated IR operations.
-    pub(crate) ops: Vec<IROp>,
+    pub(crate) ops: Vec<TIROp>,
     /// Monotonic label counter.
     pub(crate) label_counter: u32,
     /// Stack model: LRU-based manager with automatic RAM spill/reload.
@@ -75,7 +75,7 @@ pub struct IRBuilder {
     pub(crate) target_config: TargetConfig,
 }
 
-impl IRBuilder {
+impl TIRBuilder {
     pub fn new(target_config: TargetConfig) -> Self {
         let stack = StackManager::with_formatter(
             target_config.stack_depth,
@@ -141,7 +141,7 @@ impl IRBuilder {
     // ── Top-level entry: build_file ───────────────────────────────
     // ═══════════════════════════════════════════════════════════════
 
-    pub fn build_file(mut self, file: &File) -> Vec<IROp> {
+    pub fn build_file(mut self, file: &File) -> Vec<TIROp> {
         // ── Pre-scan: collect return widths and detect generic functions ──
         for item in &file.items {
             if !self.is_item_cfg_active(&item.node) {
@@ -239,12 +239,12 @@ impl IRBuilder {
         // ── Emit sec ram metadata as comments ──
         for decl in &file.declarations {
             if let Declaration::SecRam(entries) = decl {
-                self.ops.push(IROp::Comment(
+                self.ops.push(TIROp::Comment(
                     "sec ram: prover-initialized RAM slots".to_string(),
                 ));
                 for (addr, ty) in entries {
                     let width = resolve_type_width(&ty.node, &self.target_config);
-                    self.ops.push(IROp::Comment(format!(
+                    self.ops.push(TIROp::Comment(format!(
                         "ram[{}]: {} ({} field element{})",
                         addr,
                         format_type_name(&ty.node),
@@ -252,13 +252,13 @@ impl IRBuilder {
                         if width == 1 { "" } else { "s" }
                     )));
                 }
-                self.ops.push(IROp::BlankLine);
+                self.ops.push(TIROp::BlankLine);
             }
         }
 
         // ── Program preamble ──
         if file.kind == FileKind::Program {
-            self.ops.push(IROp::Preamble("main".to_string()));
+            self.ops.push(TIROp::Preamble("main".to_string()));
         }
 
         // ── Emit non-generic, non-test functions ──
@@ -293,7 +293,7 @@ impl IRBuilder {
             return;
         }
 
-        self.ops.push(IROp::FnStart(func.name.node.clone()));
+        self.ops.push(TIROp::FnStart(func.name.node.clone()));
         self.stack.clear();
 
         // Parameters are already on the real stack. Register them in the model.
@@ -318,15 +318,15 @@ impl IRBuilder {
                 .unwrap_or(0);
             let to_pop = total_width.saturating_sub(ret_width);
             for _ in 0..to_pop {
-                self.ops.push(IROp::Swap(1));
-                self.ops.push(IROp::Pop(1));
+                self.ops.push(TIROp::Swap(1));
+                self.ops.push(TIROp::Pop(1));
             }
         } else if !has_return {
             self.emit_pop(total_width);
         }
 
-        self.ops.push(IROp::Return);
-        self.ops.push(IROp::FnEnd);
+        self.ops.push(TIROp::Return);
+        self.ops.push(TIROp::FnEnd);
         self.stack.clear();
     }
 
@@ -342,7 +342,7 @@ impl IRBuilder {
         }
 
         let mangled = inst.mangled_name();
-        self.ops.push(IROp::FnStart(mangled));
+        self.ops.push(TIROp::FnStart(mangled));
         self.stack.clear();
 
         // Parameters with substituted widths.
@@ -373,15 +373,15 @@ impl IRBuilder {
                 .unwrap_or(0);
             let to_pop = total_width.saturating_sub(ret_width);
             for _ in 0..to_pop {
-                self.ops.push(IROp::Swap(1));
-                self.ops.push(IROp::Pop(1));
+                self.ops.push(TIROp::Swap(1));
+                self.ops.push(TIROp::Pop(1));
             }
         } else if !has_return {
             self.emit_pop(total_width);
         }
 
-        self.ops.push(IROp::Return);
-        self.ops.push(IROp::FnEnd);
+        self.ops.push(TIROp::Return);
+        self.ops.push(TIROp::FnEnd);
         self.stack.clear();
         self.current_subs.clear();
     }

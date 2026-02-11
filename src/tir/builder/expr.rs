@@ -1,20 +1,20 @@
 //! Expression emission: build_expr, build_var_expr, build_field_access, build_index.
 
 use crate::ast::*;
-use crate::ir::IROp;
+use crate::tir::TIROp;
 use crate::span::Spanned;
 
 use super::layout::resolve_type_width;
-use super::IRBuilder;
+use super::TIRBuilder;
 
-impl IRBuilder {
+impl TIRBuilder {
     pub(crate) fn build_expr(&mut self, expr: &Expr) {
         match expr {
             Expr::Literal(Literal::Integer(n)) => {
-                self.emit_and_push(IROp::Push(*n), 1);
+                self.emit_and_push(TIROp::Push(*n), 1);
             }
             Expr::Literal(Literal::Bool(b)) => {
-                self.emit_and_push(IROp::Push(if *b { 1 } else { 0 }), 1);
+                self.emit_and_push(TIROp::Push(if *b { 1 } else { 0 }), 1);
             }
 
             Expr::Var(name) => {
@@ -25,14 +25,14 @@ impl IRBuilder {
                 self.build_expr(&lhs.node);
                 self.build_expr(&rhs.node);
                 match op {
-                    BinOp::Add => self.ops.push(IROp::Add),
-                    BinOp::Mul => self.ops.push(IROp::Mul),
-                    BinOp::Eq => self.ops.push(IROp::Eq),
-                    BinOp::Lt => self.ops.push(IROp::Lt),
-                    BinOp::BitAnd => self.ops.push(IROp::And),
-                    BinOp::BitXor => self.ops.push(IROp::Xor),
-                    BinOp::DivMod => self.ops.push(IROp::DivMod),
-                    BinOp::XFieldMul => self.ops.push(IROp::XbMul),
+                    BinOp::Add => self.ops.push(TIROp::Add),
+                    BinOp::Mul => self.ops.push(TIROp::Mul),
+                    BinOp::Eq => self.ops.push(TIROp::Eq),
+                    BinOp::Lt => self.ops.push(TIROp::Lt),
+                    BinOp::BitAnd => self.ops.push(TIROp::And),
+                    BinOp::BitXor => self.ops.push(TIROp::Xor),
+                    BinOp::DivMod => self.ops.push(TIROp::DivMod),
+                    BinOp::XFieldMul => self.ops.push(TIROp::XbMul),
                 }
                 self.stack.pop(); // rhs temp
                 self.stack.pop(); // lhs temp
@@ -126,25 +126,25 @@ impl IRBuilder {
                     self.stack.ensure_space(field_width);
                     self.flush_stack_effects();
                     for _ in 0..field_width {
-                        self.ops.push(IROp::Dup(real_depth + field_width - 1));
+                        self.ops.push(TIROp::Dup(real_depth + field_width - 1));
                     }
                     self.stack.push_temp(field_width);
                 } else {
                     let depth = base_depth;
-                    self.emit_and_push(IROp::Dup(depth), 1);
+                    self.emit_and_push(TIROp::Dup(depth), 1);
                 }
             } else {
                 // Module constant.
                 if let Some(&val) = self.constants.get(name) {
-                    self.emit_and_push(IROp::Push(val), 1);
+                    self.emit_and_push(TIROp::Push(val), 1);
                 } else if let Some(&val) = self.constants.get(suffix) {
-                    self.emit_and_push(IROp::Push(val), 1);
+                    self.emit_and_push(TIROp::Push(val), 1);
                 } else {
-                    self.ops.push(IROp::Comment(format!(
+                    self.ops.push(TIROp::Comment(format!(
                         "ERROR: unresolved constant '{}'",
                         name
                     )));
-                    self.emit_and_push(IROp::Push(0), 1);
+                    self.emit_and_push(TIROp::Push(0), 1);
                 }
             }
         } else {
@@ -163,7 +163,7 @@ impl IRBuilder {
 
                 if depth + width - 1 <= 15 {
                     for _ in 0..width {
-                        self.ops.push(IROp::Dup(depth + width - 1));
+                        self.ops.push(TIROp::Dup(depth + width - 1));
                     }
                 } else {
                     // Too deep — force spill of other variables.
@@ -175,21 +175,21 @@ impl IRBuilder {
                     self.flush_stack_effects();
                     if depth2 + width - 1 <= 15 {
                         for _ in 0..width {
-                            self.ops.push(IROp::Dup(depth2 + width - 1));
+                            self.ops.push(TIROp::Dup(depth2 + width - 1));
                         }
                     } else {
-                        self.ops.push(IROp::Comment(format!(
+                        self.ops.push(TIROp::Comment(format!(
                             "BUG: variable '{}' unreachable (depth {}+{}), aborting",
                             name, depth2, width
                         )));
-                        self.ops.push(IROp::Push(0));
-                        self.ops.push(IROp::Assert);
+                        self.ops.push(TIROp::Push(0));
+                        self.ops.push(TIROp::Assert);
                     }
                 }
                 self.stack.push_temp(width);
             } else {
                 // Variable not found — fallback.
-                self.ops.push(IROp::Dup(0));
+                self.ops.push(TIROp::Dup(0));
                 self.stack.push_temp(1);
             }
         }
@@ -205,11 +205,11 @@ impl IRBuilder {
             let field_offset = self.resolve_field_offset(&inner.node, &field.node);
             if let Some((offset, field_width)) = field_offset {
                 for i in 0..field_width {
-                    self.ops.push(IROp::Dup(offset + (field_width - 1 - i)));
+                    self.ops.push(TIROp::Dup(offset + (field_width - 1 - i)));
                 }
                 self.stack.pop();
                 for _ in 0..field_width {
-                    self.ops.push(IROp::Swap(field_width + struct_width - 1));
+                    self.ops.push(TIROp::Swap(field_width + struct_width - 1));
                 }
                 self.emit_pop(struct_width);
                 self.stack.push_temp(field_width);
@@ -241,17 +241,17 @@ impl IRBuilder {
                 }
                 if let Some((from_top, fw)) = found {
                     for i in 0..fw {
-                        self.ops.push(IROp::Dup(from_top + (fw - 1 - i)));
+                        self.ops.push(TIROp::Dup(from_top + (fw - 1 - i)));
                     }
                     self.stack.pop();
                     for _ in 0..fw {
-                        self.ops.push(IROp::Swap(fw + struct_width - 1));
+                        self.ops.push(TIROp::Swap(fw + struct_width - 1));
                     }
                     self.emit_pop(struct_width);
                     self.stack.push_temp(fw);
                     self.flush_stack_effects();
                 } else {
-                    self.ops.push(IROp::Comment(format!(
+                    self.ops.push(TIROp::Comment(format!(
                         "ERROR: unresolved field '{}'",
                         field.node
                     )));
@@ -280,11 +280,11 @@ impl IRBuilder {
                 let elem_width = entry.elem_width.unwrap_or(1);
                 let base_offset = array_width - (idx + 1) * elem_width;
                 for i in 0..elem_width {
-                    self.ops.push(IROp::Dup(base_offset + (elem_width - 1 - i)));
+                    self.ops.push(TIROp::Dup(base_offset + (elem_width - 1 - i)));
                 }
                 self.stack.pop();
                 for _ in 0..elem_width {
-                    self.ops.push(IROp::Swap(elem_width + array_width - 1));
+                    self.ops.push(TIROp::Swap(elem_width + array_width - 1));
                 }
                 self.emit_pop(array_width);
                 self.stack.push_temp(elem_width);
@@ -306,38 +306,38 @@ impl IRBuilder {
                 self.temp_ram_addr += array_width as u64;
 
                 // Store array elements to RAM.
-                self.ops.push(IROp::Swap(1));
+                self.ops.push(TIROp::Swap(1));
                 for i in 0..array_width {
                     let addr = base + i as u64;
-                    self.ops.push(IROp::Push(addr));
-                    self.ops.push(IROp::Swap(1));
-                    self.ops.push(IROp::WriteMem(1));
-                    self.ops.push(IROp::Pop(1));
+                    self.ops.push(TIROp::Push(addr));
+                    self.ops.push(TIROp::Swap(1));
+                    self.ops.push(TIROp::WriteMem(1));
+                    self.ops.push(TIROp::Pop(1));
                     if i + 1 < array_width {
-                        self.ops.push(IROp::Swap(1));
+                        self.ops.push(TIROp::Swap(1));
                     }
                 }
 
                 // Compute target address: base + idx * elem_width.
                 if elem_width > 1 {
-                    self.ops.push(IROp::Push(elem_width as u64));
-                    self.ops.push(IROp::Mul);
+                    self.ops.push(TIROp::Push(elem_width as u64));
+                    self.ops.push(TIROp::Mul);
                 }
-                self.ops.push(IROp::Push(base));
-                self.ops.push(IROp::Add);
+                self.ops.push(TIROp::Push(base));
+                self.ops.push(TIROp::Add);
 
                 // Read elem_width elements from computed address.
                 for i in 0..elem_width {
-                    self.ops.push(IROp::Dup(0));
+                    self.ops.push(TIROp::Dup(0));
                     if i > 0 {
-                        self.ops.push(IROp::Push(i as u64));
-                        self.ops.push(IROp::Add);
+                        self.ops.push(TIROp::Push(i as u64));
+                        self.ops.push(TIROp::Add);
                     }
-                    self.ops.push(IROp::ReadMem(1));
-                    self.ops.push(IROp::Pop(1));
-                    self.ops.push(IROp::Swap(1));
+                    self.ops.push(TIROp::ReadMem(1));
+                    self.ops.push(TIROp::Pop(1));
+                    self.ops.push(TIROp::Swap(1));
                 }
-                self.ops.push(IROp::Pop(1)); // pop address
+                self.ops.push(TIROp::Pop(1)); // pop address
 
                 self.stack.push_temp(elem_width);
                 self.flush_stack_effects();

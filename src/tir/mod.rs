@@ -1,7 +1,7 @@
-//! Intermediate representation between AST and target assembly.
+//! TIR — Trident Intermediate Representation.
 //!
-//! The IR is a list of stack operations with structural control flow.
-//! Each backend implements a `Lowering` that consumes `Vec<IROp>` and
+//! The TIR is a list of stack operations with structural control flow.
+//! Each backend implements a `Lowering` that consumes `Vec<TIROp>` and
 //! produces target assembly text.
 
 pub mod builder;
@@ -29,7 +29,7 @@ use std::fmt;
 /// **Target-specific** (not universal; Triton-native extension field) = 4
 ///
 /// Total: 24 + 12 + 13 + 4 = 53 variants
-pub enum IROp {
+pub enum TIROp {
     // ═══════════════════════════════════════════════════════════════
     // Tier 1 — Core instructions
     // 1:1 with stack machine primitives. Every backend maps these
@@ -133,17 +133,17 @@ pub enum IROp {
     /// Conditional branch with both then and else bodies.
     /// Condition bool has already been consumed from the stack.
     IfElse {
-        then_body: Vec<IROp>,
-        else_body: Vec<IROp>,
+        then_body: Vec<TIROp>,
+        else_body: Vec<TIROp>,
     },
     /// Conditional branch with only a then body (no else).
     IfOnly {
-        then_body: Vec<IROp>,
+        then_body: Vec<TIROp>,
     },
     /// Counted loop. Counter is on the stack. Body decrements and repeats.
     Loop {
         label: String,
-        body: Vec<IROp>,
+        body: Vec<TIROp>,
     },
 
     // ── Program structure (5) ──
@@ -182,57 +182,57 @@ pub enum IROp {
 
 // ─── Display ──────────────────────────────────────────────────────
 
-impl fmt::Display for IROp {
+impl fmt::Display for TIROp {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            IROp::Push(v) => write!(f, "push {}", v),
-            IROp::PushNegOne => write!(f, "push -1"),
-            IROp::Pop(n) => write!(f, "pop {}", n),
-            IROp::Dup(d) => write!(f, "dup {}", d),
-            IROp::Swap(d) => write!(f, "swap {}", d),
-            IROp::Add => write!(f, "add"),
-            IROp::Mul => write!(f, "mul"),
-            IROp::Eq => write!(f, "eq"),
-            IROp::Lt => write!(f, "lt"),
-            IROp::And => write!(f, "and"),
-            IROp::Xor => write!(f, "xor"),
-            IROp::DivMod => write!(f, "div_mod"),
-            IROp::Invert => write!(f, "invert"),
-            IROp::Split => write!(f, "split"),
-            IROp::Log2 => write!(f, "log2"),
-            IROp::Pow => write!(f, "pow"),
-            IROp::PopCount => write!(f, "pop_count"),
-            IROp::XbMul => write!(f, "xb_mul"),
-            IROp::XInvert => write!(f, "x_invert"),
-            IROp::XxDotStep => write!(f, "xx_dot_step"),
-            IROp::XbDotStep => write!(f, "xb_dot_step"),
-            IROp::ReadIo(n) => write!(f, "read_io {}", n),
-            IROp::WriteIo(n) => write!(f, "write_io {}", n),
-            IROp::Divine(n) => write!(f, "divine {}", n),
-            IROp::ReadMem(n) => write!(f, "read_mem {}", n),
-            IROp::WriteMem(n) => write!(f, "write_mem {}", n),
-            IROp::Hash => write!(f, "hash"),
-            IROp::SpongeInit => write!(f, "sponge_init"),
-            IROp::SpongeAbsorb => write!(f, "sponge_absorb"),
-            IROp::SpongeSqueeze => write!(f, "sponge_squeeze"),
-            IROp::SpongeAbsorbMem => write!(f, "sponge_absorb_mem"),
-            IROp::MerkleStep => write!(f, "merkle_step"),
-            IROp::MerkleStepMem => write!(f, "merkle_step_mem"),
-            IROp::Assert => write!(f, "assert"),
-            IROp::AssertVector => write!(f, "assert_vector"),
-            IROp::EmitEvent {
+            TIROp::Push(v) => write!(f, "push {}", v),
+            TIROp::PushNegOne => write!(f, "push -1"),
+            TIROp::Pop(n) => write!(f, "pop {}", n),
+            TIROp::Dup(d) => write!(f, "dup {}", d),
+            TIROp::Swap(d) => write!(f, "swap {}", d),
+            TIROp::Add => write!(f, "add"),
+            TIROp::Mul => write!(f, "mul"),
+            TIROp::Eq => write!(f, "eq"),
+            TIROp::Lt => write!(f, "lt"),
+            TIROp::And => write!(f, "and"),
+            TIROp::Xor => write!(f, "xor"),
+            TIROp::DivMod => write!(f, "div_mod"),
+            TIROp::Invert => write!(f, "invert"),
+            TIROp::Split => write!(f, "split"),
+            TIROp::Log2 => write!(f, "log2"),
+            TIROp::Pow => write!(f, "pow"),
+            TIROp::PopCount => write!(f, "pop_count"),
+            TIROp::XbMul => write!(f, "xb_mul"),
+            TIROp::XInvert => write!(f, "x_invert"),
+            TIROp::XxDotStep => write!(f, "xx_dot_step"),
+            TIROp::XbDotStep => write!(f, "xb_dot_step"),
+            TIROp::ReadIo(n) => write!(f, "read_io {}", n),
+            TIROp::WriteIo(n) => write!(f, "write_io {}", n),
+            TIROp::Divine(n) => write!(f, "divine {}", n),
+            TIROp::ReadMem(n) => write!(f, "read_mem {}", n),
+            TIROp::WriteMem(n) => write!(f, "write_mem {}", n),
+            TIROp::Hash => write!(f, "hash"),
+            TIROp::SpongeInit => write!(f, "sponge_init"),
+            TIROp::SpongeAbsorb => write!(f, "sponge_absorb"),
+            TIROp::SpongeSqueeze => write!(f, "sponge_squeeze"),
+            TIROp::SpongeAbsorbMem => write!(f, "sponge_absorb_mem"),
+            TIROp::MerkleStep => write!(f, "merkle_step"),
+            TIROp::MerkleStepMem => write!(f, "merkle_step_mem"),
+            TIROp::Assert => write!(f, "assert"),
+            TIROp::AssertVector => write!(f, "assert_vector"),
+            TIROp::EmitEvent {
                 name, field_count, ..
             } => write!(f, "emit_event {}({})", name, field_count),
-            IROp::SealEvent {
+            TIROp::SealEvent {
                 name, field_count, ..
             } => write!(f, "seal_event {}({})", name, field_count),
-            IROp::StorageRead { width } => write!(f, "storage_read {}", width),
-            IROp::StorageWrite { width } => write!(f, "storage_write {}", width),
-            IROp::HashDigest => write!(f, "hash_digest"),
-            IROp::Call(label) => write!(f, "call {}", label),
-            IROp::Return => write!(f, "return"),
-            IROp::Halt => write!(f, "halt"),
-            IROp::IfElse {
+            TIROp::StorageRead { width } => write!(f, "storage_read {}", width),
+            TIROp::StorageWrite { width } => write!(f, "storage_write {}", width),
+            TIROp::HashDigest => write!(f, "hash_digest"),
+            TIROp::Call(label) => write!(f, "call {}", label),
+            TIROp::Return => write!(f, "return"),
+            TIROp::Halt => write!(f, "halt"),
+            TIROp::IfElse {
                 then_body,
                 else_body,
             } => {
@@ -243,19 +243,19 @@ impl fmt::Display for IROp {
                     else_body.len()
                 )
             }
-            IROp::IfOnly { then_body } => {
+            TIROp::IfOnly { then_body } => {
                 write!(f, "if_only(then={})", then_body.len())
             }
-            IROp::Loop { label, body } => {
+            TIROp::Loop { label, body } => {
                 write!(f, "loop {}(body={})", label, body.len())
             }
-            IROp::Label(name) => write!(f, "label {}", name),
-            IROp::FnStart(name) => write!(f, "fn_start {}", name),
-            IROp::FnEnd => write!(f, "fn_end"),
-            IROp::Preamble(main) => write!(f, "preamble {}", main),
-            IROp::BlankLine => write!(f, ""),
-            IROp::Comment(text) => write!(f, "// {}", text),
-            IROp::RawAsm { lines, effect } => {
+            TIROp::Label(name) => write!(f, "label {}", name),
+            TIROp::FnStart(name) => write!(f, "fn_start {}", name),
+            TIROp::FnEnd => write!(f, "fn_end"),
+            TIROp::Preamble(main) => write!(f, "preamble {}", main),
+            TIROp::BlankLine => write!(f, ""),
+            TIROp::Comment(text) => write!(f, "// {}", text),
+            TIROp::RawAsm { lines, effect } => {
                 write!(f, "raw_asm({} lines, effect={})", lines.len(), effect)
             }
         }
@@ -270,25 +270,25 @@ mod tests {
 
     #[test]
     fn test_irop_display() {
-        assert_eq!(format!("{}", IROp::Push(42)), "push 42");
-        assert_eq!(format!("{}", IROp::Add), "add");
-        assert_eq!(format!("{}", IROp::Call("main".into())), "call main");
-        assert_eq!(format!("{}", IROp::Pop(3)), "pop 3");
-        assert_eq!(format!("{}", IROp::Dup(0)), "dup 0");
-        assert_eq!(format!("{}", IROp::Swap(5)), "swap 5");
+        assert_eq!(format!("{}", TIROp::Push(42)), "push 42");
+        assert_eq!(format!("{}", TIROp::Add), "add");
+        assert_eq!(format!("{}", TIROp::Call("main".into())), "call main");
+        assert_eq!(format!("{}", TIROp::Pop(3)), "pop 3");
+        assert_eq!(format!("{}", TIROp::Dup(0)), "dup 0");
+        assert_eq!(format!("{}", TIROp::Swap(5)), "swap 5");
     }
 
     #[test]
     fn test_irop_structural_display() {
-        let op = IROp::IfElse {
-            then_body: vec![IROp::Push(1), IROp::Add],
-            else_body: vec![IROp::Push(0)],
+        let op = TIROp::IfElse {
+            then_body: vec![TIROp::Push(1), TIROp::Add],
+            else_body: vec![TIROp::Push(0)],
         };
         assert_eq!(format!("{}", op), "if_else(then=2, else=1)");
 
-        let op = IROp::Loop {
+        let op = TIROp::Loop {
             label: "loop_1".into(),
-            body: vec![IROp::Pop(1)],
+            body: vec![TIROp::Pop(1)],
         };
         assert_eq!(format!("{}", op), "loop loop_1(body=1)");
     }
@@ -296,12 +296,12 @@ mod tests {
     #[test]
     fn test_irop_clone() {
         let ops = vec![
-            IROp::Push(10),
-            IROp::Push(20),
-            IROp::Add,
-            IROp::IfElse {
-                then_body: vec![IROp::WriteIo(1)],
-                else_body: vec![IROp::Pop(1)],
+            TIROp::Push(10),
+            TIROp::Push(20),
+            TIROp::Add,
+            TIROp::IfElse {
+                then_body: vec![TIROp::WriteIo(1)],
+                else_body: vec![TIROp::Pop(1)],
             },
         ];
         let cloned = ops.clone();
@@ -311,74 +311,74 @@ mod tests {
     #[test]
     fn test_irop_all_variants_construct() {
         // Verify every variant can be constructed without panic
-        let _ops: Vec<IROp> = vec![
-            IROp::Push(0),
-            IROp::PushNegOne,
-            IROp::Pop(1),
-            IROp::Dup(0),
-            IROp::Swap(1),
-            IROp::Add,
-            IROp::Mul,
-            IROp::Eq,
-            IROp::Lt,
-            IROp::And,
-            IROp::Xor,
-            IROp::DivMod,
-            IROp::Invert,
-            IROp::Split,
-            IROp::Log2,
-            IROp::Pow,
-            IROp::PopCount,
-            IROp::XbMul,
-            IROp::XInvert,
-            IROp::XxDotStep,
-            IROp::XbDotStep,
-            IROp::ReadIo(1),
-            IROp::WriteIo(1),
-            IROp::Divine(1),
-            IROp::ReadMem(1),
-            IROp::WriteMem(1),
-            IROp::Hash,
-            IROp::SpongeInit,
-            IROp::SpongeAbsorb,
-            IROp::SpongeSqueeze,
-            IROp::SpongeAbsorbMem,
-            IROp::MerkleStep,
-            IROp::MerkleStepMem,
-            IROp::Assert,
-            IROp::AssertVector,
-            IROp::EmitEvent {
+        let _ops: Vec<TIROp> = vec![
+            TIROp::Push(0),
+            TIROp::PushNegOne,
+            TIROp::Pop(1),
+            TIROp::Dup(0),
+            TIROp::Swap(1),
+            TIROp::Add,
+            TIROp::Mul,
+            TIROp::Eq,
+            TIROp::Lt,
+            TIROp::And,
+            TIROp::Xor,
+            TIROp::DivMod,
+            TIROp::Invert,
+            TIROp::Split,
+            TIROp::Log2,
+            TIROp::Pow,
+            TIROp::PopCount,
+            TIROp::XbMul,
+            TIROp::XInvert,
+            TIROp::XxDotStep,
+            TIROp::XbDotStep,
+            TIROp::ReadIo(1),
+            TIROp::WriteIo(1),
+            TIROp::Divine(1),
+            TIROp::ReadMem(1),
+            TIROp::WriteMem(1),
+            TIROp::Hash,
+            TIROp::SpongeInit,
+            TIROp::SpongeAbsorb,
+            TIROp::SpongeSqueeze,
+            TIROp::SpongeAbsorbMem,
+            TIROp::MerkleStep,
+            TIROp::MerkleStepMem,
+            TIROp::Assert,
+            TIROp::AssertVector,
+            TIROp::EmitEvent {
                 name: "Transfer".into(),
                 tag: 0,
                 field_count: 2,
             },
-            IROp::SealEvent {
+            TIROp::SealEvent {
                 name: "Nullifier".into(),
                 tag: 1,
                 field_count: 1,
             },
-            IROp::StorageRead { width: 1 },
-            IROp::StorageWrite { width: 1 },
-            IROp::HashDigest,
-            IROp::Call("f".into()),
-            IROp::Return,
-            IROp::Halt,
-            IROp::IfElse {
+            TIROp::StorageRead { width: 1 },
+            TIROp::StorageWrite { width: 1 },
+            TIROp::HashDigest,
+            TIROp::Call("f".into()),
+            TIROp::Return,
+            TIROp::Halt,
+            TIROp::IfElse {
                 then_body: vec![],
                 else_body: vec![],
             },
-            IROp::IfOnly { then_body: vec![] },
-            IROp::Loop {
+            TIROp::IfOnly { then_body: vec![] },
+            TIROp::Loop {
                 label: "l".into(),
                 body: vec![],
             },
-            IROp::Label("x".into()),
-            IROp::FnStart("main".into()),
-            IROp::FnEnd,
-            IROp::Preamble("main".into()),
-            IROp::BlankLine,
-            IROp::Comment("test".into()),
-            IROp::RawAsm {
+            TIROp::Label("x".into()),
+            TIROp::FnStart("main".into()),
+            TIROp::FnEnd,
+            TIROp::Preamble("main".into()),
+            TIROp::BlankLine,
+            TIROp::Comment("test".into()),
+            TIROp::RawAsm {
                 lines: vec!["nop".into()],
                 effect: 0,
             },

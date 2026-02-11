@@ -1,11 +1,11 @@
-//! Codegen IR — re-exports from the standalone `crate::ir` module.
+//! Codegen IR — re-exports from the standalone `crate::tir` module.
 //!
-//! The canonical IR definitions live in `src/ir/`. This module provides
+//! The canonical TIR definitions live in `src/tir/`. This module provides
 //! backward-compatible paths for existing code.
 
 pub mod builder;
 
 // Re-export everything from the canonical ir module.
-pub use crate::ir::lower;
-pub use crate::ir::lower::{create_lowering, Lowering};
-pub use crate::ir::IROp;
+pub use crate::tir::lower;
+pub use crate::tir::lower::{create_lowering, Lowering};
+pub use crate::tir::TIROp;

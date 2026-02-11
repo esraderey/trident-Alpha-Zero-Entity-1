@@ -1,4 +1,4 @@
-//! Lowering: consumes `Vec<IROp>` and produces target assembly text.
+//! Lowering: consumes `Vec<TIROp>` and produces target assembly text.
 //!
 //! Each target implements `Lowering` to control instruction selection
 //! and control-flow structure.
@@ -8,7 +8,7 @@ mod miden;
 mod tests;
 mod triton;
 
-use super::IROp;
+use super::TIROp;
 
 pub use miden::MidenLowering;
 pub use triton::TritonLowering;
@@ -16,7 +16,7 @@ pub use triton::TritonLowering;
 /// Lowers IR operations into target assembly lines.
 pub trait Lowering {
     /// Convert a sequence of IR operations into assembly text lines.
-    fn lower(&self, ops: &[IROp]) -> Vec<String>;
+    fn lower(&self, ops: &[TIROp]) -> Vec<String>;
 }
 
 /// Create a lowering backend for the given target name.

@@ -1,62 +1,62 @@
 //! Stack wrappers, label generation, cfg helpers, and spill parser.
 
 use crate::ast::*;
-use crate::ir::IROp;
+use crate::tir::TIROp;
 use crate::span::Spanned;
 
-use super::IRBuilder;
+use super::TIRBuilder;
 
 // ─── Spill effect parser ──────────────────────────────────────────
 
-/// Convert a SpillFormatter-produced instruction string into an IROp.
+/// Convert a SpillFormatter-produced instruction string into an TIROp.
 ///
 /// The default SpillFormatter (Triton-style) emits lines like:
 ///   `"    push 42"`, `"    swap 5"`, `"    pop 1"`,
 ///   `"    write_mem 1"`, `"    read_mem 1"`.
-pub(crate) fn parse_spill_effect(line: &str) -> IROp {
+pub(crate) fn parse_spill_effect(line: &str) -> TIROp {
     let trimmed = line.trim();
 
     if let Some(rest) = trimmed.strip_prefix("push ") {
         if let Ok(val) = rest.trim().parse::<u64>() {
-            return IROp::Push(val);
+            return TIROp::Push(val);
         }
     }
     if let Some(rest) = trimmed.strip_prefix("swap ") {
         if let Ok(val) = rest.trim().parse::<u32>() {
-            return IROp::Swap(val);
+            return TIROp::Swap(val);
         }
     }
     if let Some(rest) = trimmed.strip_prefix("pop ") {
         if let Ok(val) = rest.trim().parse::<u32>() {
-            return IROp::Pop(val);
+            return TIROp::Pop(val);
         }
     }
     if let Some(rest) = trimmed.strip_prefix("write_mem ") {
         if let Ok(val) = rest.trim().parse::<u32>() {
-            return IROp::WriteMem(val);
+            return TIROp::WriteMem(val);
         }
     }
     if let Some(rest) = trimmed.strip_prefix("read_mem ") {
         if let Ok(val) = rest.trim().parse::<u32>() {
-            return IROp::ReadMem(val);
+            return TIROp::ReadMem(val);
         }
     }
     if let Some(rest) = trimmed.strip_prefix("dup ") {
         if let Ok(val) = rest.trim().parse::<u32>() {
-            return IROp::Dup(val);
+            return TIROp::Dup(val);
         }
     }
 
     // Fallback: emit as raw ASM so nothing is silently lost.
-    IROp::RawAsm {
+    TIROp::RawAsm {
         lines: vec![trimmed.to_string()],
         effect: 0,
     }
 }
 
-// ─── IRBuilder helpers ────────────────────────────────────────────
+// ─── TIRBuilder helpers ────────────────────────────────────────────
 
-impl IRBuilder {
+impl TIRBuilder {
     // ── Cfg helpers ───────────────────────────────────────────────
 
     pub(crate) fn is_cfg_active(&self, cfg: &Option<Spanned<String>>) -> bool {
@@ -92,8 +92,8 @@ impl IRBuilder {
 
     // ── Emit helpers ──────────────────────────────────────────────
 
-    /// Ensure stack space, flush spill effects, push the IROp, push temp to model.
-    pub(crate) fn emit_and_push(&mut self, op: IROp, result_width: u32) {
+    /// Ensure stack space, flush spill effects, push the TIROp, push temp to model.
+    pub(crate) fn emit_and_push(&mut self, op: TIROp, result_width: u32) {
         if result_width > 0 {
             self.stack.ensure_space(result_width);
             self.flush_stack_effects();
@@ -102,7 +102,7 @@ impl IRBuilder {
         self.stack.push_temp(result_width);
     }
 
-    /// Push an anonymous temporary onto the stack model (no IROp emitted).
+    /// Push an anonymous temporary onto the stack model (no TIROp emitted).
     pub(crate) fn push_temp(&mut self, width: u32) {
         self.stack.push_temp(width);
         self.flush_stack_effects();
@@ -127,13 +127,13 @@ impl IRBuilder {
         let mut remaining = n;
         while remaining > 0 {
             let batch = remaining.min(5);
-            self.ops.push(IROp::Pop(batch));
+            self.ops.push(TIROp::Pop(batch));
             remaining -= batch;
         }
     }
 
-    /// Build a block into a separate Vec<IROp> by temporarily swapping out self.ops.
-    pub(crate) fn build_block_as_ir(&mut self, block: &Block) -> Vec<IROp> {
+    /// Build a block into a separate Vec<TIROp> by temporarily swapping out self.ops.
+    pub(crate) fn build_block_as_ir(&mut self, block: &Block) -> Vec<TIROp> {
         let saved_ops = std::mem::take(&mut self.ops);
         self.build_block(block);
         let nested = std::mem::take(&mut self.ops);

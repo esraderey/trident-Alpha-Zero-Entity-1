@@ -1,3 +1,3 @@
-//! Backward-compatible re-export of `IRBuilder` from `crate::ir::builder`.
+//! Backward-compatible re-export of `TIRBuilder` from `crate::tir::builder`.
 
-pub use crate::ir::builder::IRBuilder;
+pub use crate::tir::builder::TIRBuilder;

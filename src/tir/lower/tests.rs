@@ -1,9 +1,9 @@
 use super::*;
-use crate::ir::IROp;
+use crate::tir::TIROp;
 
 #[test]
 fn test_lower_flat_ops() {
-    let ops = vec![IROp::Push(42), IROp::Push(10), IROp::Add, IROp::Pop(1)];
+    let ops = vec![TIROp::Push(42), TIROp::Push(10), TIROp::Add, TIROp::Pop(1)];
     let lowering = TritonLowering::new();
     let out = lowering.lower(&ops);
     assert_eq!(
@@ -15,11 +15,11 @@ fn test_lower_flat_ops() {
 #[test]
 fn test_lower_fn_structure() {
     let ops = vec![
-        IROp::Preamble("main".into()),
-        IROp::FnStart("main".into()),
-        IROp::Push(0),
-        IROp::Return,
-        IROp::FnEnd,
+        TIROp::Preamble("main".into()),
+        TIROp::FnStart("main".into()),
+        TIROp::Push(0),
+        TIROp::Return,
+        TIROp::FnEnd,
     ];
     let lowering = TritonLowering::new();
     let out = lowering.lower(&ops);
@@ -34,14 +34,14 @@ fn test_lower_fn_structure() {
 #[test]
 fn test_lower_if_else() {
     let ops = vec![
-        IROp::FnStart("test".into()),
-        IROp::Push(1), // condition
-        IROp::IfElse {
-            then_body: vec![IROp::Push(10), IROp::WriteIo(1)],
-            else_body: vec![IROp::Push(20), IROp::WriteIo(1)],
+        TIROp::FnStart("test".into()),
+        TIROp::Push(1), // condition
+        TIROp::IfElse {
+            then_body: vec![TIROp::Push(10), TIROp::WriteIo(1)],
+            else_body: vec![TIROp::Push(20), TIROp::WriteIo(1)],
         },
-        IROp::Return,
-        IROp::FnEnd,
+        TIROp::Return,
+        TIROp::FnEnd,
     ];
     let lowering = TritonLowering::new();
     let out = lowering.lower(&ops);
@@ -58,11 +58,11 @@ fn test_lower_if_else() {
 #[test]
 fn test_lower_if_only() {
     let ops = vec![
-        IROp::Push(1),
-        IROp::IfOnly {
-            then_body: vec![IROp::Push(42), IROp::WriteIo(1)],
+        TIROp::Push(1),
+        TIROp::IfOnly {
+            then_body: vec![TIROp::Push(42), TIROp::WriteIo(1)],
         },
-        IROp::FnEnd,
+        TIROp::FnEnd,
     ];
     let lowering = TritonLowering::new();
     let out = lowering.lower(&ops);
@@ -74,9 +74,9 @@ fn test_lower_if_only() {
 
 #[test]
 fn test_lower_loop() {
-    let ops = vec![IROp::Loop {
+    let ops = vec![TIROp::Loop {
         label: "loop__1".into(),
-        body: vec![IROp::Push(1), IROp::Add],
+        body: vec![TIROp::Push(1), TIROp::Add],
     }];
     let lowering = TritonLowering::new();
     let out = lowering.lower(&ops);
@@ -91,8 +91,8 @@ fn test_lower_loop() {
 #[test]
 fn test_lower_label_formatting() {
     let ops = vec![
-        IROp::Label("my_func".into()),
-        IROp::Call("other_func".into()),
+        TIROp::Label("my_func".into()),
+        TIROp::Call("other_func".into()),
     ];
     let lowering = TritonLowering::new();
     let out = lowering.lower(&ops);
@@ -103,8 +103,8 @@ fn test_lower_label_formatting() {
 #[test]
 fn test_lower_comment_and_raw() {
     let ops = vec![
-        IROp::Comment("test comment".into()),
-        IROp::RawAsm {
+        TIROp::Comment("test comment".into()),
+        TIROp::RawAsm {
             lines: vec!["nop".into(), "nop".into()],
             effect: 0,
         },
@@ -119,11 +119,11 @@ fn test_lower_comment_and_raw() {
 #[test]
 fn test_lower_crypto_ops() {
     let ops = vec![
-        IROp::Hash,
-        IROp::SpongeInit,
-        IROp::SpongeAbsorb,
-        IROp::SpongeSqueeze,
-        IROp::MerkleStep,
+        TIROp::Hash,
+        TIROp::SpongeInit,
+        TIROp::SpongeAbsorb,
+        TIROp::SpongeSqueeze,
+        TIROp::MerkleStep,
     ];
     let lowering = TritonLowering::new();
     let out = lowering.lower(&ops);
@@ -142,8 +142,8 @@ fn test_lower_crypto_ops() {
 #[test]
 fn test_lower_already_prefixed_labels() {
     let ops = vec![
-        IROp::Call("__main".into()),
-        IROp::Label("__my_label".into()),
+        TIROp::Call("__main".into()),
+        TIROp::Label("__my_label".into()),
     ];
     let lowering = TritonLowering::new();
     let out = lowering.lower(&ops);
@@ -151,10 +151,10 @@ fn test_lower_already_prefixed_labels() {
     assert_eq!(out[1], "__my_label:");
 }
 
-// ─── Comparison Tests: IRBuilder + TritonLowering == Emitter ─────
+// ─── Comparison Tests: TIRBuilder + TritonLowering == Emitter ─────
 
 use crate::codegen::emitter::Emitter;
-use crate::ir::builder::IRBuilder;
+use crate::tir::builder::TIRBuilder;
 use crate::lexer::Lexer;
 use crate::parser::Parser;
 use crate::target::TargetConfig;
@@ -166,12 +166,12 @@ fn compile_old(source: &str) -> String {
     Emitter::new().emit_file(&file)
 }
 
-/// Compile with new IRBuilder + TritonLowering path.
+/// Compile with new TIRBuilder + TritonLowering path.
 fn compile_new(source: &str) -> String {
     let (tokens, _, _) = Lexer::new(source, 0).tokenize();
     let file = Parser::new(tokens).parse_file().unwrap();
     let config = TargetConfig::triton();
-    let ir = IRBuilder::new(config).build_file(&file);
+    let ir = TIRBuilder::new(config).build_file(&file);
     let lowering = TritonLowering::new();
     let lines = lowering.lower(&ir);
     lines.join("\n")
@@ -325,19 +325,19 @@ fn test_compare_fib() {
 #[test]
 fn test_nested_if_else_deferred() {
     let ops = vec![
-        IROp::FnStart("test".into()),
-        IROp::Push(1),
-        IROp::IfElse {
+        TIROp::FnStart("test".into()),
+        TIROp::Push(1),
+        TIROp::IfElse {
             then_body: vec![
-                IROp::Push(1),
-                IROp::IfOnly {
-                    then_body: vec![IROp::Push(99), IROp::WriteIo(1)],
+                TIROp::Push(1),
+                TIROp::IfOnly {
+                    then_body: vec![TIROp::Push(99), TIROp::WriteIo(1)],
                 },
             ],
-            else_body: vec![IROp::Push(0)],
+            else_body: vec![TIROp::Push(0)],
         },
-        IROp::Return,
-        IROp::FnEnd,
+        TIROp::Return,
+        TIROp::FnEnd,
     ];
     let lowering = TritonLowering::new();
     let out = lowering.lower(&ops);
@@ -357,7 +357,7 @@ fn test_nested_if_else_deferred() {
 
 #[test]
 fn test_miden_flat_ops() {
-    let ops = vec![IROp::Push(42), IROp::Push(10), IROp::Add, IROp::Pop(1)];
+    let ops = vec![TIROp::Push(42), TIROp::Push(10), TIROp::Add, TIROp::Pop(1)];
     let lowering = MidenLowering::new();
     let out = lowering.lower(&ops);
     assert_eq!(
@@ -369,11 +369,11 @@ fn test_miden_flat_ops() {
 #[test]
 fn test_miden_fn_structure() {
     let ops = vec![
-        IROp::Preamble("main".into()),
-        IROp::FnStart("main".into()),
-        IROp::Push(0),
-        IROp::Return,
-        IROp::FnEnd,
+        TIROp::Preamble("main".into()),
+        TIROp::FnStart("main".into()),
+        TIROp::Push(0),
+        TIROp::Return,
+        TIROp::FnEnd,
     ];
     let lowering = MidenLowering::new();
     let out = lowering.lower(&ops);
@@ -390,14 +390,14 @@ fn test_miden_fn_structure() {
 #[test]
 fn test_miden_if_else_inline() {
     let ops = vec![
-        IROp::FnStart("test".into()),
-        IROp::Push(1),
-        IROp::IfElse {
-            then_body: vec![IROp::Push(42)],
-            else_body: vec![IROp::Push(0)],
+        TIROp::FnStart("test".into()),
+        TIROp::Push(1),
+        TIROp::IfElse {
+            then_body: vec![TIROp::Push(42)],
+            else_body: vec![TIROp::Push(0)],
         },
-        IROp::Return,
-        IROp::FnEnd,
+        TIROp::Return,
+        TIROp::FnEnd,
     ];
     let lowering = MidenLowering::new();
     let out = lowering.lower(&ops);
@@ -412,13 +412,13 @@ fn test_miden_if_else_inline() {
 #[test]
 fn test_miden_if_only_inline() {
     let ops = vec![
-        IROp::FnStart("test".into()),
-        IROp::Push(1),
-        IROp::IfOnly {
-            then_body: vec![IROp::Push(99)],
+        TIROp::FnStart("test".into()),
+        TIROp::Push(1),
+        TIROp::IfOnly {
+            then_body: vec![TIROp::Push(99)],
         },
-        IROp::Return,
-        IROp::FnEnd,
+        TIROp::Return,
+        TIROp::FnEnd,
     ];
     let lowering = MidenLowering::new();
     let out = lowering.lower(&ops);
@@ -431,16 +431,16 @@ fn test_miden_if_only_inline() {
 #[test]
 fn test_miden_loop() {
     let ops = vec![
-        IROp::FnStart("test".into()),
-        IROp::Push(5),
-        IROp::Call("loop__1".into()),
-        IROp::Pop(1),
-        IROp::Loop {
+        TIROp::FnStart("test".into()),
+        TIROp::Push(5),
+        TIROp::Call("loop__1".into()),
+        TIROp::Pop(1),
+        TIROp::Loop {
             label: "loop__1".into(),
-            body: vec![IROp::Push(1), IROp::Add],
+            body: vec![TIROp::Push(1), TIROp::Add],
         },
-        IROp::Return,
-        IROp::FnEnd,
+        TIROp::Return,
+        TIROp::FnEnd,
     ];
     let lowering = MidenLowering::new();
     let out = lowering.lower(&ops);
@@ -456,15 +456,15 @@ fn test_miden_loop() {
 #[test]
 fn test_miden_nested_indent() {
     let ops = vec![
-        IROp::FnStart("test".into()),
-        IROp::IfElse {
-            then_body: vec![IROp::IfOnly {
-                then_body: vec![IROp::Push(1)],
+        TIROp::FnStart("test".into()),
+        TIROp::IfElse {
+            then_body: vec![TIROp::IfOnly {
+                then_body: vec![TIROp::Push(1)],
             }],
-            else_body: vec![IROp::Push(0)],
+            else_body: vec![TIROp::Push(0)],
         },
-        IROp::Return,
-        IROp::FnEnd,
+        TIROp::Return,
+        TIROp::FnEnd,
     ];
     let lowering = MidenLowering::new();
     let out = lowering.lower(&ops);
@@ -478,7 +478,7 @@ fn test_miden_nested_indent() {
 
 #[test]
 fn test_miden_comment_prefix() {
-    let ops = vec![IROp::Comment("test comment".into())];
+    let ops = vec![TIROp::Comment("test comment".into())];
     let lowering = MidenLowering::new();
     let out = lowering.lower(&ops);
     assert_eq!(out[0], "    # test comment");
@@ -486,7 +486,7 @@ fn test_miden_comment_prefix() {
 
 #[test]
 fn test_miden_neg_one() {
-    let ops = vec![IROp::PushNegOne];
+    let ops = vec![TIROp::PushNegOne];
     let lowering = MidenLowering::new();
     let out = lowering.lower(&ops);
     assert_eq!(out[0], "    push.18446744069414584320");

@@ -3,15 +3,15 @@
 use std::collections::HashMap;
 
 use crate::ast::*;
-use crate::ir::IROp;
+use crate::tir::TIROp;
 use crate::span::Spanned;
 
 use super::layout::resolve_type_width;
-use super::IRBuilder;
+use super::TIRBuilder;
 
 // ─── Block and statement emission ─────────────────────────────────
 
-impl IRBuilder {
+impl TIRBuilder {
     pub(crate) fn build_block(&mut self, block: &Block) {
         for stmt in &block.stmts {
             self.build_stmt(&stmt.node);
@@ -87,8 +87,8 @@ impl IRBuilder {
                     self.build_expr(&value.node);
                     let depth = self.find_var_depth(name);
                     if depth <= 15 {
-                        self.ops.push(IROp::Swap(depth));
-                        self.ops.push(IROp::Pop(1));
+                        self.ops.push(TIROp::Swap(depth));
+                        self.ops.push(TIROp::Pop(1));
                     }
                     self.stack.pop();
                 }
@@ -109,7 +109,7 @@ impl IRBuilder {
                     let else_body = self.build_block_as_ir(&else_blk.node);
                     self.stack.restore_state(saved);
 
-                    self.ops.push(IROp::IfElse {
+                    self.ops.push(TIROp::IfElse {
                         then_body,
                         else_body,
                     });
@@ -118,7 +118,7 @@ impl IRBuilder {
                     let then_body = self.build_block_as_ir(&then_block.node);
                     self.stack.restore_state(saved);
 
-                    self.ops.push(IROp::IfOnly { then_body });
+                    self.ops.push(TIROp::IfOnly { then_body });
                 }
             }
 
@@ -133,8 +133,8 @@ impl IRBuilder {
 
                 self.build_expr(&end.node);
 
-                self.ops.push(IROp::Call(loop_label.clone()));
-                self.ops.push(IROp::Pop(1));
+                self.ops.push(TIROp::Call(loop_label.clone()));
+                self.ops.push(TIROp::Pop(1));
                 self.stack.pop();
 
                 let saved = self.stack.save_state();
@@ -142,7 +142,7 @@ impl IRBuilder {
                 let body_ir = self.build_block_as_ir(&body.node);
                 self.stack.restore_state(saved);
 
-                self.ops.push(IROp::Loop {
+                self.ops.push(TIROp::Loop {
                     label: loop_label,
                     body: body_ir,
                 });
@@ -159,8 +159,8 @@ impl IRBuilder {
                     for name in names.iter().rev() {
                         let depth = self.find_var_depth(&name.node);
                         if elem_width == 1 {
-                            self.ops.push(IROp::Swap(depth));
-                            self.ops.push(IROp::Pop(1));
+                            self.ops.push(TIROp::Swap(depth));
+                            self.ops.push(TIROp::Pop(1));
                         }
                     }
                     let _ = total_width;
@@ -202,7 +202,7 @@ impl IRBuilder {
                     }
                 }
 
-                self.ops.push(IROp::EmitEvent {
+                self.ops.push(TIROp::EmitEvent {
                     name: event_name.node.clone(),
                     tag,
                     field_count: decl_order.len() as u32,
@@ -230,7 +230,7 @@ impl IRBuilder {
                     .collect();
 
                 if !lines.is_empty() {
-                    self.ops.push(IROp::RawAsm {
+                    self.ops.push(TIROp::RawAsm {
                         lines,
                         effect: *effect,
                     });
@@ -269,7 +269,7 @@ impl IRBuilder {
                     }
                 }
 
-                self.ops.push(IROp::SealEvent {
+                self.ops.push(TIROp::SealEvent {
                     name: event_name.node.clone(),
                     tag,
                     field_count,
@@ -295,14 +295,14 @@ impl IRBuilder {
                     let _rest_label = self.fresh_label("match_rest");
 
                     let depth = self.find_var_depth("__match_scrutinee");
-                    self.ops.push(IROp::Dup(depth));
+                    self.ops.push(TIROp::Dup(depth));
 
                     match lit {
-                        Literal::Integer(n) => self.ops.push(IROp::Push(*n)),
-                        Literal::Bool(b) => self.ops.push(IROp::Push(if *b { 1 } else { 0 })),
+                        Literal::Integer(n) => self.ops.push(TIROp::Push(*n)),
+                        Literal::Bool(b) => self.ops.push(TIROp::Push(if *b { 1 } else { 0 })),
                     }
 
-                    self.ops.push(IROp::Eq);
+                    self.ops.push(TIROp::Eq);
 
                     let mut arm_stmts = vec![Spanned::new(
                         Stmt::Asm {
@@ -332,7 +332,7 @@ impl IRBuilder {
                     let else_body = self.build_deferred_arm_ir(&rest_block, false);
                     self.stack.restore_state(saved);
 
-                    self.ops.push(IROp::IfElse {
+                    self.ops.push(TIROp::IfElse {
                         then_body,
                         else_body,
                     });
@@ -340,7 +340,7 @@ impl IRBuilder {
 
                 MatchPattern::Wildcard => {
                     let w_label = self.fresh_label("match_wild");
-                    self.ops.push(IROp::Call(w_label.clone()));
+                    self.ops.push(TIROp::Call(w_label.clone()));
 
                     let mut arm_stmts = vec![Spanned::new(
                         Stmt::Asm {
@@ -363,7 +363,7 @@ impl IRBuilder {
 
                 MatchPattern::Struct { name, fields } => {
                     let s_label = self.fresh_label("match_struct");
-                    self.ops.push(IROp::Call(s_label.clone()));
+                    self.ops.push(TIROp::Call(s_label.clone()));
 
                     let mut arm_stmts: Vec<Spanned<Stmt>> = Vec::new();
 
@@ -451,31 +451,31 @@ impl IRBuilder {
 
         // Pop the scrutinee after match completes.
         self.stack.pop();
-        self.ops.push(IROp::Pop(1));
+        self.ops.push(TIROp::Pop(1));
 
         // Emit deferred subroutines inline.
         for (label, block, _is_literal) in deferred_subs {
-            self.ops.push(IROp::Label(label));
+            self.ops.push(TIROp::Label(label));
             let saved = self.stack.save_state();
             self.stack.clear();
             self.build_block(&block);
             self.stack.restore_state(saved);
-            self.ops.push(IROp::Return);
-            self.ops.push(IROp::BlankLine);
+            self.ops.push(TIROp::Return);
+            self.ops.push(TIROp::BlankLine);
         }
     }
 
     /// Build a deferred match arm body into IR.
-    pub(crate) fn build_deferred_arm_ir(&mut self, block: &Block, clears_flag: bool) -> Vec<IROp> {
+    pub(crate) fn build_deferred_arm_ir(&mut self, block: &Block, clears_flag: bool) -> Vec<TIROp> {
         let saved_ops = std::mem::take(&mut self.ops);
         if clears_flag {
-            self.ops.push(IROp::Push(0));
+            self.ops.push(TIROp::Push(0));
         }
         self.build_block(block);
         if clears_flag {
-            self.ops.push(IROp::Return);
+            self.ops.push(TIROp::Return);
         } else {
-            self.ops.push(IROp::Return);
+            self.ops.push(TIROp::Return);
         }
         let nested = std::mem::take(&mut self.ops);
         self.ops = saved_ops;

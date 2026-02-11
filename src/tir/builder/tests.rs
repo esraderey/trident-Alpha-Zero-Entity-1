@@ -1,4 +1,4 @@
-//! IRBuilder unit tests.
+//! TIRBuilder unit tests.
 
 use super::*;
 use crate::ast::*;
@@ -24,8 +24,8 @@ fn minimal_program(items: Vec<Item>) -> File {
     }
 }
 
-fn make_builder() -> IRBuilder {
-    IRBuilder::new(TargetConfig::triton())
+fn make_builder() -> TIRBuilder {
+    TIRBuilder::new(TargetConfig::triton())
 }
 
 // ── Test: minimal program produces Preamble + FnStart + FnEnd ──
@@ -53,25 +53,25 @@ fn test_minimal_program() {
     let ops = make_builder().build_file(&file);
 
     assert!(
-        ops.iter().any(|op| matches!(op, IROp::Preamble(_))),
+        ops.iter().any(|op| matches!(op, TIROp::Preamble(_))),
         "expected Preamble op"
     );
     assert!(
         ops.iter()
-            .any(|op| matches!(op, IROp::FnStart(n) if n == "main")),
+            .any(|op| matches!(op, TIROp::FnStart(n) if n == "main")),
         "expected FnStart(main)"
     );
     assert!(
-        ops.iter().any(|op| matches!(op, IROp::Return)),
+        ops.iter().any(|op| matches!(op, TIROp::Return)),
         "expected Return"
     );
     assert!(
-        ops.iter().any(|op| matches!(op, IROp::FnEnd)),
+        ops.iter().any(|op| matches!(op, TIROp::FnEnd)),
         "expected FnEnd"
     );
 }
 
-// ── Test: if/else produces IROp::IfElse ──
+// ── Test: if/else produces TIROp::IfElse ──
 
 #[test]
 fn test_if_else_produces_structural_op() {
@@ -113,11 +113,11 @@ fn test_if_else_produces_structural_op() {
 
     let ops = make_builder().build_file(&file);
 
-    let has_if_else = ops.iter().any(|op| matches!(op, IROp::IfElse { .. }));
-    assert!(has_if_else, "expected IROp::IfElse in output");
+    let has_if_else = ops.iter().any(|op| matches!(op, TIROp::IfElse { .. }));
+    assert!(has_if_else, "expected TIROp::IfElse in output");
 }
 
-// ── Test: for loop produces IROp::Loop ──
+// ── Test: for loop produces TIROp::Loop ──
 
 #[test]
 fn test_for_loop_produces_loop_op() {
@@ -150,8 +150,8 @@ fn test_for_loop_produces_loop_op() {
 
     let ops = make_builder().build_file(&file);
 
-    let has_loop = ops.iter().any(|op| matches!(op, IROp::Loop { .. }));
-    assert!(has_loop, "expected IROp::Loop in output");
+    let has_loop = ops.iter().any(|op| matches!(op, TIROp::Loop { .. }));
+    assert!(has_loop, "expected TIROp::Loop in output");
 }
 
 // ── Test: arithmetic produces the right instruction sequence ──
@@ -223,18 +223,18 @@ fn test_arithmetic_sequence() {
 
 #[test]
 fn test_parse_spill_effect() {
-    assert!(matches!(parse_spill_effect("    push 42"), IROp::Push(42)));
-    assert!(matches!(parse_spill_effect("    swap 5"), IROp::Swap(5)));
-    assert!(matches!(parse_spill_effect("    pop 1"), IROp::Pop(1)));
+    assert!(matches!(parse_spill_effect("    push 42"), TIROp::Push(42)));
+    assert!(matches!(parse_spill_effect("    swap 5"), TIROp::Swap(5)));
+    assert!(matches!(parse_spill_effect("    pop 1"), TIROp::Pop(1)));
     assert!(matches!(
         parse_spill_effect("    write_mem 1"),
-        IROp::WriteMem(1)
+        TIROp::WriteMem(1)
     ));
     assert!(matches!(
         parse_spill_effect("    read_mem 1"),
-        IROp::ReadMem(1)
+        TIROp::ReadMem(1)
     ));
-    assert!(matches!(parse_spill_effect("  dup 3"), IROp::Dup(3)));
+    assert!(matches!(parse_spill_effect("  dup 3"), TIROp::Dup(3)));
 }
 
 // ── Test: module (not program) omits preamble ──
@@ -268,12 +268,12 @@ fn test_module_no_preamble() {
     let ops = make_builder().build_file(&file);
 
     assert!(
-        !ops.iter().any(|op| matches!(op, IROp::Preamble(_))),
+        !ops.iter().any(|op| matches!(op, TIROp::Preamble(_))),
         "module should not produce Preamble"
     );
     assert!(
         ops.iter()
-            .any(|op| matches!(op, IROp::FnStart(n) if n == "helper")),
+            .any(|op| matches!(op, TIROp::FnStart(n) if n == "helper")),
         "expected FnStart(helper)"
     );
 }
@@ -308,8 +308,8 @@ fn test_if_only_produces_structural_op() {
     })]);
 
     let ops = make_builder().build_file(&file);
-    let has_if_only = ops.iter().any(|op| matches!(op, IROp::IfOnly { .. }));
-    assert!(has_if_only, "expected IROp::IfOnly in output");
+    let has_if_only = ops.iter().any(|op| matches!(op, TIROp::IfOnly { .. }));
+    assert!(has_if_only, "expected TIROp::IfOnly in output");
 }
 
 // ── Test: let binding + variable reference ──
@@ -381,8 +381,8 @@ fn test_intrinsic_pub_read_write() {
 
     let ops = make_builder().build_file(&file);
 
-    let has_read = ops.iter().any(|op| matches!(op, IROp::ReadIo(1)));
-    let has_write = ops.iter().any(|op| matches!(op, IROp::WriteIo(1)));
+    let has_read = ops.iter().any(|op| matches!(op, TIROp::ReadIo(1)));
+    let has_write = ops.iter().any(|op| matches!(op, TIROp::WriteIo(1)));
     assert!(has_read, "expected ReadIo(1)");
     assert!(has_write, "expected WriteIo(1)");
 }
@@ -430,7 +430,7 @@ fn test_if_else_nested_bodies_have_content() {
     let ops = make_builder().build_file(&file);
 
     for op in &ops {
-        if let IROp::IfElse {
+        if let TIROp::IfElse {
             then_body,
             else_body,
         } = op
@@ -438,13 +438,13 @@ fn test_if_else_nested_bodies_have_content() {
             assert!(!then_body.is_empty(), "then_body should not be empty");
             assert!(!else_body.is_empty(), "else_body should not be empty");
 
-            let then_has_push1 = then_body.iter().any(|o| matches!(o, IROp::Push(1)));
-            let then_has_write = then_body.iter().any(|o| matches!(o, IROp::WriteIo(1)));
+            let then_has_push1 = then_body.iter().any(|o| matches!(o, TIROp::Push(1)));
+            let then_has_write = then_body.iter().any(|o| matches!(o, TIROp::WriteIo(1)));
             assert!(then_has_push1, "then_body should have Push(1)");
             assert!(then_has_write, "then_body should have WriteIo(1)");
 
-            let else_has_push0 = else_body.iter().any(|o| matches!(o, IROp::Push(0)));
-            let else_has_write = else_body.iter().any(|o| matches!(o, IROp::WriteIo(1)));
+            let else_has_push0 = else_body.iter().any(|o| matches!(o, TIROp::Push(0)));
+            let else_has_write = else_body.iter().any(|o| matches!(o, TIROp::WriteIo(1)));
             assert!(else_has_push0, "else_body should have Push(0)");
             assert!(else_has_write, "else_body should have WriteIo(1)");
 

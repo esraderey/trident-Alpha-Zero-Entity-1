@@ -6,7 +6,7 @@ use crate::ast::*;
 use crate::span::Spanned;
 use crate::target::TargetConfig;
 
-use super::IRBuilder;
+use super::TIRBuilder;
 
 // ─── Free functions: type helpers ─────────────────────────────────
 
@@ -61,9 +61,9 @@ pub(crate) fn resolve_type_width_with_subs(
     }
 }
 
-// ─── IRBuilder struct layout methods ──────────────────────────────
+// ─── TIRBuilder struct layout methods ──────────────────────────────
 
-impl IRBuilder {
+impl TIRBuilder {
     /// Register struct field layout from a type annotation.
     pub(crate) fn register_struct_layout_from_type(&mut self, var_name: &str, ty: &Type) {
         if let Type::Named(path) = ty {

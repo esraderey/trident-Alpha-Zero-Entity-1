@@ -76,14 +76,14 @@ The key insight: Level 3 is thin. The adapter between "raw bytes arrive from a t
 
 ### Direct bytecode generation
 
-Trident does not generate Solidity, Vyper, Rust, or any intermediate source language. It generates **target bytecode directly** from its own IR:
+Trident does not generate Solidity, Vyper, Rust, or any intermediate source language. It generates **target bytecode directly** from its own TIR:
 
 ```
 Source (.tri)
     │
     ├── Lexer → Parser → AST
     ├── Type checker (+ level check)
-    ├── IRBuilder → Vec<IROp>
+    ├── TIRBuilder → Vec<TIROp>
     │
     └── Lowering (per target)
          ├── TritonLowering  → TASM instructions
@@ -95,7 +95,7 @@ Source (.tri)
 
 This is how real compilers work. GCC doesn't generate C to target ARM — it generates ARM machine code. Trident doesn't generate Solidity to target EVM — it generates EVM bytecode. This gives the compiler full control over storage layout, calling conventions, and optimization.
 
-The IR (intermediate representation) is already implemented. It's a list of stack operations with structural control flow — `IfElse`, `IfOnly`, `Loop` contain nested bodies that each backend lowers according to its own conventions. The same `Vec<IROp>` currently produces Triton's deferred-subroutine pattern and Miden's inline `if.true/else/end` from identical input. Adding EVM, WASM, and RISC-V lowerings follows the same pattern.
+The TIR (Trident Intermediate Representation) is already implemented. It's a list of stack operations with structural control flow — `IfElse`, `IfOnly`, `Loop` contain nested bodies that each backend lowers according to its own conventions. The same `Vec<TIROp>` currently produces Triton's deferred-subroutine pattern and Miden's inline `if.true/else/end` from identical input. Adding EVM, WASM, and RISC-V lowerings follows the same pattern.
 
 ### What a Level 1 program looks like
 
@@ -375,7 +375,7 @@ This creates a spectrum of trust: deploy the same logic directly (transparent, a
 
 - **Triton VM backend:** Production-quality. Full type system, bounded loops, modules, cost analysis, 714 tests.
 - **Miden VM backend:** Lowering implemented. Inline `if.true/else/end` control flow, correct instruction set. Not validated against Miden runtime.
-- **IR pipeline:** Operational. `IRBuilder` produces `Vec<IROp>` from AST. `TritonLowering` and `MidenLowering` produce assembly from IR. Adding new lowerings is mechanical.
+- **TIR pipeline:** Operational. `TIRBuilder` produces `Vec<TIROp>` from AST. `TritonLowering` and `MidenLowering` produce assembly from TIR. Adding new lowerings is mechanical.
 - **5 target configurations:** Triton, Miden, OpenVM, SP1, Cairo. TOML configs with field parameters, stack depth, cost tables.
 
 ### Near-term (next to build)
@@ -398,9 +398,9 @@ This creates a spectrum of trust: deploy the same logic directly (transparent, a
 
 **SP1/OpenVM lowering.** RISC-V ELF output. These are general-purpose zkVMs — the lowering is essentially a RISC-V compiler backend, which is substantial.
 
-**Optimization passes on IR.** Dead code elimination, constant folding, common subexpression elimination. The IR is well-structured for standard compiler optimizations.
+**Optimization passes on TIR.** Dead code elimination, constant folding, common subexpression elimination. The TIR is well-structured for standard compiler optimizations.
 
-**Formal verification across targets.** Prove that the same Trident source produces semantically equivalent behavior on different targets. The IR makes this tractable — verify the IRBuilder once, then verify each lowering independently.
+**Formal verification across targets.** Prove that the same Trident source produces semantically equivalent behavior on different targets. The TIR makes this tractable — verify the TIRBuilder once, then verify each lowering independently.
 
 ---
 

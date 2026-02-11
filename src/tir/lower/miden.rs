@@ -1,7 +1,7 @@
-//! Miden VM lowering — produces MASM from IR.
+//! Miden VM lowering — produces MASM from TIR.
 
 use super::Lowering;
-use crate::ir::IROp;
+use crate::tir::TIROp;
 
 /// Miden VM lowering — produces MASM from IR.
 ///
@@ -34,18 +34,18 @@ impl MidenLowering {
         out.push(format!("{}{}", self.indent_str(), s));
     }
 
-    fn lower_op(&mut self, op: &IROp, out: &mut Vec<String>) {
+    fn lower_op(&mut self, op: &TIROp, out: &mut Vec<String>) {
         match op {
             // ── Stack ──
-            IROp::Push(v) => self.emit(out, &format!("push.{}", v)),
-            IROp::PushNegOne => self.emit(out, &format!("push.{}", MIDEN_NEG_ONE)),
-            IROp::Pop(n) => {
+            TIROp::Push(v) => self.emit(out, &format!("push.{}", v)),
+            TIROp::PushNegOne => self.emit(out, &format!("push.{}", MIDEN_NEG_ONE)),
+            TIROp::Pop(n) => {
                 for _ in 0..*n {
                     self.emit(out, "drop");
                 }
             }
-            IROp::Dup(d) => self.emit(out, &format!("dup.{}", d)),
-            IROp::Swap(d) => {
+            TIROp::Dup(d) => self.emit(out, &format!("dup.{}", d)),
+            TIROp::Swap(d) => {
                 if *d == 1 {
                     self.emit(out, "swap");
                 } else {
@@ -54,61 +54,61 @@ impl MidenLowering {
             }
 
             // ── Arithmetic ──
-            IROp::Add => self.emit(out, "add"),
-            IROp::Mul => self.emit(out, "mul"),
-            IROp::Eq => self.emit(out, "eq"),
-            IROp::Lt => self.emit(out, "u32lt"),
-            IROp::And => self.emit(out, "u32and"),
-            IROp::Xor => self.emit(out, "u32xor"),
-            IROp::DivMod => self.emit(out, "u32divmod"),
-            IROp::Invert => self.emit(out, "inv"),
-            IROp::Split => self.emit(out, "u32split"),
-            IROp::Log2 => self.emit(out, "ilog2"),
-            IROp::Pow => self.emit(out, "exp"),
-            IROp::PopCount => self.emit(out, "u32popcnt"),
+            TIROp::Add => self.emit(out, "add"),
+            TIROp::Mul => self.emit(out, "mul"),
+            TIROp::Eq => self.emit(out, "eq"),
+            TIROp::Lt => self.emit(out, "u32lt"),
+            TIROp::And => self.emit(out, "u32and"),
+            TIROp::Xor => self.emit(out, "u32xor"),
+            TIROp::DivMod => self.emit(out, "u32divmod"),
+            TIROp::Invert => self.emit(out, "inv"),
+            TIROp::Split => self.emit(out, "u32split"),
+            TIROp::Log2 => self.emit(out, "ilog2"),
+            TIROp::Pow => self.emit(out, "exp"),
+            TIROp::PopCount => self.emit(out, "u32popcnt"),
 
             // ── Extension field (Triton-native; no Miden equivalent) ──
-            IROp::XbMul => self.emit(out, "# xb_mul (Triton-only, no Miden equivalent)"),
-            IROp::XInvert => self.emit(out, "# x_invert (Triton-only, no Miden equivalent)"),
-            IROp::XxDotStep => self.emit(out, "# xx_dot_step (Triton-only, no Miden equivalent)"),
-            IROp::XbDotStep => self.emit(out, "# xb_dot_step (Triton-only, no Miden equivalent)"),
+            TIROp::XbMul => self.emit(out, "# xb_mul (Triton-only, no Miden equivalent)"),
+            TIROp::XInvert => self.emit(out, "# x_invert (Triton-only, no Miden equivalent)"),
+            TIROp::XxDotStep => self.emit(out, "# xx_dot_step (Triton-only, no Miden equivalent)"),
+            TIROp::XbDotStep => self.emit(out, "# xb_dot_step (Triton-only, no Miden equivalent)"),
 
             // ── I/O ──
-            IROp::ReadIo(n) => {
+            TIROp::ReadIo(n) => {
                 for _ in 0..*n {
                     self.emit(out, "adv_push.1");
                 }
             }
-            IROp::WriteIo(n) => {
+            TIROp::WriteIo(n) => {
                 for _ in 0..*n {
                     self.emit(out, "drop  # write_io");
                 }
             }
-            IROp::Divine(n) => {
+            TIROp::Divine(n) => {
                 for _ in 0..*n {
                     self.emit(out, "adv_push.1");
                 }
             }
 
             // ── Memory ──
-            IROp::ReadMem(n) => self.emit(out, &format!("mem_load  # read {}", n)),
-            IROp::WriteMem(n) => self.emit(out, &format!("mem_store  # write {}", n)),
+            TIROp::ReadMem(n) => self.emit(out, &format!("mem_load  # read {}", n)),
+            TIROp::WriteMem(n) => self.emit(out, &format!("mem_store  # write {}", n)),
 
             // ── Crypto ──
-            IROp::Hash => self.emit(out, "hperm"),
-            IROp::SpongeInit => self.emit(out, "# sponge_init (use hperm sequence)"),
-            IROp::SpongeAbsorb => self.emit(out, "hperm  # absorb"),
-            IROp::SpongeSqueeze => self.emit(out, "hperm  # squeeze"),
-            IROp::SpongeAbsorbMem => self.emit(out, "# sponge_absorb_mem (miden: custom)"),
-            IROp::MerkleStep => self.emit(out, "mtree_get  # merkle_step"),
-            IROp::MerkleStepMem => self.emit(out, "mtree_get  # merkle_step_mem"),
+            TIROp::Hash => self.emit(out, "hperm"),
+            TIROp::SpongeInit => self.emit(out, "# sponge_init (use hperm sequence)"),
+            TIROp::SpongeAbsorb => self.emit(out, "hperm  # absorb"),
+            TIROp::SpongeSqueeze => self.emit(out, "hperm  # squeeze"),
+            TIROp::SpongeAbsorbMem => self.emit(out, "# sponge_absorb_mem (miden: custom)"),
+            TIROp::MerkleStep => self.emit(out, "mtree_get  # merkle_step"),
+            TIROp::MerkleStepMem => self.emit(out, "mtree_get  # merkle_step_mem"),
 
             // ── Assertions ──
-            IROp::Assert => self.emit(out, "assert"),
-            IROp::AssertVector => self.emit(out, "assert  # assert_vector (4 words)"),
+            TIROp::Assert => self.emit(out, "assert"),
+            TIROp::AssertVector => self.emit(out, "assert  # assert_vector (4 words)"),
 
             // ── Abstract operations (Miden lowering) ──
-            IROp::EmitEvent {
+            TIROp::EmitEvent {
                 name, field_count, ..
             } => {
                 self.emit(out, &format!("# emit {} ({} fields)", name, field_count));
@@ -116,7 +116,7 @@ impl MidenLowering {
                     self.emit(out, "drop  # event field");
                 }
             }
-            IROp::SealEvent {
+            TIROp::SealEvent {
                 name, field_count, ..
             } => {
                 self.emit(out, &format!("# seal {} ({} fields)", name, field_count));
@@ -129,23 +129,23 @@ impl MidenLowering {
                     self.emit(out, "drop  # seal digest");
                 }
             }
-            IROp::StorageRead { width } => {
+            TIROp::StorageRead { width } => {
                 self.emit(out, &format!("mem_load  # read {}", width));
             }
-            IROp::StorageWrite { width } => {
+            TIROp::StorageWrite { width } => {
                 self.emit(out, &format!("mem_store  # write {}", width));
             }
-            IROp::HashDigest => {
+            TIROp::HashDigest => {
                 self.emit(out, "hperm");
             }
 
             // ── Control flow (flat) ──
-            IROp::Call(label) => self.emit(out, &format!("exec.{}", label)),
-            IROp::Return => { /* Miden uses end, handled by FnEnd */ }
-            IROp::Halt => { /* Miden uses end, handled by program structure */ }
+            TIROp::Call(label) => self.emit(out, &format!("exec.{}", label)),
+            TIROp::Return => { /* Miden uses end, handled by FnEnd */ }
+            TIROp::Halt => { /* Miden uses end, handled by program structure */ }
 
             // ── Control flow (structural) ──
-            IROp::IfElse {
+            TIROp::IfElse {
                 then_body,
                 else_body,
             } => {
@@ -163,7 +163,7 @@ impl MidenLowering {
                 self.indent -= 1;
                 self.emit(out, "end");
             }
-            IROp::IfOnly { then_body } => {
+            TIROp::IfOnly { then_body } => {
                 self.emit(out, "if.true");
                 self.indent += 1;
                 for body_op in then_body {
@@ -172,7 +172,7 @@ impl MidenLowering {
                 self.indent -= 1;
                 self.emit(out, "end");
             }
-            IROp::Loop { label: _, body } => {
+            TIROp::Loop { label: _, body } => {
                 self.emit(out, "dup.0");
                 self.emit(out, "push.0");
                 self.emit(out, "eq");
@@ -193,33 +193,33 @@ impl MidenLowering {
             }
 
             // ── Program structure ──
-            IROp::Label(name) => {
+            TIROp::Label(name) => {
                 out.push(format!("proc.{}", name));
             }
-            IROp::FnStart(name) => {
+            TIROp::FnStart(name) => {
                 out.push(format!("proc.{}", name));
                 self.indent = 1;
             }
-            IROp::FnEnd => {
+            TIROp::FnEnd => {
                 self.indent = 0;
                 out.push("end".to_string());
                 out.push(String::new());
             }
-            IROp::Preamble(main_label) => {
+            TIROp::Preamble(main_label) => {
                 out.push("begin".to_string());
                 out.push(format!("    exec.{}", main_label));
                 out.push("end".to_string());
                 out.push(String::new());
             }
-            IROp::BlankLine => {
+            TIROp::BlankLine => {
                 out.push(String::new());
             }
 
             // ── Passthrough ──
-            IROp::Comment(text) => {
+            TIROp::Comment(text) => {
                 self.emit(out, &format!("# {}", text));
             }
-            IROp::RawAsm { lines, .. } => {
+            TIROp::RawAsm { lines, .. } => {
                 for line in lines {
                     let trimmed = line.trim();
                     if !trimmed.is_empty() {
@@ -232,7 +232,7 @@ impl MidenLowering {
 }
 
 impl Lowering for MidenLowering {
-    fn lower(&self, ops: &[IROp]) -> Vec<String> {
+    fn lower(&self, ops: &[TIROp]) -> Vec<String> {
         let mut lowerer = MidenLowering::new();
         let mut out = Vec::new();
         for op in ops {

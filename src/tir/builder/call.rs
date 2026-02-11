@@ -1,13 +1,13 @@
 //! Function call dispatch: intrinsic resolution and user-defined calls.
 
 use crate::ast::*;
-use crate::ir::IROp;
+use crate::tir::TIROp;
 use crate::span::Spanned;
 use crate::typecheck::MonoInstance;
 
-use super::IRBuilder;
+use super::TIRBuilder;
 
-impl IRBuilder {
+impl TIRBuilder {
     /// Emit a function call (intrinsic or user-defined).
     pub(crate) fn build_call(
         &mut self,
@@ -37,162 +37,162 @@ impl IRBuilder {
         match effective_name {
             // ── I/O ──
             "pub_read" => {
-                self.emit_and_push(IROp::ReadIo(1), 1);
+                self.emit_and_push(TIROp::ReadIo(1), 1);
             }
             "pub_read2" => {
-                self.emit_and_push(IROp::ReadIo(2), 2);
+                self.emit_and_push(TIROp::ReadIo(2), 2);
             }
             "pub_read3" => {
-                self.emit_and_push(IROp::ReadIo(3), 3);
+                self.emit_and_push(TIROp::ReadIo(3), 3);
             }
             "pub_read4" => {
-                self.emit_and_push(IROp::ReadIo(4), 4);
+                self.emit_and_push(TIROp::ReadIo(4), 4);
             }
             "pub_read5" => {
-                self.emit_and_push(IROp::ReadIo(5), 5);
+                self.emit_and_push(TIROp::ReadIo(5), 5);
             }
             "pub_write" => {
-                self.ops.push(IROp::WriteIo(1));
+                self.ops.push(TIROp::WriteIo(1));
                 self.push_temp(0);
             }
             "pub_write2" => {
-                self.ops.push(IROp::WriteIo(2));
+                self.ops.push(TIROp::WriteIo(2));
                 self.push_temp(0);
             }
             "pub_write3" => {
-                self.ops.push(IROp::WriteIo(3));
+                self.ops.push(TIROp::WriteIo(3));
                 self.push_temp(0);
             }
             "pub_write4" => {
-                self.ops.push(IROp::WriteIo(4));
+                self.ops.push(TIROp::WriteIo(4));
                 self.push_temp(0);
             }
             "pub_write5" => {
-                self.ops.push(IROp::WriteIo(5));
+                self.ops.push(TIROp::WriteIo(5));
                 self.push_temp(0);
             }
 
             // ── Non-deterministic input ──
             "divine" => {
-                self.emit_and_push(IROp::Divine(1), 1);
+                self.emit_and_push(TIROp::Divine(1), 1);
             }
             "divine3" => {
-                self.emit_and_push(IROp::Divine(3), 3);
+                self.emit_and_push(TIROp::Divine(3), 3);
             }
             "divine5" => {
-                self.emit_and_push(IROp::Divine(5), 5);
+                self.emit_and_push(TIROp::Divine(5), 5);
             }
 
             // ── Assertions ──
             "assert" => {
-                self.ops.push(IROp::Assert);
+                self.ops.push(TIROp::Assert);
                 self.push_temp(0);
             }
             "assert_eq" => {
-                self.ops.push(IROp::Eq);
-                self.ops.push(IROp::Assert);
+                self.ops.push(TIROp::Eq);
+                self.ops.push(TIROp::Assert);
                 self.push_temp(0);
             }
             "assert_digest" => {
-                self.ops.push(IROp::AssertVector);
-                self.ops.push(IROp::Pop(self.target_config.digest_width));
+                self.ops.push(TIROp::AssertVector);
+                self.ops.push(TIROp::Pop(self.target_config.digest_width));
                 self.push_temp(0);
             }
 
             // ── Field operations ──
             "field_add" => {
-                self.ops.push(IROp::Add);
+                self.ops.push(TIROp::Add);
                 self.push_temp(1);
             }
             "field_mul" => {
-                self.ops.push(IROp::Mul);
+                self.ops.push(TIROp::Mul);
                 self.push_temp(1);
             }
             "inv" => {
-                self.ops.push(IROp::Invert);
+                self.ops.push(TIROp::Invert);
                 self.push_temp(1);
             }
             "neg" => {
-                self.ops.push(IROp::PushNegOne);
-                self.ops.push(IROp::Mul);
+                self.ops.push(TIROp::PushNegOne);
+                self.ops.push(TIROp::Mul);
                 self.push_temp(1);
             }
             "sub" => {
-                self.ops.push(IROp::PushNegOne);
-                self.ops.push(IROp::Mul);
-                self.ops.push(IROp::Add);
+                self.ops.push(TIROp::PushNegOne);
+                self.ops.push(TIROp::Mul);
+                self.ops.push(TIROp::Add);
                 self.push_temp(1);
             }
 
             // ── U32 operations ──
             "split" => {
-                self.ops.push(IROp::Split);
+                self.ops.push(TIROp::Split);
                 self.push_temp(2);
             }
             "log2" => {
-                self.ops.push(IROp::Log2);
+                self.ops.push(TIROp::Log2);
                 self.push_temp(1);
             }
             "pow" => {
-                self.ops.push(IROp::Pow);
+                self.ops.push(TIROp::Pow);
                 self.push_temp(1);
             }
             "popcount" => {
-                self.ops.push(IROp::PopCount);
+                self.ops.push(TIROp::PopCount);
                 self.push_temp(1);
             }
 
             // ── Hash operations ──
             "hash" => {
-                self.ops.push(IROp::HashDigest);
+                self.ops.push(TIROp::HashDigest);
                 self.push_temp(self.target_config.digest_width);
             }
             "sponge_init" => {
-                self.ops.push(IROp::SpongeInit);
+                self.ops.push(TIROp::SpongeInit);
                 self.push_temp(0);
             }
             "sponge_absorb" => {
-                self.ops.push(IROp::SpongeAbsorb);
+                self.ops.push(TIROp::SpongeAbsorb);
                 self.push_temp(0);
             }
             "sponge_squeeze" => {
-                self.emit_and_push(IROp::SpongeSqueeze, self.target_config.hash_rate);
+                self.emit_and_push(TIROp::SpongeSqueeze, self.target_config.hash_rate);
             }
             "sponge_absorb_mem" => {
-                self.ops.push(IROp::SpongeAbsorbMem);
+                self.ops.push(TIROp::SpongeAbsorbMem);
                 self.push_temp(0);
             }
 
             // ── Merkle ──
             "merkle_step" => {
-                self.emit_and_push(IROp::MerkleStep, 6);
+                self.emit_and_push(TIROp::MerkleStep, 6);
             }
             "merkle_step_mem" => {
-                self.emit_and_push(IROp::MerkleStepMem, 7);
+                self.emit_and_push(TIROp::MerkleStepMem, 7);
             }
 
             // ── RAM ──
             "ram_read" => {
-                self.ops.push(IROp::StorageRead { width: 1 });
+                self.ops.push(TIROp::StorageRead { width: 1 });
                 self.push_temp(1);
             }
             "ram_write" => {
-                self.ops.push(IROp::StorageWrite { width: 1 });
+                self.ops.push(TIROp::StorageWrite { width: 1 });
                 self.push_temp(0);
             }
             "ram_read_block" => {
-                self.ops.push(IROp::StorageRead { width: 5 });
+                self.ops.push(TIROp::StorageRead { width: 5 });
                 self.push_temp(5);
             }
             "ram_write_block" => {
-                self.ops.push(IROp::StorageWrite { width: 5 });
+                self.ops.push(TIROp::StorageWrite { width: 5 });
                 self.push_temp(0);
             }
 
             // ── Conversion ──
             "as_u32" => {
-                self.ops.push(IROp::Split);
-                self.ops.push(IROp::Pop(1));
+                self.ops.push(TIROp::Split);
+                self.ops.push(TIROp::Pop(1));
                 self.push_temp(1);
             }
             "as_field" => {
@@ -204,14 +204,14 @@ impl IRBuilder {
                 self.push_temp(3);
             }
             "xinvert" => {
-                self.ops.push(IROp::XInvert);
+                self.ops.push(TIROp::XInvert);
                 self.push_temp(3);
             }
             "xx_dot_step" => {
-                self.emit_and_push(IROp::XxDotStep, 5);
+                self.emit_and_push(TIROp::XxDotStep, 5);
             }
             "xb_dot_step" => {
-                self.emit_and_push(IROp::XbDotStep, 5);
+                self.emit_and_push(TIROp::XbDotStep, 5);
             }
 
             // ── User-defined function ──
@@ -282,9 +282,9 @@ impl IRBuilder {
 
         let ret_width = self.fn_return_widths.get(&base_name).copied().unwrap_or(0);
         if ret_width > 0 {
-            self.emit_and_push(IROp::Call(call_label), ret_width);
+            self.emit_and_push(TIROp::Call(call_label), ret_width);
         } else {
-            self.ops.push(IROp::Call(call_label));
+            self.ops.push(TIROp::Call(call_label));
             self.push_temp(0);
         }
     }

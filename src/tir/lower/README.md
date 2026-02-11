@@ -1,6 +1,6 @@
-# ir/lower — IR to Assembly Backends
+# tir/lower — TIR to Assembly Backends
 
-Consumes `Vec<IROp>` and produces target-specific assembly text.
+Consumes `Vec<TIROp>` and produces target-specific assembly text.
 
 ## Files
 
@@ -9,7 +9,7 @@ Consumes `Vec<IROp>` and produces target-specific assembly text.
 | [`mod.rs`](mod.rs) | Trait and factory | [`Lowering`](mod.rs:17) trait, [`create_lowering`](mod.rs:23) factory |
 | [`triton.rs`](triton.rs) | Triton VM backend (TASM) | [`TritonLowering`](triton.rs:19), [`lower_op`](triton.rs:42), [`flush_deferred`](triton.rs:255) |
 | [`miden.rs`](miden.rs) | Miden VM backend (MASM) | [`MidenLowering`](miden.rs:10), [`lower_op`](miden.rs:37) |
-| [`tests.rs`](tests.rs) | Unit + comparison tests | per-backend tests, IRBuilder+Lowering vs [`Emitter`](../../codegen/emitter/mod.rs:30) comparison |
+| [`tests.rs`](tests.rs) | Unit + comparison tests | per-backend tests, TIRBuilder+Lowering vs [`Emitter`](../../codegen/emitter/mod.rs:30) comparison |
 
 ## Backend strategies
 
@@ -26,12 +26,12 @@ Consumes `Vec<IROp>` and produces target-specific assembly text.
 
 ## Adding a backend
 
-1. Create `new_target.rs` implementing [`Lowering`](mod.rs:17) (one method: `fn lower(&self, ops: &[IROp]) -> Vec<String>`)
+1. Create `new_target.rs` implementing [`Lowering`](mod.rs:17) (one method: `fn lower(&self, ops: &[TIROp]) -> Vec<String>`)
 2. Register in [`create_lowering`](mod.rs:23)
 3. Add a [`TargetConfig`](../../tools/target.rs:20) variant
 
 ## Dependencies
 
-- [`IROp`](../mod.rs:18) — the IR operations consumed by lowering
-- [`IRBuilder`](../builder/mod.rs:37) — used in comparison tests
+- [`TIROp`](../mod.rs:18) — the IR operations consumed by lowering
+- [`TIRBuilder`](../builder/mod.rs:37) — used in comparison tests
 - [`Emitter`](../../codegen/emitter/mod.rs:30) — old backend, used as reference in comparison tests

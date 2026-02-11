@@ -1,7 +1,7 @@
-# Trident IR: Architecture & Design
+# Trident TIR: Architecture & Design
 
-The Trident compiler uses a target-independent intermediate representation
-between the type-checked AST and backend code generation. The IR is a sequence
+The Trident compiler uses a target-independent intermediate representation (TIR)
+between the type-checked AST and backend code generation. TIR is a sequence
 of stack operations with structural control flow, lowered to assembly text by
 target-specific backends.
 
@@ -15,7 +15,7 @@ Lexer → Parser → AST
 TypeChecker  →  Exports { mono_instances, call_resolutions }
   │
   ▼
-IRBuilder    →  Vec<IROp>          ← target-independent
+TIRBuilder    →  Vec<TIROp>          ← target-independent
   │
   ▼
 Lowering     →  Vec<String>        ← target-specific assembly
@@ -26,7 +26,7 @@ Linker       →  final .tasm/.masm
 
 ---
 
-## Why an IR?
+## Why a TIR?
 
 Proof VMs have fundamentally different architectures:
 
@@ -37,8 +37,8 @@ Proof VMs have fundamentally different architectures:
 | RISC-V (OpenVM/SP1) | Branch instructions | call/ret | syscalls |
 | Cairo | `branch_align` + enum dispatch | functions | hints |
 
-Without an IR, every target's conventions would be embedded in the AST walker.
-The IR separates **what to compute** (stack operations with structural control
+Without a TIR, every target's conventions would be embedded in the AST walker.
+The TIR separates **what to compute** (stack operations with structural control
 flow) from **how to emit it** (target-specific instruction selection).
 
 Adding a new backend means implementing one trait method — not reimplementing
@@ -49,32 +49,32 @@ the entire compiler.
 ## File Layout
 
 ```
-src/ir/                            ← canonical location
-├── mod.rs                         ← IROp enum + Display
-├── builder/                       ← AST → Vec<IROp>
-│   ├── mod.rs                     ← IRBuilder struct, build_file, build_fn
+src/tir/                            ← canonical location
+├── mod.rs                         ← TIROp enum + Display
+├── builder/                       ← AST → Vec<TIROp>
+│   ├── mod.rs                     ← TIRBuilder struct, build_file, build_fn
 │   ├── stmt.rs                    ← statement emission (let, if, for, match, emit, seal)
 │   ├── expr.rs                    ← expression emission (literals, vars, binops, structs)
 │   ├── call.rs                    ← intrinsic dispatch (~40 builtins) + user calls
 │   ├── helpers.rs                 ← spill parser, cfg checks, label gen, stack helpers
 │   ├── layout.rs                  ← type width resolution, struct field layouts
 │   └── tests.rs                   ← builder unit tests
-└── lower/                         ← Vec<IROp> → assembly text
+└── lower/                         ← Vec<TIROp> → assembly text
     ├── mod.rs                     ← Lowering trait + create_lowering factory
     ├── triton.rs                  ← Triton VM backend (TASM)
     ├── miden.rs                   ← Miden VM backend (MASM)
     └── tests.rs                   ← lowering tests + Emitter comparison suite
 
 src/codegen/ir/                    ← backward-compatible re-exports only
-├── mod.rs                         ← pub use crate::ir::{IROp, Lowering, ...}
-└── builder.rs                     ← pub use crate::ir::builder::IRBuilder
+├── mod.rs                         ← pub use crate::tir::{TIROp, Lowering, ...}
+└── builder.rs                     ← pub use crate::tir::builder::TIRBuilder
 ```
 
 ---
 
-## IROp: The Operation Set
+## TIROp: The Operation Set
 
-`IROp` is an enum with **53 variants** organized in three tiers plus a
+`TIROp` is an enum with **53 variants** organized in three tiers plus a
 target-specific section. No target instructions (`skiz`, `recurse`, `if.true`,
 `proc`) appear in the IR.
 
@@ -124,7 +124,7 @@ each backend chooses its own lowering strategy.
 | Group | Variants | Notes |
 |-------|----------|-------|
 | **Control flow — flat** (3) | `Call(String)` `Return` `Halt` | |
-| **Control flow — structural** (3) | `IfElse { then_body, else_body }` `IfOnly { then_body }` `Loop { label, body }` | Bodies are nested `Vec<IROp>`, not flat jumps |
+| **Control flow — structural** (3) | `IfElse { then_body, else_body }` `IfOnly { then_body }` `Loop { label, body }` | Bodies are nested `Vec<TIROp>`, not flat jumps |
 | **Program structure** (5) | `Label` `FnStart` `FnEnd` `Preamble` `BlankLine` | |
 | **Passthrough** (2) | `Comment(String)` `RawAsm { lines, effect }` | `RawAsm` passes inline assembly verbatim |
 
@@ -157,17 +157,17 @@ are Triton-specific unless a backend provides its own emulation.
 
 ---
 
-## IRBuilder: AST to IR
+## TIRBuilder: AST to TIR
 
-[`IRBuilder`](../src/ir/builder/mod.rs:37) walks the type-checked AST and
-produces `Vec<IROp>`. It manages a
+[`TIRBuilder`](../src/tir/builder/mod.rs:37) walks the type-checked AST and
+produces `Vec<TIROp>`. It manages a
 [`StackManager`](../src/codegen/stack.rs:58) that models the runtime stack
 with automatic LRU spill/reload to RAM.
 
 ### Configuration
 
 ```rust
-IRBuilder::new(target_config)
+TIRBuilder::new(target_config)
     .with_cfg_flags(flags)               // conditional compilation
     .with_intrinsics(intrinsic_map)      // fn name → native instruction
     .with_module_aliases(aliases)        // short → full module name
@@ -179,7 +179,7 @@ IRBuilder::new(target_config)
 
 ### build_file: Pre-scan then emit
 
-[`build_file`](../src/ir/builder/mod.rs:144) runs five pre-scan passes before
+[`build_file`](../src/tir/builder/mod.rs:144) runs five pre-scan passes before
 emitting any instructions:
 
 1. **Return widths** — resolve return type width for every function (needed by
@@ -201,13 +201,13 @@ Then emission:
 
 ### Statement and expression dispatch
 
-- [`build_stmt`](../src/ir/builder/stmt.rs:24) — `let`, `assign`, `if/else`,
+- [`build_stmt`](../src/tir/builder/stmt.rs:24) — `let`, `assign`, `if/else`,
   `for`, `match`, `emit`, `seal`, `asm`, `return`
-- [`build_expr`](../src/ir/builder/expr.rs:11) — literals, variables, binary
+- [`build_expr`](../src/tir/builder/expr.rs:11) — literals, variables, binary
   ops, function calls, tuples, arrays, field access, indexing, struct init
-- [`build_call`](../src/ir/builder/call.rs:12) — resolves ~40 intrinsics
+- [`build_call`](../src/tir/builder/call.rs:12) — resolves ~40 intrinsics
   (pub_read/write, divine, assert, hash, sponge, merkle, ram, xfield ops) or
-  delegates to [`build_user_call`](../src/ir/builder/call.rs:225) for
+  delegates to [`build_user_call`](../src/tir/builder/call.rs:225) for
   user-defined functions
 
 ### Monomorphization
@@ -221,7 +221,7 @@ TypeChecker discovers: array_sum called with <8> and <16>
       MonoInstance { name: "array_sum", size_args: [16] },
     ]
 
-IRBuilder emits two functions:
+TIRBuilder emits two functions:
   FnStart("array_sum__8")   ... FnEnd
   FnStart("array_sum__16")  ... FnEnd
 
@@ -244,14 +244,14 @@ variable to RAM.
 ### Spill/reload round-trip
 
 The `StackManager` generates spill instructions as strings (via
-[`SpillFormatter`](../src/codegen/stack.rs:16)), which `IRBuilder` converts
-back to `IROp` values through
-[`parse_spill_effect`](../src/ir/builder/helpers.rs:16):
+[`SpillFormatter`](../src/codegen/stack.rs:16)), which `TIRBuilder` converts
+back to `TIROp` values through
+[`parse_spill_effect`](../src/tir/builder/helpers.rs:16):
 
 ```
 StackManager detects overflow
   → generates:  ["swap 15", "push 1073741824", "swap 1", "write_mem 1", "pop 1"]
-  → IRBuilder calls parse_spill_effect on each
+  → TIRBuilder calls parse_spill_effect on each
   → produces:   [Swap(15), Push(1073741824), Swap(1), WriteMem(1), Pop(1)]
 ```
 
@@ -264,7 +264,7 @@ On reload (when a spilled variable is accessed):
 
 The string round-trip exists because `StackManager` predates the IR and was
 designed for the old `Emitter` which worked with strings directly. A future
-cleanup could make `StackManager` emit `IROp` directly.
+cleanup could make `StackManager` emit `TIROp` directly.
 
 ### Key invariants
 
@@ -275,22 +275,22 @@ cleanup could make `StackManager` emit `IROp` directly.
 
 ---
 
-## Lowering: IR to Assembly
+## Lowering: TIR to Assembly
 
-The [`Lowering`](../src/ir/lower/mod.rs:17) trait has one method:
+The [`Lowering`](../src/tir/lower/mod.rs:17) trait has one method:
 
 ```rust
 pub trait Lowering {
-    fn lower(&self, ops: &[IROp]) -> Vec<String>;
+    fn lower(&self, ops: &[TIROp]) -> Vec<String>;
 }
 ```
 
-[`create_lowering`](../src/ir/lower/mod.rs:23) returns the right backend
+[`create_lowering`](../src/tir/lower/mod.rs:23) returns the right backend
 by target name.
 
 ### Triton VM lowering
 
-[`TritonLowering`](../src/ir/lower/triton.rs:19) produces TASM using a
+[`TritonLowering`](../src/tir/lower/triton.rs:19) produces TASM using a
 **deferred subroutine pattern**:
 
 **IfElse** — the condition is on stack. Push a marker, then use two `skiz`
@@ -309,7 +309,7 @@ The `then` block pops the marker on entry and pushes 0 on exit (clearing it).
 The `else` block runs only if the marker survived.
 
 Deferred blocks are collected during function lowering and flushed after
-[`FnEnd`](../src/ir/lower/triton.rs:255). Nested control flow creates nested
+[`FnEnd`](../src/tir/lower/triton.rs:255). Nested control flow creates nested
 deferred blocks, flushed iteratively until empty.
 
 **Loop** — emitted as a labeled subroutine with counter check:
@@ -329,7 +329,7 @@ __loop__1:
 
 ### Miden VM lowering
 
-[`MidenLowering`](../src/ir/lower/miden.rs:10) produces MASM with **inline
+[`MidenLowering`](../src/tir/lower/miden.rs:10) produces MASM with **inline
 structured control flow**:
 
 **IfElse**:
@@ -360,7 +360,7 @@ end
 
 ### Instruction mapping differences
 
-| IR | Triton | Miden |
+| TIR | Triton | Miden |
 |----|--------|-------|
 | `Pop(n)` | `pop n` | `drop` (repeated n times) |
 | `Swap(d)` | `swap d` | `swap` (d=1) or `movup.d` |
@@ -383,7 +383,7 @@ Single-file compilation ([`compile_with_options`](../src/lib.rs)):
 let file = parse_source(source, filename)?;
 let exports = TypeChecker::with_target(config).check_file(&file)?;
 
-let ir = IRBuilder::new(config)
+let ir = TIRBuilder::new(config)
     .with_cfg_flags(flags)
     .with_mono_instances(exports.mono_instances)
     .with_call_resolutions(exports.call_resolutions)
@@ -403,7 +403,7 @@ all modules before building IR.
 
 ### Structural over flat control flow
 
-Bodies are nested `Vec<IROp>`, not basic blocks with jumps. This is deliberate:
+Bodies are nested `Vec<TIROp>`, not basic blocks with jumps. This is deliberate:
 
 - The source language has structured control flow — preserving it avoids
   reconstructing nesting from flat CFGs
@@ -414,18 +414,18 @@ Bodies are nested `Vec<IROp>`, not basic blocks with jumps. This is deliberate:
 
 ### Stack-level, not variable-level
 
-The IR has explicit `Push/Pop/Dup/Swap`. Variable-to-stack-position resolution
+The TIR has explicit `Push/Pop/Dup/Swap`. Variable-to-stack-position resolution
 happens in the builder via `StackManager`. This makes Triton lowering nearly
 1:1 and avoids inventing register allocation for stack machines.
 
 Register backends would track a virtual stack and map operations to register
 moves — more work per backend, but keeps the common path fast.
 
-### No target instructions in the IR
+### No target instructions in the TIR
 
-No `skiz`, `recurse`, `if.true`, `proc`, `movup`. The IR expresses intent
+No `skiz`, `recurse`, `if.true`, `proc`, `movup`. The TIR expresses intent
 (conditional branch, loop, function boundary) and each lowering chooses
-the mechanism. This is what makes the IR target-independent.
+the mechanism. This is what makes the TIR target-independent.
 
 ### Abstract operations over hardcoded patterns
 
@@ -437,18 +437,18 @@ backend implement events in its native way — or ignore them entirely.
 
 ## Adding a new backend
 
-1. Create `src/ir/lower/new_target.rs`
-2. Implement [`Lowering`](../src/ir/lower/mod.rs:17) — one method:
-   `fn lower(&self, ops: &[IROp]) -> Vec<String>`
-3. Handle each IROp variant, paying special attention to:
+1. Create `src/tir/lower/new_target.rs`
+2. Implement [`Lowering`](../src/tir/lower/mod.rs:17) — one method:
+   `fn lower(&self, ops: &[TIROp]) -> Vec<String>`
+3. Handle each TIROp variant, paying special attention to:
    - `IfElse`, `IfOnly`, `Loop` — your target's control flow conventions
    - `FnStart`/`FnEnd` — your target's function boundary syntax
    - `EmitEvent`/`SealEvent` — your target's event model
    - `StorageRead`/`StorageWrite` — your target's persistence model
-4. Register in [`create_lowering`](../src/ir/lower/mod.rs:23)
+4. Register in [`create_lowering`](../src/tir/lower/mod.rs:23)
 5. Add a [`TargetConfig`](../src/tools/target.rs:20) (hardcoded or TOML)
 6. Add tests — the comparison test pattern in
-   [`lower/tests.rs`](../src/ir/lower/tests.rs) is a good template
+   [`lower/tests.rs`](../src/tir/lower/tests.rs) is a good template
 
 ---
 
@@ -456,8 +456,8 @@ backend implement events in its native way — or ignore them entirely.
 
 - [Universal design](universal-design.md) — multi-target architecture overview
 - [Universal execution](universal-execution.md) — three-level abstraction model
-- [`src/ir/README.md`](../src/ir/README.md) — module-level navigation with line links
-- [`src/ir/builder/README.md`](../src/ir/builder/README.md) — builder file map
-- [`src/ir/lower/README.md`](../src/ir/lower/README.md) — backend file map + strategy table
+- [`src/tir/README.md`](../src/tir/README.md) — module-level navigation with line links
+- [`src/tir/builder/README.md`](../src/tir/builder/README.md) — builder file map
+- [`src/tir/lower/README.md`](../src/tir/lower/README.md) — backend file map + strategy table
 - [`src/tools/target.rs`](../src/tools/target.rs) — TargetConfig definition
 - [`src/codegen/stack.rs`](../src/codegen/stack.rs) — StackManager implementation

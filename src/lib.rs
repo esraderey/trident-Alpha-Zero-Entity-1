@@ -3,8 +3,8 @@ pub mod codegen;
 pub mod common;
 pub mod cost;
 pub mod frontend;
-pub mod ir;
 pub mod pkgmgmt;
+pub mod tir;
 pub mod tools;
 pub mod typecheck;
 pub mod verify;
@@ -47,13 +47,13 @@ use std::path::Path;
 
 use ast::FileKind;
 use diagnostic::{render_diagnostics, Diagnostic};
-use ir::builder::IRBuilder;
-use ir::lower::create_lowering;
 use lexer::Lexer;
 use linker::{link, ModuleTasm};
 use parser::Parser;
 use resolve::{resolve_modules, resolve_modules_with_deps};
 use target::TargetConfig;
+use tir::builder::TIRBuilder;
+use tir::lower::create_lowering;
 use typecheck::{ModuleExports, TypeChecker};
 
 /// Options controlling compilation: VM target + conditional compilation flags.
@@ -123,7 +123,7 @@ pub fn compile_with_options(
     };
 
     // Build IR and lower to target assembly
-    let ir = IRBuilder::new(options.target_config.clone())
+    let ir = TIRBuilder::new(options.target_config.clone())
         .with_cfg_flags(options.cfg_flags.clone())
         .with_mono_instances(exports.mono_instances)
         .with_call_resolutions(exports.call_resolutions)
@@ -258,7 +258,7 @@ pub fn compile_project_with_options(
             .get(i)
             .map(|e| e.call_resolutions.clone())
             .unwrap_or_default();
-        let ir = IRBuilder::new(options.target_config.clone())
+        let ir = TIRBuilder::new(options.target_config.clone())
             .with_cfg_flags(options.cfg_flags.clone())
             .with_intrinsics(intrinsic_map.clone())
             .with_module_aliases(module_aliases.clone())
