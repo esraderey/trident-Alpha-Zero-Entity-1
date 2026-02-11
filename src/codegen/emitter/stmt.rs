@@ -295,9 +295,10 @@ impl Emitter {
                             self.b_call(&rest_label);
 
                             // Build arm body: pop scrutinee then run original body
+                            let pop_inst = self.backend.inst_pop(1);
                             let mut arm_stmts = vec![Spanned::new(
                                 Stmt::Asm {
-                                    body: "pop 1".to_string(),
+                                    body: pop_inst,
                                     effect: -1,
                                     target: None,
                                 },
@@ -327,9 +328,10 @@ impl Emitter {
                             let w_label = self.fresh_label("match_wild");
                             self.b_call(&w_label);
 
+                            let pop_inst = self.backend.inst_pop(1);
                             let mut arm_stmts = vec![Spanned::new(
                                 Stmt::Asm {
-                                    body: "pop 1".to_string(),
+                                    body: pop_inst,
                                     effect: -1,
                                     target: None,
                                 },
@@ -363,9 +365,10 @@ impl Emitter {
                             let mut arm_stmts: Vec<Spanned<Stmt>> = Vec::new();
 
                             // Pop the 1-wide scrutinee placeholder
+                            let pop_inst = self.backend.inst_pop(1);
                             arm_stmts.push(Spanned::new(
                                 Stmt::Asm {
-                                    body: "pop 1".to_string(),
+                                    body: pop_inst,
                                     effect: -1,
                                     target: None,
                                 },
