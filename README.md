@@ -1,6 +1,6 @@
 # Trident
 
-**One language. Every chain. Every proof.**
+**Write once. Prove anywhere.**
 
 Trident is a programming language for provable computation. Write business
 logic once, compile to any blockchain target — zero-knowledge or
