@@ -78,21 +78,22 @@ src/codegen/ir/                    ← backward-compatible re-exports only
 
 ## TIROp: The Operation Set
 
-`TIROp` is an enum with **55 variants** in four tiers. Higher tier = narrower
+`TIROp` is an enum with **52 variants** in four tiers. Higher tier = narrower
 target set. No target instructions (`skiz`, `recurse`, `if.true`, `proc`)
 appear in the TIR. All names follow **verb-first** convention — ops are
 imperative commands: Read, Write, Open, Assert.
 
-### Tier 0 — Structure (13 variants)
+### Tier 0 — Structure (10 variants)
 
 The scaffolding. Present in every program, on every target. Not
-blockchain-specific — just computation.
+blockchain-specific — just computation. The IR expresses intent, not
+formatting — lowering handles labels, entry boilerplate, and blank lines.
 
 | Group | Variants | Notes |
 |-------|----------|-------|
-| **Control flow — flat** (3) | `Call(String)` `Return` `Halt` | |
-| **Control flow — structural** (3) | `IfElse { then_body, else_body }` `IfOnly { then_body }` `Loop { label, body }` | Bodies are nested `Vec<TIROp>`, not flat jumps |
-| **Program structure** (5) | `Label` `FnStart` `FnEnd` `Preamble` `BlankLine` | |
+| **Functions** (4) | `FnStart(String)` `FnEnd` `Call(String)` `Return` | |
+| **Control flow** (3) | `IfElse { then_body, else_body }` `IfOnly { then_body }` `Loop { label, body }` | Bodies are nested `Vec<TIROp>`, not flat jumps |
+| **Termination** (1) | `Halt` | |
 | **Passthrough** (2) | `Comment(String)` `Asm { lines, effect }` | `Asm` passes inline assembly verbatim |
 
 Each backend lowers structural ops differently:
@@ -119,16 +120,6 @@ arithmetic, I/O, memory, hashing, events, storage.
 | **Hash** (1) | `Hash { width: u32 }` | Hash N elements into a digest |
 | **Events** (2) | `Open { name, tag, field_count }` `Seal { name, tag, field_count }` | `Open` = fields in the clear; `Seal` = fields hashed, only digest visible |
 | **Storage** (2) | `ReadStorage { width }` `WriteStorage { width }` | Persistent state access |
-
-How backends expand abstract Tier 1 ops:
-
-| Op | Triton | Miden | EVM (future) |
-|----|--------|-------|-------------|
-| `Open` | `push tag; write_io 1` per field | comment + `drop` | `LOG` + topic hash |
-| `Seal` | pad + `hash` + `write_io 5` | pad + `hperm` + `drop` | keccak + emit |
-| `ReadStorage` | `read_mem` + `pop 1` | `mem_load` | `SLOAD` |
-| `WriteStorage` | `write_mem` + `pop 1` | `mem_store` | `SSTORE` |
-| `Hash` | `hash` | `hperm` | `KECCAK256` |
 
 ### Tier 2 — Provable (7 variants)
 
