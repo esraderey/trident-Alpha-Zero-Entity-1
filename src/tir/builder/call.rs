@@ -74,13 +74,13 @@ impl TIRBuilder {
 
             // ── Non-deterministic input ──
             "divine" => {
-                self.emit_and_push(TIROp::Divine(1), 1);
+                self.emit_and_push(TIROp::Hint(1), 1);
             }
             "divine3" => {
-                self.emit_and_push(TIROp::Divine(3), 3);
+                self.emit_and_push(TIROp::Hint(3), 3);
             }
             "divine5" => {
-                self.emit_and_push(TIROp::Divine(5), 5);
+                self.emit_and_push(TIROp::Hint(5), 5);
             }
 
             // ── Assertions ──

@@ -71,7 +71,7 @@ impl TritonLowering {
             // ── I/O ──
             TIROp::ReadIo(n) => out.push(format!("    read_io {}", n)),
             TIROp::WriteIo(n) => out.push(format!("    write_io {}", n)),
-            TIROp::Divine(n) => out.push(format!("    divine {}", n)),
+            TIROp::Hint(n) => out.push(format!("    divine {}", n)),
 
             // ── Memory ──
             TIROp::ReadMem(n) => out.push(format!("    read_mem {}", n)),

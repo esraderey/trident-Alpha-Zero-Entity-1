@@ -105,10 +105,14 @@ pub enum TIROp {
     Pow,
     PopCount,
 
-    // ── I/O (3) ──
+    // ── I/O (2) ──
     ReadIo(u32),
     WriteIo(u32),
-    Divine(u32),
+
+    // ── Witness (1) ──
+    /// Non-deterministic hint input. Moved from I/O to its own group
+    /// because hints are a proof-system concept, not general I/O.
+    Hint(u32),
 
     // ── Memory (2) ──
     ReadMem(u32),
@@ -211,7 +215,7 @@ impl fmt::Display for TIROp {
             TIROp::FoldBase => write!(f, "fold_base"),
             TIROp::ReadIo(n) => write!(f, "read_io {}", n),
             TIROp::WriteIo(n) => write!(f, "write_io {}", n),
-            TIROp::Divine(n) => write!(f, "divine {}", n),
+            TIROp::Hint(n) => write!(f, "hint {}", n),
             TIROp::ReadMem(n) => write!(f, "read_mem {}", n),
             TIROp::WriteMem(n) => write!(f, "write_mem {}", n),
             TIROp::Hash => write!(f, "hash"),
@@ -338,7 +342,7 @@ mod tests {
             TIROp::FoldBase,
             TIROp::ReadIo(1),
             TIROp::WriteIo(1),
-            TIROp::Divine(1),
+            TIROp::Hint(1),
             TIROp::ReadMem(1),
             TIROp::WriteMem(1),
             TIROp::Hash,

@@ -84,7 +84,7 @@ impl MidenLowering {
                     self.emit(out, "drop  # write_io");
                 }
             }
-            TIROp::Divine(n) => {
+            TIROp::Hint(n) => {
                 for _ in 0..*n {
                     self.emit(out, "adv_push.1");
                 }

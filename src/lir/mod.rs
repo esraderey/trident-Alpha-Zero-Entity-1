@@ -158,8 +158,8 @@ pub enum LIROp {
     ReadIo { dst: Reg, count: u32 },
     /// Write `count` values from consecutive regs starting at `src` to public output.
     WriteIo { src: Reg, count: u32 },
-    /// Read `count` nondeterministic values into consecutive regs starting at `dst`.
-    Divine { dst: Reg, count: u32 },
+    /// Read `count` nondeterministic hint values into consecutive regs starting at `dst`.
+    Hint { dst: Reg, count: u32 },
 
     // ── Memory (4) ──
     /// dst = mem[base + offset]
@@ -301,7 +301,7 @@ impl fmt::Display for LIROp {
             LIROp::PopCount(d, s) => write!(f, "popcnt {}, {}", d, s),
             LIROp::ReadIo { dst, count } => write!(f, "read_io {}, {}", dst, count),
             LIROp::WriteIo { src, count } => write!(f, "write_io {}, {}", src, count),
-            LIROp::Divine { dst, count } => write!(f, "divine {}, {}", dst, count),
+            LIROp::Hint { dst, count } => write!(f, "hint {}, {}", dst, count),
             LIROp::Load { dst, base, offset } => {
                 write!(f, "ld {}, [{}+{}]", dst, base, offset)
             }
@@ -508,7 +508,7 @@ mod tests {
             LIROp::PopCount(r0, r1),
             LIROp::ReadIo { dst: r0, count: 1 },
             LIROp::WriteIo { src: r0, count: 1 },
-            LIROp::Divine { dst: r0, count: 1 },
+            LIROp::Hint { dst: r0, count: 1 },
             LIROp::Load {
                 dst: r0,
                 base: r1,
