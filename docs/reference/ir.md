@@ -1,6 +1,6 @@
 # Trident IR: Architecture & Design
 
-52 operations. 4 tiers. One source language compiles everywhere.
+54 operations. 4 tiers. One source language compiles everywhere.
 
 ```
 Source (.tri)
@@ -12,7 +12,7 @@ Lexer → Parser → AST
 TypeChecker
   │
   ▼
-TIRBuilder → Vec<TIROp>              ← 52 ops, target-independent
+TIRBuilder → Vec<TIROp>              ← 54 ops, target-independent
   │
   ├─→ Lowering       → Vec<String>   ← stack targets (Triton, Miden, EVM)
   │     │
@@ -26,23 +26,23 @@ TIRBuilder → Vec<TIROp>              ← 52 ops, target-independent
 
 ---
 
-## Part I: The 52 Operations
+## Part I: The 54 Operations
 
-### Tier 0 — Structure (10)
+### Tier 0 — Structure (11)
 
 Every program, every target. Just computation.
 
 | Group | Variants | Notes |
 |-------|----------|-------|
-| **Functions** (4) | `FnStart(String)` `FnEnd` `Call(String)` `Return` | |
-| **Control flow** (3) | `IfElse { then, else }` `IfOnly { then }` `Loop { label, body }` | Nested bodies, not flat jumps |
-| **Termination** (1) | `Halt` | |
+| **Control flow — flat** (3) | `Call(String)` `Return` `Halt` | |
+| **Control flow — structural** (3) | `IfElse { then, else }` `IfOnly { then }` `Loop { label, body }` | Nested bodies, not flat jumps |
+| **Program structure** (3) | `FnStart(String)` `FnEnd` `Entry(String)` | `Entry` = program entry point (main function label) |
 | **Passthrough** (2) | `Comment(String)` `Asm { lines, effect }` | `Asm` = inline assembly escape hatch |
 
 The IR expresses intent, not formatting. Lowering handles labels, entry
 boilerplate, and blank lines.
 
-### Tier 1 — Universal (31)
+### Tier 1 — Universal (32)
 
 Every target — blockchain or conventional. All values are field elements.
 Arithmetic groups are named by **interpretation**: how the value is treated.
@@ -55,23 +55,23 @@ Arithmetic groups are named by **interpretation**: how the value is treated.
 | **Bitwise** (5) | `And` `Or` `Xor` `PopCount` `Split` | Bit pattern. `Split` → 2 u32 limbs |
 | **Unsigned** (5) | `DivMod` `Shl` `Shr` `Log2` `Pow` | Unsigned integer. `DivMod` → 2 values |
 | **I/O** (2) | `ReadIo(u32)` `WriteIo(u32)` | Public input/output channels |
+| **Witness** (1) | `Hint(u32)` | Non-deterministic input from the prover |
 | **Memory** (2) | `ReadMem(u32)` `WriteMem(u32)` | Address on stack, popped after access |
 | **Assertions** (1) | `Assert(u32)` | Assert N elements are nonzero |
 | **Hash** (1) | `Hash { width: u32 }` | Hash N elements into a digest |
-| **Events** (2) | `Open { name, tag, field_count }` `Seal { name, tag, field_count }` | `Open` = fields in the clear; `Seal` = hashed, only digest visible |
+| **Events** (2) | `Reveal { name, tag, field_count }` `Seal { name, tag, field_count }` | `Reveal` = fields in the clear; `Seal` = hashed, only digest visible |
 | **Storage** (2) | `ReadStorage { width }` `WriteStorage { width }` | Persistent state access |
 
-### Tier 2 — Provable (7)
+### Tier 2 — Provable (6)
 
 Proof-capable targets only. No meaningful equivalent on conventional machines.
 
 | Group | Variants | Intent |
 |-------|----------|--------|
-| **Witness** (1) | `Hint(u32)` | Non-deterministic input from the prover |
 | **Sponge** (4) | `SpongeInit` `SpongeAbsorb` `SpongeSqueeze` `SpongeLoad` | Incremental algebraic hashing |
 | **Merkle** (2) | `MerkleStep` `MerkleLoad` | Merkle tree authentication |
 
-### Tier 3 — Recursion (4)
+### Tier 3 — Recursion (5)
 
 Recursive verification only. STARK-in-STARK primitives.
 
@@ -79,16 +79,17 @@ Recursive verification only. STARK-in-STARK primitives.
 |-------|----------|--------|
 | **Extension** (2) | `ExtMul` `ExtInvert` | Extension field arithmetic |
 | **Folding** (2) | `FoldExt` `FoldBase` | FRI folding (extension / base field) |
+| **Verification** (1) | `ProofBlock { program_hash, body }` | Recursive proof verification block. Body contains verification circuit |
 
 ### Totals
 
 | Tier | Name | Count | What it enables |
 |------|------|-------|-----------------|
-| 0 | Structure | 10 | Any program on any target |
-| 1 | Universal | 31 | Full computation — blockchain or conventional |
-| 2 | Provable | 7 | Proof generation and verification |
-| 3 | Recursion | 4 | Proofs that verify other proofs |
-| | **Total** | **52** | |
+| 0 | Structure | 11 | Any program on any target |
+| 1 | Universal | 32 | Full computation — blockchain or conventional |
+| 2 | Provable | 6 | Proof generation and verification |
+| 3 | Recursion | 5 | Proofs that verify other proofs |
+| | **Total** | **54** | |
 
 A program's tier is its highest-tier op. The compiler rejects programs
 that use ops above the target's capability.
@@ -180,7 +181,7 @@ This resolves every design tension:
 
 ### Concurrency is orchestration, not computation
 
-52 ops, all sequential. No channels, spawn, or await. This is correct.
+54 ops, all sequential. No channels, spawn, or await. This is correct.
 
 A program is a pure sequential computation — read, compute, write.
 The runtime decides how many copies run and how they connect:
@@ -201,11 +202,11 @@ Bodies are nested `Vec<TIROp>`, not basic blocks with jumps:
 
 No `skiz`, `recurse`, `if.true`, `proc`. The TIR expresses intent
 (branch, loop, function boundary) and each lowering chooses the
-mechanism. This is what makes the 52 ops target-independent.
+mechanism. This is what makes the 54 ops target-independent.
 
 ### Abstract operations over hardcoded patterns
 
-`Open` instead of `push tag; write_io 1; ...` repeated per field. The
+`Reveal` instead of `push tag; write_io 1; ...` repeated per field. The
 abstract op carries semantic meaning, letting each backend implement
 events its own way — or ignore them entirely.
 
@@ -221,7 +222,7 @@ semantics, it doesn't belong in the IR.
 - **Max two words**: every variant is 1-2 words, no exceptions
 - **Arithmetic groups named by interpretation**: Modular (field),
   Bitwise (bits), Unsigned (integer), Comparison (boolean)
-- **Symmetric pairs**: `Open`/`Seal`, `Read`/`Write`, `FnStart`/`FnEnd`
+- **Symmetric pairs**: `Reveal`/`Seal`, `Read`/`Write`, `FnStart`/`FnEnd`
 
 ---
 
@@ -269,7 +270,7 @@ Type parameters substitute into width calculations.
 
 ```
 src/tir/                           ← stack-based IR (canonical)
-├── mod.rs                         ← TIROp enum (52 variants) + Display
+├── mod.rs                         ← TIROp enum (54 variants) + Display
 ├── builder/                       ← AST → Vec<TIROp>
 │   ├── mod.rs                     ← TIRBuilder struct
 │   ├── stmt.rs                    ← statement emission
