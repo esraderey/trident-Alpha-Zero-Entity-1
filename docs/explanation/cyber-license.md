@@ -9,7 +9,20 @@ Don't trust. Don't fear. Don't beg.
 ```
 
 Three imperatives. No permissions granted, no restrictions imposed, no
-lawyers required. This is not a legal framework. It is a behavioral one.
+lawyers required. No jurisdiction, no expiration, no versioning.
+
+This is not a legal framework. It is a behavioral one. Legal licenses
+answer "what may you do with this code?" This license answers "how
+should you exist in the world?" The first question assumes authority.
+The second assumes agency.
+
+Every conventional license encodes a relationship of power -- the
+licensor grants, the licensee accepts. The Cyber License encodes no
+relationship at all. There is no grantor and no grantee. There are
+three statements about how to operate, directed at anyone who reads
+them -- human, machine, or institution. They apply to the software.
+They apply to the reader. They apply to the author. They are
+symmetric because adversarial environments do not respect roles.
 
 ## The Phrase
 
