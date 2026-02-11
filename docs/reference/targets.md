@@ -13,15 +13,15 @@ OS — the runtime that loads programs, manages I/O, enforces billing, and
 provides storage. One VM can power multiple blockchains, just as one CPU
 architecture runs multiple operating systems.
 
-| Concept | Traditional | Trident |
-|---------|-------------|---------|
+| Concept | Traditional | Provable |
+|---------|-------------|----------|
 | CPU / ISA | x86-64, ARM64, RISC-V | Triton VM, Miden VM, Cairo VM, RISC-V |
 | OS / Runtime | Linux, macOS, Windows | Neptune, Polygon Miden, Starknet |
 | Word size | 32-bit, 64-bit | Field (31-bit, 64-bit, 251-bit) |
 | Instruction set extensions | SSE, AVX, NEON | Hash coprocessor, Merkle, sponge |
 | Register file | 16 GP registers | Stack depth (16, 32, 0) |
 | RAM | Byte-addressed | Word-addressed (field elements) |
-| System calls | read, write, mmap | pub_read, pub_write, divine |
+| System calls | read, write, mmap | pub_read, pub_write, hint |
 | Process model | Multi-threaded | Sequential, deterministic |
 | Billing | None (or quotas) | Cost tables (rows, cycles, steps) |
 
@@ -327,7 +327,7 @@ boundary doubles proving time.
 | `sponge_absorb_mem(p)` | 1 | **6** | 0 | 1 | 10 |
 | `merkle_step(i, d)` | 1 | **6** | 33 | 0 | 0 |
 | `merkle_step_mem(...)` | 1 | **6** | 33 | 0 | 5 |
-| `divine()` | 1 | 0 | 0 | 1 | 0 |
+| `hint()` | 1 | 0 | 0 | 1 | 0 |
 | `pub_read()` | 1 | 0 | 0 | 1 | 0 |
 | `pub_write(v)` | 1 | 0 | 0 | 1 | 0 |
 | `ram_read(addr)` | 2 | 0 | 0 | 2 | 1 |
@@ -439,11 +439,12 @@ where `xfield_width > 0`.
 
 | Builtin group | Tier | Triton VM | Miden VM | SP1 | OpenVM | Cairo | Conventional |
 |---|---|---|---|---|---|---|---|
-| I/O (`pub_read`, `divine`, etc.) | 1 | yes | yes | yes | yes | yes | yes (stdio) |
+| I/O (`pub_read`, `pub_write`) | 1 | yes | yes | yes | yes | yes | yes (stdio) |
 | Field (`sub`, `neg`, `inv`) | 1 | yes | yes | yes | yes | yes | yes |
 | U32 (`split`, `log2`, `pow`, etc.) | 1 | yes | yes | yes | yes | yes | yes |
 | Assert (`assert`, `assert_eq`) | 1 | yes | yes | yes | yes | yes | yes (abort) |
 | RAM (`ram_read`, `ram_write`) | 1 | yes | yes | yes | yes | yes | yes (memory) |
+| Witness (`hint`) | 2 | yes | yes | yes | yes | yes | -- |
 | Hash (`hash`, `sponge_*`) | 2 | R=10, D=5 | R=8, D=4 | -- | -- | -- | -- |
 | Merkle (`merkle_step`) | 2 | native | emulated | -- | -- | -- | -- |
 | XField (`xfield`, `xinvert`, dot) | 2 | yes | -- | -- | -- | -- | -- |
