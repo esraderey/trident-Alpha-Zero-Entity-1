@@ -87,8 +87,8 @@ impl TritonLowering {
             TIROp::MerkleLoad => out.push("    merkle_step_mem".to_string()),
 
             // ── Assertions ──
-            TIROp::Assert => out.push("    assert".to_string()),
-            TIROp::AssertVector => out.push("    assert_vector".to_string()),
+            TIROp::Assert(1) => out.push("    assert".to_string()),
+            TIROp::Assert(_) => out.push("    assert_vector".to_string()),
 
             // ── Abstract operations (Triton lowering) ──
             TIROp::Open {

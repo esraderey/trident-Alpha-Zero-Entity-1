@@ -171,11 +171,9 @@ pub enum LIROp {
     /// Store `width` consecutive words from regs starting at `src` to mem[base].
     StoreMulti { src: Reg, base: Reg, width: u32 },
 
-    // ── Assertions (2) ──
-    /// Assert that `src` is nonzero.
-    Assert(Reg),
-    /// Assert that `count` consecutive regs starting at `src` are all nonzero.
-    AssertVector { src: Reg, count: u32 },
+    // ── Assertions (1) ──
+    /// Assert `count` consecutive regs starting at `src` are all nonzero.
+    Assert { src: Reg, count: u32 },
 
     // ── Hash (2) ──
     /// dst = hash(src..src+count)
@@ -314,9 +312,8 @@ impl fmt::Display for LIROp {
             LIROp::StoreMulti { src, base, width } => {
                 write!(f, "stm {}, [{}], {}", src, base, width)
             }
-            LIROp::Assert(s) => write!(f, "assert {}", s),
-            LIROp::AssertVector { src, count } => {
-                write!(f, "assert_vec {}, {}", src, count)
+            LIROp::Assert { src, count } => {
+                write!(f, "assert {}, {}", src, count)
             }
             LIROp::Hash { dst, src, count } => {
                 write!(f, "hash {}, {}, {}", dst, src, count)
@@ -529,8 +526,8 @@ mod tests {
                 base: r1,
                 width: 4,
             },
-            LIROp::Assert(r0),
-            LIROp::AssertVector { src: r0, count: 4 },
+            LIROp::Assert { src: r0, count: 1 },
+            LIROp::Assert { src: r0, count: 4 },
             LIROp::Hash {
                 dst: r0,
                 src: r1,

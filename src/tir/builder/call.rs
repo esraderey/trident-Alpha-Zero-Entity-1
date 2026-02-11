@@ -85,16 +85,16 @@ impl TIRBuilder {
 
             // ── Assertions ──
             "assert" => {
-                self.ops.push(TIROp::Assert);
+                self.ops.push(TIROp::Assert(1));
                 self.push_temp(0);
             }
             "assert_eq" => {
                 self.ops.push(TIROp::Eq);
-                self.ops.push(TIROp::Assert);
+                self.ops.push(TIROp::Assert(1));
                 self.push_temp(0);
             }
             "assert_digest" => {
-                self.ops.push(TIROp::AssertVector);
+                self.ops.push(TIROp::Assert(5));
                 self.ops.push(TIROp::Pop(self.target_config.digest_width));
                 self.push_temp(0);
             }

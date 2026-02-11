@@ -183,7 +183,7 @@ impl TIRBuilder {
                             name, depth2, width
                         )));
                         self.ops.push(TIROp::Push(0));
-                        self.ops.push(TIROp::Assert);
+                        self.ops.push(TIROp::Assert(1));
                     }
                 }
                 self.stack.push_temp(width);

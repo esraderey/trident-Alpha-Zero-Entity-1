@@ -118,9 +118,9 @@ pub enum TIROp {
     ReadMem(u32),
     WriteMem(u32),
 
-    // ── Assertions (2) ──
-    Assert,
-    AssertVector,
+    // ── Assertions (1) ──
+    /// Assert `n` elements. Assert(1) = single, Assert(5) = vector.
+    Assert(u32),
 
     // ── Hash (2) ──
     /// Cryptographic hash. Every target has some hash primitive.
@@ -225,8 +225,7 @@ impl fmt::Display for TIROp {
             TIROp::SpongeLoad => write!(f, "sponge_load"),
             TIROp::MerkleStep => write!(f, "merkle_step"),
             TIROp::MerkleLoad => write!(f, "merkle_load"),
-            TIROp::Assert => write!(f, "assert"),
-            TIROp::AssertVector => write!(f, "assert_vector"),
+            TIROp::Assert(n) => write!(f, "assert {}", n),
             TIROp::Open {
                 name, field_count, ..
             } => write!(f, "open {}({})", name, field_count),
@@ -352,8 +351,8 @@ mod tests {
             TIROp::SpongeLoad,
             TIROp::MerkleStep,
             TIROp::MerkleLoad,
-            TIROp::Assert,
-            TIROp::AssertVector,
+            TIROp::Assert(1),
+            TIROp::Assert(5),
             TIROp::Open {
                 name: "Transfer".into(),
                 tag: 0,

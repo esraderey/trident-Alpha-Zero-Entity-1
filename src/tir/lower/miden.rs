@@ -104,8 +104,8 @@ impl MidenLowering {
             TIROp::MerkleLoad => self.emit(out, "mtree_get  # merkle_load"),
 
             // ── Assertions ──
-            TIROp::Assert => self.emit(out, "assert"),
-            TIROp::AssertVector => self.emit(out, "assert  # assert_vector (4 words)"),
+            TIROp::Assert(1) => self.emit(out, "assert"),
+            TIROp::Assert(n) => self.emit(out, &format!("assert  # assert {} words", n)),
 
             // ── Abstract operations (Miden lowering) ──
             TIROp::Open {
