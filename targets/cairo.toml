@@ -6,6 +6,7 @@ output_extension = ".sierra"
 
 [field]
 prime = "2^251 + 17 * 2^192 + 1"
+bits = 251
 limbs = 4
 
 [stack]

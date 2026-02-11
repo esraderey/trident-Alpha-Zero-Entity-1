@@ -6,6 +6,7 @@ output_extension = ".S"
 
 [field]
 prime = "2^31 - 1"
+bits = 31
 limbs = 1
 
 [stack]

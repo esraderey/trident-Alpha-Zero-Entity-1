@@ -12,6 +12,17 @@ pub enum Arch {
     Register,
 }
 
+/// Describes a non-native field the target can emulate.
+#[derive(Clone, Debug)]
+pub struct EmulatedField {
+    /// Short identifier (e.g. "bn254", "stark252").
+    pub name: String,
+    /// Field size in bits.
+    pub bits: u32,
+    /// Number of native field elements per emulated element.
+    pub limbs: u32,
+}
+
 /// Target VM configuration — replaces all hardcoded constants.
 ///
 /// Every numeric constant that was previously hardcoded for Triton VM
@@ -26,8 +37,12 @@ pub struct TargetConfig {
     pub architecture: Arch,
     /// Field prime description (informational, e.g. "2^64 - 2^32 + 1").
     pub field_prime: String,
+    /// Native field size in bits (e.g. 64 for Goldilocks, 31 for Mersenne31).
+    pub field_bits: u32,
     /// Number of U32 limbs when splitting a field element.
     pub field_limbs: u32,
+    /// Non-native fields this target can emulate (empty = native only).
+    pub emulated_fields: Vec<EmulatedField>,
     /// Maximum operand stack depth before spilling to RAM.
     pub stack_depth: u32,
     /// Base RAM address for spilled variables.
@@ -52,7 +67,9 @@ impl TargetConfig {
             display_name: "Triton VM".to_string(),
             architecture: Arch::Stack,
             field_prime: "2^64 - 2^32 + 1".to_string(),
+            field_bits: 64,
             field_limbs: 2,
+            emulated_fields: Vec::new(),
             stack_depth: 16,
             spill_ram_base: 1 << 30,
             digest_width: 5,
@@ -146,7 +163,9 @@ impl TargetConfig {
         let mut architecture = String::new();
         let mut output_extension = String::new();
         let mut field_prime = String::new();
+        let mut field_bits: u32 = 0;
         let mut field_limbs: u32 = 0;
+        let mut emulated_fields: Vec<EmulatedField> = Vec::new();
         let mut stack_depth: u32 = 0;
         let mut spill_ram_base: u64 = 0;
         let mut digest_width: u32 = 0;
@@ -176,6 +195,11 @@ impl TargetConfig {
                     ("target", "architecture") => architecture = unquoted.to_string(),
                     ("target", "output_extension") => output_extension = unquoted.to_string(),
                     ("field", "prime") => field_prime = unquoted.to_string(),
+                    ("field", "bits") => {
+                        field_bits = value
+                            .parse()
+                            .map_err(|_| err(format!("invalid field.bits: {}", value)))?;
+                    }
                     ("field", "limbs") => {
                         field_limbs = value
                             .parse()
@@ -209,7 +233,43 @@ impl TargetConfig {
                     ("cost", "tables") => {
                         cost_tables = parse_string_array(value);
                     }
-                    _ => {} // ignore unknown keys
+                    _ => {
+                        // Parse [emulated_field.NAME] sections
+                        if section.starts_with("emulated_field.") {
+                            let ef_name = section.strip_prefix("emulated_field.").unwrap();
+                            // Find or create the entry
+                            let entry = emulated_fields.iter_mut().find(|ef| ef.name == ef_name);
+                            let entry = if let Some(e) = entry {
+                                e
+                            } else {
+                                emulated_fields.push(EmulatedField {
+                                    name: ef_name.to_string(),
+                                    bits: 0,
+                                    limbs: 0,
+                                });
+                                emulated_fields.last_mut().unwrap()
+                            };
+                            match key {
+                                "bits" => {
+                                    entry.bits = value.parse().map_err(|_| {
+                                        err(format!(
+                                            "invalid emulated_field.{}.bits: {}",
+                                            ef_name, value
+                                        ))
+                                    })?;
+                                }
+                                "limbs" => {
+                                    entry.limbs = value.parse().map_err(|_| {
+                                        err(format!(
+                                            "invalid emulated_field.{}.limbs: {}",
+                                            ef_name, value
+                                        ))
+                                    })?;
+                                }
+                                _ => {}
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -225,6 +285,9 @@ impl TargetConfig {
         }
         if hash_rate == 0 {
             return Err(err("hash.rate must be > 0".to_string()));
+        }
+        if field_bits == 0 {
+            return Err(err("field.bits must be > 0".to_string()));
         }
         if field_limbs == 0 {
             return Err(err("field.limbs must be > 0".to_string()));
@@ -246,7 +309,9 @@ impl TargetConfig {
             display_name,
             architecture: arch,
             field_prime,
+            field_bits,
             field_limbs,
+            emulated_fields,
             stack_depth,
             spill_ram_base,
             digest_width,
@@ -281,7 +346,9 @@ mod tests {
         let config = TargetConfig::triton();
         assert_eq!(config.name, "triton");
         assert_eq!(config.architecture, Arch::Stack);
+        assert_eq!(config.field_bits, 64);
         assert_eq!(config.field_limbs, 2);
+        assert!(config.emulated_fields.is_empty());
         assert_eq!(config.stack_depth, 16);
         assert_eq!(config.spill_ram_base, 1 << 30);
         assert_eq!(config.digest_width, 5);
@@ -321,6 +388,7 @@ output_extension = ".test"
 
 [field]
 prime = "p"
+bits = 32
 limbs = 4
 
 [stack]
@@ -343,12 +411,78 @@ tables = ["cycles"]
         let config = TargetConfig::load(&path).unwrap();
         assert_eq!(config.name, "test_vm");
         assert_eq!(config.architecture, Arch::Register);
+        assert_eq!(config.field_bits, 32);
         assert_eq!(config.field_limbs, 4);
+        assert!(config.emulated_fields.is_empty());
         assert_eq!(config.stack_depth, 32);
         assert_eq!(config.digest_width, 8);
         assert_eq!(config.hash_rate, 3);
         assert_eq!(config.xfield_width, 0);
         assert_eq!(config.cost_tables, vec!["cycles"]);
+    }
+
+    #[test]
+    fn test_emulated_field_parsing() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("emu.toml");
+        std::fs::write(
+            &path,
+            r#"
+[target]
+name = "emu_vm"
+display_name = "Emu VM"
+architecture = "stack"
+output_extension = ".asm"
+
+[field]
+prime = "2^64 - 2^32 + 1"
+bits = 64
+limbs = 2
+
+[stack]
+depth = 16
+spill_ram_base = 1073741824
+
+[hash]
+digest_width = 5
+rate = 10
+
+[extension_field]
+degree = 3
+
+[cost]
+tables = ["processor"]
+
+[emulated_field.bn254]
+bits = 254
+limbs = 4
+
+[emulated_field.stark252]
+bits = 251
+limbs = 4
+"#,
+        )
+        .unwrap();
+
+        let config = TargetConfig::load(&path).unwrap();
+        assert_eq!(config.field_bits, 64);
+        assert_eq!(config.emulated_fields.len(), 2);
+
+        let bn254 = config
+            .emulated_fields
+            .iter()
+            .find(|ef| ef.name == "bn254")
+            .unwrap();
+        assert_eq!(bn254.bits, 254);
+        assert_eq!(bn254.limbs, 4);
+
+        let stark252 = config
+            .emulated_fields
+            .iter()
+            .find(|ef| ef.name == "stark252")
+            .unwrap();
+        assert_eq!(stark252.bits, 251);
+        assert_eq!(stark252.limbs, 4);
     }
 
     #[test]
