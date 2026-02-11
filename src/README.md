@@ -31,47 +31,47 @@ Parallel to the main pipeline, several modules provide analysis, tooling, and pa
 
 | Module | LOC | What it does |
 |--------|----:|--------------|
-| `common/` | 314 | Shared infrastructure: source spans, diagnostics, type definitions |
-| `frontend/` | 4,392 | Lexer, parser, token definitions, pretty-printer/formatter |
-| `typecheck/` | 3,004 | Type checker with borrow analysis, generics, and builtin registration |
-| `codegen/` | 4,189 | AST-to-assembly emitter, stack manager, linker, backend trait |
-| `codegen/backend/` | 802 | `StackBackend` trait + five target implementations (Triton, Miden, OpenVM, SP1, Cairo) |
-| `cost/` | 2,335 | Static cost analyzer, per-function cost breakdown, optimization hints |
-| `cost/model/` | 771 | `CostModel` trait + four target cost models |
-| `verify/` | 5,570 | Symbolic execution, constraint solving, SMT encoding, equivalence checking, invariant synthesis |
-| `pkgmgmt/` | 7,737 | Content-addressed hashing (BLAKE3), Poseidon2, UCM codebase manager, registry server/client, on-chain Merkle registry, dependency manifests, compilation cache |
-| `tools/` | 3,960 | Language Server Protocol, code scaffolding, definition viewer, project config, module resolution, target configuration |
+| [`common/`](common/) | 314 | Shared infrastructure: [source spans](common/span.rs), [diagnostics](common/diagnostic.rs), [type definitions](common/types.rs) |
+| [`frontend/`](frontend/) | 4,392 | [Lexer](frontend/lexer.rs), [parser](frontend/parser.rs), [token definitions](frontend/lexeme.rs), [pretty-printer/formatter](frontend/format.rs) |
+| [`typecheck/`](typecheck/) | 3,004 | [Type checker](typecheck/mod.rs) with borrow analysis, generics, and [builtin registration](typecheck/builtins.rs) |
+| [`codegen/`](codegen/) | 4,189 | AST-to-assembly [emitter](codegen/emitter.rs), [stack manager](codegen/stack.rs), [linker](codegen/linker.rs), [backend trait](codegen/backend/) |
+| [`codegen/backend/`](codegen/backend/) | 802 | [`StackBackend`](codegen/backend/mod.rs) trait + five targets: [Triton](codegen/backend/triton.rs), [Miden](codegen/backend/miden.rs), [OpenVM](codegen/backend/openvm.rs), [SP1](codegen/backend/sp1.rs), [Cairo](codegen/backend/cairo.rs) |
+| [`cost/`](cost/) | 2,335 | Static cost [analyzer](cost/analyzer.rs), per-function breakdown, [optimization hints and reports](cost/report.rs) |
+| [`cost/model/`](cost/model/) | 771 | [`CostModel`](cost/model/mod.rs) trait + four targets: [Triton](cost/model/triton.rs), [Miden](cost/model/miden.rs), [Cycle](cost/model/cycle.rs), [Cairo](cost/model/cairo.rs) |
+| [`verify/`](verify/) | 5,570 | [Symbolic execution](verify/sym.rs), [constraint solving](verify/solve.rs), [SMT encoding](verify/smt.rs), [equivalence checking](verify/equiv.rs), [invariant synthesis](verify/synthesize.rs), [JSON reports](verify/report.rs) |
+| [`pkgmgmt/`](pkgmgmt/) | 7,737 | [BLAKE3 hashing](pkgmgmt/hash.rs), [Poseidon2](pkgmgmt/poseidon2.rs), [UCM codebase](pkgmgmt/ucm.rs), [registry server/client](pkgmgmt/registry.rs), [on-chain Merkle registry](pkgmgmt/onchain.rs), [dependency manifests](pkgmgmt/manifest.rs), [compilation cache](pkgmgmt/cache.rs) |
+| [`tools/`](tools/) | 3,960 | [Language Server](tools/lsp.rs), [code scaffolding](tools/scaffold.rs), [definition viewer](tools/view.rs), [project config](tools/project.rs), [module resolution](tools/resolve.rs), [target configuration](tools/target.rs) |
 
 ## Top-Level Files
 
 | File | LOC | Role |
 |------|----:|------|
-| `ast.rs` | 371 | AST node definitions shared by every stage |
-| `lib.rs` | 2,698 | Public API, re-exports, and orchestration functions (`compile`, `analyze_costs`, `check_file`) |
-| `main.rs` | 2,374 | CLI entry point: argument parsing and command dispatch |
-| `trident_lsp.rs` | 4 | LSP binary entry point |
+| [`ast.rs`](ast.rs) | 371 | AST node definitions shared by every stage |
+| [`lib.rs`](lib.rs) | 2,698 | Public API, re-exports, and orchestration functions (`compile`, `analyze_costs`, `check_file`) |
+| [`main.rs`](main.rs) | 2,374 | CLI entry point: argument parsing and command dispatch |
+| [`trident_lsp.rs`](trident_lsp.rs) | 4 | LSP binary entry point |
 
 ## Compilation Pipeline in Detail
 
-**Frontend** (`frontend/`). The lexer (`lexer.rs`) tokenizes source into the token types defined in `lexeme.rs`. The parser (`parser.rs`) produces a typed AST (`ast.rs`). The formatter (`format.rs`) can pretty-print any AST back to canonical source.
+**Frontend** ([`frontend/`](frontend/)). The [lexer](frontend/lexer.rs) tokenizes source into the token types defined in [`lexeme.rs`](frontend/lexeme.rs). The [parser](frontend/parser.rs) produces a typed AST ([`ast.rs`](ast.rs)). The [formatter](frontend/format.rs) can pretty-print any AST back to canonical source.
 
-**Type Checking** (`typecheck/`). The type checker validates types, resolves generics via monomorphization, performs borrow/move analysis, and registers builtin function signatures (`builtins.rs`). Diagnostics are emitted for type mismatches, undefined variables, unused bindings, and borrow violations.
+**Type Checking** ([`typecheck/`](typecheck/)). The [type checker](typecheck/mod.rs) validates types, resolves generics via monomorphization, performs borrow/move analysis, and registers builtin function signatures ([`builtins.rs`](typecheck/builtins.rs)). Diagnostics are emitted for type mismatches, undefined variables, unused bindings, and borrow violations.
 
-**Code Generation** (`codegen/`). The emitter (`emitter.rs`) walks the typed AST and produces target assembly by calling methods on a `StackBackend` trait (`backend/mod.rs`). Each target (Triton, Miden, OpenVM, SP1, Cairo) implements this trait in its own file. The stack manager (`stack.rs`) tracks operand positions with automatic RAM spill/reload. The linker (`linker.rs`) resolves cross-module calls.
+**Code Generation** ([`codegen/`](codegen/)). The [emitter](codegen/emitter.rs) walks the typed AST and produces target assembly by calling methods on a [`StackBackend`](codegen/backend/mod.rs) trait. Each target ([Triton](codegen/backend/triton.rs), [Miden](codegen/backend/miden.rs), [OpenVM](codegen/backend/openvm.rs), [SP1](codegen/backend/sp1.rs), [Cairo](codegen/backend/cairo.rs)) implements this trait in its own file. The [stack manager](codegen/stack.rs) tracks operand positions with automatic RAM spill/reload. The [linker](codegen/linker.rs) resolves cross-module calls.
 
-**Cost Analysis** (`cost/`). The analyzer (`analyzer.rs`) walks the AST and sums per-instruction costs using a target-specific `CostModel` (`model/`). The report module (`report.rs`) formats results, generates optimization hints, and provides JSON serialization for `--compare` workflows.
+**Cost Analysis** ([`cost/`](cost/)). The [analyzer](cost/analyzer.rs) walks the AST and sums per-instruction costs using a target-specific [`CostModel`](cost/model/mod.rs). The [report module](cost/report.rs) formats results, generates optimization hints, and provides JSON serialization for `--compare` workflows.
 
-**Formal Verification** (`verify/`). The symbolic executor (`sym.rs`) builds path constraints over the AST. The solver (`solve.rs`) uses Schwartz-Zippel randomized testing and bounded model checking. The SMT module (`smt.rs`) encodes constraints in SMT-LIB2 for external solvers. The equivalence checker (`equiv.rs`) proves two functions compute the same result. The synthesizer (`synthesize.rs`) infers loop invariants automatically.
+**Formal Verification** ([`verify/`](verify/)). The [symbolic executor](verify/sym.rs) builds path constraints over the AST. The [solver](verify/solve.rs) uses Schwartz-Zippel randomized testing and bounded model checking. The [SMT module](verify/smt.rs) encodes constraints in SMT-LIB2 for external solvers. The [equivalence checker](verify/equiv.rs) proves two functions compute the same result. The [synthesizer](verify/synthesize.rs) infers loop invariants automatically.
 
-**Package Management** (`pkgmgmt/`). Content-addressed storage using BLAKE3 hashing (`hash.rs`) with Poseidon2 (`poseidon2.rs`) for in-proof verification. The UCM (`ucm.rs`) manages a local codebase of named, versioned definitions. The registry (`registry.rs`) provides an HTTP server and client for publishing and pulling definitions. The on-chain module (`onchain.rs`) implements a Merkle-tree registry for blockchain-anchored code.
+**Package Management** ([`pkgmgmt/`](pkgmgmt/)). Content-addressed storage using BLAKE3 [hashing](pkgmgmt/hash.rs) with [Poseidon2](pkgmgmt/poseidon2.rs) for in-proof verification. The [UCM](pkgmgmt/ucm.rs) manages a local codebase of named, versioned definitions. The [registry](pkgmgmt/registry.rs) provides an HTTP server and client for publishing and pulling definitions. The [on-chain module](pkgmgmt/onchain.rs) implements a Merkle-tree registry for blockchain-anchored code.
 
 ## Design Principles
 
 **Direct mapping**. Every language construct maps to a known instruction pattern. The compiler is a thin translation layer, not an optimization engine. This makes proving costs predictable and the compiler auditable.
 
-**Target abstraction**. The `StackBackend` trait and `CostModel` trait isolate all target-specific knowledge. Adding a new backend means implementing these two traits -- the rest of the compiler is shared.
+**Target abstraction**. The [`StackBackend`](codegen/backend/mod.rs) trait and [`CostModel`](cost/model/mod.rs) trait isolate all target-specific knowledge. Adding a new backend means implementing these two traits -- the rest of the compiler is shared.
 
-**Re-exports for stability**. `lib.rs` re-exports every module at the crate root (`crate::parser`, `crate::emit`, etc.) so that internal reorganization does not break downstream code or the binary crate.
+**Re-exports for stability**. [`lib.rs`](lib.rs) re-exports every module at the crate root (`crate::parser`, `crate::emit`, etc.) so that internal reorganization does not break downstream code or the binary crate.
 
 ## Test Coverage
 
@@ -81,4 +81,4 @@ Parallel to the main pipeline, several modules provide analysis, tooling, and pa
 - Code generation output validation per backend
 - Cost model accuracy checks
 - LSP protocol compliance
-- CLI integration tests (20 subprocess tests in `tests/cli_tests.rs`)
+- CLI integration tests (20 subprocess tests in [`tests/cli_tests.rs`](../tests/cli_tests.rs))
