@@ -7,6 +7,7 @@ pub mod kir;
 pub mod linker;
 pub mod lir;
 pub mod pkgmgmt;
+pub mod stack;
 pub mod tir;
 pub mod tools;
 pub mod typecheck;
@@ -15,7 +16,6 @@ pub mod verify;
 // Re-exports — preserves all `crate::X` paths
 // Old emitter kept for comparison tests; not part of public API.
 pub(crate) use codegen::emitter as emit;
-pub use codegen::stack;
 pub use common::diagnostic;
 pub use common::span;
 pub use common::types;

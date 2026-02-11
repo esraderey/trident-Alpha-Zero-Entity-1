@@ -6,9 +6,9 @@ mod stmt;
 
 use std::collections::{HashMap, HashSet};
 
-use super::stack::StackManager;
 use crate::ast::*;
 use crate::span::Spanned;
+use crate::stack::StackManager;
 use crate::target::TargetConfig;
 use crate::typecheck::MonoInstance;
 

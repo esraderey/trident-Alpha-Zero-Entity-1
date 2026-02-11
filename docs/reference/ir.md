@@ -230,7 +230,7 @@ semantics, it doesn't belong in the IR.
 ### TIRBuilder
 
 [`TIRBuilder`](../src/tir/builder/mod.rs:37) walks the type-checked AST and
-produces `Vec<TIROp>` via [`StackManager`](../src/codegen/stack.rs:58) with
+produces `Vec<TIROp>` via [`StackManager`](../src/stack.rs:58) with
 automatic LRU spill/reload.
 
 ```rust
@@ -253,7 +253,7 @@ Dispatch: [`build_stmt`](../src/tir/builder/stmt.rs:24) →
 
 ### Stack Management
 
-[`StackManager`](../src/codegen/stack.rs:58) tracks values by name, width,
+[`StackManager`](../src/stack.rs:58) tracks values by name, width,
 and LRU timestamp. Overflow spills to RAM automatically. The string
 round-trip (StackManager → strings → parse back to TIROp) is legacy
 from the pre-IR emitter. Future cleanup: emit TIROp directly.

@@ -34,7 +34,9 @@ Parallel to the main pipeline, several modules provide analysis, tooling, and pa
 | [`common/`](common/) | 314 | Shared infrastructure: [source spans](common/span.rs), [diagnostics](common/diagnostic.rs), [type definitions](common/types.rs) |
 | [`frontend/`](frontend/) | 4,392 | [Lexer](frontend/lexer.rs), [parser](frontend/parser.rs), [token definitions](frontend/lexeme.rs), [pretty-printer/formatter](frontend/format.rs) |
 | [`typecheck/`](typecheck/) | 3,004 | [Type checker](typecheck/mod.rs) with borrow analysis, generics, and [builtin registration](typecheck/builtins.rs) |
-| [`codegen/`](codegen/) | 4,189 | AST-to-assembly [emitter](codegen/emitter.rs), [stack manager](codegen/stack.rs), [linker](codegen/linker.rs), [backend trait](codegen/backend/) |
+| [`codegen/`](codegen/) | 4,189 | AST-to-assembly [emitter](codegen/emitter.rs), [backend trait](codegen/backend/) |
+| [`stack.rs`](stack.rs) | — | LRU [stack manager](stack.rs) with automatic RAM spill/reload |
+| [`linker.rs`](linker.rs) | — | Multi-module [linker](linker.rs) for cross-module calls |
 | [`codegen/backend/`](codegen/backend/) | 802 | [`StackBackend`](codegen/backend/mod.rs) trait + five targets: [Triton](codegen/backend/triton.rs), [Miden](codegen/backend/miden.rs), [OpenVM](codegen/backend/openvm.rs), [SP1](codegen/backend/sp1.rs), [Cairo](codegen/backend/cairo.rs) |
 | [`cost/`](cost/) | 2,335 | Static cost [analyzer](cost/analyzer.rs), per-function breakdown, [optimization hints and reports](cost/report.rs) |
 | [`cost/model/`](cost/model/) | 771 | [`CostModel`](cost/model/mod.rs) trait + four targets: [Triton](cost/model/triton.rs), [Miden](cost/model/miden.rs), [Cycle](cost/model/cycle.rs), [Cairo](cost/model/cairo.rs) |
@@ -57,7 +59,7 @@ Parallel to the main pipeline, several modules provide analysis, tooling, and pa
 
 **Type Checking** ([`typecheck/`](typecheck/)). The [type checker](typecheck/mod.rs) validates types, resolves generics via monomorphization, performs borrow/move analysis, and registers builtin function signatures ([`builtins.rs`](typecheck/builtins.rs)). Diagnostics are emitted for type mismatches, undefined variables, unused bindings, and borrow violations.
 
-**Code Generation** ([`codegen/`](codegen/)). The [emitter](codegen/emitter.rs) walks the typed AST and produces target assembly by calling methods on a [`StackBackend`](codegen/backend/mod.rs) trait. Each target ([Triton](codegen/backend/triton.rs), [Miden](codegen/backend/miden.rs), [OpenVM](codegen/backend/openvm.rs), [SP1](codegen/backend/sp1.rs), [Cairo](codegen/backend/cairo.rs)) implements this trait in its own file. The [stack manager](codegen/stack.rs) tracks operand positions with automatic RAM spill/reload. The [linker](codegen/linker.rs) resolves cross-module calls.
+**Code Generation** ([`codegen/`](codegen/)). The [emitter](codegen/emitter.rs) walks the typed AST and produces target assembly by calling methods on a [`StackBackend`](codegen/backend/mod.rs) trait. Each target ([Triton](codegen/backend/triton.rs), [Miden](codegen/backend/miden.rs), [OpenVM](codegen/backend/openvm.rs), [SP1](codegen/backend/sp1.rs), [Cairo](codegen/backend/cairo.rs)) implements this trait in its own file. The [stack manager](stack.rs) tracks operand positions with automatic RAM spill/reload. The [linker](linker.rs) resolves cross-module calls.
 
 **Cost Analysis** ([`cost/`](cost/)). The [analyzer](cost/analyzer.rs) walks the AST and sums per-instruction costs using a target-specific [`CostModel`](cost/model/mod.rs). The [report module](cost/report.rs) formats results, generates optimization hints, and provides JSON serialization for `--compare` workflows.
 
