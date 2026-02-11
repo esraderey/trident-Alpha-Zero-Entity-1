@@ -5,13 +5,20 @@
 `docs/reference/` is the canonical reference for all Trident design decisions.
 Each file owns a specific domain:
 
+- **`language.md`** — syntax, types, operators, builtins, attributes,
+  memory model, type checking rules
 - **`ir.md`** — TIROp variant names, counts, tier assignments, lowering paths,
   naming conventions, architecture diagrams, pipeline
-- **`language.md`** — syntax, types, operators, builtins, grammar, attributes,
-  memory model, type checking rules, permanent exclusions
-- **`targets.md`** — OS model, target profiles, cost models, type/builtin
+- **`targets.md`** — OS model, VM profiles, cost models, type/builtin
   availability per target, tier compatibility
+- **`provable.md`** — Tier 2-3 builtins (sponge, Merkle, extension field,
+  proof composition)
 - **`errors.md`** — error codes and diagnostic messages
+- **`grammar.md`** — EBNF grammar
+- **`patterns.md`** — permanent exclusions and common patterns
+- **`stdlib.md`** — standard library modules and OS extensions
+- **`cli.md`** — compiler commands and flags
+- **`briefing.md`** — AI-optimized compact cheat-sheet
 
 Any change to the IR, language, or target model MUST update the corresponding
 reference doc first, then propagate to code. If docs/reference/ and code
@@ -21,7 +28,7 @@ disagree, docs/reference/ wins.
 
 ```
 cargo check          # type-check
-cargo test           # 731+ tests
+cargo test           # 743+ tests
 cargo build --release
 ```
 
