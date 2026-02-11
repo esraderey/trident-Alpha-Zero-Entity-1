@@ -93,7 +93,7 @@ blockchain-specific — just computation.
 | **Control flow — flat** (3) | `Call(String)` `Return` `Halt` | |
 | **Control flow — structural** (3) | `IfElse { then_body, else_body }` `IfOnly { then_body }` `Loop { label, body }` | Bodies are nested `Vec<TIROp>`, not flat jumps |
 | **Program structure** (5) | `Label` `FnStart` `FnEnd` `Preamble` `BlankLine` | |
-| **Passthrough** (2) | `Comment(String)` `RawAsm { lines, effect }` | `RawAsm` passes inline assembly verbatim |
+| **Passthrough** (2) | `Comment(String)` `Asm { lines, effect }` | `Asm` passes inline assembly verbatim |
 
 Each backend lowers structural ops differently:
 
@@ -139,8 +139,8 @@ conventional VMs.
 | Group | Variants | Intent |
 |-------|----------|--------|
 | **Witness** (1) | `Hint(u32)` | Non-deterministic input from the prover (advice/witness) |
-| **Sponge** (4) | `SpongeInit` `SpongeAbsorb` `SpongeSqueeze` `SpongeAbsorbMem` | Incremental algebraic hashing for proof systems |
-| **Merkle** (2) | `MerkleStep` `MerkleStepMem` | Merkle tree authentication |
+| **Sponge** (4) | `SpongeInit` `SpongeAbsorb` `SpongeSqueeze` `SpongeLoad` | Incremental algebraic hashing for proof systems |
+| **Merkle** (2) | `MerkleStep` `MerkleLoad` | Merkle tree authentication |
 
 Programs using these ops require `--target` with proof capability.
 The compiler can reject them when targeting conventional architectures.
@@ -153,8 +153,8 @@ folding steps required for recursive proof verification.
 ```
 ExtMul        — extension field multiply
 ExtInvert     — extension field inverse
-FriFold       — FRI folding step (ext × ext)
-FriBaseFold   — FRI folding step (base × ext)
+FoldExt       — fold extension field elements
+FoldBase      — fold base field elements
 ```
 
 These are the primitives that make recursion practical. Every STARK-based
