@@ -1,6 +1,11 @@
 # Error Catalog
 
-A reference of all [Trident](../README.md) compiler errors with explanations and fixes.
+All Trident compiler diagnostics — errors, warnings, and optimization hints.
+
+For the language reference see [language.md](language.md). For target details
+see [targets.md](targets.md).
+
+---
 
 ## Lexer Errors
 
@@ -11,9 +16,9 @@ error: unexpected character '@' (U+0040)
   help: this character is not recognized as part of Trident syntax
 ```
 
-**Cause:** A character that is not part of the Trident grammar was found. Trident source files must be ASCII.
+A character outside the Trident grammar was found. Source files must be ASCII.
 
-**Fix:** Remove the unexpected character. Check for copy-paste artifacts or encoding issues.
+**Fix:** Remove the character. Check for copy-paste artifacts or encoding issues.
 
 ---
 
@@ -24,13 +29,14 @@ error: unexpected '-'; Trident has no subtraction operator
   help: use the `sub(a, b)` function instead of `a - b`
 ```
 
-**Cause:** Trident deliberately omits the `-` operator (see [language reference](language.md)). The `->` arrow for return types uses `-`, but standalone `-` is not allowed.
+Trident deliberately omits `-` (see [language.md](language.md) Section 4).
+Subtraction in a prime field is addition by the additive inverse. Making it
+explicit prevents the `(1 - 2) == p - 1` footgun.
 
-**Fix:** Use `std.core.field.sub(a, b)` or `std.core.field.neg(a)`:
+**Fix:**
 
 ```
-use std.core.field
-let diff: Field = std.core.field.sub(a, b)
+let diff: Field = sub(a, b)
 ```
 
 ---
@@ -42,9 +48,10 @@ error: unexpected '/'; Trident has no division operator
   help: use the `/% (divmod)` operator instead: `let (quot, rem) = a /% b`
 ```
 
-**Cause:** Trident has no `/` operator. Division in a [prime field](https://en.wikipedia.org/wiki/Finite_field) is actually multiplication by the modular inverse, which is expensive. The `/% (divmod)` operator makes this cost explicit.
+Field division is multiplication by the modular inverse. The `/%` operator
+makes the cost explicit.
 
-**Fix:** Use the divmod operator:
+**Fix:**
 
 ```
 let (quotient, remainder) = a /% b
@@ -59,9 +66,9 @@ error: integer literal '999999999999999999999' is too large
   help: maximum integer value is 18446744073709551615
 ```
 
-**Cause:** The integer literal exceeds `u64::MAX` (2^64 - 1).
+The literal exceeds `u64::MAX` (2^64 - 1).
 
-**Fix:** Use a smaller value. For field arithmetic, values are automatically reduced modulo p.
+**Fix:** Use a smaller value. Values are reduced modulo p at runtime.
 
 ---
 
@@ -72,13 +79,38 @@ error: unterminated asm block: missing closing '}'
   help: every `asm { ... }` block must have a matching closing brace
 ```
 
-**Cause:** An `asm` block was opened with `{` but never closed.
+**Fix:** Add the closing `}`.
 
-**Fix:** Add the closing `}`:
+---
+
+### Invalid asm annotation
 
 ```
-asm(+1) { push 42 }
+error: expected ')' after asm annotation
+  help: asm annotations: `asm(+1) { ... }`, `asm(triton) { ... }`, or `asm(triton, +1) { ... }`
 ```
+
+The `asm` block has a malformed annotation.
+
+**Fix:** Use one of the valid forms:
+
+```
+asm { ... }                     // zero effect, default target
+asm(+1) { ... }                // effect only
+asm(triton) { ... }            // target only
+asm(triton, +1) { ... }        // target + effect
+```
+
+---
+
+### Expected asm block body
+
+```
+error: expected '{' after `asm` keyword
+  help: inline assembly syntax is `asm { instructions }` or `asm(triton) { instructions }`
+```
+
+**Fix:** Add `{ ... }` after the asm keyword or annotation.
 
 ---
 
@@ -91,9 +123,7 @@ error: expected 'program' or 'module' declaration at the start of file
   help: every .tri file must begin with `program <name>` or `module <name>`
 ```
 
-**Cause:** The file does not start with a `program` or `module` declaration.
-
-**Fix:** Add a declaration at the top:
+**Fix:**
 
 ```
 program my_app
@@ -110,47 +140,128 @@ error: nesting depth exceeded (maximum 256 levels)
   help: simplify your program by extracting deeply nested code into functions
 ```
 
-**Cause:** The code has more than 256 levels of nested blocks (if/else, for, match, etc.).
+More than 256 levels of nested blocks. Extract inner logic into functions.
 
-**Fix:** Extract deeply nested logic into separate functions.
+---
+
+### Expected item
+
+```
+error: expected item (fn, struct, event, or const)
+  help: top-level items must be function, struct, event, or const definitions
+```
+
+A top-level construct is not a valid item.
+
+**Fix:** Only `fn`, `struct`, `event`, and `const` are valid at module scope.
+
+---
+
+### Expected type
+
+```
+error: expected type
+  help: valid types are: Field, XField, Bool, U32, Digest, [T; N], (T, U), or a struct name
+```
+
+A type annotation contains something that is not a recognized type.
+
+---
+
+### Expected array size
+
+```
+error: expected array size (integer literal or size parameter name)
+  help: array sizes are written as `N`, `3`, `M + N`, or `N * 2`
+```
+
+The array size expression is invalid.
+
+---
+
+### Expected expression
+
+```
+error: expected expression, found <token>
+  help: expressions include literals (42, true), variables, function calls, and operators
+```
+
+---
+
+### Invalid field pattern
+
+```
+error: expected field pattern (identifier, literal, or _)
+  help: use `field: var` to bind, `field: 0` to match, or `field: _` to ignore
+```
+
+A struct pattern field has an invalid pattern.
+
+---
+
+### Attribute validation
+
+```
+error: #[intrinsic] can only be applied to functions
+error: #[test] can only be applied to functions
+error: #[pure] can only be applied to functions
+error: #[requires] can only be applied to functions
+error: #[ensures] can only be applied to functions
+```
+
+Attributes are only valid on function definitions.
 
 ---
 
 ## Type Errors
 
-### Type mismatch in binary operation
+### Binary operator type mismatch
 
 ```
-error: binary operator '+' requires matching types, got Field and Bool
+error: operator '+' requires both operands to be Field (or both XField), got Field and Bool
+error: operator '==' requires same types, got Field and U32
+error: operator '<' requires U32 operands, got Field and Field
+error: operator '&' requires U32 operands, got Field and Field
+error: operator '/%' requires U32 operands, got Field and Field
+error: operator '*.' requires XField and Field, got Field and Field
 ```
 
-**Cause:** The left and right sides of a binary operator have incompatible types.
+Each operator has specific type requirements. See [language.md](language.md)
+Section 4 for the operator table.
 
-**Fix:** Ensure both operands have the same type:
+---
+
+### Type mismatch in let binding
 
 ```
-// Wrong
-let x: Field = 1
-let y: Bool = true
-let z = x + y  // ERROR
-
-// Right
-let x: Field = 1
-let y: Field = 2
-let z = x + y  // OK
+error: type mismatch: declared Field but expression has type Bool
 ```
+
+The expression type does not match the declared type annotation.
 
 ---
 
 ### Type mismatch in assignment
 
 ```
-error: expected Field, got Bool
+error: type mismatch in assignment: expected Field but got Bool
 ```
 
-**Cause:** The assigned value does not match the variable's declared type.
+---
 
-**Fix:** Ensure the expression type matches the variable type.
+### Cannot assign to immutable variable
+
+```
+error: cannot assign to immutable variable
+  help: declare the variable with `let mut` to make it mutable
+```
+
+**Fix:**
+
+```
+let mut x: Field = 0
+x = 42
+```
 
 ---
 
@@ -158,15 +269,7 @@ error: expected Field, got Bool
 
 ```
 error: undefined variable 'x'
-```
-
-**Cause:** The variable has not been declared in the current scope.
-
-**Fix:** Declare the variable with `let` before using it:
-
-```
-let x: Field = 42
-pub_write(x)
+  help: check that the variable is declared with `let` before use
 ```
 
 ---
@@ -175,15 +278,7 @@ pub_write(x)
 
 ```
 error: undefined function 'foo'
-```
-
-**Cause:** The function has not been declared in the current module or imported modules.
-
-**Fix:** Either define the function or import the module that contains it:
-
-```
-use std.crypto.hash
-let d: Digest = std.crypto.hash.tip5(a, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+  help: check the function name and ensure the module is imported with `use`
 ```
 
 ---
@@ -194,9 +289,13 @@ let d: Digest = std.crypto.hash.tip5(a, 0, 0, 0, 0, 0, 0, 0, 0, 0)
 error: function 'foo' expects 2 arguments, got 3
 ```
 
-**Cause:** The function was called with the wrong number of arguments.
+---
 
-**Fix:** Check the function signature and provide the correct number of arguments.
+### Function argument type mismatch
+
+```
+error: argument 1 of 'foo': expected Field but got Bool
+```
 
 ---
 
@@ -206,39 +305,48 @@ error: function 'foo' expects 2 arguments, got 3
 error: function 'foo' declared return type Field, but body returns Bool
 ```
 
-**Cause:** The function body's tail expression or `return` statement has a different type than declared.
-
-**Fix:** Ensure the return expression matches the declared type.
-
----
-
-### Cannot assign to immutable variable
-
-```
-error: cannot assign to immutable variable 'x'
-  help: declare with `let mut x` to make it mutable
-```
-
-**Cause:** Attempting to assign to a variable declared without `mut`.
-
-**Fix:** Add `mut` to the declaration:
-
-```
-let mut x: Field = 0
-x = 42  // OK
-```
-
 ---
 
 ### Undefined struct
 
 ```
 error: undefined struct 'Point'
+  help: check the struct name spelling, or import the module that defines it
 ```
 
-**Cause:** The struct has not been declared in the current scope.
+---
 
-**Fix:** Define the struct or import the module that defines it.
+### Struct missing field
+
+```
+error: missing field 'y' in struct init
+```
+
+All fields must be provided in a struct literal.
+
+---
+
+### Struct unknown field
+
+```
+error: unknown field 'z' in struct 'Point'
+```
+
+---
+
+### Struct field type mismatch
+
+```
+error: field 'x': expected Field but got Bool
+```
+
+---
+
+### Field access on non-struct
+
+```
+error: field access on non-struct type Field
+```
 
 ---
 
@@ -248,199 +356,67 @@ error: undefined struct 'Point'
 error: field 'secret' of struct 'Account' is private
 ```
 
-**Cause:** Attempting to access a field not marked `pub` from outside the defining module.
-
-**Fix:** Either mark the field `pub` or provide a public accessor function.
+**Fix:** Mark the field `pub` or provide a public accessor function.
 
 ---
 
-### Tuple destructuring size mismatch
+### Index on non-array
 
 ```
-error: tuple destructuring: expected 3 elements, got 2
-```
-
-**Cause:** The number of variables on the left side of a tuple destructuring does not match the tuple size.
-
-**Fix:** Match the number of variables to the tuple size:
-
-```
-let (a, b, c) = function_returning_3_tuple()
+error: index access on non-array type Field
 ```
 
 ---
 
-## Control Flow Errors
-
-### Unreachable code after return
+### Array element type mismatch
 
 ```
-error: unreachable tail expression after return
-  help: remove this expression or move it before the return
+error: array element type mismatch: expected Field got Bool
 ```
 
-**Cause:** Code appears after a `return` statement in the same block.
-
-**Fix:** Remove the dead code or restructure the function.
+All elements of an array literal must have the same type.
 
 ---
 
-### For loop without bounded
+### Tuple destructuring mismatch
 
 ```
-error: for loop with non-constant range requires `bounded N` annotation
-  help: add `bounded <max>` after the range to specify the maximum iteration count
-```
-
-**Cause:** A for loop with a dynamic range does not have a `bounded` annotation. Bounded loops are a fundamental requirement of STARK proof systems -- see [For Developers](../tutorials/for-developers.md) Section 3 for why.
-
-**Fix:** Add the `bounded` keyword with a maximum iteration count:
-
-```
-for i in 0..n bounded 100 {
-    // ...
-}
+error: tuple destructuring: expected 3 elements, got 2 names
 ```
 
 ---
 
-### Non-exhaustive match
+### Digest destructuring mismatch
 
 ```
-error: non-exhaustive match: missing wildcard '_' arm
-  help: add a `_ => { ... }` arm to handle all remaining cases
+error: digest destructuring requires exactly D names, got N
 ```
 
-**Cause:** A match statement does not cover all possible values and has no wildcard arm.
+The number of names in a digest destructuring must match the target's
+digest width.
 
-**Fix:** Add a wildcard arm:
+---
+
+### Cannot destructure non-tuple
 
 ```
-match x {
-    0 => { handle_zero() }
-    _ => { handle_other() }
-}
+error: cannot destructure non-tuple type Field
 ```
 
 ---
 
-### Unreachable pattern after wildcard
+### Tuple assignment mismatch
 
 ```
-error: unreachable pattern after wildcard '_'
-  help: remove this arm or move it before the wildcard
-```
-
-**Cause:** A pattern appears after the wildcard `_` arm, which catches everything.
-
-**Fix:** Move the specific pattern before the wildcard, or remove it.
-
----
-
-## Module Errors
-
-### Cannot find module
-
-```
-error: cannot find module 'helpers' (looked at 'path/to/helpers.tri'): No such file
-  help: create the file 'path/to/helpers.tri' or check the module name in the `use` statement
-```
-
-**Cause:** The referenced module file does not exist at the expected path.
-
-**Fix:** Create the module file or correct the `use` statement.
-
----
-
-### Circular dependency
-
-```
-error: circular dependency detected involving module 'a'
-  help: break the cycle by extracting shared definitions into a separate module
-```
-
-**Cause:** Two or more modules depend on each other in a cycle.
-
-**Fix:** Extract shared definitions into a third module that both can depend on.
-
----
-
-### Duplicate function definition
-
-```
-error: duplicate function 'main'
-```
-
-**Cause:** Two functions with the same name are defined in the same module.
-
-**Fix:** Rename one of the functions.
-
----
-
-## Event Errors
-
-### Undefined event
-
-```
-error: undefined event 'Transfer'
-```
-
-**Cause:** The event referenced in a `reveal` or `seal` statement has not been declared.
-
-**Fix:** Declare the event:
-
-```
-event Transfer {
-    from: Digest,
-    to: Digest,
-    amount: Field,
-}
+error: tuple assignment: expected 3 elements, got 2 names
 ```
 
 ---
 
-### Event field mismatch
+### If condition type
 
 ```
-error: event 'Transfer' expects fields: from, to, amount
-```
-
-**Cause:** The fields provided in a `reveal` or `seal` statement do not match the event declaration.
-
-**Fix:** Provide exactly the fields declared in the event definition, in any order.
-
----
-
-## Warnings
-
-### Unused import
-
-```
-warning: unused import 'std.crypto.hash'
-```
-
-**Cause:** A module was imported with `use` but none of its items are used.
-
-**Fix:** Remove the unused `use` statement.
-
----
-
-### Asm block target mismatch
-
-```
-warning: asm block tagged for 'risc_v' will be skipped (current target: 'triton')
-```
-
-**Cause:** An inline `asm` block is annotated with a target that does not match the current compilation target. The block will be silently skipped during code generation, producing no instructions.
-
-**Fix:** This warning is informational when you intentionally provide target-specific asm blocks. If the block should run on the current target, update its tag:
-
-```
-// Runs only when compiling for triton:
-asm(triton, +1) { push 42 }
-
-// Runs on any target (no tag):
-asm(+1) { push 42 }
+error: if condition must be Bool or Field, got Digest
 ```
 
 ---
@@ -448,16 +424,14 @@ asm(+1) { push 42 }
 ### Recursion detected
 
 ```
-error: recursive function call detected: main -> foo -> main
-  help: Trident does not allow recursion; use `for` loops instead
+error: recursive call cycle detected: main -> foo -> main
+  help: stack-machine targets do not support recursion; use loops (`for`) or iterative algorithms instead
 ```
 
-**Cause:** A function directly or indirectly calls itself. Trident prohibits recursion because [Triton VM](https://triton-vm.org/) requires deterministic trace lengths -- see [For Developers](../tutorials/for-developers.md) Section 4 for the full explanation.
-
-**Fix:** Rewrite the algorithm using `for` loops with `bounded`:
+Trident prohibits recursion because all target VMs require deterministic
+trace lengths. Rewrite using `for` loops with `bounded`:
 
 ```
-// Instead of recursive fibonacci:
 fn fib(n: Field) -> Field {
     let mut a: Field = 0
     let mut b: Field = 1
@@ -472,24 +446,88 @@ fn fib(n: Field) -> Field {
 
 ---
 
+### Unreachable code after return
+
+```
+error: unreachable code after return statement
+  help: remove this code or move it before the return
+```
+
+---
+
+## Control Flow Errors
+
+### For loop without bounded
+
+```
+error: loop end must be a compile-time constant, or annotated with a bound
+  help: use a literal like `for i in 0..10 { }` or add a bound: `for i in 0..n bounded 100 { }`
+```
+
+All loops must have compile-time-known or declared upper bounds for
+deterministic trace length computation.
+
+---
+
+### Non-exhaustive match
+
+```
+error: non-exhaustive match: not all possible values are covered
+  help: add a wildcard `_ => { ... }` arm to handle all remaining values
+```
+
+---
+
+### Unreachable pattern after wildcard
+
+```
+error: unreachable pattern after wildcard '_'
+  help: the wildcard `_` already matches all values; remove this arm or move it before `_`
+```
+
+---
+
+### Match pattern type mismatch
+
+```
+error: integer pattern on Bool scrutinee; use `true` or `false`
+error: Bool pattern on non-Bool scrutinee
+```
+
+---
+
+### Struct pattern type mismatch
+
+```
+error: struct pattern `Point` does not match scrutinee type `Config`
+```
+
+---
+
+### Unknown struct field in pattern
+
+```
+error: struct `Point` has no field `z`
+```
+
+---
+
 ## Size Generic Errors
 
 ### Size argument to non-generic function
 
 ```
-error: function 'foo' does not accept size arguments
+error: function 'foo' is not generic but called with size arguments
 ```
 
-**Cause:** Angle bracket size arguments were provided to a function that is not generic.
+**Fix:** Remove the angle bracket arguments.
 
-**Fix:** Remove the size arguments:
+---
+
+### Size parameter count mismatch
 
 ```
-// Wrong: foo is not generic
-let x: Field = foo<3>(a)
-
-// Right
-let x: Field = foo(a)
+error: function 'foo' expects 2 size parameters, got 1
 ```
 
 ---
@@ -497,10 +535,8 @@ let x: Field = foo(a)
 ### Cannot infer size argument
 
 ```
-error: cannot infer size argument for function 'sum'
+error: cannot infer size parameter 'N'; provide explicit size argument
 ```
-
-**Cause:** The compiler cannot determine the size generic parameter from the argument types.
 
 **Fix:** Provide the size argument explicitly:
 
@@ -510,72 +546,264 @@ let result: Field = sum<5>(arr)
 
 ---
 
-## Match Errors
-
-### Non-exhaustive match
+### Expected concrete size
 
 ```
-error: non-exhaustive match: missing wildcard '_' arm
+error: expected concrete size, got 'N'
 ```
 
-**Cause:** A match statement does not cover all possible values and has no wildcard arm.
+A size parameter could not be resolved to a concrete integer.
 
-**Fix:** Add a wildcard arm:
+---
+
+## Event Errors
+
+### Undefined event
 
 ```
-match x {
-    0 => { handle_zero() }
-    _ => { handle_other() }
-}
+error: undefined event 'Transfer'
+```
+
+**Fix:** Declare the event before using `reveal` or `seal`:
+
+```
+event Transfer { from: Digest, to: Digest, amount: Field }
 ```
 
 ---
 
-### Unreachable pattern after wildcard
+### Event field count limit
 
 ```
-error: unreachable pattern after wildcard '_'
+error: event 'BigEvent' has 12 fields, max is 9
 ```
 
-**Cause:** A pattern appears after the wildcard `_` arm, which catches everything.
-
-**Fix:** Move the specific pattern before the wildcard, or remove it.
+Events are limited to 9 Field-width fields.
 
 ---
 
-## Struct Errors
-
-### Missing struct fields
+### Event field type restriction
 
 ```
-error: missing field 'y' in struct 'Point' initializer
+error: event field 'data' must be Field type, got [Field; 3]
 ```
 
-**Cause:** A struct literal does not provide all required fields.
+All event fields must be `Field` type.
 
-**Fix:** Provide all fields declared in the struct:
+---
+
+### Missing event field
 
 ```
-// Wrong: missing 'y'
-let p: Point = Point { x: 0 }
-
-// Right
-let p: Point = Point { x: 0, y: 0 }
+error: missing field 'amount' in event 'Transfer'
 ```
+
+---
+
+### Unknown event field
+
+```
+error: unknown field 'extra' in event 'Transfer'
+```
+
+---
+
+## Annotation Errors
+
+### #[intrinsic] restriction
+
+```
+error: #[intrinsic] is only allowed in std.*/ext.* modules, not in 'my_module'
+```
+
+The `#[intrinsic]` attribute is reserved for standard library and extension
+modules shipped with the compiler. User code cannot use it.
+
+---
+
+### #[test] validation
+
+```
+error: #[test] function 'test_add' must have no parameters
+error: #[test] function 'test_add' must not have a return type
+```
+
+Test functions take no arguments and return nothing.
+
+---
+
+### #[pure] I/O restriction
+
+```
+error: #[pure] function cannot call 'pub_read' (I/O side effect)
+error: #[pure] function cannot use 'reveal' (I/O side effect)
+error: #[pure] function cannot use 'seal' (I/O side effect)
+```
+
+Functions annotated `#[pure]` cannot perform any I/O operations.
+
+---
+
+## Module Errors
+
+### Cannot find module
+
+```
+error: cannot find module 'helpers' (looked at 'path/to/helpers.tri'): No such file
+  help: create the file 'path/to/helpers.tri' or check the module name in the `use` statement
+```
+
+---
+
+### Circular dependency
+
+```
+error: circular dependency detected involving module 'a'
+  help: break the cycle by extracting shared definitions into a separate module
+```
+
+---
+
+### Duplicate function
+
+```
+error: duplicate function 'main'
+```
+
+---
+
+### Cannot read entry file
+
+```
+error: cannot read 'main.tri': No such file or directory
+  help: check that the file exists and is readable
+```
+
+---
+
+## Target Errors
+
+### Unknown target
+
+```
+error: unknown target 'wasm' (looked for 'targets/wasm.toml')
+  help: available targets: triton, miden, openvm, sp1, cairo
+```
+
+---
+
+### Cannot read target config
+
+```
+error: cannot read target config 'targets/foo.toml': No such file
+```
+
+---
+
+### Invalid target name
+
+```
+error: invalid target name '../../../etc/passwd'
+```
+
+Target names cannot contain path traversal characters.
+
+---
+
+## Warnings
+
+### Unused import
+
+```
+warning: unused import 'std.crypto.hash'
+```
+
+**Fix:** Remove the unused `use` statement.
+
+---
+
+### Asm block target mismatch
+
+```
+warning: asm block tagged for 'risc_v' will be skipped (current target: 'triton')
+```
+
+An `asm` block tagged for a different target is silently skipped. This is
+informational when using multi-target `asm` blocks intentionally.
+
+---
+
+### Power-of-2 boundary proximity
+
+```
+warning: program is 3 rows below padded height boundary
+  help: consider optimizing to stay well below 1024
+```
+
+The program is close to a power-of-2 table height boundary. A small code
+change could double proving cost.
+
+---
+
+## Optimization Hints
+
+The compiler produces hints (not errors) when it detects cost antipatterns.
+These appear with `trident build --hints`.
+
+### H0001: Hash table dominance
+
+```
+hint[H0001]: hash table is 3.2x taller than processor table
+```
+
+The hash table dominates proving cost. Processor-level optimizations will
+not reduce proving time.
+
+**Action:** Batch data before hashing, reduce Merkle depth, use
+`sponge_absorb_mem` instead of repeated `sponge_absorb`.
+
+---
+
+### H0002: Power-of-2 headroom
+
+```
+hint[H0002]: padded height is 1024, but max table height is only 519
+```
+
+Significant headroom below the next power-of-2 boundary. The program could
+be more complex at zero additional proving cost.
+
+---
+
+### H0003: Redundant range check
+
+```
+hint[H0003]: as_u32(x) is redundant — value is already proven U32
+```
+
+A value that was already range-checked is being checked again.
+
+**Action:** Remove the redundant `as_u32()` call.
+
+---
+
+### H0004: Loop bound waste
+
+```
+hint[H0004]: loop in 'process' bounded 128 but iterates only 10 times
+```
+
+The declared loop bound is much larger than the actual constant iteration
+count. This inflates worst-case cost analysis.
+
+**Action:** Tighten the `bounded` declaration to match actual usage.
 
 ---
 
 ## See Also
 
-- [Tutorial](../tutorials/tutorial.md) -- Step-by-step guide with working examples
-- [Language Reference](language.md) -- Quick lookup: types, operators, builtins, grammar
-- [Target Reference](targets.md) -- Target profiles, cost models, and OS model
-- [Compiling a Program](../guides/compiling-a-program.md) -- Build pipeline and compiler stages that produce these errors
-- [Programming Model](../explanation/programming-model.md) -- How programs run in Triton VM
-- [Optimization Guide](../guides/optimization.md) -- Cost reduction strategies
-- [Formal Verification](../explanation/formal-verification.md) -- Catch errors before runtime via symbolic verification
-- [How STARK Proofs Work](../explanation/stark-proofs.md) -- The proof system behind every Trident program
-- [For Developers](../tutorials/for-developers.md) -- Why bounded loops? Why no heap? Concepts explained
-- [For Blockchain Devs](../tutorials/for-blockchain-devs.md) -- Where's My Revert? section maps error patterns
-- [Vision](../explanation/vision.md) -- Why Trident exists and what you can build
-- [Comparative Analysis](../explanation/analysis.md) -- Triton VM vs. every other ZK system
+- [Language Reference](language.md) — Types, operators, builtins, grammar
+- [Target Reference](targets.md) — Target profiles, cost models, and OS model
+- [Tutorial](../tutorials/tutorial.md) — Step-by-step guide with working examples
+- [For Developers](../tutorials/for-developers.md) — Why bounded loops? Why no heap?
+- [Optimization Guide](../guides/optimization.md) — Cost reduction strategies
