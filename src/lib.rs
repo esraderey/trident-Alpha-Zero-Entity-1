@@ -1299,8 +1299,8 @@ fn main() {
     let b: Field = pub_read()
     let c: Field = pub_read()
 
-    // Open emit: tag + 3 fields written directly
-    emit Transfer { from: a, to: b, amount: c }
+    // Open reveal: tag + 3 fields written directly
+    reveal Transfer { from: a, to: b, amount: c }
 
     // Sealed: hash(tag, value, 0...) written as digest
     seal Commitment { value: a }
@@ -1308,12 +1308,12 @@ fn main() {
 "#;
         let tasm = compile(source, "events.tri").expect("events program should compile");
 
-        // emit Transfer: push 0, write_io 1, [field], write_io 1 × 3
-        // Total write_io 1 from emit: 4 (tag + 3 fields)
+        // reveal Transfer: push 0, write_io 1, [field], write_io 1 × 3
+        // Total write_io 1 from reveal: 4 (tag + 3 fields)
         let write_io_1 = tasm.lines().filter(|l| l.trim() == "write_io 1").count();
         assert!(
             write_io_1 >= 4,
-            "expected >= 4 write_io 1 (emit tag + 3 fields), got {}",
+            "expected >= 4 write_io 1 (reveal tag + 3 fields), got {}",
             write_io_1
         );
 
@@ -2091,7 +2091,7 @@ fn main() {
         let main_path = dir.path().join("main.tri");
         std::fs::write(
             &main_path,
-            "program test\n\nevent Transfer {\n    from: Field,\n    to: Field,\n    amount: Field,\n}\n\nfn main() {\n    emit Transfer { from: 1, to: 2, amount: 100 }\n}\n",
+            "program test\n\nevent Transfer {\n    from: Field,\n    to: Field,\n    amount: Field,\n}\n\nfn main() {\n    reveal Transfer { from: 1, to: 2, amount: 100 }\n}\n",
         )
         .unwrap();
 

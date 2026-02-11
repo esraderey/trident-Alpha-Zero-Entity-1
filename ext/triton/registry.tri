@@ -193,14 +193,10 @@ pub fn register() {
     merkle.verify4(new_entry, new_root, leaf_idx)
     // Emit registration event
     let (c0, c1, c2, c3, c4) = content_lo
-    emit DefinitionRegistered { 
-        content_hash_0: c0,
-        content_hash_1: c1,
-        content_hash_2: c2,
-        content_hash_3: c3,
-        content_hash_4: c4,
-    }
-    emit RegistryUpdated { entry_index: leaf_idx_field, operation: 0 }
+    reveal
+    DefinitionRegistered { content_hash_0: c0, content_hash_1: c1, content_hash_2: c2, content_hash_3: c3, content_hash_4: c4 }
+    reveal
+    RegistryUpdated { entry_index: leaf_idx_field, operation: 0 }
 }
 
 // ============================================================
@@ -238,7 +234,8 @@ pub fn verify_membership() {
     // We check by verifying cert_hash is nonzero via U32 conversion
     // (any nonzero field element passes)
     let (c0, _, _, _, _) = expected_content
-    emit DefinitionVerified { content_hash_0: c0, verdict: is_verified }
+    reveal
+    DefinitionVerified { content_hash_0: c0, verdict: is_verified }
 }
 
 // ============================================================
@@ -294,8 +291,10 @@ pub fn update_certificate() {
     // Verify new entry in new root
     merkle.verify4(new_entry, new_root, leaf_idx)
     let (c0, _, _, _, _) = content_lo
-    emit DefinitionVerified { content_hash_0: c0, verdict: verdict }
-    emit RegistryUpdated { entry_index: leaf_idx_field, operation: 2 }
+    reveal
+    DefinitionVerified { content_hash_0: c0, verdict: verdict }
+    reveal
+    RegistryUpdated { entry_index: leaf_idx_field, operation: 2 }
 }
 
 // ============================================================
@@ -325,13 +324,8 @@ pub fn lookup() {
     merkle.verify4(entry, root, leaf_idx)
     // Emit the content hash for the verifier
     let (c0, c1, c2, c3, c4) = content_lo
-    emit DefinitionRegistered { 
-        content_hash_0: c0,
-        content_hash_1: c1,
-        content_hash_2: c2,
-        content_hash_3: c3,
-        content_hash_4: c4,
-    }
+    reveal
+    DefinitionRegistered { content_hash_0: c0, content_hash_1: c1, content_hash_2: c2, content_hash_3: c3, content_hash_4: c4 }
 }
 
 // ============================================================
@@ -363,8 +357,10 @@ pub fn register_equivalence() {
     // Emit equivalence event
     let (a0, _, _, _, _) = hash_a
     let (b0, _, _, _, _) = hash_b
-    emit EquivalenceClaimed { hash_a_0: a0, hash_b_0: b0, method: method }
-    emit RegistryUpdated { entry_index: leaf_idx_field, operation: 4 }
+    reveal
+    EquivalenceClaimed { hash_a_0: a0, hash_b_0: b0, method: method }
+    reveal
+    RegistryUpdated { entry_index: leaf_idx_field, operation: 4 }
 }
 
 // ============================================================

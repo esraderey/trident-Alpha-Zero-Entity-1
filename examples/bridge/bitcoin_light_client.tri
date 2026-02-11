@@ -194,10 +194,8 @@ fn read_and_verify_header(
     let _nc: U32 = as_u32(nonce)
     // prev_hash commitment for chain linking
     let ph_commit: Digest = hash(ph0, ph1, ph2, ph3, ph4, ph5, ph6, ph7, 0, 0)
-    emit HeaderVerified { 
-        header_commitment: hdr_commit,
-        block_height: block_height,
-    }
+    reveal
+    HeaderVerified { header_commitment: hdr_commit, block_height: block_height }
     (hdr_commit, bhash_commit, ph_commit, timestamp)
 }
 
@@ -259,10 +257,8 @@ fn verify_tx_inclusion(block_height: Field) {
     let proof_depth: Field = divine()
     let _dp: U32 = as_u32(proof_depth)
     verify_merkle_proof(tx_commitment, merkle_root_commitment, proof_depth)
-    emit TxInclusionProved { 
-        tx_commitment: tx_commitment,
-        block_commitment: hdr_commit,
-    }
+    reveal
+    TxInclusionProved { tx_commitment: tx_commitment, block_commitment: hdr_commit }
 }
 
 // ======================================================================
@@ -336,12 +332,8 @@ fn verify_header_chain() {
         last_hdr_commit = hdr_commit
     }
     let end_height: Field = start_height + chain_length
-    emit ChainVerified { 
-        start_height: start_height,
-        end_height: end_height,
-        anchor_commitment: anchor_commitment,
-        tip_commitment: last_hdr_commit,
-    }
+    reveal
+    ChainVerified { start_height: start_height, end_height: end_height, anchor_commitment: anchor_commitment, tip_commitment: last_hdr_commit }
     let (tip0, tip1, tip2, tip3, tip4) = last_hdr_commit
     pub_write(tip0)
     pub_write(tip1)

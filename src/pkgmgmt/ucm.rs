@@ -946,9 +946,9 @@ fn format_stmt(stmt: &Stmt, out: &mut String, pad: &str, indent: usize) {
             }
             out.push('\n');
         }
-        Stmt::Emit { event_name, fields } | Stmt::Seal { event_name, fields } => {
-            let kw = if matches!(stmt, Stmt::Emit { .. }) {
-                "emit"
+        Stmt::Reveal { event_name, fields } | Stmt::Seal { event_name, fields } => {
+            let kw = if matches!(stmt, Stmt::Reveal { .. }) {
+                "reveal"
             } else {
                 "seal"
             };
@@ -1242,7 +1242,7 @@ fn walk_stmt_for_calls(
             walk_expr_for_calls(&expr.node, fn_hashes, self_name, deps, seen);
         }
         Stmt::Return(None) | Stmt::Asm { .. } => {}
-        Stmt::Emit { fields, .. } | Stmt::Seal { fields, .. } => {
+        Stmt::Reveal { fields, .. } | Stmt::Seal { fields, .. } => {
             for (_, val) in fields {
                 walk_expr_for_calls(&val.node, fn_hashes, self_name, deps, seen);
             }

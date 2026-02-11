@@ -641,8 +641,8 @@ impl Parser {
                 stmts.push(self.parse_for_stmt());
             } else if self.at(&Lexeme::Return) {
                 stmts.push(self.parse_return_stmt());
-            } else if self.at(&Lexeme::Emit) {
-                stmts.push(self.parse_emit_stmt());
+            } else if self.at(&Lexeme::Reveal) {
+                stmts.push(self.parse_reveal_stmt());
             } else if self.at(&Lexeme::Seal) {
                 stmts.push(self.parse_seal_stmt());
             } else if self.at(&Lexeme::Match) {
@@ -865,15 +865,15 @@ impl Parser {
         EventDef { cfg, name, fields }
     }
 
-    fn parse_emit_stmt(&mut self) -> Spanned<Stmt> {
+    fn parse_reveal_stmt(&mut self) -> Spanned<Stmt> {
         let start = self.current_span();
-        self.expect(&Lexeme::Emit);
+        self.expect(&Lexeme::Reveal);
         let event_name = self.expect_ident();
         self.expect(&Lexeme::LBrace);
         let fields = self.parse_struct_init_fields();
         self.expect(&Lexeme::RBrace);
         let span = start.merge(self.prev_span());
-        Spanned::new(Stmt::Emit { event_name, fields }, span)
+        Spanned::new(Stmt::Reveal { event_name, fields }, span)
     }
 
     fn parse_seal_stmt(&mut self) -> Spanned<Stmt> {
@@ -1544,17 +1544,17 @@ mod tests {
     }
 
     #[test]
-    fn test_emit_statement() {
-        let file = parse("program test\nevent Ev { x: Field }\nfn main() {\n    let a: Field = pub_read()\n    emit Ev { x: a }\n}");
+    fn test_reveal_statement() {
+        let file = parse("program test\nevent Ev { x: Field }\nfn main() {\n    let a: Field = pub_read()\n    reveal Ev { x: a }\n}");
         if let Item::Fn(f) = &file.items[1].node {
             let block = f.body.as_ref().unwrap();
             assert_eq!(block.node.stmts.len(), 2);
-            if let Stmt::Emit { event_name, fields } = &block.node.stmts[1].node {
+            if let Stmt::Reveal { event_name, fields } = &block.node.stmts[1].node {
                 assert_eq!(event_name.node, "Ev");
                 assert_eq!(fields.len(), 1);
                 assert_eq!(fields[0].0.node, "x");
             } else {
-                panic!("expected emit statement");
+                panic!("expected reveal statement");
             }
         }
     }

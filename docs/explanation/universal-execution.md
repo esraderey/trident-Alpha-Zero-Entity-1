@@ -120,7 +120,7 @@ fn deposit(vault_id: Field, amount: Field) {
         locked: vault.locked,
     }
     storage.write_struct(vault_id, new_vault)
-    emit Deposit { vault_id: vault_id, amount: amount }
+    reveal Deposit { vault_id: vault_id, amount: amount }
 }
 
 fn withdraw(vault_id: Field, amount: Field, caller: Field) {
@@ -133,7 +133,7 @@ fn withdraw(vault_id: Field, amount: Field, caller: Field) {
         locked: vault.locked,
     }
     storage.write_struct(vault_id, new_vault)
-    emit Withdrawal { vault_id: vault_id, amount: amount }
+    reveal Withdrawal { vault_id: vault_id, amount: amount }
 }
 
 event Deposit { vault_id: Field, amount: Field }
@@ -223,7 +223,7 @@ Level 1 provides abstract interfaces. The compiler maps them to target-native im
 | CosmWasm  | `deps.storage` with binary key encoding          |
 | SVM       | Account data at computed offsets                  |
 
-**`emit`** — observable events:
+**`reveal`** — observable events:
 | Target    | Mapping                                          |
 |-----------|--------------------------------------------------|
 | Triton VM | Public output                                    |

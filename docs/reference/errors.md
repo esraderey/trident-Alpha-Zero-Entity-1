@@ -385,7 +385,7 @@ error: duplicate function 'main'
 error: undefined event 'Transfer'
 ```
 
-**Cause:** The event referenced in an `emit` or `seal` statement has not been declared.
+**Cause:** The event referenced in a `reveal` or `seal` statement has not been declared.
 
 **Fix:** Declare the event:
 
@@ -405,7 +405,7 @@ event Transfer {
 error: event 'Transfer' expects fields: from, to, amount
 ```
 
-**Cause:** The fields provided in an `emit` or `seal` statement do not match the event declaration.
+**Cause:** The fields provided in a `reveal` or `seal` statement do not match the event declaration.
 
 **Fix:** Provide exactly the fields declared in the event definition, in any order.
 

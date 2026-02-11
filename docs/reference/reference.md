@@ -174,7 +174,7 @@ let cfg = Config { max_depth: 32, root: my_digest }
 let d: U32 = cfg.max_depth
 
 event Transfer { from: Digest, to: Digest, amount: Field }
-emit Transfer { from: sender, to: receiver, amount: value }    // Public
+reveal Transfer { from: sender, to: receiver, amount: value }    // Public
 seal Transfer { from: sender, to: receiver, amount: value }    // Private (hash commitment)
 ```
 
@@ -466,7 +466,7 @@ sec ram: { 17: Field, 42: Field }
 
 // Events
 event Transfer { from: Digest, to: Digest, amount: Field }
-emit Transfer { from: sender, to: receiver, amount: value }
+reveal Transfer { from: sender, to: receiver, amount: value }
 seal Transfer { from: sender, to: receiver, amount: value }
 
 // Annotations
@@ -832,7 +832,7 @@ const_expr    = INTEGER | IDENT | const_expr ("+" | "*") const_expr ;
 block         = "{" statement* expr? "}" ;
 statement     = let_stmt | assign_stmt | if_stmt | for_stmt
               | assert_stmt | asm_stmt | match_stmt
-              | emit_stmt | seal_stmt | expr_stmt | return_stmt ;
+              | reveal_stmt | seal_stmt | expr_stmt | return_stmt ;
 let_stmt      = "let" "mut"? (IDENT | "(" IDENT ("," IDENT)* ")")
                 (":" type)? "=" expr ;
 assign_stmt   = place "=" expr ;
@@ -849,7 +849,7 @@ assert_stmt   = "assert" "(" expr ")"
 asm_stmt      = "asm" asm_target? asm_effect? "{" TASM_BODY "}" ;
 asm_target    = "(" IDENT ")" ;
 asm_effect    = "(" ("+" | "-") INTEGER ")" ;
-emit_stmt     = "emit" IDENT "{" (IDENT ":" expr ",")* "}" ;
+reveal_stmt   = "reveal" IDENT "{" (IDENT ":" expr ",")* "}" ;
 seal_stmt     = "seal" IDENT "{" (IDENT ":" expr ",")* "}" ;
 return_stmt   = "return" expr? ;
 expr_stmt     = expr ;

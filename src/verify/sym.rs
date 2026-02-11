@@ -509,7 +509,7 @@ impl SymExecutor {
             Stmt::Return(_) => {
                 // Return from function — handled by caller
             }
-            Stmt::Emit { .. } | Stmt::Seal { .. } => {
+            Stmt::Reveal { .. } | Stmt::Seal { .. } => {
                 // Events don't produce constraints (they're output-only)
             }
             Stmt::Asm { .. } => {

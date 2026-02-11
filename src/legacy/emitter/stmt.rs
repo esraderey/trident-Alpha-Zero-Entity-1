@@ -195,7 +195,7 @@ impl Emitter {
                     self.emit_expr(&val.node);
                 }
             }
-            Stmt::Emit { event_name, fields } => {
+            Stmt::Reveal { event_name, fields } => {
                 let tag = self.event_tags.get(&event_name.node).copied().unwrap_or(0);
                 let decl_order = self
                     .event_defs

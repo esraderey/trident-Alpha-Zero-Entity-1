@@ -182,16 +182,16 @@ fn test_spill_with_many_variables() {
 }
 
 #[test]
-fn test_emit_tasm() {
+fn test_reveal_tasm() {
     let tasm = compile(
-        "program test\nevent Transfer { from: Field, to: Field, amount: Field }\nfn main() {\n    let a: Field = pub_read()\n    let b: Field = pub_read()\n    let c: Field = pub_read()\n    emit Transfer { from: a, to: b, amount: c }\n}",
+        "program test\nevent Transfer { from: Field, to: Field, amount: Field }\nfn main() {\n    let a: Field = pub_read()\n    let b: Field = pub_read()\n    let c: Field = pub_read()\n    reveal Transfer { from: a, to: b, amount: c }\n}",
     );
-    eprintln!("=== emit TASM ===\n{}", tasm);
+    eprintln!("=== reveal TASM ===\n{}", tasm);
     // Tag (push 0) + write_io 1 for tag + 3 field write_io 1s = 4 write_io 1s total
     let write_io_1_count = tasm.lines().filter(|l| l.trim() == "write_io 1").count();
     assert!(
         write_io_1_count >= 4,
-        "expected at least 4 write_io 1 for emit, got {}",
+        "expected at least 4 write_io 1 for reveal, got {}",
         write_io_1_count
     );
     // No hash instruction for open emit
@@ -201,7 +201,7 @@ fn test_emit_tasm() {
         .take_while(|l| !l.trim().starts_with("return"))
         .filter(|l| l.trim() == "hash")
         .count();
-    assert_eq!(hash_in_main, 0, "open emit should not hash");
+    assert_eq!(hash_in_main, 0, "open reveal should not hash");
 }
 
 #[test]
@@ -668,7 +668,7 @@ fn test_cross_target_io() {
 
 #[test]
 fn test_cross_target_events() {
-    let source = "program test\nevent Transfer {\n  amount: Field,\n}\nfn main() {\n  emit Transfer { amount: 100 }\n}";
+    let source = "program test\nevent Transfer {\n  amount: Field,\n}\nfn main() {\n  reveal Transfer { amount: 100 }\n}";
     for target in &["triton", "miden", "openvm", "sp1", "cairo"] {
         let out = compile_with_target(source, target);
         assert!(!out.is_empty(), "{}: empty for events", target);

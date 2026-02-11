@@ -69,6 +69,7 @@ fn main() {
         // will fail on 0 because hash(secret)[0] can never equal 0
         // for a valid preimage (Tip5 is collision-resistant).
         verify_mint_auth(mint_auth_hash)
-        emit SupplyChange { old_supply: input_total, new_supply: output_total }
+        reveal
+        SupplyChange { old_supply: input_total, new_supply: output_total }
     }
 }

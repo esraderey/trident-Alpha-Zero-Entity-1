@@ -240,7 +240,7 @@ impl<'a> CostAnalyzer<'a> {
                     TableCost::ZERO
                 }
             }
-            Stmt::Emit { fields, .. } => {
+            Stmt::Reveal { fields, .. } => {
                 // push tag + write_io 1 + (field expr + write_io 1) per field
                 let io_cost = self.cost_model.builtin_cost("pub_write");
                 let mut cost = stack_op.clone(); // push tag

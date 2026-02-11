@@ -217,13 +217,10 @@ fn mint() {
     let new_leaf_expected: Digest = divine5()
     assert_digest(new_leaf, new_leaf_expected)
     // Events
-    emit Mint { 
-        token_id: token_id,
-        serial_number: serial_number,
-        owner_auth: owner_auth,
-        metadata_hash: metadata_hash,
-    }
-    emit SupplyChange { old_supply: old_supply, new_supply: new_supply }
+    reveal
+    Mint { token_id: token_id, serial_number: serial_number, owner_auth: owner_auth, metadata_hash: metadata_hash }
+    reveal
+    SupplyChange { old_supply: old_supply, new_supply: new_supply }
 }
 
 // ============================================================
@@ -294,14 +291,11 @@ fn transfer() {
     seal Nullifier { token_id: nft_id, serial_number: nft_serial }
     // Royalty rate is emitted publicly for settlement-layer enforcement.
     // royalty_rate == 0 means no royalty obligation.
-    emit Transfer { 
-        token_id: nft_id,
-        from_auth: nft_owner,
-        to_auth: new_owner_auth,
-        royalty_rate: cfg_royalty_rate,
-    }
+    reveal
+    Transfer { token_id: nft_id, from_auth: nft_owner, to_auth: new_owner_auth, royalty_rate: cfg_royalty_rate }
     // Supply unchanged
-    emit SupplyCheck { supply: supply }
+    reveal
+    SupplyCheck { supply: supply }
 }
 
 // ============================================================
@@ -358,12 +352,10 @@ fn burn() {
     // Nullifier (sealed — prevents double-burn)
     seal Nullifier { token_id: nft_id, serial_number: nft_serial }
     // Events
-    emit Burn { 
-        token_id: nft_id,
-        serial_number: nft_serial,
-        owner_auth: nft_owner,
-    }
-    emit SupplyChange { old_supply: old_supply, new_supply: new_supply }
+    reveal
+    Burn { token_id: nft_id, serial_number: nft_serial, owner_auth: nft_owner }
+    reveal
+    SupplyChange { old_supply: old_supply, new_supply: new_supply }
 }
 
 // ============================================================
@@ -430,13 +422,11 @@ fn update_metadata() {
     let new_leaf_expected: Digest = divine5()
     assert_digest(new_leaf, new_leaf_expected)
     // Events
-    emit MetadataUpdate { 
-        token_id: nft_id,
-        old_metadata: nft_metadata,
-        new_metadata: new_metadata_hash,
-    }
+    reveal
+    MetadataUpdate { token_id: nft_id, old_metadata: nft_metadata, new_metadata: new_metadata_hash }
     // Supply unchanged
-    emit SupplyCheck { supply: supply }
+    reveal
+    SupplyCheck { supply: supply }
 }
 
 // ============================================================
@@ -508,9 +498,11 @@ fn freeze() {
     let new_leaf_expected: Digest = divine5()
     assert_digest(new_leaf, new_leaf_expected)
     // Events
-    emit Freeze { token_id: nft_id, new_flags: new_flags }
+    reveal
+    Freeze { token_id: nft_id, new_flags: new_flags }
     // Supply unchanged
-    emit SupplyCheck { supply: supply }
+    reveal
+    SupplyCheck { supply: supply }
 }
 
 // ============================================================

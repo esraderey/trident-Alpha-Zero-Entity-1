@@ -384,7 +384,7 @@ impl LanguageServer for TridentLsp {
         // General completions: keywords + builtins + imported module names
         let keywords = [
             "fn", "let", "mut", "const", "struct", "event", "if", "else", "for", "in", "bounded",
-            "return", "use", "pub", "emit", "seal", "true", "false",
+            "return", "use", "pub", "reveal", "seal", "true", "false",
         ];
         for kw in &keywords {
             items.push(CompletionItem {

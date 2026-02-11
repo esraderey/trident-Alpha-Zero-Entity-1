@@ -202,7 +202,7 @@ module.exports = grammar({
         $.return_statement,
         $.match_statement,
         $.asm_block,
-        $.emit_statement,
+        $.reveal_statement,
         $.seal_statement,
         $.assignment_statement,
         $.expression_statement,
@@ -330,9 +330,9 @@ module.exports = grammar({
         $.line_comment,
       ),
 
-    emit_statement: ($) =>
+    reveal_statement: ($) =>
       seq(
-        "emit",
+        "reveal",
         field("event", $.identifier),
         "{",
         optional(commaSep1($.field_init)),

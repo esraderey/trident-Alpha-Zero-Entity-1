@@ -433,7 +433,7 @@ Events are logged on-chain. Anyone can read them. Indexers watch for them.
 
 Two kinds of events:
 
-**`emit` -- open events** (like Solidity events). All fields visible to the verifier:
+**`reveal` -- open events** (like Solidity events). All fields visible to the verifier:
 
 ```
 event Transfer {
@@ -444,7 +444,7 @@ event Transfer {
 
 fn pay() {
     // ...
-    emit Transfer { from: sender, to: receiver, amount: value }
+    reveal Transfer { from: sender, to: receiver, amount: value }
 }
 ```
 
@@ -509,7 +509,7 @@ fn pay() {
     // ... verify new leaves produce new_root ...
 
     seal Nullifier { account_id: s_id, nonce: s_nonce }
-    emit SupplyCheck { supply: supply }
+    reveal SupplyCheck { supply: supply }
 }
 ```
 
@@ -704,7 +704,7 @@ fn mint() {
     let new_r_bal: Field = r_bal + amount
     // ... verify new Merkle root ...
 
-    emit SupplyChange { old_supply: old_supply, new_supply: new_supply }
+    reveal SupplyChange { old_supply: old_supply, new_supply: new_supply }
 }
 ```
 
@@ -807,7 +807,7 @@ major ZK system scores on quantum safety.
 | "msg.sender" | "Divine a secret, hash it, assert it matches" |
 | "Gas limit" | "Padded table height (power of 2)" |
 | "Revert" | "Assertion failure -- no proof exists" |
-| "Event log" | "`emit` (public) or `seal` (private)" |
+| "Event log" | "`reveal` (public) or `seal` (private)" |
 | "Block.timestamp" | "`pub_read()` -- verifier provides it" |
 | "Contract storage" | "Merkle root commitment (one Digest)" |
 | "Function visibility" | "`pub` keyword on module functions" |

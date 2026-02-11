@@ -19,7 +19,7 @@
   "match"
   "asm"
   "event"
-  "emit"
+  "reveal"
   "seal"
 ] @keyword
 
@@ -55,7 +55,7 @@
 (struct_init_expression
   name: (module_path (identifier) @type .))
 
-(emit_statement
+(reveal_statement
   event: (identifier) @type)
 
 (seal_statement

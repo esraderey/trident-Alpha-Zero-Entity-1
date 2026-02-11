@@ -511,7 +511,7 @@ impl TypeChecker {
             Stmt::Expr(expr) => Self::collect_calls_expr(&expr.node, calls),
             Stmt::Return(Some(val)) => Self::collect_calls_expr(&val.node, calls),
             Stmt::Return(None) => {}
-            Stmt::Emit { fields, .. } | Stmt::Seal { fields, .. } => {
+            Stmt::Reveal { fields, .. } | Stmt::Seal { fields, .. } => {
                 for (_, val) in fields {
                     Self::collect_calls_expr(&val.node, calls);
                 }
@@ -562,7 +562,7 @@ impl TypeChecker {
             Stmt::Expr(expr) => Self::collect_used_modules_expr(&expr.node, used),
             Stmt::Return(Some(val)) => Self::collect_used_modules_expr(&val.node, used),
             Stmt::Return(None) => {}
-            Stmt::Emit { fields, .. } | Stmt::Seal { fields, .. } => {
+            Stmt::Reveal { fields, .. } | Stmt::Seal { fields, .. } => {
                 for (_, val) in fields {
                     Self::collect_used_modules_expr(&val.node, used);
                 }
@@ -985,10 +985,10 @@ impl TypeChecker {
                     self.check_expr(&val.node, val.span);
                 }
             }
-            Stmt::Emit { event_name, fields } | Stmt::Seal { event_name, fields } => {
+            Stmt::Reveal { event_name, fields } | Stmt::Seal { event_name, fields } => {
                 if self.in_pure_fn {
-                    let kind = if matches!(stmt, Stmt::Emit { .. }) {
-                        "emit"
+                    let kind = if matches!(stmt, Stmt::Reveal { .. }) {
+                        "reveal"
                     } else {
                         "seal"
                     };
@@ -1883,8 +1883,8 @@ mod tests {
     }
 
     #[test]
-    fn test_emit_valid() {
-        let result = check("program test\nevent Transfer { from: Field, to: Field, amount: Field }\nfn main() {\n    emit Transfer { from: pub_read(), to: pub_read(), amount: pub_read() }\n}");
+    fn test_reveal_valid() {
+        let result = check("program test\nevent Transfer { from: Field, to: Field, amount: Field }\nfn main() {\n    reveal Transfer { from: pub_read(), to: pub_read(), amount: pub_read() }\n}");
         assert!(result.is_ok());
     }
 
@@ -1895,20 +1895,20 @@ mod tests {
     }
 
     #[test]
-    fn test_emit_undefined_event() {
-        let result = check("program test\nfn main() {\n    emit Missing { x: pub_read() }\n}");
+    fn test_reveal_undefined_event() {
+        let result = check("program test\nfn main() {\n    reveal Missing { x: pub_read() }\n}");
         assert!(result.is_err());
     }
 
     #[test]
-    fn test_emit_missing_field() {
-        let result = check("program test\nevent Ev { x: Field, y: Field }\nfn main() {\n    emit Ev { x: pub_read() }\n}");
+    fn test_reveal_missing_field() {
+        let result = check("program test\nevent Ev { x: Field, y: Field }\nfn main() {\n    reveal Ev { x: pub_read() }\n}");
         assert!(result.is_err());
     }
 
     #[test]
-    fn test_emit_extra_field() {
-        let result = check("program test\nevent Ev { x: Field }\nfn main() {\n    emit Ev { x: pub_read(), y: pub_read() }\n}");
+    fn test_reveal_extra_field() {
+        let result = check("program test\nevent Ev { x: Field }\nfn main() {\n    reveal Ev { x: pub_read(), y: pub_read() }\n}");
         assert!(result.is_err());
     }
 
@@ -2440,7 +2440,7 @@ mod tests {
 
     #[test]
     fn test_error_undefined_event() {
-        let diags = check_err("program test\nfn main() {\n    emit NoSuchEvent { x: 1 }\n}");
+        let diags = check_err("program test\nfn main() {\n    reveal NoSuchEvent { x: 1 }\n}");
         assert!(!diags.is_empty(), "should error on undefined event");
         assert!(
             diags[0].message.contains("undefined event 'NoSuchEvent'"),

@@ -753,7 +753,7 @@ fn example() {
 
 ### 8.6 Events
 
-Events provide a structured way to emit data during proof execution. They serve two purposes: **public output** (data visible to the verifier via `emit`) and **committed secrets** (data hashed and sealed via `seal`).
+Events provide a structured way to emit data during proof execution. They serve two purposes: **public output** (data visible to the verifier via `reveal`) and **committed secrets** (data hashed and sealed via `seal`).
 
 **Event Declaration:**
 
@@ -773,7 +773,7 @@ Events are declared at module scope with named, typed fields. They compile to se
 fn process_transfer(sender: Digest, receiver: Digest, amount: Field) {
     // ... validation logic ...
 
-    emit Transfer {
+    reveal Transfer {
         sender: sender,
         receiver: receiver,
         amount: amount,
@@ -781,7 +781,7 @@ fn process_transfer(sender: Digest, receiver: Digest, amount: Field) {
 }
 ```
 
-`emit` writes each field to public output via `write_io`. The verifier sees the emitted data. Use `emit` for data that should be publicly observable — transaction logs, state transitions, receipts.
+`reveal` writes each field to public output via `write_io`. The verifier sees the emitted data. Use `reveal` for data that should be publicly observable — transaction logs, state transitions, receipts.
 
 **Sealing Events:**
 
@@ -796,7 +796,7 @@ fn process_secret(owner: Digest, value: Field) {
 
 `seal` hashes the event fields via the sponge construction and writes the resulting digest to public output. The verifier sees only the commitment (digest), not the individual fields. Use `seal` for data that must be committed but kept private — secret values, authentication witnesses, proprietary logic.
 
-**Design rationale:** Events separate "what happened" (structured data) from "how to output it" (`emit` for public, `seal` for committed). This mirrors blockchain event logs but with ZK-native semantics: `seal` provides cryptographic commitment without revealing the data, which has no analog in conventional smart contracts.
+**Design rationale:** Events separate "what happened" (structured data) from "how to output it" (`reveal` for public, `seal` for committed). This mirrors blockchain event logs but with ZK-native semantics: `seal` provides cryptographic commitment without revealing the data, which has no analog in conventional smart contracts.
 
 ### 8.7 Verification Annotations
 
@@ -967,7 +967,7 @@ error[E0042]: u32 operation on unchecked Field value
 - Programs that don't end with halt
 - `#[intrinsic]` in non-std modules
 - `asm` blocks tagged for a different target than the current compilation target
-- `emit`/`seal` referencing undeclared events
+- `reveal`/`seal` referencing undeclared events
 - Event field type mismatches
 - Non-exhaustive `match` without wildcard arm
 
@@ -1568,7 +1568,7 @@ These were initially considered future work but have been implemented:
 - ~~**Size-generic functions**~~: see Section 5.4
 - ~~**Inline TASM**~~: see Section 8.5 (with target tags and stack effect annotations)
 - ~~**Pattern matching**~~: see Section 7.4
-- ~~**Events (emit/seal)**~~: see Section 8.6
+- ~~**Events (reveal/seal)**~~: see Section 8.6
 - ~~**Multi-target backends**~~: see Section 16.2
 - ~~**Verification annotations**~~: see Section 8.7
 - ~~**Test framework**~~: see Section 8.8
@@ -1630,9 +1630,9 @@ array_size    = INTEGER | IDENT ;                  (* IDENT for size params *)
 block         = "{" statement* expr? "}" ;
 statement     = let_stmt | assign_stmt | if_stmt | for_stmt
               | assert_stmt | asm_stmt | match_stmt
-              | emit_stmt | seal_stmt
+              | reveal_stmt | seal_stmt
               | expr_stmt | return_stmt ;
-emit_stmt     = "emit" IDENT "{" (IDENT ":" expr ",")* "}" ;
+reveal_stmt   = "reveal" IDENT "{" (IDENT ":" expr ",")* "}" ;
 seal_stmt     = "seal" IDENT "{" (IDENT ":" expr ",")* "}" ;
 asm_stmt      = "asm" asm_annotation? "{" TASM_BODY "}" ;
 asm_annotation = "(" asm_target ("," asm_effect)? ")"
@@ -1870,7 +1870,7 @@ Trident is successful if:
 | `module.fn()` | `call` (resolved address) | body + 2 |
 | `fn_name<N>(...)` | `call` (monomorphized label) | body + 2 |
 | `match v { ... }` | `eq` + `skiz` chain (desugared) | arms + N comparisons |
-| `emit Event { ... }` | `write_io` per field | 1 per field |
+| `reveal Event { ... }` | `write_io` per field | 1 per field |
 | `seal Event { ... }` | `sponge_init` + `sponge_absorb` + `sponge_squeeze` + `write_io 5` | 13+ (sponge overhead) |
 | `asm { ... }` | verbatim TASM | varies |
 | `asm(triton) { ... }` | verbatim TASM (target-tagged) | varies |
@@ -1892,7 +1892,7 @@ Trident is successful if:
 | Recursion | No | Yes | No | No | No |
 | Generics | Size only | Yes | Yes | No | Yes |
 | Formal verify | Built-in | No | No | External | No |
-| Events | `emit`/`seal` | Yes | No | Yes | No |
+| Events | `reveal`/`seal` | Yes | No | Yes | No |
 | Post-quantum | Yes (STARK) | Partial | No | No | No |
 | Cost visible | Yes (per-table) | Yes (gas) | No | Yes (gas) | No |
 | Inline asm | Yes (target-tagged) | No | No | No | No |

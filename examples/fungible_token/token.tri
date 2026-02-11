@@ -227,7 +227,8 @@ fn pay() {
     // Nullifier (sealed — verifier sees commitment)
     seal Nullifier { account_id: s_id, nonce: s_nonce }
     // Supply unchanged
-    emit SupplyCheck { supply: supply }
+    reveal
+    SupplyCheck { supply: supply }
 }
 
 // ============================================================
@@ -298,7 +299,8 @@ fn lock() {
     let new_a_expected: Digest = divine5()
     assert_digest(new_a_leaf, new_a_expected)
     // Supply unchanged
-    emit SupplyCheck { supply: supply }
+    reveal
+    SupplyCheck { supply: supply }
 }
 
 // ============================================================
@@ -366,7 +368,8 @@ fn update() {
         new_config
     )
     // Supply unchanged
-    emit SupplyCheck { supply: supply }
+    reveal
+    SupplyCheck { supply: supply }
 }
 
 // ============================================================
@@ -427,7 +430,8 @@ fn mint() {
     let new_r_expected: Digest = divine5()
     assert_digest(new_r_leaf, new_r_expected)
     // Supply change
-    emit SupplyChange { old_supply: old_supply, new_supply: new_supply }
+    reveal
+    SupplyChange { old_supply: old_supply, new_supply: new_supply }
 }
 
 // ============================================================
@@ -508,7 +512,8 @@ fn burn() {
     // Nullifier (sealed — verifier sees commitment)
     seal Nullifier { account_id: a_id, nonce: a_nonce }
     // Supply change
-    emit SupplyChange { old_supply: old_supply, new_supply: new_supply }
+    reveal
+    SupplyChange { old_supply: old_supply, new_supply: new_supply }
 }
 
 // ============================================================

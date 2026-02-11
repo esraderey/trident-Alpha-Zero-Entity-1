@@ -170,7 +170,8 @@ fn verify_header() {
     pub_write(h2)
     pub_write(h3)
     pub_write(h4)
-    emit HeaderVerified { slot: slot, header_root: computed }
+    reveal
+    HeaderVerified { slot: slot, header_root: computed }
 }
 
 // ======================================================
@@ -226,11 +227,8 @@ fn verify_sync() {
     // Public output: signer ratio for the relayer.
     pub_write(signer_count)
     pub_write(committee_size)
-    emit SyncCommitteeAttested { 
-        signer_count: signer_count,
-        committee_size: committee_size,
-        committee_root: committee_root,
-    }
+    reveal
+    SyncCommitteeAttested { signer_count: signer_count, committee_size: committee_size, committee_root: committee_root }
 }
 
 // ======================================================
@@ -286,11 +284,8 @@ fn verify_state() {
     verify_merkle_proof(storage_leaf, acct_storage_root, storage_proof_depth)
     // Write the verified storage value as public output.
     pub_write(expected_storage_value)
-    emit StateProofVerified { 
-        state_root: state_root,
-        account_hash: account_leaf,
-        storage_value: expected_storage_value,
-    }
+    reveal
+    StateProofVerified { state_root: state_root, account_hash: account_leaf, storage_value: expected_storage_value }
 }
 
 // ======================================================
@@ -367,11 +362,8 @@ fn verify_finality() {
     pub_write(fr2)
     pub_write(fr3)
     pub_write(fr4)
-    emit FinalityConfirmed { 
-        finalized_slot: epoch_start_slot,
-        finalized_root: finalized_root,
-        justified_root: justified_root,
-    }
+    reveal
+    FinalityConfirmed { finalized_slot: epoch_start_slot, finalized_root: finalized_root, justified_root: justified_root }
 }
 
 // ======================================================
@@ -402,7 +394,8 @@ fn full_bridge_verify() {
     assert_digest(computed_header, new_header_commitment)
     let _slot_u32: U32 = as_u32(slot)
     let _prop_u32: U32 = as_u32(proposer_index)
-    emit HeaderVerified { slot: slot, header_root: computed_header }
+    reveal
+    HeaderVerified { slot: slot, header_root: computed_header }
     // --- Step 2: Verify sync committee attested to this header ---
     let committee_root: Digest = pub_read5()
     let signer_count: Field = divine()
@@ -435,11 +428,8 @@ fn full_bridge_verify() {
         0
     )
     assert_digest(expected_att, attestation_root)
-    emit SyncCommitteeAttested { 
-        signer_count: signer_count,
-        committee_size: committee_size,
-        committee_root: committee_root,
-    }
+    reveal
+    SyncCommitteeAttested { signer_count: signer_count, committee_size: committee_size, committee_root: committee_root }
     // --- Step 3: Verify state proof (account + storage) ---
     let account_address_hash: Field = pub_read()
     let storage_slot_hash: Field = pub_read()
@@ -472,11 +462,8 @@ fn full_bridge_verify() {
     let storage_proof_depth: Field = divine()
     let _spd_check: U32 = as_u32(storage_proof_depth)
     verify_merkle_proof(storage_leaf, acct_storage_root, storage_proof_depth)
-    emit StateProofVerified { 
-        state_root: state_root,
-        account_hash: account_leaf,
-        storage_value: expected_storage_value,
-    }
+    reveal
+    StateProofVerified { state_root: state_root, account_hash: account_leaf, storage_value: expected_storage_value }
     // --- Step 4: Verify finality ---
     let expected_finalized_epoch: Field = pub_read()
     let finalized_epoch: Field = divine()
@@ -508,11 +495,8 @@ fn full_bridge_verify() {
         jc4
     )
     verify_merkle_proof(checkpoints_leaf, state_root, finality_proof_depth)
-    emit FinalityConfirmed { 
-        finalized_slot: epoch_start_slot,
-        finalized_root: finalized_root,
-        justified_root: justified_root,
-    }
+    reveal
+    FinalityConfirmed { finalized_slot: epoch_start_slot, finalized_root: finalized_root, justified_root: justified_root }
     // --- Public outputs: bridged value + finalized root ---
     pub_write(expected_storage_value)
     let (fr0, fr1, fr2, fr3, fr4) = finalized_root

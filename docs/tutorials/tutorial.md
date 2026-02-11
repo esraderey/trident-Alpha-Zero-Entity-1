@@ -516,7 +516,7 @@ The expressions support `+` and `*` over size parameters and integer literals. P
 
 ### The `#[pure]` Annotation
 
-Mark a function `#[pure]` to declare it has no I/O side effects -- no `pub_read`, `pub_write`, `divine`, `emit`, or `seal`:
+Mark a function `#[pure]` to declare it has no I/O side effects -- no `pub_read`, `pub_write`, `divine`, `reveal`, or `seal`:
 
 ```
 #[pure]
@@ -639,7 +639,7 @@ Merkle proofs are built from Tip5 hashes. See `std.crypto.merkle` in the [Refere
 
 ## 12. Events
 
-Events record structured data in the proof trace. Declare the event, then `emit` or `seal` it.
+Events record structured data in the proof trace. Declare the event, then `reveal` or `seal` it.
 
 ### Declaration
 
@@ -657,7 +657,7 @@ All fields are visible to the verifier:
 
 ```
 fn pay(sender: Digest, receiver: Digest, value: Field) {
-    emit Transfer {
+    reveal Transfer {
         from: sender,
         to: receiver,
         amount: value,
@@ -679,7 +679,7 @@ fn pay_private(sender: Digest, receiver: Digest, value: Field) {
 }
 ```
 
-Use `emit` for public audit trails. Use `seal` when field values must remain private but their commitment must be verifiable. For how events fit into the Neptune transaction model, see the [Programming Model](../explanation/programming-model.md).
+Use `reveal` for public audit trails. Use `seal` when field values must remain private but their commitment must be verifiable. For how events fit into the Neptune transaction model, see the [Programming Model](../explanation/programming-model.md).
 
 ---
 

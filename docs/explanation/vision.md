@@ -123,7 +123,7 @@ regardless of naming. See [Content-Addressed Code](content-addressed.md).
 proof. The recursive verification pattern -- Triton VM's architectural sweet
 spot -- is a first-class operation, not a hand-rolled assembly routine.
 
-**Events, open and sealed.** `emit` writes event fields to public output.
+**Events, open and sealed.** `reveal` writes event fields to public output.
 `seal` hashes them and writes only the digest -- the verifier sees that
 *something* happened, but not what. This is how you build private transfers.
 

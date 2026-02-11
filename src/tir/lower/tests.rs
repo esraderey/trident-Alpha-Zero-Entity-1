@@ -304,7 +304,7 @@ fn test_compare_event() {
     // pushes all fields first, then the lowering writes tag + fields.
     // This is functionally equivalent but not byte-identical to the old
     // Emitter (which interleaved push/write_io per field).
-    let source = "program test\nevent Transfer {\n  amount: Field,\n}\nfn main() {\n  emit Transfer { amount: 100 }\n}";
+    let source = "program test\nevent Transfer {\n  amount: Field,\n}\nfn main() {\n  reveal Transfer { amount: 100 }\n}";
     let output = compile_new(source);
     assert!(output.contains("push 100"), "should push field value");
     assert!(output.contains("push 0"), "should push event tag");

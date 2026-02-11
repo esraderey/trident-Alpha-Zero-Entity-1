@@ -569,10 +569,10 @@ mod tests {
 
     #[test]
     fn test_event_keywords() {
-        let tokens = lex("event emit seal");
+        let tokens = lex("event reveal seal");
         assert_eq!(
             tokens,
-            vec![Lexeme::Event, Lexeme::Emit, Lexeme::Seal, Lexeme::Eof,]
+            vec![Lexeme::Event, Lexeme::Reveal, Lexeme::Seal, Lexeme::Eof,]
         );
     }
 

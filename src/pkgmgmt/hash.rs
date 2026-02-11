@@ -445,7 +445,7 @@ impl Normalizer {
                     self.write_u8(0);
                 }
             }
-            Stmt::Emit { event_name, fields } | Stmt::Seal { event_name, fields } => {
+            Stmt::Reveal { event_name, fields } | Stmt::Seal { event_name, fields } => {
                 // Emit and Seal are structurally identical for hashing
                 self.write_u8(TAG_STRUCT_INIT);
                 self.write_str(&event_name.node);

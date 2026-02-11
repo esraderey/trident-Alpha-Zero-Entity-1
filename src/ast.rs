@@ -278,7 +278,7 @@ pub enum Stmt {
     },
     Expr(Spanned<Expr>),
     Return(Option<Spanned<Expr>>),
-    Emit {
+    Reveal {
         event_name: Spanned<String>,
         fields: Vec<(Spanned<String>, Spanned<Expr>)>,
     },

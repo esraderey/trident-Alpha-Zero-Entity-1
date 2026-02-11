@@ -508,8 +508,8 @@ impl<'a> FormatCtx<'a> {
                 self.emit_trailing_comment(stmt.span.end);
                 self.output.push('\n');
             }
-            Stmt::Emit { event_name, fields } => {
-                self.emit_event_stmt("emit", event_name, fields, indent, stmt.span.end);
+            Stmt::Reveal { event_name, fields } => {
+                self.emit_event_stmt("reveal", event_name, fields, indent, stmt.span.end);
             }
             Stmt::Seal { event_name, fields } => {
                 self.emit_event_stmt("seal", event_name, fields, indent, stmt.span.end);
@@ -961,8 +961,8 @@ mod tests {
     }
 
     #[test]
-    fn test_emit_statement() {
-        let src = "program test\n\nevent Log {\n    value: Field,\n}\n\nfn main() {\n    emit Log { value: pub_read() }\n}\n";
+    fn test_reveal_statement() {
+        let src = "program test\n\nevent Log {\n    value: Field,\n}\n\nfn main() {\n    reveal Log { value: pub_read() }\n}\n";
         assert_eq!(fmt(src), src);
     }
 
@@ -1063,7 +1063,7 @@ fn main() {
     for i in 0..5 bounded 5 {
         pub_write(i)
     }
-    emit Transfer { from: 0, to: 1, amount: x }
+    reveal Transfer { from: 0, to: 1, amount: x }
 }
 "#;
         let first = fmt(src);
@@ -1150,7 +1150,7 @@ fn main() {
     for i in 0..5 bounded 5 {
         sum = sum + i
     }
-    emit Tick { seq: sum }
+    reveal Tick { seq: sum }
     pub_write(sum)
 }
 "#;

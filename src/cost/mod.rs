@@ -155,12 +155,12 @@ mod tests {
     }
 
     #[test]
-    fn test_emit_cost_no_hash() {
+    fn test_reveal_cost_no_hash() {
         let cost = analyze(
-            "program test\nevent Ev { x: Field, y: Field }\nfn main() {\n    emit Ev { x: pub_read(), y: pub_read() }\n}",
+            "program test\nevent Ev { x: Field, y: Field }\nfn main() {\n    reveal Ev { x: pub_read(), y: pub_read() }\n}",
         );
-        // Open emit should have zero hash cost (no hashing)
-        assert_eq!(cost.total.hash, 0, "open emit should have zero hash cost");
+        // Open reveal should have zero hash cost (no hashing)
+        assert_eq!(cost.total.hash, 0, "open reveal should have zero hash cost");
         assert!(cost.total.processor > 0);
     }
 
