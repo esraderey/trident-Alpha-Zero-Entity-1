@@ -1,5 +1,7 @@
 # Trident Target Reference
 
+[← Language Reference](language.md) | [IR Reference](ir.md)
+
 Write once. Run anywhere.
 
 ---
@@ -368,6 +370,17 @@ The `ext/` directory is keyed by **OS name** (not VM name): `ext/neptune/`,
 
 See [ir.md Part VI](ir.md) for lowering trait interfaces and the backend
 guide.
+
+---
+
+## See Also
+
+- [Language Reference](language.md) — Types, operators, builtins, grammar
+- [Provable Computation](provable.md) — Hash, sponge, Merkle, extension field (Tier 2-3)
+- [IR Reference](ir.md) — 54 operations, 4 tiers, lowering paths
+- [CLI Reference](cli.md) — Compiler commands and flags
+- [Error Catalog](errors.md) — All compiler error messages explained
+- [Standard Library](stdlib.md) — `std.*` modules and OS extensions
 
 ---
 

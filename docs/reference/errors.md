@@ -1,5 +1,7 @@
 # Error Catalog
 
+[← Language Reference](language.md) | [IR Reference](ir.md) | [Target Reference](targets.md)
+
 All Trident compiler diagnostics — errors, warnings, and optimization hints.
 Derived from the language specification ([language.md](language.md)), target
 constraints ([targets.md](targets.md)), and IR tier rules ([ir.md](ir.md)).

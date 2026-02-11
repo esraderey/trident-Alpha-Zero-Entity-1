@@ -1,16 +1,10 @@
 # Trident Language Reference
 
+[IR Reference](ir.md) | [Target Reference](targets.md) | [Error Catalog](errors.md) | [Agent Briefing](briefing.md)
+
 Write once. Prove anywhere.
 
 **Version 0.5** | File extension: `.tri` | Compiler: `trident`
-
-For the compiler IR see [ir.md](ir.md). For execution targets see [targets.md](targets.md).
-For error explanations see [errors.md](errors.md). For a step-by-step guide see
-[tutorial.md](../tutorials/tutorial.md).
-
----
-
-For an AI-optimized compact cheat-sheet, see [briefing.md](briefing.md).
 
 ---
 

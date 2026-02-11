@@ -1,5 +1,7 @@
 # Trident IR: Architecture & Design
 
+[← Language Reference](language.md) | [Target Reference](targets.md)
+
 54 operations. 4 tiers. One source language compiles everywhere.
 
 ```
@@ -375,3 +377,17 @@ src/legacy/                        ← old emitter (deprecated, comparison tests
 1. Create `src/kir/lower/new_target.rs`
 2. Implement `KernelLowering` — `fn lower(&self, ops: &[TIROp]) -> String`
 3. Register in `create_kernel_lowering()`
+
+---
+
+## See Also
+
+- [Language Reference](language.md) — Types, operators, builtins, grammar
+- [Target Reference](targets.md) — OS model, VM profiles, cost models
+- [Provable Computation](provable.md) — Hash, sponge, Merkle, extension field (Tier 2-3)
+- [CLI Reference](cli.md) — Compiler commands and flags
+- [Error Catalog](errors.md) — All compiler error messages explained
+
+---
+
+*Trident v0.5 — 54 operations. 4 tiers. One source language compiles everywhere.*
