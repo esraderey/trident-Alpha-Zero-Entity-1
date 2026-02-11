@@ -10,7 +10,7 @@ For error explanations see [errors.md](errors.md). For a step-by-step guide see
 
 ---
 
-## LLM Quick Reference
+## Agent Briefing
 
 Machine-optimized compact format for AI code generation.
 
