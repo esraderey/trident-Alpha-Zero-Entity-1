@@ -7,6 +7,7 @@ use crate::target::TargetConfig;
 use crate::typeck::MonoInstance;
 
 pub(crate) use super::backend::create_backend;
+#[allow(unused_imports)] // backends used in tests
 use super::backend::{
     CairoBackend, MidenBackend, OpenVMBackend, SP1Backend, StackBackend, TritonBackend,
 };
