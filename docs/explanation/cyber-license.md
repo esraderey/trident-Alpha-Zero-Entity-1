@@ -252,4 +252,4 @@ Trident is a compiler for provable computation. It exists because trust
 does not scale, because fear should not govern what you publish, and
 because permission should not be required to verify truth.
 
-Don't trust. Don't fear. Don't beg.
+> Don't trust. Don't fear. Don't beg.
