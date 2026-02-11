@@ -59,22 +59,25 @@ fn main() {
 ### Types (complete)
 
 ```
-                        Tier 0 — all targets
+                        Universal — all targets
 Field       1 elem      Field element (target-dependent modulus)
 Bool        1 elem      Constrained to {0, 1}
 U32         1 elem      Range-checked 0..2^32
+Digest      D elems     Hash digest [Field; D], D = target digest width
 [T; N]      N*w         Fixed array, N compile-time (supports: [Field; M+N], [Field; N*2])
 (T1, T2)    w1+w2       Tuple (max 16 elements)
 struct S    sum          Named product type
 
-                        Tier 2 — provable targets only (see targets.md)
-Digest      D elems     Hash digest [Field; D], D = target digest width (5 on Triton, 4 on Miden, ...)
+                        Tier 2 — extension field targets only
 XField      E elems     Extension field, E = extension degree (3 on Triton, 0 = unavailable on most)
 ```
 
+Digest is universal — every target has a hash function and produces digests.
+The width D varies by target (5 on Triton, 4 on Miden, 8 on SP1/OpenVM, 1 on Cairo).
+XField is Tier 2 only. See [targets.md](targets.md).
+
 NO: enums, sum types, references, pointers, strings, floats, Option, Result.
 NO: implicit conversions between types.
-Digest and XField widths are target-dependent. See [targets.md](targets.md).
 
 ### Operators (complete)
 
@@ -252,27 +255,30 @@ entry = "main.tri"
 
 ### Primitive Types
 
-**Tier 0/1 — all targets:**
+**Universal — all targets:**
 
 | Type | Width | Description |
 |------|------:|-------------|
 | `Field` | 1 | Native field element of the target VM |
 | `Bool` | 1 | Field constrained to {0, 1} |
 | `U32` | 1 | Unsigned 32-bit integer, range-checked |
+| `Digest` | D | Hash digest `[Field; D]` — universal content identifier |
 
-**Tier 2 — provable targets only:**
+**Tier 2 — extension field targets only:**
 
 | Type | Width | Description |
 |------|------:|-------------|
-| `Digest` | D | Hash digest `[Field; D]` where D = target digest width |
 | `XField` | E | Extension field element where E = extension degree |
 
 `Field` means "element of the target VM's native field." Programs reason about
 field arithmetic abstractly; the target implements it concretely.
 
-`Digest` width and `XField` degree are target-dependent. On Triton VM:
-Digest = 5 (Tip5), XField = 3 (cubic). On Miden: Digest = 4, XField = none.
-See [targets.md](targets.md) for all target parameters.
+`Digest` is universal — every target has a hash function and produces digests.
+It is a content identifier: the fixed-width fingerprint of arbitrary data. The
+width D varies by target (5 on Triton, 4 on Miden, 8 on SP1/OpenVM, 1 on Cairo).
+
+`XField` is only available on targets with extension field support (currently
+Triton VM, degree 3). See [targets.md](targets.md) for all target parameters.
 
 No implicit conversions. `Field` and `U32` do not auto-convert. Use `as_field()`
 and `as_u32()` (the latter inserts a range check).
@@ -301,8 +307,8 @@ Widths marked with a variable are resolved from the target configuration.
 | `Field` | 1 | |
 | `Bool` | 1 | |
 | `U32` | 1 | |
-| `Digest` | D | D = `digest_width` from target config |
-| `XField` | E | E = `xfield_width` from target config (0 = unavailable) |
+| `Digest` | D | D = `digest_width` from target config (universal) |
+| `XField` | E | E = `xfield_width` from target config (Tier 2, 0 = unavailable) |
 | `[T; N]` | N * width(T) | |
 | `(T1, T2)` | width(T1) + width(T2) | |
 | `struct` | sum of field widths | |

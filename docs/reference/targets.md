@@ -313,16 +313,20 @@ features cannot target lower-tier backends.
 
 ### Types per Target
 
-| Type | Triton VM | Miden VM | SP1 | OpenVM | Cairo |
-|---|---|---|---|---|---|
-| `Field` | 64-bit | 64-bit | 31-bit | 64-bit | 251-bit |
-| `Bool` | yes | yes | yes | yes | yes |
-| `U32` | yes | yes | yes | yes | yes |
-| `Digest` | [Field; 5] | [Field; 4] | [Field; 8] | [Field; 8] | [Field; 1] |
-| `XField` | [Field; 3] | -- | -- | -- | -- |
+| Type | Tier | Triton VM | Miden VM | SP1 | OpenVM | Cairo |
+|---|---|---|---|---|---|---|
+| `Field` | 0 | 64-bit | 64-bit | 31-bit | 64-bit | 251-bit |
+| `Bool` | 0 | yes | yes | yes | yes | yes |
+| `U32` | 0 | yes | yes | yes | yes | yes |
+| `Digest` | 0 | [Field; 5] | [Field; 4] | [Field; 8] | [Field; 8] | [Field; 1] |
+| `XField` | 2 | [Field; 3] | -- | -- | -- | -- |
 
-`Digest` and `XField` widths come from the target configuration. Programs
-using `XField` can only compile for targets where `xfield_width > 0`.
+`Digest` is universal — every target has a hash function and produces digests.
+It is a content identifier: the fixed-width fingerprint of arbitrary data.
+The width D comes from the target's `digest_width` configuration.
+
+`XField` is Tier 2 only. Programs using `XField` can only compile for targets
+where `xfield_width > 0`.
 
 ### Operators per Target
 
