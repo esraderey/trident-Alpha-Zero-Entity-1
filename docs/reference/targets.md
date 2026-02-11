@@ -13,10 +13,10 @@ The **VM is the CPU** — the instruction set architecture. The **OS is the
 runtime** — storage, accounts, syscalls, billing. One VM can power multiple
 OSes, just as one CPU architecture runs multiple operating systems.
 
-| Concept | Traditional | Provable | Blockchain |
-|---------|-------------|----------|------------|
+| Concept | Traditional | Provable | Virtual |
+|---------|-------------|----------|---------|
 | CPU / ISA | x86-64, ARM64, RISC-V | Triton VM, Miden VM, Cairo VM, RISC-V zkVMs, Jolt, Nock, AVM | EVM, WASM, eBPF, MoveVM, TVM, CKB-VM, PolkaVM |
-| OS / Runtime | Linux, macOS, Windows | Neptune, Polygon Miden, Starknet, Boundless, Aleo, Aztec | Ethereum, Solana, Near, Cosmos, Sui, Aptos, Ton, Nervos, Polkadot, Arbitrum, Icp |
+| OS / Runtime | Linux, macOS, Windows | Neptune, Polygon Miden, Starknet, Boundless, Aleo, Aztec | Ethereum, Solana, Near, Cosmos, WASI, Browser, Sui, Aptos, Ton, Nervos, Polkadot |
 | Word size | 32-bit, 64-bit | Field (31-bit, 64-bit, 251-bit, 254-bit) | 64-bit, 256-bit (EVM), 257-bit (TVM) |
 | ISA extensions | SSE, AVX, NEON | Hash coprocessor, Merkle, sponge | Precompiles, host functions |
 | Registers | 16 GP registers | Stack depth (16, 32, 0) | Varies (10 eBPF, 32 RISC-V, stack, Move locals) |
@@ -93,7 +93,7 @@ via `RegisterLowering`.
 TIR → LIR → RegisterLowering → machine code → Linker → output
 ```
 
-The same `RegisterLowering` path serves both provable and conventional
+The same `RegisterLowering` path serves both provable and native
 register targets. SP1 and native RISC-V share the same `RiscVLowering` —
 one produces code for the zkVM, the other for bare metal.
 
@@ -152,10 +152,9 @@ cryptographic proofs of correct execution.
 | AVM (Leo) | Register | Aleo 251-bit | Poseidon | 0-1 | `.aleo` | [leo.md](targets/leo.md) |
 | Aztec (Noir) | Circuit (ACIR) | BN254 254-bit | Poseidon2 | 0-1 | `.acir` | [aztec.md](targets/aztec.md) |
 
-#### Blockchain VMs
+#### Virtual Machines
 
-VMs that execute smart contracts on-chain. No proof generation — programs
-run directly in the VM.
+Software VMs that execute programs directly. No proof generation.
 
 | VM | Arch | Word | Hash | Tier | Output | Details |
 |----|------|------|------|------|--------|---------|
@@ -167,7 +166,7 @@ run directly in the VM.
 | CKB-VM | Register (RISC-V) | u64 | Blake2b | 0-1 | ELF | [ckb.md](targets/ckb.md) |
 | PolkaVM | Register (RISC-V) | u64 | Blake2b | 0-1 | PVM | [polkavm.md](targets/polkavm.md) |
 
-#### Conventional Targets
+#### Native Targets
 
 No VM — native machine code. For testing and local execution.
 
@@ -217,7 +216,7 @@ Which VMs support which [IR tiers](ir.md):
 **Tier 0** — Program structure (Entry, Call, Return, etc.). All VMs.
 
 **Tier 1** — Universal computation (arithmetic, control flow, memory, I/O).
-All VMs — provable, blockchain, conventional, and GPU.
+All VMs — provable, virtual, native, and GPU.
 
 **Tier 2** — Provable computation (Hash, MerkleStep, Sponge, Reveal, Seal).
 Provable VMs with native coprocessors.
@@ -234,7 +233,7 @@ features cannot target lower-tier VMs.
 
 #### Types per VM
 
-| Type | Tier | Triton VM | Miden VM | Nock | SP1 | OpenVM | Cairo VM | RISC Zero | Jolt | AVM | Aztec | Blockchain VMs | Conventional |
+| Type | Tier | Triton VM | Miden VM | Nock | SP1 | OpenVM | Cairo VM | RISC Zero | Jolt | AVM | Aztec | Other VMs | Native |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|
 | `Field` | 0 | 64-bit | 64-bit | 64-bit (Belt) | 31-bit | 64-bit | 251-bit | 31-bit | 254-bit | 251-bit | 254-bit | native int | 64-bit |
 | `Bool` | 0 | yes | yes | yes | yes | yes | yes | yes | yes | yes | yes | yes | yes |
@@ -244,7 +243,7 @@ features cannot target lower-tier VMs.
 
 #### Operators per VM
 
-| Operator | Tier | Triton VM | Miden VM | Nock | SP1 | OpenVM | Cairo VM | RISC Zero | Jolt | AVM | Aztec | Blockchain VMs | Conventional |
+| Operator | Tier | Triton VM | Miden VM | Nock | SP1 | OpenVM | Cairo VM | RISC Zero | Jolt | AVM | Aztec | Other VMs | Native |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|
 | `+` `*` `==` | 1 | yes | yes | yes (jets) | yes | yes | yes | yes | yes | yes | yes | yes | yes |
 | `<` `&` `^` `/%` | 1 | yes | yes | yes (jets) | yes | yes | yes | yes | yes | yes | yes | yes | yes |
@@ -252,7 +251,7 @@ features cannot target lower-tier VMs.
 
 #### Builtins per VM
 
-| Builtin group | Tier | Triton VM | Miden VM | Nock | SP1 | OpenVM | Cairo VM | RISC Zero | Jolt | AVM | Aztec | Blockchain VMs | Conventional |
+| Builtin group | Tier | Triton VM | Miden VM | Nock | SP1 | OpenVM | Cairo VM | RISC Zero | Jolt | AVM | Aztec | Other VMs | Native |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|
 | I/O (`pub_read`, `pub_write`) | 1 | yes | yes | yes (scry) | yes | yes | yes | yes (journal) | yes | yes | yes | yes (host calls) | yes (stdio) |
 | Field (`sub`, `neg`, `inv`) | 1 | yes | yes | yes (jets) | yes | yes | yes | yes | yes | yes (native) | yes (native) | yes (software) | yes |
@@ -266,11 +265,11 @@ features cannot target lower-tier VMs.
 
 R = hash rate (fields per absorption). D = digest width (fields per digest).
 
-On blockchain VMs, Tier 1 builtins map to VM-native operations: I/O becomes
+On virtual machines, Tier 1 builtins map to VM-native operations: I/O becomes
 host function calls, assertions become revert/abort, RAM becomes VM memory.
 
-On conventional targets, Tier 1 builtins map to standard operations: I/O
-becomes stdio, assertions become abort, RAM becomes heap memory.
+On native targets, Tier 1 builtins map to standard operations: I/O becomes
+stdio, assertions become abort, RAM becomes heap memory.
 
 Field arithmetic uses software modular reduction on non-provable targets.
 
@@ -303,9 +302,9 @@ annotations, `--costs` flag — works identically across all VMs.
 | PolkaVM | Weight | ref_time (computation) + proof_size (state proof overhead) |
 | x86-64 / ARM64 / RISC-V | Wall-clock | No proof cost — direct execution |
 
-Provable VMs report proving cost. Blockchain VMs report on-chain metering
-cost. Conventional targets report wall-clock time. The cost model is a
-property of the VM, not the OS.
+Provable VMs report proving cost. Other VMs report on-chain metering
+or wall-clock cost. Native targets report wall-clock time. The cost model
+is a property of the VM, not the OS.
 
 See [targets/triton.md](targets/triton.md) for the full per-instruction
 cost matrix and optimization hints.
