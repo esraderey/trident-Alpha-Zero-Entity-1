@@ -52,7 +52,7 @@ error: type 'XField' is not available on target 'miden' (xfield_width = 0)
   help: XField requires a target with extension field support (currently: triton, nock)
 ```
 
-**Spec:** language.md Section 11, targets.md (XField = Tier 2, extension field
+**Spec:** provable.md Extension Field, targets.md (XField = Tier 2, extension field
 targets only).
 
 ---
@@ -75,7 +75,7 @@ error: builtin 'hash' is not available on target 'sp1' (Tier 2 required)
   help: hash/sponge operations require a target with native hash coprocessor (triton, miden, nock)
 ```
 
-**Spec:** provable.md Hash and Sponge, targets.md (hash = Tier 2).
+**Spec:** language.md Section 6 Hash, targets.md (hash = Tier 1).
 
 ---
 
@@ -86,7 +86,7 @@ error: builtin 'sponge_init' is not available on target 'sp1'
   help: sponge operations require a Tier 2 target (triton, miden, nock)
 ```
 
-**Spec:** provable.md Hash and Sponge, targets.md (sponge = Tier 2).
+**Spec:** provable.md Sponge, targets.md (sponge = Tier 2).
 
 ---
 
@@ -101,7 +101,7 @@ error: 'seal' requires sponge support (Tier 2)
 writing the commitment digest to public output. Targets without sponge
 support cannot execute `seal`.
 
-**Spec:** provable.md Hash and Sponge (seal requires sponge = Tier 2).
+**Spec:** provable.md Sponge (seal requires sponge = Tier 2).
 
 ---
 
@@ -174,7 +174,7 @@ error: hash() requires 10 field arguments on target 'triton', got 8
 
 The number of arguments to `hash()` must match the target's hash rate R.
 
-**Spec:** provable.md Hash and Sponge (hash takes R elements, R is target-dependent).
+**Spec:** language.md Section 6 Hash (hash takes R elements, R is target-dependent).
 
 ---
 
@@ -185,4 +185,4 @@ error: sponge_absorb() requires 10 field arguments on target 'triton', got 5
   help: sponge rate R = 10 for Triton VM; see targets.md for per-target rates
 ```
 
-**Spec:** provable.md Hash and Sponge (sponge_absorb takes R elements).
+**Spec:** provable.md Sponge (sponge_absorb takes R elements).

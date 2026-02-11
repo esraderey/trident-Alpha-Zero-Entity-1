@@ -380,8 +380,17 @@ fn foo(x: Field) -> Field {
 | `ram_read_block(addr) -> [Field; D]` | Read D words (D = digest width) |
 | `ram_write_block(addr, vals)` | Write D words |
 
-For hash, sponge, Merkle, and extension field builtins, see
-[Part II: Provable Computation](#part-ii--provable-computation-tier-2).
+### Hash
+
+| Signature | Description |
+|-----------|-------------|
+| `hash(fields: Field x R) -> Digest` | Hash R field elements into a Digest (R = target hash rate) |
+
+`hash()` is Tier 1 — available on every target. The rate R and digest width D
+are target-dependent. See [targets.md](targets.md).
+
+For sponge, Merkle, and extension field builtins (Tier 2-3), see
+[provable.md](provable.md).
 
 ---
 

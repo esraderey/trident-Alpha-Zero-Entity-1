@@ -6,45 +6,37 @@
 
 Proof-capable targets only. No meaningful equivalent on non-provable targets.
 
-Three capabilities: cryptographic hashing (sponge + Merkle), non-deterministic
-witness input, and extension field arithmetic. Programs using any Tier 2
-feature cannot compile for Tier 1-only targets (SP1, OpenVM, Cairo).
+Two capabilities: incremental algebraic hashing (sponge + Merkle) and
+extension field arithmetic. Programs using any Tier 2 feature cannot compile
+for Tier 1-only targets (SP1, OpenVM, Cairo).
 See [targets.md](targets.md) for tier compatibility.
+
+Note: `hash()` is Tier 1 (universal) and documented in
+[language.md](language.md). The builtins below are Tier 2+.
 
 ---
 
-## Hash and Sponge
-
-These builtins require a target with native hash coprocessor support. The
-argument counts (rate R, digest width D) are target-dependent. On Triton VM:
-R = 10, D = 5. On Miden: R = 8, D = 4. See [targets.md](targets.md).
-
-### Hash
-
-| Signature | Description |
-|-----------|-------------|
-| `hash(fields: Field x R) -> Digest` | Hash R field elements into a Digest |
-
-### Sponge
-
-| Signature | Description |
-|-----------|-------------|
-| `sponge_init()` | Initialize sponge state |
-| `sponge_absorb(fields: Field x R)` | Absorb R fields |
-| `sponge_absorb_mem(ptr: Field)` | Absorb R fields from RAM |
-| `sponge_squeeze() -> [Field; R]` | Squeeze R fields |
+## Sponge
 
 The sponge API enables incremental hashing of data larger than R fields.
-Initialize, absorb in chunks, squeeze the result.
+Initialize, absorb in chunks, squeeze the result. The rate R is
+target-dependent: 10 on Triton VM, 8 on Miden.
+
+| Signature | IR op | Description |
+|-----------|-------|-------------|
+| `sponge_init()` | `SpongeInit` | Initialize sponge state |
+| `sponge_absorb(fields: Field x R)` | `SpongeAbsorb` | Absorb R fields |
+| `sponge_absorb_mem(ptr: Field)` | `SpongeLoad` | Absorb R fields from RAM |
+| `sponge_squeeze() -> [Field; R]` | `SpongeSqueeze` | Squeeze R fields |
 
 ---
 
 ## Merkle Authentication
 
-| Signature | Description |
-|-----------|-------------|
-| `merkle_step(idx: U32, d: Digest) -> (U32, Digest)` | One tree level up |
-| `merkle_step_mem(ptr, idx, d) -> (Field, U32, Digest)` | Tree level from RAM |
+| Signature | IR op | Description |
+|-----------|-------|-------------|
+| `merkle_step(idx: U32, d: Digest) -> (U32, Digest)` | `MerkleStep` | One tree level up |
+| `merkle_step_mem(ptr, idx, d) -> (Field, U32, Digest)` | `MerkleLoad` | Tree level from RAM |
 
 `merkle_step` authenticates one level of a Merkle tree. Call it in a loop
 to verify a full Merkle path:
@@ -81,15 +73,17 @@ Only available on targets where `xfield_width > 0`.
 
 ### Builtins
 
-| Signature | Description |
-|-----------|-------------|
-| `xfield(x0, ..., xE) -> XField` | Construct from E base field elements |
-| `xinvert(a: XField) -> XField` | Multiplicative inverse |
-| `xx_dot_step(acc, ptr_a, ptr_b) -> (XField, Field, Field)` | XField dot product step |
-| `xb_dot_step(acc, ptr_a, ptr_b) -> (XField, Field, Field)` | Mixed dot product step |
+| Signature | IR op | Description |
+|-----------|-------|-------------|
+| `xfield(x0, ..., xE) -> XField` | *(constructor)* | Construct from E base field elements |
+| `xinvert(a: XField) -> XField` | `ExtInvert` | Multiplicative inverse |
+| `xx_dot_step(acc, ptr_a, ptr_b) -> (XField, Field, Field)` | `FoldExt` | XField dot product step |
+| `xb_dot_step(acc, ptr_a, ptr_b) -> (XField, Field, Field)` | `FoldBase` | Mixed dot product step |
 
 The dot-step builtins are building blocks for inner product arguments and FRI
 verification — the core of recursive proof composition.
+
+Note: The `*.` operator (scalar multiply) maps to `ExtMul` in the IR.
 
 ---
 
