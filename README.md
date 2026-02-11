@@ -272,35 +272,35 @@ Organized following the [Diataxis](https://diataxis.fr/) framework:
 
 ### Tutorials (learning-oriented)
 
-- [Tutorial](docs/tutorial.md) — Build your first program step by step
-- [For Developers](docs/for-developers.md) — Zero-knowledge from scratch
-- [For Blockchain Devs](docs/for-blockchain-devs.md) — Mental model migration from Solidity/Anchor/CosmWasm
+- [Tutorial](docs/tutorials/tutorial.md) — Build your first program step by step
+- [For Developers](docs/tutorials/for-developers.md) — Zero-knowledge from scratch
+- [For Blockchain Devs](docs/tutorials/for-blockchain-devs.md) — Mental model migration from Solidity/Anchor/CosmWasm
 
 ### How-to Guides (task-oriented)
 
-- [Compiling a Program](docs/compiling-a-program.md) — Build, check, cost analysis
-- [Running a Program](docs/running-a-program.md) — Execute, test, debug
-- [Deploying a Program](docs/deploying-a-program.md) — Neptune scripts, multi-target deployment
-- [Generating Proofs](docs/generating-proofs.md) — Execution trace to STARK proof
-- [Verifying Proofs](docs/verifying-proofs.md) — Proof checking, on-chain verification
+- [Compiling a Program](docs/guides/compiling-a-program.md) — Build, check, cost analysis
+- [Running a Program](docs/guides/running-a-program.md) — Execute, test, debug
+- [Deploying a Program](docs/guides/deploying-a-program.md) — Neptune scripts, multi-target deployment
+- [Generating Proofs](docs/guides/generating-proofs.md) — Execution trace to STARK proof
+- [Verifying Proofs](docs/guides/verifying-proofs.md) — Proof checking, on-chain verification
+- [Optimization Guide](docs/guides/optimization.md) — Cost reduction strategies
 
 ### Reference (information-oriented)
 
-- [Language Reference](docs/reference.md) — Types, operators, builtins, grammar
-- [Language Specification](docs/spec.md) — Complete formal specification
-- [Error Catalog](docs/errors.md) — Every error message explained
-- [IR Design](docs/ir.md) — TIR operations, tiers, lowering
+- [Language Reference](docs/reference/reference.md) — Types, operators, builtins, grammar
+- [Language Specification](docs/reference/spec.md) — Complete formal specification
+- [Error Catalog](docs/reference/errors.md) — Every error message explained
+- [IR Design](docs/reference/ir.md) — TIR operations, tiers, lowering
 
 ### Explanation (understanding-oriented)
 
-- [Vision](docs/vision.md) — Why Trident exists
-- [Universal Execution](docs/universal-execution.md) — One source, every chain
-- [Programming Model](docs/programming-model.md) — Execution model and stack semantics
-- [How STARK Proofs Work](docs/stark-proofs.md) — From traces to quantum-safe proofs
-- [Formal Verification](docs/formal-verification.md) — Symbolic execution, SMT, invariant synthesis
-- [Content-Addressed Code](docs/content-addressed.md) — Hashing, caching, registry, equivalence
-- [Optimization Guide](docs/optimization.md) — Cost reduction strategies
-- [Comparative Analysis](docs/analysis.md) — Trident vs every other ZK system
+- [Vision](docs/explanation/vision.md) — Why Trident exists
+- [Universal Execution](docs/explanation/universal-execution.md) — One source, every chain
+- [Programming Model](docs/explanation/programming-model.md) — Execution model and stack semantics
+- [How STARK Proofs Work](docs/explanation/stark-proofs.md) — From traces to quantum-safe proofs
+- [Formal Verification](docs/explanation/formal-verification.md) — Symbolic execution, SMT, invariant synthesis
+- [Content-Addressed Code](docs/explanation/content-addressed.md) — Hashing, caching, registry, equivalence
+- [Comparative Analysis](docs/explanation/analysis.md) — Trident vs every other ZK system
 
 ---
 
