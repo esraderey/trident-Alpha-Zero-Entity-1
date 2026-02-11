@@ -527,7 +527,7 @@ flag gives actionable optimization suggestions. The `--annotate` flag inlines
 costs with your source code. The `--compare` flag diffs two cost snapshots.
 This is profiling for proving cost -- not guessing, not estimating, but
 measuring from source code at compile time. See the
-[Optimization Guide](optimization.md) for details.
+[Optimization Guide](../guides/optimization.md) for details.
 
 ### Hash Performance: The Categorical Advantage
 
@@ -716,13 +716,13 @@ The numbers are growing. The foundation is solid. The rest is building.
 
 ### Trident Documentation
 
-- [Tutorial](tutorial.md) -- Step-by-step guide from hello world to Merkle proofs
-- [Language Reference](reference.md) -- Quick lookup: types, operators, builtins, grammar, CLI flags
+- [Tutorial](../tutorials/tutorial.md) -- Step-by-step guide from hello world to Merkle proofs
+- [Language Reference](../reference/reference.md) -- Quick lookup: types, operators, builtins, grammar, CLI flags
 - [Programming Model](programming-model.md) -- How Triton VM execution works
-- [Optimization Guide](optimization.md) -- Cost reduction strategies and table management
+- [Optimization Guide](../guides/optimization.md) -- Cost reduction strategies and table management
 - [Comparative Analysis](analysis.md) -- Triton VM vs. every other ZK system
-- [Developer Guide](for-developers.md) -- Getting started with Trident
-- [Blockchain Developer Guide](for-blockchain-devs.md) -- Trident for Solidity/Cairo developers
+- [Developer Guide](../tutorials/for-developers.md) -- Getting started with Trident
+- [Blockchain Developer Guide](../tutorials/for-blockchain-devs.md) -- Trident for Solidity/Cairo developers
 - [How STARK Proofs Work](stark-proofs.md) -- From execution traces to quantum-safe proofs
 - [Formal Verification](formal-verification.md) -- Automated correctness proofs for Trident programs
 - [Content-Addressed Code](content-addressed.md) -- Code identity by computation, not by name

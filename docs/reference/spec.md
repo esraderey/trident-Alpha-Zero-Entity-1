@@ -8,9 +8,9 @@
 A minimal, security-first language for provable computation on zero-knowledge virtual machines.
 
 > **Quick lookup?** See [reference.md](reference.md) for types, operators, builtins, grammar, and CLI flags.
-> **New to ZK?** Start with [for-developers.md](for-developers.md).
-> **Coming from Solidity/Anchor?** See [for-blockchain-devs.md](for-blockchain-devs.md).
-> **Multi-target architecture?** See [universal-design.md](universal-design.md).
+> **New to ZK?** Start with [for-developers.md](../tutorials/for-developers.md).
+> **Coming from Solidity/Anchor?** See [for-blockchain-devs.md](../tutorials/for-blockchain-devs.md).
+> **Multi-target architecture?** See [universal-design.md](../explanation/universal-design.md).
 
 ---
 
@@ -18,7 +18,7 @@ A minimal, security-first language for provable computation on zero-knowledge vi
 
 Trident is a minimal, security-first programming language for [zero-knowledge proof](https://en.wikipedia.org/wiki/Zero-knowledge_proof) systems. The language follows the [Vyper](https://docs.vyperlang.org/) philosophy: **deliberate limitation as a feature**, not a compromise.
 
-Trident is a **universal language with pluggable backends**. The core language — types, control flow, modules, field arithmetic, I/O — is target-agnostic. Each backend implements a thin compilation layer for a specific zkVM. The primary backend targets [Triton VM](https://triton-vm.org/), compiling directly to [TASM](https://triton-vm.org/spec/) (Triton Assembly) with no intermediate representation. Additional backends (Miden VM, Cairo VM, SP1/RISC-V) follow the same architecture. See [universal-design.md](universal-design.md) for the full multi-target design.
+Trident is a **universal language with pluggable backends**. The core language — types, control flow, modules, field arithmetic, I/O — is target-agnostic. Each backend implements a thin compilation layer for a specific zkVM. The primary backend targets [Triton VM](https://triton-vm.org/), compiling directly to [TASM](https://triton-vm.org/spec/) (Triton Assembly) with no intermediate representation. Additional backends (Miden VM, Cairo VM, SP1/RISC-V) follow the same architecture. See [universal-design.md](../explanation/universal-design.md) for the full multi-target design.
 
 Every language construct maps predictably to known instruction patterns in the target VM. The compiler is a thin, auditable translation layer — not an optimization engine.
 
@@ -35,7 +35,7 @@ The language exists to solve one problem: **writing provable programs without sp
 
 ### 2.1 Why Not an IR?
 
-> *The rationale below applies to the Triton VM backend. Other backends may introduce a minimal IR where the target architecture requires it (e.g., register-machine targets). See [universal-design.md](universal-design.md) Section 8.*
+> *The rationale below applies to the Triton VM backend. Other backends may introduce a minimal IR where the target architecture requires it (e.g., register-machine targets). See [universal-design.md](../explanation/universal-design.md) Section 8.*
 
 [Triton VM's ISA](https://triton-vm.org/spec/) (~45 instructions) is already cleaner than most assembly languages. An intermediate representation would:
 
@@ -670,7 +670,7 @@ use std.crypto.merkle
 std.crypto.merkle.verify(root, leaf, leaf_index, depth)
 ```
 
-### 8.4 Dot Products (for [STARK](stark-proofs.md) Verification)
+### 8.4 Dot Products (for [STARK](../explanation/stark-proofs.md) Verification)
 
 ```
 // Extension field dot product from RAM
@@ -1903,15 +1903,15 @@ Trident is successful if:
 ## See Also
 
 - [Language Reference](reference.md) -- Quick lookup: types, operators, builtins, grammar, CLI flags
-- [Tutorial](tutorial.md) -- Step-by-step developer guide
-- [Programming Model](programming-model.md) -- Triton VM execution model, Neptune transaction model
-- [Optimization Guide](optimization.md) -- Cost reduction strategies for all six tables
-- [How STARK Proofs Work](stark-proofs.md) -- The proof system underlying every Trident program
+- [Tutorial](../tutorials/tutorial.md) -- Step-by-step developer guide
+- [Programming Model](../explanation/programming-model.md) -- Triton VM execution model, Neptune transaction model
+- [Optimization Guide](../guides/optimization.md) -- Cost reduction strategies for all six tables
+- [How STARK Proofs Work](../explanation/stark-proofs.md) -- The proof system underlying every Trident program
 - [Error Catalog](errors.md) -- All compiler error messages explained
-- [For Developers](for-developers.md) -- Zero-knowledge concepts for conventional programmers
-- [For Blockchain Devs](for-blockchain-devs.md) -- Mental model migration from Solidity/Anchor/CosmWasm
-- [Vision](vision.md) -- Why Trident exists and what you can build
-- [Comparative Analysis](analysis.md) -- Trident vs. Cairo, Leo, Noir, Vyper
+- [For Developers](../tutorials/for-developers.md) -- Zero-knowledge concepts for conventional programmers
+- [For Blockchain Devs](../tutorials/for-blockchain-devs.md) -- Mental model migration from Solidity/Anchor/CosmWasm
+- [Vision](../explanation/vision.md) -- Why Trident exists and what you can build
+- [Comparative Analysis](../explanation/analysis.md) -- Trident vs. Cairo, Leo, Noir, Vyper
 
 ---
 

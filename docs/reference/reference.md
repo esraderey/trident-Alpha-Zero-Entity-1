@@ -4,8 +4,8 @@ Version 0.3 -- Definitive reference for the Trident provable-computation languag
 
 File extension: `.tri` | Compiler: `trident` | Default target: Triton VM (Goldilocks field, p = 2^64 - 2^32 + 1)
 
-For full details see [spec.md](spec.md). For a step-by-step guide see [tutorial.md](tutorial.md).
-For cost reduction strategies see [optimization.md](optimization.md). For error explanations see [errors.md](errors.md).
+For full details see [spec.md](spec.md). For a step-by-step guide see [tutorial.md](../tutorials/tutorial.md).
+For cost reduction strategies see [optimization.md](../guides/optimization.md). For error explanations see [errors.md](errors.md).
 
 ---
 
@@ -544,8 +544,8 @@ The cost table below shows Triton VM proving costs. Each instruction contributes
 rows to multiple [Triton VM](https://triton-vm.org/) tables simultaneously.
 Proving cost is determined by the **tallest** table (padded to next power of 2).
 Other targets have different cost models -- use `trident build --target <t> --costs`
-to see target-specific costs. See [How STARK Proofs Work](stark-proofs.md) Section 4
-for why there are six tables, and the [Optimization Guide](optimization.md) for
+to see target-specific costs. See [How STARK Proofs Work](../explanation/stark-proofs.md) Section 4
+for why there are six tables, and the [Optimization Guide](../guides/optimization.md) for
 strategies to reduce the dominant table.
 
 | Trident construct | TASM | Processor | Hash | U32 | OpStack | RAM |
@@ -898,16 +898,16 @@ entry = "main.tri"
 ## See Also
 
 - [Language Specification](spec.md) -- Complete language reference (sections 1-18)
-- [Tutorial](tutorial.md) -- Step-by-step developer guide
-- [Compiling a Program](compiling-a-program.md) -- Build pipeline, CLI flags, cost analysis
-- [Programming Model](programming-model.md) -- Execution model (Triton VM default)
-- [Universal Design](universal-design.md) -- Multi-target architecture and backend extensions
-- [Formal Verification](formal-verification.md) -- `#[requires]`, `#[ensures]`, `#[pure]` and the verification pipeline
-- [Content-Addressed Code](content-addressed.md) -- Function hashing, UCM codebase manager, verification caching
-- [Optimization Guide](optimization.md) -- Cost reduction strategies
-- [How STARK Proofs Work](stark-proofs.md) -- Section 4 (six tables), Section 11 (proving cost formula)
+- [Tutorial](../tutorials/tutorial.md) -- Step-by-step developer guide
+- [Compiling a Program](../guides/compiling-a-program.md) -- Build pipeline, CLI flags, cost analysis
+- [Programming Model](../explanation/programming-model.md) -- Execution model (Triton VM default)
+- [Universal Design](../explanation/universal-design.md) -- Multi-target architecture and backend extensions
+- [Formal Verification](../explanation/formal-verification.md) -- `#[requires]`, `#[ensures]`, `#[pure]` and the verification pipeline
+- [Content-Addressed Code](../explanation/content-addressed.md) -- Function hashing, UCM codebase manager, verification caching
+- [Optimization Guide](../guides/optimization.md) -- Cost reduction strategies
+- [How STARK Proofs Work](../explanation/stark-proofs.md) -- Section 4 (six tables), Section 11 (proving cost formula)
 - [Error Catalog](errors.md) -- All error messages with explanations
-- [For Developers](for-developers.md) -- Zero-knowledge concepts for conventional programmers
-- [For Blockchain Devs](for-blockchain-devs.md) -- Mental model migration from Solidity/Anchor/CosmWasm
-- [Vision](vision.md) -- Why Trident exists and what you can build
-- [Comparative Analysis](analysis.md) -- Trident vs. Cairo, Leo, Noir, Vyper
+- [For Developers](../tutorials/for-developers.md) -- Zero-knowledge concepts for conventional programmers
+- [For Blockchain Devs](../tutorials/for-blockchain-devs.md) -- Mental model migration from Solidity/Anchor/CosmWasm
+- [Vision](../explanation/vision.md) -- Why Trident exists and what you can build
+- [Comparative Analysis](../explanation/analysis.md) -- Trident vs. Cairo, Leo, Noir, Vyper

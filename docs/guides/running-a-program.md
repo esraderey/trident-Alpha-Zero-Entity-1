@@ -55,7 +55,7 @@ pub_write(result)
 
 ### No Other Channels
 
-There is nothing else. No stdin/stdout in the conventional sense, no logging, no side effects. A Trident program consumes public input and secret input, computes, and produces public output. Everything in between is hidden by the zero-knowledge property. See the [Programming Model](programming-model.md) for the full I/O table and the divine-and-authenticate pattern.
+There is nothing else. No stdin/stdout in the conventional sense, no logging, no side effects. A Trident program consumes public input and secret input, computes, and produces public output. Everything in between is hidden by the zero-knowledge property. See the [Programming Model](../explanation/programming-model.md) for the full I/O table and the divine-and-authenticate pattern.
 
 ## The Execution Model
 
@@ -69,7 +69,7 @@ Triton VM is a stack machine. Understanding the execution model helps when readi
 
 **No heap allocator.** RAM exists, but there is no `malloc`. The compiler manages RAM layout statically. Arrays and structs are placed at known addresses determined at compile time.
 
-For the full execution model, including the six constraint tables that govern proving cost, see the [Programming Model](programming-model.md).
+For the full execution model, including the six constraint tables that govern proving cost, see the [Programming Model](../explanation/programming-model.md).
 
 ## Running with Triton VM
 
@@ -267,12 +267,12 @@ The `.tasm` file is the definitive record of what will execute. If the program's
 
 ## See Also
 
-- [Tutorial](tutorial.md) -- Step-by-step guide: types, functions, modules, testing
+- [Tutorial](../tutorials/tutorial.md) -- Step-by-step guide: types, functions, modules, testing
 - [Compiling a Program](compiling-a-program.md) -- The prior stage: build pipeline and cost analysis
-- [Error Catalog](errors.md) -- All error messages explained with fixes
-- [How STARK Proofs Work](stark-proofs.md) -- Execution traces and the six constraint tables
-- [For Developers](for-developers.md) -- Zero-knowledge concepts for general developers
-- [Language Reference](reference.md) -- Types, operators, builtins, grammar
+- [Error Catalog](../reference/errors.md) -- All error messages explained with fixes
+- [How STARK Proofs Work](../explanation/stark-proofs.md) -- Execution traces and the six constraint tables
+- [For Developers](../tutorials/for-developers.md) -- Zero-knowledge concepts for general developers
+- [Language Reference](../reference/reference.md) -- Types, operators, builtins, grammar
 
 ## Next Step
 

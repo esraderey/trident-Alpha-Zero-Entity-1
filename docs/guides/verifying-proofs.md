@@ -4,7 +4,7 @@ This is the final stage of the Trident program lifecycle: Writing > Compiling > 
 
 Given a proof and the public inputs, anyone can verify that a computation was performed correctly -- in milliseconds, without re-executing the program, and without seeing the secret inputs. The original computation may have taken minutes. Verification takes the same time regardless.
 
-For how proofs are generated, see [Generating Proofs](generating-proofs.md). For the underlying proof system, see [How STARK Proofs Work](stark-proofs.md).
+For how proofs are generated, see [Generating Proofs](generating-proofs.md). For the underlying proof system, see [How STARK Proofs Work](../explanation/stark-proofs.md).
 
 ---
 
@@ -52,7 +52,7 @@ Unlike SNARK systems (Groth16, PLONK with KZG), STARK verification requires no t
 
 This is the "transparent" in STARK -- Scalable Transparent Argument of Knowledge.
 
-See [How STARK Proofs Work](stark-proofs.md), Sections 6 and 9, for the technical foundations of FRI soundness and the transparent setup.
+See [How STARK Proofs Work](../explanation/stark-proofs.md), Sections 6 and 9, for the technical foundations of FRI soundness and the transparent setup.
 
 ---
 
@@ -80,7 +80,7 @@ assert!(verdict);
 
 ### What the verifier checks
 
-Verification performs four categories of checks, as described in [How STARK Proofs Work](stark-proofs.md), Section 8:
+Verification performs four categories of checks, as described in [How STARK Proofs Work](../explanation/stark-proofs.md), Section 8:
 
 1. **Merkle root integrity.** Every authentication path in the proof hashes correctly to the committed Merkle roots.
 
@@ -140,7 +140,7 @@ Recursive verification in Triton VM costs approximately 300,000 clock cycles reg
 
 Neptune Cash uses recursive verification in production today -- aggregating transaction proofs for block validation.
 
-See [How STARK Proofs Work](stark-proofs.md), Section 12, for the full technical details of recursive verification.
+See [How STARK Proofs Work](../explanation/stark-proofs.md), Section 12, for the full technical details of recursive verification.
 
 ---
 
@@ -157,7 +157,7 @@ Each target has its own verification procedure:
 
 Currently, only the Triton VM target is implemented. When additional targets are added, each will bring its own proof format and verification API. The Trident compiler's universal core ensures that a program's semantics are preserved across targets -- a correct program on one target is correct on all targets -- but the proofs are not interchangeable between targets.
 
-See [Vision](vision.md) for the universal compilation architecture and the roadmap for additional targets.
+See [Vision](../explanation/vision.md) for the universal compilation architecture and the roadmap for additional targets.
 
 ---
 
@@ -191,7 +191,7 @@ No elliptic curves. No pairings. No discrete logarithm. Proofs generated today r
 | SP1, RISC Zero | Yes (FRI) | No (Groth16 wrapping) |
 | Aleo, Mina | No (Pasta curves) | No (Pasta curves) |
 
-See [How STARK Proofs Work](stark-proofs.md), Section 10, for the full quantum safety analysis.
+See [How STARK Proofs Work](../explanation/stark-proofs.md), Section 10, for the full quantum safety analysis.
 
 ---
 
@@ -201,7 +201,7 @@ This is the final stage. Here is the complete journey of a Trident program, from
 
 | Stage | What Happens | Guide |
 |-------|-------------|-------|
-| **1. Writing** | Author a `.tri` program with types, modules, and functions | [Tutorial](tutorial.md) |
+| **1. Writing** | Author a `.tri` program with types, modules, and functions | [Tutorial](../tutorials/tutorial.md) |
 | **2. Compiling** | `trident build` translates `.tri` to TASM assembly | [Compiling a Program](compiling-a-program.md) |
 | **3. Running** | Execute the TASM in Triton VM, producing an execution trace | [Running a Program](running-a-program.md) |
 | **4. Deploying** | Distribute the compiled program for use by provers and verifiers | [Deploying a Program](deploying-a-program.md) |
@@ -210,8 +210,8 @@ This is the final stage. Here is the complete journey of a Trident program, from
 
 ### Deep dives
 
-- [How STARK Proofs Work](stark-proofs.md) -- The full proof system: execution traces, arithmetization, FRI, Fiat-Shamir, recursive verification.
-- [Programming Model](programming-model.md) -- The Claim/Proof structure, public vs. secret input, and the divine-and-authenticate pattern.
-- [Vision](vision.md) -- Why Trident exists: quantum safety, no trusted setup, universal targets, provable programs for everyone.
-- [Language Reference](reference.md) -- Quick lookup for types, instructions, and costs.
-- [Tutorial](tutorial.md) -- Step-by-step walkthrough from hello world to Merkle proofs.
+- [How STARK Proofs Work](../explanation/stark-proofs.md) -- The full proof system: execution traces, arithmetization, FRI, Fiat-Shamir, recursive verification.
+- [Programming Model](../explanation/programming-model.md) -- The Claim/Proof structure, public vs. secret input, and the divine-and-authenticate pattern.
+- [Vision](../explanation/vision.md) -- Why Trident exists: quantum safety, no trusted setup, universal targets, provable programs for everyone.
+- [Language Reference](../reference/reference.md) -- Quick lookup for types, instructions, and costs.
+- [Tutorial](../tutorials/tutorial.md) -- Step-by-step walkthrough from hello world to Merkle proofs.

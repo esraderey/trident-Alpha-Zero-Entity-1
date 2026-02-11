@@ -34,7 +34,7 @@ This is the core value proposition of zero-knowledge computation. The prover
 does heavy work once; anyone can verify the result in milliseconds, with no
 trust in the prover required.
 
-See [How STARK Proofs Work](stark-proofs.md) for the full mathematical
+See [How STARK Proofs Work](../explanation/stark-proofs.md) for the full mathematical
 construction, from trace polynomials through FRI and Fiat-Shamir.
 
 ---
@@ -84,7 +84,7 @@ Claim {
 ```
 
 Everything else (secret inputs, RAM, stack, the trace itself) is hidden by
-the zero-knowledge property. See [Programming Model](programming-model.md)
+the zero-knowledge property. See [Programming Model](../explanation/programming-model.md)
 for the full execution model.
 
 ---
@@ -140,7 +140,7 @@ hash calls," "this loop bound is too loose").
 These three commands form a feedback loop: measure, identify, optimize, measure
 again. Use `--save-costs` and `--compare` to track improvements over time.
 
-See [How STARK Proofs Work](stark-proofs.md), Section 11, for the exact
+See [How STARK Proofs Work](../explanation/stark-proofs.md), Section 11, for the exact
 proving cost formula.
 
 ---
@@ -273,7 +273,7 @@ the padded height reduces memory proportionally.
 
 For the full mathematical details -- why proofs are this size, why verification
 is fast, why no trusted setup is needed -- see
-[How STARK Proofs Work](stark-proofs.md).
+[How STARK Proofs Work](../explanation/stark-proofs.md).
 
 ---
 

@@ -165,7 +165,7 @@ error: recursive function call detected: main -> foo -> main
   help: Trident does not allow recursion; use `for` loops instead
 ```
 
-For the complete list of every error message with explanations and fixes, see the [Error Catalog](errors.md).
+For the complete list of every error message with explanations and fixes, see the [Error Catalog](../reference/errors.md).
 
 ## Cost Analysis at Compile Time
 
@@ -173,7 +173,7 @@ Trident can estimate proving cost statically -- without executing the program. T
 
 ### The Six Triton VM Tables
 
-When targeting Triton VM, proving cost is determined by [six execution tables](stark-proofs.md). The STARK prover must pad the tallest table to the next power of two, so proving cost is dominated by whichever table is tallest:
+When targeting Triton VM, proving cost is determined by [six execution tables](../explanation/stark-proofs.md). The STARK prover must pad the tallest table to the next power of two, so proving cost is dominated by whichever table is tallest:
 
 | Table | Grows With |
 |-------|-----------|
@@ -428,14 +428,14 @@ trident test .
 
 ## See Also
 
-- [Tutorial](tutorial.md) -- Step-by-step guide: types, functions, modules, inline asm
-- [Error Catalog](errors.md) -- Every error message explained with fixes
+- [Tutorial](../tutorials/tutorial.md) -- Step-by-step guide: types, functions, modules, inline asm
+- [Error Catalog](../reference/errors.md) -- Every error message explained with fixes
 - [Optimization Guide](optimization.md) -- Cost reduction strategies for all six tables
-- [Language Reference](reference.md) -- Types, operators, builtins, grammar
-- [Programming Model](programming-model.md) -- How programs execute inside Triton VM
-- [Universal Design](universal-design.md) -- Multi-target architecture and the `--target` flag
-- [How STARK Proofs Work](stark-proofs.md) -- The six tables that determine proving cost
-- [Formal Verification](formal-verification.md) -- Verify program properties at compile time
+- [Language Reference](../reference/reference.md) -- Types, operators, builtins, grammar
+- [Programming Model](../explanation/programming-model.md) -- How programs execute inside Triton VM
+- [Universal Design](../explanation/universal-design.md) -- Multi-target architecture and the `--target` flag
+- [How STARK Proofs Work](../explanation/stark-proofs.md) -- The six tables that determine proving cost
+- [Formal Verification](../explanation/formal-verification.md) -- Verify program properties at compile time
 
 ## Next Step
 

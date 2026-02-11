@@ -542,11 +542,11 @@ checking currently requires manual unrolling or relies on the synthesizer.
 
 ## Links
 
-- [Tutorial](tutorial.md) -- getting started with Trident programs
-- [Language Reference](reference.md) -- complete syntax and type reference, including `#[pure]` and specification annotations
-- [Language Specification](spec.md) -- formal grammar and semantics
+- [Tutorial](../tutorials/tutorial.md) -- getting started with Trident programs
+- [Language Reference](../reference/reference.md) -- complete syntax and type reference, including `#[pure]` and specification annotations
+- [Language Specification](../reference/spec.md) -- formal grammar and semantics
 - [Content-Addressed Code](content-addressed.md) -- how verification results are cached and shared via content hashing
-- [Optimization Guide](optimization.md) -- cost reduction strategies (verification can identify redundant assertions)
-- [Compiling a Program](compiling-a-program.md) -- build pipeline and `--costs` flag
-- [For Developers](for-developers.md) -- zero-knowledge concepts for general developers
+- [Optimization Guide](../guides/optimization.md) -- cost reduction strategies (verification can identify redundant assertions)
+- [Compiling a Program](../guides/compiling-a-program.md) -- build pipeline and `--costs` flag
+- [For Developers](../tutorials/for-developers.md) -- zero-knowledge concepts for general developers
 - [Vision](vision.md) -- project goals and design philosophy

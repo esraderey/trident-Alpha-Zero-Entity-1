@@ -88,7 +88,7 @@ performance, or ecosystem requirements), you recompile -- you do not rewrite.
 The cryptographic guarantees are identical across targets because the same
 source code defines the same computation.
 
-For the full architecture, see the [Universal Design](universal-design.md)
+For the full architecture, see the [Universal Design](../explanation/universal-design.md)
 document. For backend extension authoring, see the `ext/` directory.
 
 ---
@@ -127,7 +127,7 @@ entire state. The prover knows the full tree; the verifier only sees the root.
 
 To read state, the prover **divines** (secretly inputs) the leaf data and then
 **authenticates** it against the root using a Merkle proof. This is the
-divine-and-authenticate pattern (see [Programming Model](programming-model.md) for the full treatment):
+divine-and-authenticate pattern (see [Programming Model](../explanation/programming-model.md) for the full treatment):
 
 ```
 // Trident — read an account from the state tree
@@ -316,7 +316,7 @@ your proving cost. This is the single most important cost concept in ZK
 programming.
 
 Cost is known at **compile time** because all loops have bounded iteration
-counts and there is no dynamic dispatch. See [How STARK Proofs Work](stark-proofs.md) Section 4 for why there are exactly six tables, and the [Optimization Guide](optimization.md) for cost reduction strategies.
+counts and there is no dynamic dispatch. See [How STARK Proofs Work](../explanation/stark-proofs.md) Section 4 for why there are exactly six tables, and the [Optimization Guide](../guides/optimization.md) for cost reduction strategies.
 
 ```bash
 # See the cost breakdown
@@ -787,12 +787,12 @@ All cryptographic security in Triton VM comes from
 [FRI](https://eccc.weizmann.ac.il/report/2017/134/) commitments.
 No elliptic curves anywhere. No secp256k1, no BN254, no BLS12-381. This
 means proofs are resistant to quantum attacks without any migration needed.
-See [How STARK Proofs Work](stark-proofs.md) Section 10 for the full
+See [How STARK Proofs Work](../explanation/stark-proofs.md) Section 10 for the full
 quantum safety argument.
 
 In contrast, every EVM chain's security (transaction signatures, precompiles,
 validator keys) depends on elliptic curves that a sufficiently powerful quantum
-computer could break. See [Comparative Analysis](analysis.md) for how every
+computer could break. See [Comparative Analysis](../explanation/analysis.md) for how every
 major ZK system scores on quantum safety.
 
 ---
@@ -916,19 +916,19 @@ types, functions, modules, I/O, hashing, events, testing, and cost analysis.
 ### Trident documentation
 
 - [Tutorial](tutorial.md) -- Step-by-step Trident developer guide
-- [Language Reference](reference.md) -- Quick lookup: types, operators, builtins, grammar
-- [Language Specification](spec.md) -- Complete language reference
-- [Deploying a Program](deploying-a-program.md) -- Neptune UTXO scripts, lock/type scripts, multi-target deployment
-- [Gold Standard Libraries](gold-standard.md) -- Token standards (TSP-1/TSP-2), bridge clients, crypto gadgets
-- [Programming Model](programming-model.md) -- How programs run in Triton VM
-- [Optimization Guide](optimization.md) -- Cost reduction strategies
-- [Universal Design](universal-design.md) -- Multi-target architecture: universal core, backend extensions
-- [Formal Verification](formal-verification.md) -- Prove properties of your contracts, find bugs before deployment
-- [How STARK Proofs Work](stark-proofs.md) -- From execution traces to quantum-safe proofs
+- [Language Reference](../reference/reference.md) -- Quick lookup: types, operators, builtins, grammar
+- [Language Specification](../reference/spec.md) -- Complete language reference
+- [Deploying a Program](../guides/deploying-a-program.md) -- Neptune UTXO scripts, lock/type scripts, multi-target deployment
+- [Gold Standard Libraries](../explanation/gold-standard.md) -- Token standards (TSP-1/TSP-2), bridge clients, crypto gadgets
+- [Programming Model](../explanation/programming-model.md) -- How programs run in Triton VM
+- [Optimization Guide](../guides/optimization.md) -- Cost reduction strategies
+- [Universal Design](../explanation/universal-design.md) -- Multi-target architecture: universal core, backend extensions
+- [Formal Verification](../explanation/formal-verification.md) -- Prove properties of your contracts, find bugs before deployment
+- [How STARK Proofs Work](../explanation/stark-proofs.md) -- From execution traces to quantum-safe proofs
 - [For Developers](for-developers.md) -- Zero-knowledge from scratch (if you also need the ZK primer)
-- [Error Catalog](errors.md) -- All compiler error messages explained
-- [Vision](vision.md) -- Why Trident exists and what you can build
-- [Comparative Analysis](analysis.md) -- Triton VM vs. every other ZK system
+- [Error Catalog](../reference/errors.md) -- All compiler error messages explained
+- [Vision](../explanation/vision.md) -- Why Trident exists and what you can build
+- [Comparative Analysis](../explanation/analysis.md) -- Triton VM vs. every other ZK system
 
 ### External resources
 

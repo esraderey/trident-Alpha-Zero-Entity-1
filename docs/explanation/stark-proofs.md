@@ -16,7 +16,7 @@ It covers the full pipeline: how an execution trace becomes a polynomial,
 how polynomials become commitments, how commitments become a proof, and
 why that proof is secure against both classical and quantum adversaries.
 
-For a quick overview, see [What Is a STARK?](for-developers.md#8-what-is-a-stark)
+For a quick overview, see [What Is a STARK?](../tutorials/for-developers.md#8-what-is-a-stark)
 in the developer guide.
 
 ---
@@ -288,8 +288,8 @@ In this example, the Processor and Op Stack tables are both 3,847 rows, but
 the padded height is 4,096. If a small code change pushed any table past
 4,096, the padded height would jump to 8,192 -- doubling proving time.
 
-Cross-reference: [spec.md](spec.md) Section 12 for the full cost model,
-[optimization.md](optimization.md) for strategies to reduce table heights.
+Cross-reference: [spec.md](../reference/spec.md) Section 12 for the full cost model,
+[optimization.md](../guides/optimization.md) for strategies to reduce table heights.
 
 ---
 
@@ -357,7 +357,7 @@ field elements and produces a 5-element Digest. In Triton VM, this costs
 setup row. Compare this to SHA-256 in a RISC-V zkVM, which costs thousands
 of cycles for the same operation.
 
-Cross-reference: [for-developers.md](for-developers.md) Section 7 for
+Cross-reference: [for-developers.md](../tutorials/for-developers.md) Section 7 for
 Merkle tree basics.
 
 ---
@@ -574,7 +574,7 @@ evaluations). It performs four categories of checks:
 
 - **Prover time**: depends on padded height. See Section 11.
 
-Cross-reference: [for-developers.md](for-developers.md) Section 9 for the
+Cross-reference: [for-developers.md](../tutorials/for-developers.md) Section 9 for the
 CLI walkthrough of build, prove, and verify.
 
 ---
@@ -787,8 +787,8 @@ The cost of a single hash operation varies dramatically across ZK systems:
 For hash-heavy workloads -- Merkle tree operations, sponge hashing, content
 addressing -- this difference dominates total proving cost.
 
-Cross-reference: [spec.md](spec.md) Section 12 for the complete cost model,
-[optimization.md](optimization.md) for cost reduction strategies.
+Cross-reference: [spec.md](../reference/spec.md) Section 12 for the complete cost model,
+[optimization.md](../guides/optimization.md) for cost reduction strategies.
 
 ---
 
@@ -869,7 +869,7 @@ a working recursive verifier running in production today.
   single proof growing larger.
 
 Cross-reference: [vision.md](vision.md) "Recursive STARK Verification",
-[spec.md](spec.md) Sections 8.4 and 13.4.
+[spec.md](../reference/spec.md) Sections 8.4 and 13.4.
 
 ---
 
@@ -906,13 +906,13 @@ Cross-reference: [vision.md](vision.md) "Recursive STARK Verification",
 
 ### Triton VM and Trident documentation
 
-- [Tutorial](tutorial.md) -- Step-by-step guide from hello world to Merkle
+- [Tutorial](../tutorials/tutorial.md) -- Step-by-step guide from hello world to Merkle
   proofs, cost analysis, and inline assembly.
 
-- [Language Reference](reference.md) -- Quick lookup: cost-per-instruction
+- [Language Reference](../reference/reference.md) -- Quick lookup: cost-per-instruction
   table (Section 7) maps every construct to its table impact.
 
-- [Language Specification](spec.md) -- Section 12 covers cost computation in
+- [Language Specification](../reference/spec.md) -- Section 12 covers cost computation in
   full detail. Section 8.4 covers extension-field dot products. Section 13.4
   gives the recursive verifier sketch.
 
@@ -920,22 +920,22 @@ Cross-reference: [vision.md](vision.md) "Recursive STARK Verification",
   inside Triton VM. The Claim/Proof structure, public vs. secret input, and
   the divine-and-authenticate pattern.
 
-- [Optimization Guide](optimization.md) -- Strategies for reducing table
+- [Optimization Guide](../guides/optimization.md) -- Strategies for reducing table
   heights and avoiding power-of-2 cliffs. Essential reading after
   understanding the cost model.
 
-- [Error Catalog](errors.md) -- All compiler error messages explained, with
+- [Error Catalog](../reference/errors.md) -- All compiler error messages explained, with
   links back to relevant concepts.
 
 - [Comparative Analysis](analysis.md) -- Triton VM compared to every other
   ZK system: StarkWare, SP1, RISC Zero, Aleo, Mina, NockVM. Covers quantum
   safety, privacy, performance, and ecosystem strength.
 
-- [For Developers](for-developers.md) -- The beginner-friendly introduction.
+- [For Developers](../tutorials/for-developers.md) -- The beginner-friendly introduction.
   Section 8 gives a one-page STARK overview. Section 9 walks through the
   build-prove-verify CLI workflow.
 
-- [For Blockchain Devs](for-blockchain-devs.md) -- Mental model migration
+- [For Blockchain Devs](../tutorials/for-blockchain-devs.md) -- Mental model migration
   from Solidity/Anchor/CosmWasm. See "Where's My Gas?" for the cost model
   from a smart contract perspective.
 
@@ -943,10 +943,10 @@ Cross-reference: [vision.md](vision.md) "Recursive STARK Verification",
   safety, recursive verification -- matter for real infrastructure intended
   to last decades.
 
-- [Generating Proofs](generating-proofs.md) -- Practical guide: execution
+- [Generating Proofs](../guides/generating-proofs.md) -- Practical guide: execution
   trace to STARK proof, cost optimization, recursive composition.
 
-- [Verifying Proofs](verifying-proofs.md) -- Proof checking, on-chain
+- [Verifying Proofs](../guides/verifying-proofs.md) -- Proof checking, on-chain
   verification, quantum safety properties.
 
 - [Formal Verification](formal-verification.md) -- Symbolic verification

@@ -470,14 +470,14 @@ The risk is real: a 3-person team, a $0.57 token, an inflation bug in history, a
 
 - [How STARK Proofs Work](stark-proofs.md) -- The proof system Triton VM uses, explained from first principles
 - [Vision](vision.md) -- Why Trident exists: quantum safety, cost transparency, recursive verification
-- [Language Specification](spec.md) -- Appendix B has the language-level comparison table
-- [Language Reference](reference.md) -- Quick lookup for the Trident language
+- [Language Specification](../reference/spec.md) -- Appendix B has the language-level comparison table
+- [Language Reference](../reference/reference.md) -- Quick lookup for the Trident language
 - [Programming Model](programming-model.md) -- Triton VM execution model and Neptune transaction model
-- [Optimization Guide](optimization.md) -- The six-table cost model in practice
-- [Error Catalog](errors.md) -- All compiler error messages explained
-- [Tutorial](tutorial.md) -- Start building on the system this analysis recommends
-- [For Developers](for-developers.md) -- Zero-knowledge concepts for conventional programmers
-- [For Blockchain Devs](for-blockchain-devs.md) -- Mental model migration from smart contract platforms
+- [Optimization Guide](../guides/optimization.md) -- The six-table cost model in practice
+- [Error Catalog](../reference/errors.md) -- All compiler error messages explained
+- [Tutorial](../tutorials/tutorial.md) -- Start building on the system this analysis recommends
+- [For Developers](../tutorials/for-developers.md) -- Zero-knowledge concepts for conventional programmers
+- [For Blockchain Devs](../tutorials/for-blockchain-devs.md) -- Mental model migration from smart contract platforms
 
 ---
 

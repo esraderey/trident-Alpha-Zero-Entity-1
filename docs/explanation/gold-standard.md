@@ -20,7 +20,7 @@
 | **COMPASS** (Oracle) | Design only | Specified below, not yet implemented |
 | **Hook library** | Design only | Architecture specified, hooks not yet codified |
 
-See the [Tutorial](tutorial.md) for language basics, [Programming Model](programming-model.md) for the Neptune transaction model, and [Deploying a Program](deploying-a-program.md) for deployment workflows.
+See the [Tutorial](../tutorials/tutorial.md) for language basics, [Programming Model](programming-model.md) for the Neptune transaction model, and [Deploying a Program](../guides/deploying-a-program.md) for deployment workflows.
 
 ---
 

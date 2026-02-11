@@ -442,12 +442,12 @@ end-to-end proving and verification.
 
 ## Links
 
-- [Tutorial](tutorial.md) -- getting started, including `asm(triton)` blocks
-- [Language Reference](reference.md) -- complete syntax and semantics
-- [Language Specification](spec.md) -- formal grammar and type rules
-- [Compiling a Program](compiling-a-program.md) -- `--target` flag and build pipeline
+- [Tutorial](../tutorials/tutorial.md) -- getting started, including `asm(triton)` blocks
+- [Language Reference](../reference/reference.md) -- complete syntax and semantics
+- [Language Specification](../reference/spec.md) -- formal grammar and type rules
+- [Compiling a Program](../guides/compiling-a-program.md) -- `--target` flag and build pipeline
 - [Programming Model](programming-model.md) -- bounded execution, cost transparency, auditability
 - [Content-Addressed Code](content-addressed.md) -- how target-independent hashing works
 - [Comparative Analysis](analysis.md) -- proving cost estimation and zkVM comparison
-- [For Developers](for-developers.md) -- portability concepts for general developers
+- [For Developers](../tutorials/for-developers.md) -- portability concepts for general developers
 - [Vision](vision.md) -- long-term direction for Trident

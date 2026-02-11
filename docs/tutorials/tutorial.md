@@ -1,8 +1,8 @@
 # Trident Tutorial
 
-This is the first stage of the Trident program lifecycle: **Writing** > [Compiling](compiling-a-program.md) > [Running](running-a-program.md) > [Deploying](deploying-a-program.md) > [Generating Proofs](generating-proofs.md) > [Verifying Proofs](verifying-proofs.md).
+This is the first stage of the Trident program lifecycle: **Writing** > [Compiling](../guides/compiling-a-program.md) > [Running](../guides/running-a-program.md) > [Deploying](../guides/deploying-a-program.md) > [Generating Proofs](../guides/generating-proofs.md) > [Verifying Proofs](../guides/verifying-proofs.md).
 
-This tutorial covers everything you need to write a valid Trident program -- file structure, types, control flow, functions, modules, and the key differences from conventional languages. For a complete lookup table, see the [Reference](reference.md). For a formal treatment, see the [Language Specification](spec.md).
+This tutorial covers everything you need to write a valid Trident program -- file structure, types, control flow, functions, modules, and the key differences from conventional languages. For a complete lookup table, see the [Reference](../reference/reference.md). For a formal treatment, see the [Language Specification](../reference/spec.md).
 
 ---
 
@@ -33,7 +33,7 @@ fn main() {
 }
 ```
 
-This program reads two public field elements, adds them, and writes the result. The verifier sees both inputs and the output. For a deeper explanation of how public I/O interacts with the prover and verifier, see the [Programming Model](programming-model.md).
+This program reads two public field elements, adds them, and writes the result. The verifier sees both inputs and the output. For a deeper explanation of how public I/O interacts with the prover and verifier, see the [Programming Model](../explanation/programming-model.md).
 
 Build it:
 
@@ -41,7 +41,7 @@ Build it:
 trident build hello.tri --target triton -o hello.tasm
 ```
 
-This compiles Trident source to [TASM](https://triton-vm.org/spec/) (Triton Assembly) -- the instruction set of [Triton VM](https://triton-vm.org/). The output `hello.tasm` is what the VM executes and proves. See [Compiling a Program](compiling-a-program.md) for the full build pipeline.
+This compiles Trident source to [TASM](https://triton-vm.org/spec/) (Triton Assembly) -- the instruction set of [Triton VM](https://triton-vm.org/). The output `hello.tasm` is what the VM executes and proves. See [Compiling a Program](../guides/compiling-a-program.md) for the full build pipeline.
 
 Check it (type-check without emitting TASM):
 
@@ -91,7 +91,7 @@ my_project/
 
 ## 3. Types
 
-All types have compile-time known widths measured in field elements. There are no dynamically sized types. See the [Reference](reference.md) for the complete type table, operators, and cost per instruction.
+All types have compile-time known widths measured in field elements. There are no dynamically sized types. See the [Reference](../reference/reference.md) for the complete type table, operators, and cost per instruction.
 
 | Type | Width | Description |
 |------|------:|-------------|
@@ -150,7 +150,7 @@ let m: U32 = n + n
 
 ### XField
 
-Extension field element (3 base field elements). Used for [FRI](https://eccc.weizmann.ac.il/report/2017/134/) and IPA operations. See [How STARK Proofs Work](stark-proofs.md) for where extension fields appear in the proof system.
+Extension field element (3 base field elements). Used for [FRI](https://eccc.weizmann.ac.il/report/2017/134/) and IPA operations. See [How STARK Proofs Work](../explanation/stark-proofs.md) for where extension fields appear in the proof system.
 
 ```
 let x: XField = std.core.xfield.new(1, 0, 0)
@@ -317,7 +317,7 @@ let equal: Bool = a == b       // Field or U32
 let less: Bool = x < y         // U32 only
 ```
 
-There are no `!=`, `>`, `<=`, or `>=` operators. Compose them from `==`, `<`, and `not()`. There are no `&&` or `||` -- use boolean combinators from `std.core.bool`. This is deliberate: fewer operators means fewer things to audit in provable code. See the [Reference](reference.md) for the full operator table and per-instruction costs.
+There are no `!=`, `>`, `<=`, or `>=` operators. Compose them from `==`, `<`, and `not()`. There are no `&&` or `||` -- use boolean combinators from `std.core.bool`. This is deliberate: fewer operators means fewer things to audit in provable code. See the [Reference](../reference/reference.md) for the full operator table and per-instruction costs.
 
 ---
 
@@ -363,7 +363,7 @@ for i in 0..10 bounded 10 {
 }
 ```
 
-**Why bounds are required.** Provable VMs execute a fixed-length trace. The prover must know the worst-case iteration count before execution begins. The `bounded N` annotation declares this maximum. The compiler uses the bound -- not the runtime count -- to compute proving cost, so `bounded 100` always costs 100 iterations in the trace even if the loop exits earlier. See [How STARK Proofs Work](stark-proofs.md) Section 11 for the proving time formula, and the [Optimization Guide](optimization.md) for strategies to choose good bounds.
+**Why bounds are required.** Provable VMs execute a fixed-length trace. The prover must know the worst-case iteration count before execution begins. The `bounded N` annotation declares this maximum. The compiler uses the bound -- not the runtime count -- to compute proving cost, so `bounded 100` always costs 100 iterations in the trace even if the loop exits earlier. See [How STARK Proofs Work](../explanation/stark-proofs.md) Section 11 for the proving time formula, and the [Optimization Guide](../guides/optimization.md) for strategies to choose good bounds.
 
 Dynamic ranges work with `bounded`:
 
@@ -525,7 +525,7 @@ fn square(x: Field) -> Field {
 }
 ```
 
-The compiler enforces the constraint: calling any I/O function inside a `#[pure]` function is a compile error. Pure functions enable more aggressive reasoning in [formal verification](formal-verification.md) and may unlock additional compiler optimizations.
+The compiler enforces the constraint: calling any I/O function inside a `#[pure]` function is a compile error. Pure functions enable more aggressive reasoning in [formal verification](../explanation/formal-verification.md) and may unlock additional compiler optimizations.
 
 ---
 
@@ -572,7 +572,7 @@ The standard library is organized in three universal layers plus backend extensi
 
 The `std.*` modules are target-agnostic and work across all backends. The `ext.triton.*` modules are available only when compiling with `--target triton` (the default). Importing an `ext.*` module while targeting a different backend is a compile error.
 
-See the [Reference](reference.md) for a complete list of standard library functions, and the [Programming Model](programming-model.md) for how I/O interacts with the prover and verifier.
+See the [Reference](../reference/reference.md) for a complete list of standard library functions, and the [Programming Model](../explanation/programming-model.md) for how I/O interacts with the prover and verifier.
 
 ---
 
@@ -612,7 +612,7 @@ std.core.assert.digest(claimed_root, actual_root)
 
 ## 11. Hashing and Merkle Proofs
 
-[Tip5](https://eprint.iacr.org/2023/107) is Triton VM's native algebraic hash function (see [How STARK Proofs Work](stark-proofs.md) Section 5 for why this hash matters for proofs). It always takes exactly 10 field elements as input and produces a 5-element Digest. Pad unused inputs with zeros:
+[Tip5](https://eprint.iacr.org/2023/107) is Triton VM's native algebraic hash function (see [How STARK Proofs Work](../explanation/stark-proofs.md) Section 5 for why this hash matters for proofs). It always takes exactly 10 field elements as input and produces a 5-element Digest. Pad unused inputs with zeros:
 
 ```
 use std.crypto.hash
@@ -633,7 +633,7 @@ fn hash_stream() -> Digest {
 }
 ```
 
-Merkle proofs are built from Tip5 hashes. See `std.crypto.merkle` in the [Reference](reference.md) for the Merkle authentication API.
+Merkle proofs are built from Tip5 hashes. See `std.crypto.merkle` in the [Reference](../reference/reference.md) for the Merkle authentication API.
 
 ---
 
@@ -679,7 +679,7 @@ fn pay_private(sender: Digest, receiver: Digest, value: Field) {
 }
 ```
 
-Use `emit` for public audit trails. Use `seal` when field values must remain private but their commitment must be verifiable. For how events fit into the Neptune transaction model, see the [Programming Model](programming-model.md).
+Use `emit` for public audit trails. Use `seal` when field values must remain private but their commitment must be verifiable. For how events fit into the Neptune transaction model, see the [Programming Model](../explanation/programming-model.md).
 
 ---
 
@@ -705,7 +705,7 @@ Run tests:
 trident test main.tri
 ```
 
-Test functions are excluded from production builds. See the [Error Catalog](errors.md) for all assertion failure messages.
+Test functions are excluded from production builds. See the [Error Catalog](../reference/errors.md) for all assertion failure messages.
 
 ---
 
@@ -737,7 +737,7 @@ trident build main.tri --target triton --save-costs baseline.json
 trident build main.tri --target triton --compare baseline.json
 ```
 
-See the [Optimization Guide](optimization.md) for strategies to reduce proving cost, and [How STARK Proofs Work](stark-proofs.md) Section 11 for the proving time formula.
+See the [Optimization Guide](../guides/optimization.md) for strategies to reduce proving cost, and [How STARK Proofs Work](../explanation/stark-proofs.md) Section 11 for the proving time formula.
 
 ---
 
@@ -779,7 +779,7 @@ flags = ["testnet", "debug"]
 
 ## 16. Inline Assembly
 
-For operations not covered by the language, embed raw [TASM](https://triton-vm.org/spec/) instructions in `asm` blocks. See the [Reference](reference.md) for the full TASM instruction set mapping.
+For operations not covered by the language, embed raw [TASM](https://triton-vm.org/spec/) instructions in `asm` blocks. See the [Reference](../reference/reference.md) for the full TASM instruction set mapping.
 
 ### Basic Form
 
@@ -823,7 +823,7 @@ Named variables in scope are spilled to RAM before the block executes and restor
 
 ## 17. Key Differences from Conventional Languages
 
-These are not limitations -- they are properties required for provable computation. For a deeper explanation, see the [Programming Model](programming-model.md). For zero-knowledge concepts explained from first principles, see [ZK Concepts for Developers](for-developers.md). For migration from smart-contract languages, see [For Blockchain Devs](for-blockchain-devs.md).
+These are not limitations -- they are properties required for provable computation. For a deeper explanation, see the [Programming Model](../explanation/programming-model.md). For zero-knowledge concepts explained from first principles, see [ZK Concepts for Developers](for-developers.md). For migration from smart-contract languages, see [For Blockchain Devs](for-blockchain-devs.md).
 
 | Conventional expectation | Trident | Why |
 |--------------------------|---------|-----|
@@ -843,18 +843,18 @@ These constraints make every Trident program a fixed, bounded computation -- exa
 
 ## Next Steps
 
-- [Language Reference](reference.md) -- Quick lookup for types, operators, builtins, and grammar
-- [Language Specification](spec.md) -- Complete formal reference for all language constructs
-- [Programming Model](programming-model.md) -- How programs run (currently targeting [Triton VM](https://triton-vm.org/)) and the Neptune transaction model
-- [Compiling a Program](compiling-a-program.md) -- Next lifecycle stage: build targets, output formats, and optimization flags
-- [Optimization Guide](optimization.md) -- Strategies to reduce proving cost
-- [How STARK Proofs Work](stark-proofs.md) -- The proof system behind every Trident program
-- [Error Catalog](errors.md) -- All error messages explained
-- [Formal Verification](formal-verification.md) -- `#[requires]`, `#[ensures]`, `#[invariant]`, and `#[pure]`
+- [Language Reference](../reference/reference.md) -- Quick lookup for types, operators, builtins, and grammar
+- [Language Specification](../reference/spec.md) -- Complete formal reference for all language constructs
+- [Programming Model](../explanation/programming-model.md) -- How programs run (currently targeting [Triton VM](https://triton-vm.org/)) and the Neptune transaction model
+- [Compiling a Program](../guides/compiling-a-program.md) -- Next lifecycle stage: build targets, output formats, and optimization flags
+- [Optimization Guide](../guides/optimization.md) -- Strategies to reduce proving cost
+- [How STARK Proofs Work](../explanation/stark-proofs.md) -- The proof system behind every Trident program
+- [Error Catalog](../reference/errors.md) -- All error messages explained
+- [Formal Verification](../explanation/formal-verification.md) -- `#[requires]`, `#[ensures]`, `#[invariant]`, and `#[pure]`
 - [For Developers](for-developers.md) -- Zero-knowledge concepts explained for conventional programmers
 - [For Blockchain Devs](for-blockchain-devs.md) -- Mental model migration from Solidity/Anchor/CosmWasm
-- [Content-Addressed Code](content-addressed.md) -- Content-addressed code and the UCM model
-- [Vision](vision.md) -- Why Trident exists and what you can build
-- [Comparative Analysis](analysis.md) -- Triton VM vs. every other ZK system
+- [Content-Addressed Code](../explanation/content-addressed.md) -- Content-addressed code and the UCM model
+- [Vision](../explanation/vision.md) -- Why Trident exists and what you can build
+- [Comparative Analysis](../explanation/analysis.md) -- Triton VM vs. every other ZK system
 - [Triton VM specification](https://triton-vm.org/spec/) -- Target VM instruction set
 - [tasm-lib](https://github.com/TritonVM/tasm-lib) -- Reusable TASM snippets

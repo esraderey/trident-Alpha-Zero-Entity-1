@@ -30,7 +30,7 @@ run: as transaction validation logic on a blockchain, as a verifiable
 computation in an off-chain system, or as a library that other programs
 reference by hash.
 
-For background on the execution model, see [Programming Model](programming-model.md).
+For background on the execution model, see [Programming Model](../explanation/programming-model.md).
 
 ---
 
@@ -106,9 +106,9 @@ The relevant standard library modules for Neptune deployment:
 | `std.crypto.auth` | Hash-lock authentication patterns |
 | `std.crypto.merkle` | Merkle proof verification |
 
-For the full Neptune programming model, see [Programming Model](programming-model.md).
+For the full Neptune programming model, see [Programming Model](../explanation/programming-model.md).
 For the blockchain developer mental model, see
-[For Blockchain Devs](for-blockchain-devs.md).
+[For Blockchain Devs](../tutorials/for-blockchain-devs.md).
 
 ---
 
@@ -164,8 +164,8 @@ trident build program.tri --target triton -o program.tasm
 trident build program.tri --target miden -o program.masm
 ```
 
-For the full multi-target design, see [Vision](vision.md) and
-[Universal Design](universal-design.md).
+For the full multi-target design, see [Vision](../explanation/vision.md) and
+[Universal Design](../explanation/universal-design.md).
 
 ---
 
@@ -299,7 +299,7 @@ Every Trident function is identified by its BLAKE3 content hash. This means
 deployments are reproducible: the same source always compiles to the same
 artifact with the same hash. The `trident hash` command computes a program's
 content hash, and the `trident ucm` codebase manager tracks definitions by
-hash. See [Content-Addressed Code](content-addressed.md) for details.
+hash. See [Content-Addressed Code](../explanation/content-addressed.md) for details.
 
 ### Token Standards
 

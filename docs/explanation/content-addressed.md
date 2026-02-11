@@ -573,10 +573,10 @@ itself.
 
 ## 8. Links
 
-- [Tutorial](tutorial.md) -- Getting started with Trident, including first use of `trident hash` and `trident ucm`
+- [Tutorial](../tutorials/tutorial.md) -- Getting started with Trident, including first use of `trident hash` and `trident ucm`
 - [Formal Verification](formal-verification.md) -- How verification works, including how results are cached by content hash
-- [Language Reference](reference.md) -- Complete language syntax, types, and built-in functions
-- [Deploying a Program](deploying-a-program.md) -- Deployment by content hash, on-chain registry
+- [Language Reference](../reference/reference.md) -- Complete language syntax, types, and built-in functions
+- [Deploying a Program](../guides/deploying-a-program.md) -- Deployment by content hash, on-chain registry
 - [Universal Design](universal-design.md) -- Multi-target architecture and how hashes relate to backends
-- [Language Specification](spec.md) -- Formal hash computation rules
+- [Language Specification](../reference/spec.md) -- Formal hash computation rules
 - [Vision](vision.md) -- The broader vision for content-addressed provable computation

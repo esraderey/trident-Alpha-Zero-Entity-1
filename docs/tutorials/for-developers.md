@@ -323,7 +323,7 @@ Key properties that matter for you as a developer:
 
 For the full technical picture -- arithmetization, polynomial commitments,
 FRI folding, and how it all connects to Triton VM's six execution tables --
-see [How STARK Proofs Work](stark-proofs.md).
+see [How STARK Proofs Work](../explanation/stark-proofs.md).
 
 ---
 
@@ -620,28 +620,28 @@ target that supports the same feature set.
 
 - [Tutorial](tutorial.md) -- Step-by-step guide: types, functions, modules,
   I/O, hashing, events, testing, cost analysis
-- [Language Reference](reference.md) -- Quick lookup: types, operators,
+- [Language Reference](../reference/reference.md) -- Quick lookup: types, operators,
   builtins, grammar, CLI flags
-- [Language Specification](spec.md) -- Complete reference for all language
+- [Language Specification](../reference/spec.md) -- Complete reference for all language
   constructs, the type system, module system, grammar, and cost model
-- [Programming Model](programming-model.md) -- How programs run inside Triton
+- [Programming Model](../explanation/programming-model.md) -- How programs run inside Triton
   VM, the Neptune blockchain model, script types, and data flow
-- [Optimization Guide](optimization.md) -- Strategies for reducing proving
+- [Optimization Guide](../guides/optimization.md) -- Strategies for reducing proving
   cost across all six Triton VM tables
-- [Error Catalog](errors.md) -- Every compiler error message explained with
+- [Error Catalog](../reference/errors.md) -- Every compiler error message explained with
   fixes
 - [For Blockchain Devs](for-blockchain-devs.md) -- If you come from Solidity,
   Anchor, or CosmWasm, start here instead
-- [Compiling a Program](compiling-a-program.md) -- Build pipeline, cost
+- [Compiling a Program](../guides/compiling-a-program.md) -- Build pipeline, cost
   analysis, and error handling
-- [Formal Verification](formal-verification.md) -- Prove program properties
+- [Formal Verification](../explanation/formal-verification.md) -- Prove program properties
   for all inputs via symbolic execution and SMT
-- [Content-Addressed Code](content-addressed.md) -- Poseidon2 hashing, UCM
+- [Content-Addressed Code](../explanation/content-addressed.md) -- Poseidon2 hashing, UCM
   codebase manager, verification caching
-- [Universal Design](universal-design.md) -- Multi-target architecture,
+- [Universal Design](../explanation/universal-design.md) -- Multi-target architecture,
   backend extensions, and the universal core
-- [Vision](vision.md) -- Why Trident exists and what you can build with it
-- [Comparative Analysis](analysis.md) -- Triton VM vs. every other ZK system
+- [Vision](../explanation/vision.md) -- Why Trident exists and what you can build with it
+- [Comparative Analysis](../explanation/analysis.md) -- Triton VM vs. every other ZK system
 
 ### External resources
 
@@ -658,7 +658,7 @@ target that supports the same feature set.
   proximity proof at the heart of STARKs
 - [Goldilocks prime](https://xn--2-umb.com/22/goldilocks/) -- Why
   `2^64 - 2^32 + 1`
-- [How STARK Proofs Work](stark-proofs.md) -- Deep dive into the proof
+- [How STARK Proofs Work](../explanation/stark-proofs.md) -- Deep dive into the proof
   system underlying Triton VM
 - [Vyper](https://docs.vyperlang.org/) -- The language philosophy that inspired
   Trident's "deliberate limitation" approach
