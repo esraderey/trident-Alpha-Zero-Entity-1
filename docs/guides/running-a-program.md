@@ -271,7 +271,7 @@ The `.tasm` file is the definitive record of what will execute. If the program's
 - [Compiling a Program](compiling-a-program.md) -- The prior stage: build pipeline and cost analysis
 - [Error Catalog](../reference/errors.md) -- All error messages explained with fixes
 - [How STARK Proofs Work](../explanation/stark-proofs.md) -- Execution traces and the six constraint tables
-- [For Developers](../tutorials/for-developers.md) -- Zero-knowledge concepts for general developers
+- [For Developers](../explanation/for-developers.md) -- Zero-knowledge concepts for general developers
 - [Language Reference](../reference/language.md) -- Types, operators, builtins, grammar
 
 ## Next Step

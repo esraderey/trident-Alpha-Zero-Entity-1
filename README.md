@@ -295,8 +295,8 @@ Full index: [docs/README.md](docs/README.md)
 ### Tutorials (learning-oriented)
 
 - [Tutorial](docs/tutorials/tutorial.md) — Build your first program step by step
-- [For Developers](docs/tutorials/for-developers.md) — Zero-knowledge from scratch
-- [For Blockchain Devs](docs/tutorials/for-blockchain-devs.md) — From Solidity/Anchor/CosmWasm
+- [For Developers](docs/explanation/for-developers.md) — Zero-knowledge from scratch
+- [For Blockchain Devs](docs/explanation/for-blockchain-devs.md) — From Solidity/Anchor/CosmWasm
 
 ### How-to Guides (task-oriented)
 

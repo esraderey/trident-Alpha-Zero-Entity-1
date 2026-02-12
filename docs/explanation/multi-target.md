@@ -799,5 +799,5 @@ end-to-end proving and verification.
 - [Content-Addressed Code](content-addressing.md) — How target-independent hashing works
 - [Comparative Analysis](provable-computing.md) — Proving cost estimation and zkVM comparison
 - [Compiling a Program](../guides/compiling-a-program.md) — `--target` flag and build pipeline
-- [For Developers](../tutorials/for-developers.md) — Portability concepts for general developers
+- [For Developers](for-developers.md) — Portability concepts for general developers
 - [Vision](vision.md) — Long-term direction for Trident

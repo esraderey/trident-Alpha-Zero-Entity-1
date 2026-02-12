@@ -7,16 +7,27 @@ tutorials, how-to guides, reference, and explanation.
 
 ---
 
-## Tutorials (learning-oriented)
+## Tutorials: learning-oriented
+
+**The Builder's Journey** — six chapters that build one complete private
+application, from a four-line proof to a sovereign DAO.
+
+| # | Document | You Build |
+|---|----------|-----------|
+| 1 | [Prove a Secret](tutorials/hello-proof.md) | A hash-locked proof — the primitive behind everything else |
+| 2 | [Build a Coin](tutorials/build-a-coin.md) | A private token with pay, mint, and burn |
+| 3 | [Build a Name Service](tutorials/build-a-name.md) | An ENS-like registry of unique assets |
+| 4 | [Build a Liquidity Strategy](tutorials/build-a-strategy.md) | A constant-product AMM for TIDE |
+| 5 | [Auction Names with Hidden Bids](tutorials/build-an-auction.md) | A Vickrey auction — sealed bids, honest pricing |
+| 6 | [Upgrade to a DAO](tutorials/build-a-dao.md) | Private coin-weighted voting that governs the name service |
+
+**Foundations**
 
 | Document | Description |
 |----------|-------------|
-| [Tutorial](tutorials/tutorial.md) | Build your first program step by step |
-| [For Developers](tutorials/for-developers.md) | Zero-knowledge from scratch |
-| [For Blockchain Devs](tutorials/for-blockchain-devs.md) | Mental model migration from Solidity/Anchor/CosmWasm |
-| [Prompt Templates](tutorials/prompts.md) | AI-assisted development prompts |
+| [Tutorial](tutorials/tutorial.md) | Language walkthrough — types, functions, modules, inline asm |
 
-## How-to Guides (task-oriented)
+## Guides: task-oriented
 
 | Document | Description |
 |----------|-------------|
@@ -27,8 +38,9 @@ tutorials, how-to guides, reference, and explanation.
 | [Generating Proofs](guides/generating-proofs.md) | Execution trace to STARK proof |
 | [Verifying Proofs](guides/verifying-proofs.md) | Proof checking, on-chain verification |
 | [Optimization](guides/optimization.md) | Cost reduction strategies |
+| [Prompt Templates](guides/prompts.md) | AI-assisted development prompts |
 
-## Reference (information-oriented)
+## Reference: information-oriented
 
 | Document | Description |
 |----------|-------------|
@@ -48,7 +60,7 @@ Per-target documentation lives alongside its config:
 - [OS Registry](../os/README.md) — all 25 operating systems
 - [VM Registry](../vm/README.md) — all 20 virtual machines
 
-## Explanation (understanding-oriented)
+## Explanation: understanding-oriented
 
 | Document | Description |
 |----------|-------------|
@@ -61,6 +73,8 @@ Per-target documentation lives alongside its config:
 | [Formal Verification](explanation/formal-verification.md) | Symbolic execution, SMT, invariant synthesis |
 | [Content-Addressed Code](explanation/content-addressing.md) | Hashing, caching, registry, equivalence |
 | [Neptune Gold Standard](explanation/gold-standard.md) | ZK-native financial primitives |
+| [For Developers](explanation/for-developers.md) | Zero-knowledge from scratch |
+| [For Blockchain Devs](explanation/for-blockchain-devs.md) | Mental model migration from Solidity/Anchor/CosmWasm |
 | [Cyber License](explanation/cyber-license.md) | Don't trust. Don't fear. Don't beg. |
 
 ## Project

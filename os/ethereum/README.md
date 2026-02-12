@@ -264,4 +264,4 @@ compatibility with existing tooling (etherscan, foundry, hardhat).
 
 For VM details, see [evm.md](../../vm/evm/README.md).
 For mental model migration from Solidity, see
-[For Blockchain Devs](../../docs/tutorials/for-blockchain-devs.md).
+[For Blockchain Devs](../../docs/explanation/for-blockchain-devs.md).

@@ -635,8 +635,8 @@ The numbers are growing. The foundation is solid. The rest is building.
 - [Gold Standard](gold-standard.md) -- Neptune financial primitives: PLUMB, TSP-1, TSP-2, TIDE
 - [Optimization Guide](../guides/optimization.md) -- Cost reduction strategies and table management
 - [Comparative Analysis](provable-computing.md) -- Triton VM vs. every other ZK system
-- [Developer Guide](../tutorials/for-developers.md) -- Getting started with Trident
-- [Blockchain Developer Guide](../tutorials/for-blockchain-devs.md) -- Trident for Solidity/Cairo developers
+- [Developer Guide](for-developers.md) -- Getting started with Trident
+- [Blockchain Developer Guide](for-blockchain-devs.md) -- Trident for Solidity/Cairo developers
 - [How STARK Proofs Work](stark-proofs.md) -- From execution traces to quantum-safe proofs
 - [Formal Verification](formal-verification.md) -- Automated correctness proofs for Trident programs
 - [Content-Addressed Code](content-addressing.md) -- Code identity by computation, not by name

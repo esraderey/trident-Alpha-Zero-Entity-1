@@ -224,4 +224,4 @@ Trident programs have thick Level 1 and thin `os.<os>.*`.
 - [Programming Model](programming-model.md) — Field arithmetic, I/O model, data flow
 - [Multi-Target Compilation](multi-target.md) — Compiler architecture and backend traits
 - [Gold Standard](gold-standard.md) — PLUMB token framework and financial primitives
-- [For Blockchain Devs](../tutorials/for-blockchain-devs.md) — Migration from Solidity, Anchor, CosmWasm
+- [For Blockchain Devs](for-blockchain-devs.md) — Migration from Solidity, Anchor, CosmWasm

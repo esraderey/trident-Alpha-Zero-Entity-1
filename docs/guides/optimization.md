@@ -260,8 +260,8 @@ The goal is not to minimize every table, but to bring the tallest table down. On
 - [How STARK Proofs Work](../explanation/stark-proofs.md) -- Section 4 (six tables explained), Section 11 (proving cost formula)
 - [Programming Model](../explanation/programming-model.md) -- How Triton VM execution produces the trace
 - [Error Catalog](../reference/errors.md) -- All compiler error messages explained
-- [For Developers](../tutorials/for-developers.md) -- Why bounded loops determine cost (Section 3)
-- [For Blockchain Devs](../tutorials/for-blockchain-devs.md) -- Where's My Gas? section explains cost from a smart contract perspective
+- [For Developers](../explanation/for-developers.md) -- Why bounded loops determine cost (Section 3)
+- [For Blockchain Devs](../explanation/for-blockchain-devs.md) -- Where's My Gas? section explains cost from a smart contract perspective
 - [Vision](../explanation/vision.md) -- The cost transparency story and why it matters
 - [Comparative Analysis](../explanation/provable-computing.md) -- Hash performance comparison across all ZK systems
 - [Triton VM specification](https://triton-vm.org/spec/) -- Target VM instruction costs

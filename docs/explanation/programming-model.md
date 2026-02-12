@@ -172,7 +172,7 @@ uses the same I/O channels -- `pub_read` becomes calldata or stdin,
 
 ## See Also
 
-- [For Blockchain Devs](../tutorials/for-blockchain-devs.md) -- Mental model migration from Solidity, Anchor, CosmWasm, Substrate
+- [For Blockchain Devs](for-blockchain-devs.md) -- Mental model migration from Solidity, Anchor, CosmWasm, Substrate
 - [Multi-Target Compilation](multi-target.md) -- Compiler architecture and backend traits
 - [OS Abstraction](os-abstraction.md) -- OS families, six concerns, portable API
 - [Tutorial](../tutorials/tutorial.md) -- Step-by-step guide to writing Trident programs

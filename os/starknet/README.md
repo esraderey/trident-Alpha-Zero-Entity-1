@@ -282,4 +282,4 @@ JIT-compiles to Cairo assembly for execution.
 
 For VM details, see [cairo.md](../../vm/cairo/README.md).
 For mental model migration from smart contracts, see
-[For Blockchain Devs](../../docs/tutorials/for-blockchain-devs.md).
+[For Blockchain Devs](../../docs/explanation/for-blockchain-devs.md).

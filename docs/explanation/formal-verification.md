@@ -548,5 +548,5 @@ checking currently requires manual unrolling or relies on the synthesizer.
 - [Content-Addressed Code](content-addressing.md) -- how verification results are cached and shared via content hashing
 - [Optimization Guide](../guides/optimization.md) -- cost reduction strategies (verification can identify redundant assertions)
 - [Compiling a Program](../guides/compiling-a-program.md) -- build pipeline and `--costs` flag
-- [For Developers](../tutorials/for-developers.md) -- zero-knowledge concepts for general developers
+- [For Developers](for-developers.md) -- zero-knowledge concepts for general developers
 - [Vision](vision.md) -- project goals and design philosophy
