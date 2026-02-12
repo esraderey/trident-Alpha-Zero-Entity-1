@@ -51,7 +51,7 @@ two kinds of scripts:
   signature verification, multisig schemes, timelocks, or any custom condition.
 
 - **Type script** -- a Trident program that validates the *type* of value stored
-  in the UTXO (native currency, custom tokens, NFTs). Type scripts can
+  in the UTXO (native currency, custom tokens, uniqs). Type scripts can
   authenticate both kernel fields and the actual coin data, enforcing supply
   invariants and transfer rules.
 
@@ -305,10 +305,10 @@ hash. See [Content-Addressed Code](../explanation/content-addressing.md) for det
 
 Trident includes standard token implementations ready for deployment:
 
-- **TSP-1**: Fungible token standard with conservation laws, mint authority,
+- **TSP-1**: Coin standard with conservation laws, mint authority,
   and burn support. See `examples/neptune/type_custom_token.tri`.
-- **TSP-2**: Non-fungible token standard with unique IDs and metadata.
-  See `examples/nft/nft.tri`.
+- **TSP-2**: Uniq standard with unique IDs and metadata.
+  See `examples/uniq/uniq.tri`.
 - **Native currency**: Neptune's built-in currency type script.
   See `examples/neptune/type_native_currency.tri`.
 

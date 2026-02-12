@@ -386,14 +386,14 @@ inversely with complexity.
 
 ## What You Can Build
 
-### Private Tokens (TSP-1, PLUMB)
+### Coins (TSP-1, PLUMB)
 
-A fungible token where balances, transfers, and participants are hidden from
+A coin where balances, transfers, and participants are hidden from
 everyone except the parties involved. State is a Merkle tree. Authorization
 is hash-preimage based. Transfers emit sealed events: the verifier sees a
 commitment, not the transfer itself.
 
-Trident ships with a [complete 535-line implementation](../../examples/fungible_token/token.tri)
+Trident ships with a [complete 535-line implementation](../../examples/coin/coin.tri)
 covering 5 PLUMB operations (Pay, Lock, Update, Mint, Burn), time-locks,
 nullifiers, configurable authorities, composable hooks, and 12 formally
 specified security properties. See [Gold Standard](gold-standard.md) for the
@@ -426,11 +426,11 @@ Negative balances are impossible because field underflow produces values
 larger than 2^32, which fail the U32 range check. No SafeMath library. The
 field arithmetic and the range check make the constraint automatic.
 
-### Non-Fungible Tokens (TSP-2, PLUMB)
+### Uniqs (TSP-2, PLUMB)
 
 Unique assets with per-asset metadata, royalties, creator immutability, and
 5-bit flag-gated operations (transferable, burnable, updatable, lockable,
-mintable). The [NFT implementation](../../examples/nft/nft.tri) uses the same
+mintable). The [uniq implementation](../../examples/uniq/uniq.tri) uses the same
 PLUMB framework as TSP-1: 10-field leaves, 10-field config (5 authorities +
 5 hooks), and all 5 operations with dual authorization, time-locks, and
 collection binding. See [Gold Standard](gold-standard.md) §6 for the full
@@ -608,7 +608,7 @@ any target. Backend extensions add power without limiting portability. The
 architecture ensures that choosing Trident is not choosing a single
 ecosystem -- it is choosing all of them.
 
-The token example is 535 lines. The NFT example follows the same PLUMB
+The token example is 535 lines. The uniq example follows the same PLUMB
 framework with 5 operations, 10-field leaves, and 5-bit flags. The compiler
 is ~43K lines of Rust. The test suite has 743 tests. 53 `.tri` files span
 `vm/`, `std/`, `os/`, and `examples/`. 54 TIR operations lower through 4

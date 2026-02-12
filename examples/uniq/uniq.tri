@@ -1,7 +1,7 @@
-program non_fungible_token
+program uniq
 
 // ======================================================
-// ZK-Native Non-Fungible Token — TSP-2 (PLUMB)
+// ZK-Native Uniq — TSP-2 (PLUMB)
 // Ops: Pay (0), Lock (1), Update (2), Mint (3), Burn (4)
 //
 // PLUMB = Pay, Lock, Update, Mint, Burn

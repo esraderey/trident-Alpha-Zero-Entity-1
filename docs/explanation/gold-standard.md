@@ -10,8 +10,8 @@
 | Primitive | Status | Example Code |
 |-----------|--------|--------------|
 | **PLUMB framework** | Implemented | `os/neptune/kernel.tri`, `os/neptune/utxo.tri` |
-| **TSP-1** (Fungible tokens) | Implemented | `examples/neptune/type_custom_token.tri` |
-| **TSP-2** (NFTs) | Implemented | `examples/nft/nft.tri` |
+| **TSP-1** (Coins) | Implemented | `examples/neptune/type_custom_token.tri` |
+| **TSP-2** (Uniqs) | Implemented | `examples/uniq/uniq.tri` |
 | **Native currency** | Implemented | `examples/neptune/type_native_currency.tri` |
 | **Lock scripts** | Implemented | `examples/neptune/lock_*.tri` (4 variants) |
 | **Transaction validation** | Implemented | `examples/neptune/transaction_validation.tri` |
@@ -46,8 +46,8 @@ Neptune's gold standard consists of four primitives, a hook library, and documen
 
 | Primitive | Name | What it provides | Has own state tree |
 |---|---|---|---|
-| TSP-1 | Fungible token | Divisible value transfer, supply conservation | Yes — account tree |
-| TSP-2 | Non-fungible token | Unique asset ownership, metadata, royalties | Yes — asset tree |
+| TSP-1 | Coin | Divisible value transfer, supply conservation | Yes — account tree |
+| TSP-2 | Uniq | Unique asset ownership, metadata, royalties | Yes — asset tree |
 | TIDE | Unified liquidity | Swaps without custody, shared liquidity | Yes — allocation tree |
 | COMPASS | Oracle | External data attestation with STARK proofs | Yes — attestation tree |
 
@@ -79,7 +79,7 @@ Everything else is either a **hook program** (reusable constraint logic), a **de
 │  Whitelist, Royalty, Cap, Timelock, Threshold, ...   │
 ├─────────────────────────────────────────────────────┤
 │  PRIMITIVES                                          │
-│  TSP-1 (Fungible) │ TSP-2 (NFT) │ TIDE │ COMPASS   │
+│  TSP-1 (Coin) │ TSP-2 (Uniq) │ TIDE │ COMPASS   │
 ├─────────────────────────────────────────────────────┤
 │  PLUMB FRAMEWORK                                     │
 │  Leaf format, Config, Hooks, Auth, 5 Operations      │
@@ -235,9 +235,9 @@ For delegated spending: `auth_hash` derived keys + `pay_hook` tracking cumulativ
 
 ### 4.1 Why Two, Not One
 
-Fungible and non-fungible tokens have incompatible conservation laws. Forcing both into one circuit creates branching that inflates the Algebraic Execution Table for every proof.
+Coins and uniqs have incompatible conservation laws. Forcing both into one circuit creates branching that inflates the Algebraic Execution Table for every proof.
 
-A fungible token with `balance ∈ {0,1}` is not an NFT — it lacks uniqueness proofs, metadata binding, royalty enforcement. An NFT with `supply > 1` is not a fungible token — it lacks divisible arithmetic and range checks.
+A coin with `balance ∈ {0,1}` is not a uniq — it lacks uniqueness proofs, metadata binding, royalty enforcement. A uniq with `supply > 1` is not a coin — it lacks divisible arithmetic and range checks.
 
 Two lean circuits always outperform one bloated circuit with conditional branches.
 
@@ -251,7 +251,7 @@ The expensive resource is the circuit (AIR constraints). The cheap resource is l
 
 ---
 
-## 5. TSP-1 — Fungible Token Standard
+## 5. TSP-1 — Coin Standard
 
 *PLUMB implementation for divisible assets*
 
@@ -347,7 +347,7 @@ metadata = hash(name_hash, ticker_hash, teaser_hash, site_hash, custom_hash,
 
 ---
 
-## 6. TSP-2 — Non-Fungible Token Standard
+## 6. TSP-2 — Uniq Standard
 
 *PLUMB implementation for unique assets*
 
@@ -503,7 +503,7 @@ retains ownership but cannot transfer or destroy the asset.
 Use cases:
 - **Rental:** lock asset for rental period, lessee uses it, owner reclaims
   after expiry
-- **Staking:** lock NFT to earn rewards (compose with LOCK_REWARDS hook)
+- **Staking:** lock uniq to earn rewards (compose with LOCK_REWARDS hook)
 - **Vesting:** lock asset until vesting cliff
 - **Collateral:** lock asset backing a loan (compose with lending hook)
 
@@ -588,10 +588,10 @@ already-burned asset.
 TSP-2 assets compose with the same primitive set as TSP-1 — TIDE, COMPASS,
 hooks, and application state trees.
 
-#### NFT Marketplace (TSP-2 + TSP-1 + COMPASS)
+#### Uniq Marketplace (TSP-2 + TSP-1 + COMPASS)
 
 ```
-Seller lists NFT at price P:
+Seller lists uniq at price P:
   1. TSP-2 Pay: seller → buyer (asset transfer)
      pay_hook = PAY_ROYALTY
   2. TSP-1 Pay: buyer → seller, amount = P (payment)
@@ -601,12 +601,12 @@ Seller lists NFT at price P:
 Composed proof: TSP-2 ⊗ TSP-1(payment) ⊗ TSP-1(royalty) → single verification
 ```
 
-#### NFT-Collateralized Lending (TSP-2 + TSP-1 + COMPASS)
+#### Uniq-Collateralized Lending (TSP-2 + TSP-1 + COMPASS)
 
 ```
-Borrow against an NFT:
-  1. TSP-2 Lock: owner locks NFT (lock_until = loan_expiry)
-  2. COMPASS proves NFT collection floor price = V
+Borrow against a uniq:
+  1. TSP-2 Lock: owner locks uniq (lock_until = loan_expiry)
+  2. COMPASS proves uniq collection floor price = V
   3. TSP-1 Mint: lender mints loan tokens to borrower
      mint_hook composes with:
        ⊗ TSP-2 lock proof (collateral locked)
@@ -615,7 +615,7 @@ Borrow against an NFT:
 
 Liquidation (if borrower defaults):
   1. current_time >= lock_until (lock expired)
-  2. TSP-2 Pay: locked NFT → liquidator (transfer at discount)
+  2. TSP-2 Pay: locked uniq → liquidator (transfer at discount)
      Authorized by lock expiry + lending program hook
   3. TSP-1 Burn: liquidator returns partial loan tokens
 ```
@@ -623,13 +623,13 @@ Liquidation (if borrower defaults):
 #### Burn-to-Redeem (TSP-2 → physical goods or new asset)
 
 ```
-Burn NFT to claim:
-  1. TSP-2 Burn: holder burns NFT
+Burn uniq to claim:
+  1. TSP-2 Burn: holder burns uniq
      burn_hook = BURN_REDEEM
   2. Burn receipt proof composed with:
      - TSP-1 Mint (claim reward token), or
      - Application state update (mark physical shipment), or
-     - TSP-2 Mint (upgrade to new NFT edition)
+     - TSP-2 Mint (upgrade to new uniq edition)
 ```
 
 #### Game Item Economy (TSP-2 with UPDATABLE flag)
@@ -878,7 +878,7 @@ Standard, reusable ZK programs that compose with PLUMB operations. These are ref
 | **Whitelist** | `PAY_WHITELIST` | Sender and/or receiver must be in a Merkle set | Membership proof |
 | **Blacklist** | `PAY_BLACKLIST` | Sender and/or receiver must NOT be in a Merkle set | Non-membership proof |
 | **Transfer Limit** | `PAY_LIMIT` | Max amount per tx or per period per account | Rate tracking state |
-| **Royalty** | `PAY_ROYALTY` | Enforce % to creator/receiver on TSP-2 transfers | TSP-1 pay proof (royalty payment) |
+| **Royalty** | `PAY_ROYALTY` | Enforce % to creator/receiver on uniq transfers | TSP-1 pay proof (royalty payment) |
 | **Soulbound** | `PAY_SOULBOUND` | Reject all transfers unconditionally | None — always fails |
 | **Fee-on-Transfer** | `PAY_FEE` | Deduct % to treasury on every transfer | TSP-1 pay proof (fee payment) |
 | **Delegation** | `PAY_DELEGATION` | Allow authorized delegates to spend up to limits | Delegation tree |
@@ -897,7 +897,7 @@ Use cases: regulated tokens, accredited investor restrictions, sanctioned addres
 
 #### Royalty Hook — Detail
 
-On every TSP-2 pay (ownership transfer), the royalty hook:
+On every uniq transfer (TSP-2 pay), the royalty hook:
 1. Reads `royalty_bps` from the asset leaf
 2. Reads `royalty_receiver` from collection metadata
 3. Requires a composed TSP-1 pay proof: buyer pays `(sale_price × royalty_bps / 10000)` to `royalty_receiver`
@@ -965,14 +965,14 @@ On mint, the hook:
 
 #### Burn-to-Redeem — Detail
 
-A powerful pattern: burn a TSP-2 asset to receive something else.
+A powerful pattern: burn a uniq to receive something else.
 
 The hook produces a receipt proof. This receipt composes with a mint operation on another token:
 ```
 Burn(TSP-2 item) → receipt proof ⊗ Mint(TSP-1 reward token)
 ```
 
-Use cases: burn NFT to claim physical goods, burn ticket to access event, burn old token to receive upgraded version.
+Use cases: burn uniq to claim physical goods, burn ticket to access event, burn old token to receive upgraded version.
 
 ### 9.4 Lock Hooks
 
@@ -1007,7 +1007,7 @@ The token IS the membership. The hook IS the threshold logic.
 
 Documented configurations combining primitives + hooks.
 
-### 10.1 Simple Fungible Token
+### 10.1 Simple Coin
 
 ```
 Standard: TSP-1
@@ -1051,7 +1051,7 @@ Hooks:
   update_hook: UPDATE_THRESHOLD    // multi-party approval for config changes
 ```
 
-### 10.4 NFT Art Collection
+### 10.4 Uniq Art Collection
 
 ```
 Standard: TSP-2
@@ -1327,7 +1327,7 @@ Lending is an application, not a primitive. It composes TSP-1 + COMPASS + TIDE.
 3. Transfer: standard TSP-2 pay (ownership transfer)
 4. Update resolution: TSP-2 metadata update (if `flags.updatable = 1`)
 
-Name service is just an NFT collection with a specific metadata schema.
+Name service is just a uniq collection with a specific metadata schema.
 
 ### 11.4 Prediction Markets
 
@@ -1439,8 +1439,8 @@ Name service is just an NFT collection with a specific metadata schema.
 | Component | Name | Role |
 |---|---|---|
 | Framework | **PLUMB** | **P**ay, **L**ock, **U**pdate, **M**int, **B**urn |
-| TSP-1 | Fungible token | PLUMB implementation for divisible assets |
-| TSP-2 | Non-fungible token | PLUMB implementation for unique assets |
+| TSP-1 | Coin | PLUMB implementation for divisible assets |
+| TSP-2 | Uniq | PLUMB implementation for unique assets |
 | Liquidity | **TIDE** | **T**okens **I**n **D**irect **E**xchange |
 | Oracle | **COMPASS** | External data attestation with STARK proofs |
 
@@ -1491,7 +1491,7 @@ Name service is just an NFT collection with a specific metadata schema.
 4. **Privacy:** How far to push shielded transfers?
 5. **State rent:** Should leaves expire?
 6. **Strategy liveness:** Keeper mechanism for dead strategies?
-7. **TSP-2 naming:** Distinctive name for the NFT standard.
+7. **TSP-2 naming:** Distinctive name for the uniq standard.
 8. **COMPASS provider incentives:** How are oracle providers rewarded?
 9. **Hook versioning:** Immutability or upgrade path?
 10. **Controller recursion:** Can a controller program delegate to another controller? Or is one level sufficient?
@@ -1504,8 +1504,8 @@ Name service is just an NFT collection with a specific metadata schema.
 | Term | Definition |
 |---|---|
 | PLUMB | Pay, Lock, Update, Mint, Burn — the token framework |
-| TSP-1 | Fungible token standard (PLUMB implementation) |
-| TSP-2 | Non-fungible token standard (PLUMB implementation) |
+| TSP-1 | Coin standard (PLUMB implementation) |
+| TSP-2 | Uniq standard (PLUMB implementation) |
 | TIDE | Tokens In Direct Exchange — unified liquidity |
 | COMPASS | Oracle — external data attestation with STARK proofs |
 | Circuit | AIR constraints defining valid state transitions |
@@ -1534,7 +1534,7 @@ Name service is just an NFT collection with a specific metadata schema.
 | `PAY_WHITELIST` | Approved addresses only | Membership Merkle tree |
 | `PAY_BLACKLIST` | Blocked addresses excluded | Non-membership proof |
 | `PAY_LIMIT` | Max amount per tx/period | Rate tracking state |
-| `PAY_ROYALTY` | Creator royalty on NFT transfers | TSP-1 pay proof |
+| `PAY_ROYALTY` | Creator royalty on uniq transfers | TSP-1 pay proof |
 | `PAY_SOULBOUND` | Block all transfers | — |
 | `PAY_FEE` | Fee-on-transfer to treasury | TSP-1 pay proof |
 | `PAY_DELEGATION` | Delegated spending with limits | Delegation tree |

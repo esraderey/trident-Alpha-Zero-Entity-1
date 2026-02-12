@@ -2,7 +2,7 @@
 
 ## Overview
 
-A minimal fungible token for Triton VM with 5 operations in PLUMB order:
+A minimal coin for Triton VM with 5 operations in PLUMB order:
 **pay**, **lock(time)**, **update**, **mint**, and **burn**. The ledger is a
 Merkle tree of account leaves. Token configuration (authorities + hooks) is a
 separate on-chain commitment. Token metadata (attributes + oracle references)

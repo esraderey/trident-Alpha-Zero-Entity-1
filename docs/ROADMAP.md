@@ -3,6 +3,7 @@
 Status as of February 2026. Checked items are shipped. Unchecked items
 are the remaining roadmap.
 
+- [ ] reimplement ucm registry using gold standards with name auction
 ---
 
 ## Milestone 1: Neptune Production Readiness
@@ -98,7 +99,7 @@ backend is fully implemented; others are stubs.
 
 - [x] Package manager with content-addressed dependencies (`package.rs`)
 - [x] Standard cryptographic library: secp256k1, ed25519, ECDSA, Poseidon, SHA-256, Keccak-256, bigint
-- [x] Token factory: TSP-1 fungible token, TSP-2 NFT standard
+- [x] Token factory: TSP-1 coin, TSP-2 uniq standard
 - [x] Bridge validators: Bitcoin and Ethereum light clients
 - [ ] Landing page + web playground (compile .tri to TASM in browser)
 - [ ] Browser extension integration library

@@ -486,7 +486,7 @@ function transfer(address to, uint256 amount) external returns (bool) {
 ```
 
 ```
-// Trident (simplified from fungible_token/token.tri)
+// Trident (simplified from coin/coin.tri)
 use vm.io.io
 use vm.core.field
 use std.crypto.auth
@@ -656,7 +656,7 @@ function upgradeTo(address newImpl) external onlyOwner {
 ```
 
 ```
-// Trident — config update operation (Op 2 in fungible token)
+// Trident — config update operation (Op 2 in coin)
 use vm.io.io
 
 fn update() {
@@ -912,18 +912,18 @@ trident build main.tri -o hello.tasm
 trident build main.tri --costs
 ```
 
-### 3. Read the Fungible Token Example
+### 3. Read the Coin Example
 
-The `examples/fungible_token/` directory contains a complete ZK-native token
+The `examples/coin/` directory contains a complete ZK-native coin
 with pay, lock, update, mint, and burn operations. Start with
-`examples/fungible_token/SPEC.md` for the design, then read `token.tri` for
+`examples/coin/SPEC.md` for the design, then read `coin.tri` for
 the implementation.
 
 ### 4. Build and Check Costs
 
 ```bash
-trident build examples/fungible_token/token.tri --costs
-trident build examples/fungible_token/token.tri --hotspots
+trident build examples/coin/coin.tri --costs
+trident build examples/coin/coin.tri --hotspots
 ```
 
 ### 5. Full Walkthrough

@@ -1216,8 +1216,8 @@ fn main() {
     // --- Fungible token round-trip ---
 
     #[test]
-    fn test_fungible_token_idempotent() {
-        let src = include_str!("../../examples/fungible_token/token.tri");
+    fn test_coin_idempotent() {
+        let src = include_str!("../../examples/coin/coin.tri");
         let first = fmt(src);
         let second = fmt(&first);
         assert_eq!(first, second, "token.tri formatting should be idempotent");

@@ -2,7 +2,7 @@ program type_custom_token
 
 // Neptune Custom Token Type Script (TSP-1 pattern)
 //
-// Validates a custom fungible token across a transaction.
+// Validates a custom coin across a transaction.
 // The type script enforces:
 //   1. Supply conservation: sum(inputs) == sum(outputs) (for transfers)
 //   2. Mint authorization: new supply requires mint_auth proof

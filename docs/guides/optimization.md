@@ -208,7 +208,7 @@ std.crypto.merkle.verify1(leaf, root, idx)
 
 ### Token Operations
 
-For fungible tokens, the main cost drivers are:
+For coins, the main cost drivers are:
 1. Leaf hashing (computing Merkle leaves)
 2. Merkle authentication (proving leaf membership)
 3. State updates (new leaf computation)

@@ -1,7 +1,7 @@
-program fungible_token
+program coin
 
 // ======================================================
-// ZK-Native Fungible Token — PLUMB
+// ZK-Native Coin — TSP-1 (PLUMB)
 // Ops: pay (0), lock (1), update (2), mint (3), burn (4)
 //
 // State: Merkle tree of leaves + config commitment

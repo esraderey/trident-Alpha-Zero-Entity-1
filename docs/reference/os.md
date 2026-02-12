@@ -21,8 +21,8 @@ The entire blockchain design space reduces to three primitives:
   communication itself.
 - **Token** — a neuron viewed as an asset. Neurons ARE tokens. A fungible
   token (ETH, SOL, CKByte) is a fungible neuron — many identical
-  interchangeable units, like shares of a company. A non-fungible token
-  (NFT, smart contract, unique UTXO) is a non-fungible neuron — unique
+  interchangeable units, like shares of a company. A uniq
+  (unique asset, smart contract, unique UTXO) is a non-fungible neuron — unique
   identity, one-of-one, like a person.
 
 The model: **neurons send signals carrying tokens to other neurons.**
@@ -166,10 +166,10 @@ The developer writes `state.read(key)` — the proof machinery is invisible.
 
 Tokens are neurons viewed as assets. `os.signal.send()` moves native
 currency between neurons. `os.token` provides the full token lifecycle:
-creation, destruction, querying, and ownership — for both fungible and
-non-fungible tokens.
+creation, destruction, querying, and ownership — for both coins and
+uniqs.
 
-#### Fungible Tokens
+#### Coins
 
 | Function | Signature | Description |
 |----------|-----------|-------------|
@@ -185,7 +185,7 @@ minting credits a balance; burning debits it. The conservation law
 (`sum(mints) - sum(burns) == supply_change`) is enforced by every OS,
 just differently.
 
-#### Non-Fungible Tokens
+#### Uniqs
 
 | Function | Signature | Description |
 |----------|-----------|-------------|
@@ -194,7 +194,7 @@ just differently.
 | `metadata(asset_id)` | `(asset_id: Digest) -> Digest` | Query metadata commitment of asset |
 | `exists(asset_id)` | `(asset_id: Digest) -> Bool` | Check if asset exists in tree |
 
-Non-fungible operations work on individual assets identified by `asset_id`
+Uniq operations work on individual assets identified by `asset_id`
 (a unique `Digest`). Ownership is one-of-one: exactly one neuron owns each
 asset. `transfer` changes the owner; `metadata` returns the committed
 metadata hash. `exists` is a membership proof — on UTXO chains, a Merkle
@@ -203,7 +203,7 @@ inclusion proof; on account chains, a storage lookup.
 **Supported:** Account, Stateless, Object, UTXO.
 **Compile error:** Journal (no persistent state), Process (no native token concept).
 
-#### Per-OS Lowering — Fungible
+#### Per-OS Lowering — Coins
 
 | OS family | OSes | `token.mint(to, amount)` lowers to |
 |-----------|------|------------------------------------|
@@ -229,13 +229,13 @@ inclusion proof; on account chains, a storage lookup.
 | Process | Linux, macOS, WASI, Browser, Android | **Compile error** — no native token |
 | Journal | Boundless, Succinct, OpenVM Network | **Compile error** — no persistent state |
 
-#### Per-OS Lowering — Non-Fungible
+#### Per-OS Lowering — Uniqs
 
 | OS family | OSes | `token.transfer(asset_id, to)` lowers to |
 |-----------|------|------------------------------------------|
 | Account (EVM) | Ethereum | `transferFrom(owner, to, tokenId)` (ERC-721) |
 | Account (Cairo) | Starknet | `transfer_from(owner, to, token_id)` |
-| Account (WASM) | Near, Cosmos | `nft_transfer` / `SendNft` |
+| Account (WASM) | Near, Cosmos | `uniq_transfer` / `SendUniq` |
 | Stateless | Solana | `mpl_token::transfer(asset, to)` (Metaplex) |
 | Object | Sui, Aptos | `transfer::public_transfer(object, to)` |
 | UTXO | Neptune | Consume owner's asset leaf, emit new leaf with `owner_id = to` (TSP-2 Pay op) |
@@ -247,7 +247,7 @@ inclusion proof; on account chains, a storage lookup.
 |-----------|------|-----------------------------------|
 | Account (EVM) | Ethereum | `ownerOf(tokenId)` (ERC-721) |
 | Account (Cairo) | Starknet | `owner_of(token_id)` |
-| Account (WASM) | Near, Cosmos | `nft_token` / `OwnerOf` query |
+| Account (WASM) | Near, Cosmos | `uniq_token` / `OwnerOf` query |
 | Stateless | Solana | `mpl_token::get_metadata(asset).owner` |
 | Object | Sui, Aptos | `object::owner(object_id)` |
 | UTXO | Neptune | Merkle inclusion proof for asset leaf, read `owner_id` |

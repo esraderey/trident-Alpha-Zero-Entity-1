@@ -1163,9 +1163,9 @@ mod integration_tests {
     use super::*;
 
     #[test]
-    fn test_fungible_token_compiles() {
-        let source = include_str!("../examples/fungible_token/token.tri");
-        let tasm = compile(source, "token.tri").expect("token program should compile");
+    fn test_coin_compiles() {
+        let source = include_str!("../examples/coin/coin.tri");
+        let tasm = compile(source, "coin.tri").expect("coin program should compile");
 
         // Verify all 5 operations are in the TASM output
         assert!(tasm.contains("__pay:"), "missing pay function");
@@ -1228,9 +1228,9 @@ mod integration_tests {
     }
 
     #[test]
-    fn test_fungible_token_cost_analysis() {
-        let source = include_str!("../examples/fungible_token/token.tri");
-        let cost = analyze_costs(source, "token.tri").expect("cost analysis should succeed");
+    fn test_coin_cost_analysis() {
+        let source = include_str!("../examples/coin/coin.tri");
+        let cost = analyze_costs(source, "coin.tri").expect("cost analysis should succeed");
 
         // Processor table should be nonzero
         assert!(cost.total.processor > 0);
