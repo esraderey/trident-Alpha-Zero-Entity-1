@@ -1,96 +1,120 @@
 program non_fungible_token
 
 // ======================================================
-// ZK-Native Non-Fungible Token — TSP-2
-// Ops: mint (0), transfer (1), burn (2),
-//      update_metadata (3), freeze (4)
+// ZK-Native Non-Fungible Token — TSP-2 (PLUMB)
+// Ops: Pay (0), Lock (1), Update (2), Mint (3), Burn (4)
 //
-// State: Merkle tree of NFT leaves + config commitment
-// Leaf   = hash(token_id, owner_auth, metadata_hash,
-//               serial_number, flags, 0, 0, 0, 0, 0)
-// Config = hash(admin_auth, mint_auth, freeze_auth,
-//               transfer_hook, royalty_rate, 0, 0, 0, 0, 0)
+// PLUMB = Pay, Lock, Update, Mint, Burn
 //
-// Each NFT is a unique leaf identified by token_id.
-// serial_number is a monotonic counter set at mint time.
-// flags is a bitfield: bit 0 = frozen.
+// State: Merkle tree of asset leaves + config commitment
 //
-// Authorization semantics:
-//   owner_auth:  proves ownership (preimage knowledge)
-//   admin_auth:  config updates, freeze (0 = renounced)
-//   mint_auth:   minting new NFTs (0 = minting disabled)
-//   freeze_auth: freeze/unfreeze NFTs (0 = freeze disabled)
-//   transfer_hook: external hook for transfers (0 = none)
-//   royalty_rate: royalty enforcement field (0 = no royalty)
+// Leaf (10 fields):
+//   hash(asset_id, owner_id, nonce, auth_hash, lock_until,
+//        collection_id, metadata_hash, royalty_bps, creator_id, flags)
 //
-// Supply: total_supply tracked publicly, max_supply enforced.
-// Frozen NFTs cannot be transferred or burned.
+// Config (10 fields = 5 authorities + 5 hooks):
+//   hash(admin_auth, pay_auth, lock_auth, mint_auth, burn_auth,
+//        pay_hook, lock_hook, update_hook, mint_hook, burn_hook)
+//
+// Flags bitfield:
+//   bit 0 = TRANSFERABLE (Pay allowed)
+//   bit 1 = BURNABLE     (Burn allowed)
+//   bit 2 = UPDATABLE    (Metadata update allowed)
+//   Flags are immutable after mint.
+//
+// Authorization:
+//   Account ops (Pay, Lock, Burn): owner auth always required.
+//     If config auth ≠ 0, dual auth (owner + config) required.
+//   Config ops (Mint): config auth required. 0 = disabled.
+//   Config ops (Update): admin auth required. 0 = renounced.
+//
+// See docs/explanation/gold-standard.md §6 for full specification.
 // ======================================================
-// --- NFT leaf hashing ---
-fn hash_nft(
-    token_id: Field,
-    owner_auth: Field,
+// --- Flag constants ---
+// TRANSFERABLE = 1, BURNABLE = 2, UPDATABLE = 4
+// --- Asset leaf hashing (10 fields) ---
+fn hash_leaf(
+    asset_id: Field,
+    owner_id: Field,
+    nonce: Field,
+    auth_hash: Field,
+    lock_until: Field,
+    collection_id: Field,
     metadata_hash: Field,
-    serial_number: Field,
+    royalty_bps: Field,
+    creator_id: Field,
     flags: Field
 ) -> Digest {
     hash(
-        token_id,
-        owner_auth,
+        asset_id,
+        owner_id,
+        nonce,
+        auth_hash,
+        lock_until,
+        collection_id,
         metadata_hash,
-        serial_number,
-        flags,
-        0,
-        0,
-        0,
-        0,
-        0
+        royalty_bps,
+        creator_id,
+        flags
     )
 }
 
-// --- Config hashing (5 authorities/hooks + 5 padding) ---
+// --- Config hashing (5 authorities + 5 hooks) ---
 fn hash_config(
     admin_auth: Field,
+    pay_auth: Field,
+    lock_auth: Field,
     mint_auth: Field,
-    freeze_auth: Field,
-    transfer_hook: Field,
-    royalty_rate: Field
+    burn_auth: Field,
+    pay_hook: Field,
+    lock_hook: Field,
+    update_hook: Field,
+    mint_hook: Field,
+    burn_hook: Field
 ) -> Digest {
     hash(
         admin_auth,
+        pay_auth,
+        lock_auth,
         mint_auth,
-        freeze_auth,
-        transfer_hook,
-        royalty_rate,
-        0,
-        0,
-        0,
-        0,
-        0
+        burn_auth,
+        pay_hook,
+        lock_hook,
+        update_hook,
+        mint_hook,
+        burn_hook
     )
 }
 
 fn verify_config(
     admin_auth: Field,
+    pay_auth: Field,
+    lock_auth: Field,
     mint_auth: Field,
-    freeze_auth: Field,
-    transfer_hook: Field,
-    royalty_rate: Field,
-    config: Digest
+    burn_auth: Field,
+    pay_hook: Field,
+    lock_hook: Field,
+    update_hook: Field,
+    mint_hook: Field,
+    burn_hook: Field,
+    expected: Digest
 ) {
     let computed: Digest = hash_config(
         admin_auth,
+        pay_auth,
+        lock_auth,
         mint_auth,
-        freeze_auth,
-        transfer_hook,
-        royalty_rate
+        burn_auth,
+        pay_hook,
+        lock_hook,
+        update_hook,
+        mint_hook,
+        burn_hook
     )
-    assert_digest(computed, config)
+    assert_digest(computed, expected)
 }
 
 // --- Authorization: prove knowledge of secret matching auth_hash ---
-// Proves preimage knowledge and binds auth_hash to the first field
-// of the computed digest: auth_hash == hash(secret)[0].
 fn verify_auth(auth_hash: Field) {
     let secret: Field = divine()
     let computed: Digest = hash(secret, 0, 0, 0, 0, 0, 0, 0, 0, 0)
@@ -98,427 +122,588 @@ fn verify_auth(auth_hash: Field) {
     assert_eq(auth_hash, h0)
 }
 
-// --- Flag helpers ---
-// Frozen flag is bit 0 of flags field.
-// flags == 0 means not frozen, flags == 1 means frozen.
-fn assert_not_frozen(flags: Field) {
-    assert_eq(flags, 0)
+// --- Flag checks ---
+fn assert_transferable(flags: Field) {
+    // bit 0 must be set: flags & 1 != 0
+    // flags mod 2 == 1
+    let f: U32 = as_u32(flags)
+    let bit: U32 = as_u32(1)
+    // flags & 1 — extract bit 0
+    // Since we don't have bitwise AND, check that flags is odd
+    // flags = 2k + 1 for some k, so flags - 1 is even
+    let minus_one: Field = sub(flags, 1)
+    // (flags - 1) / 2 must be an integer, i.e. (flags - 1) mod 2 == 0
+    // Simpler: assert flags is one of {1, 3, 5, 7}
+    let check: Field = flags * sub(flags, 1) * sub(flags, 3) * sub(flags, 5) * sub(flags, 7)
+    // If flags ∈ {1,3,5,7}, one factor is 0 → product is 0
+    // But flags could also be 0,2,4,6 — those should fail
+    // Actually we need: flags ∈ {1,3,5,7} (odd values 0-7)
+    // flags must be odd AND in range [0,7]
+    let _: U32 = as_u32(flags)
+    let headroom: Field = sub(7, flags)
+    let _: U32 = as_u32(headroom)
+    // flags is in [0,7]. Now check odd:
+    // flags * (flags - 2) * (flags - 4) * (flags - 6) == 0 means even
+    // We want NOT even, so check the odd product instead
+    let odd_check: Field = sub(flags, 0) * sub(flags, 2) * sub(flags, 4) * sub(flags, 6)
+    // If flags is even (0,2,4,6), one factor is 0 → product is 0
+    // If flags is odd (1,3,5,7), no factor is 0 → product ≠ 0
+    // We want odd, so assert product ≠ 0... but we can't assert ≠ 0 directly.
+    // Alternative: just check the valid values directly.
+    // flags ∈ {1,3,5,7} means (flags-1)(flags-3)(flags-5)(flags-7) == 0
+    let valid: Field = sub(flags, 1) * sub(flags, 3) * sub(flags, 5) * sub(flags, 7)
+    assert_eq(valid, 0)
+}
+
+fn assert_burnable(flags: Field) {
+    // bit 1 must be set: flags ∈ {2,3,6,7}
+    let valid: Field = sub(flags, 2) * sub(flags, 3) * sub(flags, 6) * sub(flags, 7)
+    assert_eq(valid, 0)
+}
+
+fn assert_updatable(flags: Field) {
+    // bit 2 must be set: flags ∈ {4,5,6,7}
+    let valid: Field = sub(flags, 4) * sub(flags, 5) * sub(flags, 6) * sub(flags, 7)
+    assert_eq(valid, 0)
+}
+
+fn assert_valid_flags(flags: Field) {
+    // flags must be in [0, 7]
+    let _: U32 = as_u32(flags)
+    let headroom: Field = sub(7, flags)
+    let _: U32 = as_u32(headroom)
 }
 
 // --- Range check ---
 fn assert_non_negative(val: Field) {
-    let checked: U32 = as_u32(val)
+    let _: U32 = as_u32(val)
 }
 
 // --- Events ---
-event Mint {
-    token_id: Field,
-    serial_number: Field,
-    owner_auth: Field,
-    metadata_hash: Field,
+event Pay {
+    asset_id: Field,
+    from_owner: Field,
+    to_owner: Field,
+    royalty_bps: Field,
 }
 
-event Transfer {
-    token_id: Field,
-    from_auth: Field,
-    to_auth: Field,
-    royalty_rate: Field,
-}
-
-event Burn {
-    token_id: Field,
-    serial_number: Field,
-    owner_auth: Field,
+event Lock {
+    asset_id: Field,
+    lock_until: Field,
 }
 
 event MetadataUpdate {
-    token_id: Field,
+    asset_id: Field,
     old_metadata: Field,
     new_metadata: Field,
 }
 
-event Freeze {
-    token_id: Field,
-    new_flags: Field,
+event Mint {
+    asset_id: Field,
+    creator_id: Field,
+    collection_id: Field,
+    metadata_hash: Field,
+}
+
+event Burn {
+    asset_id: Field,
+    owner_id: Field,
 }
 
 event Nullifier {
-    token_id: Field,
-    serial_number: Field,
-}
-
-event SupplyCheck {
-    supply: Field,
+    asset_id: Field,
+    nonce: Field,
 }
 
 event SupplyChange {
-    old_supply: Field,
-    new_supply: Field,
+    old_count: Field,
+    new_count: Field,
 }
 
 // ============================================================
-// Op 0: MINT — create a new NFT
+// Op 0: PAY — transfer asset ownership
 // ============================================================
-// Pub: old_root, new_root, old_supply, new_supply, max_supply,
-//      token_id, metadata_hash, config
-// Sec: config(5), mint_secret, owner_auth, serial_number
-fn mint() {
+// Pub: old_root, new_root, asset_count, asset_id, config
+// Sec: config(10), old leaf(10), new_owner_id, new_auth_hash
+fn pay() {
     let old_root: Digest = pub_read5()
     let new_root: Digest = pub_read5()
-    let old_supply: Field = pub_read()
-    let new_supply: Field = pub_read()
-    let max_supply: Field = pub_read()
-    let token_id: Field = pub_read()
-    let metadata_hash: Field = pub_read()
+    let asset_count: Field = pub_read()
+    let asset_id: Field = pub_read()
+    let current_time: Field = pub_read()
     let config: Digest = pub_read5()
-    // --- Verify config ---
+    // --- Verify config (10 fields) ---
     let cfg_admin: Field = divine()
+    let cfg_pay: Field = divine()
+    let cfg_lock: Field = divine()
     let cfg_mint: Field = divine()
-    let cfg_freeze: Field = divine()
-    let cfg_transfer_hook: Field = divine()
-    let cfg_royalty_rate: Field = divine()
+    let cfg_burn: Field = divine()
+    let cfg_pay_hook: Field = divine()
+    let cfg_lock_hook: Field = divine()
+    let cfg_update_hook: Field = divine()
+    let cfg_mint_hook: Field = divine()
+    let cfg_burn_hook: Field = divine()
     verify_config(
         cfg_admin,
+        cfg_pay,
+        cfg_lock,
         cfg_mint,
-        cfg_freeze,
-        cfg_transfer_hook,
-        cfg_royalty_rate,
+        cfg_burn,
+        cfg_pay_hook,
+        cfg_lock_hook,
+        cfg_update_hook,
+        cfg_mint_hook,
+        cfg_burn_hook,
         config
     )
-    // Mint authorization (always required, 0 = minting disabled)
-    verify_auth(cfg_mint)
-    // Supply accounting: new_supply == old_supply + 1
-    let expected_supply: Field = old_supply + 1
-    assert_eq(new_supply, expected_supply)
-    // Max supply enforcement: new_supply <= max_supply
-    // When max_supply == 0, unlimited supply (skip check).
-    if max_supply == 0 {
+    // --- Current asset leaf (secret) ---
+    let leaf_asset_id: Field = divine()
+    let leaf_owner_id: Field = divine()
+    let leaf_nonce: Field = divine()
+    let leaf_auth_hash: Field = divine()
+    let leaf_lock_until: Field = divine()
+    let leaf_collection_id: Field = divine()
+    let leaf_metadata_hash: Field = divine()
+    let leaf_royalty_bps: Field = divine()
+    let leaf_creator_id: Field = divine()
+    let leaf_flags: Field = divine()
+    // Verify current leaf
+    let old_leaf: Digest = hash_leaf(
+        leaf_asset_id,
+        leaf_owner_id,
+        leaf_nonce,
+        leaf_auth_hash,
+        leaf_lock_until,
+        leaf_collection_id,
+        leaf_metadata_hash,
+        leaf_royalty_bps,
+        leaf_creator_id,
+        leaf_flags
+    )
+    let old_leaf_expected: Digest = divine5()
+    assert_digest(old_leaf, old_leaf_expected)
+    // Asset ID must match public input
+    assert_eq(leaf_asset_id, asset_id)
+    // Owner authorization
+    verify_auth(leaf_auth_hash)
+    // Dual auth if pay_auth ≠ 0
+    if cfg_pay == 0 {
     } else {
-        // Unlimited — no cap enforced
-        let headroom: Field = sub(max_supply, new_supply)
-        assert_non_negative(headroom)
+        verify_auth(cfg_pay)
     }
-    // Owner auth and serial number for the new NFT
-    let owner_auth: Field = divine()
-    let serial_number: Field = divine()
-    // Serial number must be non-negative (range check)
-    assert_non_negative(serial_number)
-    // Serial number must equal old_supply (monotonic assignment)
-    assert_eq(serial_number, old_supply)
-    // New NFT leaf: flags = 0 (not frozen)
-    let new_leaf: Digest = hash_nft(
-        token_id,
-        owner_auth,
-        metadata_hash,
-        serial_number,
-        0
-    )
-    // Verify the new leaf matches prover commitment
-    let new_leaf_expected: Digest = divine5()
-    assert_digest(new_leaf, new_leaf_expected)
-    // Events
-    reveal
-    Mint { token_id: token_id, serial_number: serial_number, owner_auth: owner_auth, metadata_hash: metadata_hash }
-    reveal
-    SupplyChange { old_supply: old_supply, new_supply: new_supply }
-}
-
-// ============================================================
-// Op 1: TRANSFER — transfer NFT ownership
-// ============================================================
-// Pub: old_root, new_root, supply, token_id, config
-// Sec: config(5), old owner leaf, new owner_auth, auth witnesses
-//
-// Royalty enforcement: royalty_rate is published in the event
-// so the settlement layer (or hook) can enforce payment.
-// If transfer_hook != 0, the hook contract validates externally.
-fn transfer() {
-    let old_root: Digest = pub_read5()
-    let new_root: Digest = pub_read5()
-    let supply: Field = pub_read()
-    let token_id: Field = pub_read()
-    let config: Digest = pub_read5()
-    // --- Verify config ---
-    let cfg_admin: Field = divine()
-    let cfg_mint: Field = divine()
-    let cfg_freeze: Field = divine()
-    let cfg_transfer_hook: Field = divine()
-    let cfg_royalty_rate: Field = divine()
-    verify_config(
-        cfg_admin,
-        cfg_mint,
-        cfg_freeze,
-        cfg_transfer_hook,
-        cfg_royalty_rate,
-        config
-    )
-    // --- Current NFT leaf (secret) ---
-    let nft_id: Field = divine()
-    let nft_owner: Field = divine()
-    let nft_metadata: Field = divine()
-    let nft_serial: Field = divine()
-    let nft_flags: Field = divine()
-    // Verify current NFT leaf
-    let old_leaf: Digest = hash_nft(
-        nft_id,
-        nft_owner,
-        nft_metadata,
-        nft_serial,
-        nft_flags
-    )
-    let old_leaf_expected: Digest = divine5()
-    assert_digest(old_leaf, old_leaf_expected)
-    // Token ID must match public input
-    assert_eq(nft_id, token_id)
-    // NFT must not be frozen
-    assert_not_frozen(nft_flags)
-    // Owner authorization (proves current ownership)
-    verify_auth(nft_owner)
+    // Time-lock check
+    let lock_headroom: Field = sub(current_time, leaf_lock_until)
+    assert_non_negative(lock_headroom)
+    // Flag check: must be transferable
+    assert_transferable(leaf_flags)
     // --- New owner ---
-    let new_owner_auth: Field = divine()
-    // Compute new leaf (metadata, serial, flags unchanged)
-    let new_leaf: Digest = hash_nft(
-        nft_id,
-        new_owner_auth,
-        nft_metadata,
-        nft_serial,
-        nft_flags
+    let new_owner_id: Field = divine()
+    let new_auth_hash: Field = divine()
+    // New leaf: only owner_id, auth_hash, nonce change
+    let new_nonce: Field = leaf_nonce + 1
+    let new_leaf: Digest = hash_leaf(
+        leaf_asset_id,
+        new_owner_id,
+        new_nonce,
+        new_auth_hash,
+        leaf_lock_until,
+        leaf_collection_id,
+        leaf_metadata_hash,
+        leaf_royalty_bps,
+        leaf_creator_id,
+        leaf_flags
     )
-    // Verify new leaf
     let new_leaf_expected: Digest = divine5()
     assert_digest(new_leaf, new_leaf_expected)
-    // Nullifier (sealed — prevents double-spend)
-    seal Nullifier { token_id: nft_id, serial_number: nft_serial }
-    // Royalty rate is emitted publicly for settlement-layer enforcement.
-    // royalty_rate == 0 means no royalty obligation.
+    // Nullifier (sealed — prevents replay)
+    seal Nullifier { asset_id: leaf_asset_id, nonce: leaf_nonce }
+    // Events
     reveal
-    Transfer { token_id: nft_id, from_auth: nft_owner, to_auth: new_owner_auth, royalty_rate: cfg_royalty_rate }
-    // Supply unchanged
-    reveal
-    SupplyCheck { supply: supply }
+    Pay { asset_id: leaf_asset_id, from_owner: leaf_owner_id, to_owner: new_owner_id, royalty_bps: leaf_royalty_bps }
 }
 
 // ============================================================
-// Op 2: BURN — destroy an NFT
+// Op 1: LOCK — time-lock an asset
 // ============================================================
-// Pub: old_root, new_root, old_supply, new_supply, token_id, config
-// Sec: config(5), NFT leaf, owner auth witness
-fn burn() {
+// Pub: old_root, new_root, asset_count, asset_id, lock_until_time, config
+// Sec: config(10), old leaf(10)
+fn lock() {
     let old_root: Digest = pub_read5()
     let new_root: Digest = pub_read5()
-    let old_supply: Field = pub_read()
-    let new_supply: Field = pub_read()
-    let token_id: Field = pub_read()
+    let asset_count: Field = pub_read()
+    let asset_id: Field = pub_read()
+    let lock_until_time: Field = pub_read()
     let config: Digest = pub_read5()
     // --- Verify config ---
     let cfg_admin: Field = divine()
+    let cfg_pay: Field = divine()
+    let cfg_lock: Field = divine()
     let cfg_mint: Field = divine()
-    let cfg_freeze: Field = divine()
-    let cfg_transfer_hook: Field = divine()
-    let cfg_royalty_rate: Field = divine()
+    let cfg_burn: Field = divine()
+    let cfg_pay_hook: Field = divine()
+    let cfg_lock_hook: Field = divine()
+    let cfg_update_hook: Field = divine()
+    let cfg_mint_hook: Field = divine()
+    let cfg_burn_hook: Field = divine()
     verify_config(
         cfg_admin,
+        cfg_pay,
+        cfg_lock,
         cfg_mint,
-        cfg_freeze,
-        cfg_transfer_hook,
-        cfg_royalty_rate,
+        cfg_burn,
+        cfg_pay_hook,
+        cfg_lock_hook,
+        cfg_update_hook,
+        cfg_mint_hook,
+        cfg_burn_hook,
         config
     )
-    // --- NFT leaf (secret) ---
-    let nft_id: Field = divine()
-    let nft_owner: Field = divine()
-    let nft_metadata: Field = divine()
-    let nft_serial: Field = divine()
-    let nft_flags: Field = divine()
-    // Verify current NFT leaf
-    let old_leaf: Digest = hash_nft(
-        nft_id,
-        nft_owner,
-        nft_metadata,
-        nft_serial,
-        nft_flags
+    // --- Current asset leaf ---
+    let leaf_asset_id: Field = divine()
+    let leaf_owner_id: Field = divine()
+    let leaf_nonce: Field = divine()
+    let leaf_auth_hash: Field = divine()
+    let leaf_lock_until: Field = divine()
+    let leaf_collection_id: Field = divine()
+    let leaf_metadata_hash: Field = divine()
+    let leaf_royalty_bps: Field = divine()
+    let leaf_creator_id: Field = divine()
+    let leaf_flags: Field = divine()
+    let old_leaf: Digest = hash_leaf(
+        leaf_asset_id,
+        leaf_owner_id,
+        leaf_nonce,
+        leaf_auth_hash,
+        leaf_lock_until,
+        leaf_collection_id,
+        leaf_metadata_hash,
+        leaf_royalty_bps,
+        leaf_creator_id,
+        leaf_flags
     )
     let old_leaf_expected: Digest = divine5()
     assert_digest(old_leaf, old_leaf_expected)
-    // Token ID must match public input
-    assert_eq(nft_id, token_id)
-    // NFT must not be frozen (frozen NFTs cannot be burned)
-    assert_not_frozen(nft_flags)
-    // Owner authorization (always required)
-    verify_auth(nft_owner)
-    // Supply accounting: new_supply == old_supply - 1
-    let expected_supply: Field = sub(old_supply, 1)
-    assert_eq(new_supply, expected_supply)
-    // Nullifier (sealed — prevents double-burn)
-    seal Nullifier { token_id: nft_id, serial_number: nft_serial }
-    // Events
+    assert_eq(leaf_asset_id, asset_id)
+    // Owner authorization
+    verify_auth(leaf_auth_hash)
+    // Dual auth if lock_auth ≠ 0
+    if cfg_lock == 0 {
+    } else {
+        verify_auth(cfg_lock)
+    }
+    // Lock can only extend, not shorten
+    let extension: Field = sub(lock_until_time, leaf_lock_until)
+    assert_non_negative(extension)
+    // New leaf: only lock_until and nonce change
+    let new_nonce: Field = leaf_nonce + 1
+    let new_leaf: Digest = hash_leaf(
+        leaf_asset_id,
+        leaf_owner_id,
+        new_nonce,
+        leaf_auth_hash,
+        lock_until_time,
+        leaf_collection_id,
+        leaf_metadata_hash,
+        leaf_royalty_bps,
+        leaf_creator_id,
+        leaf_flags
+    )
+    let new_leaf_expected: Digest = divine5()
+    assert_digest(new_leaf, new_leaf_expected)
     reveal
-    Burn { token_id: nft_id, serial_number: nft_serial, owner_auth: nft_owner }
-    reveal
-    SupplyChange { old_supply: old_supply, new_supply: new_supply }
+    Lock { asset_id: leaf_asset_id, lock_until: lock_until_time }
 }
 
 // ============================================================
-// Op 3: UPDATE_METADATA — update an NFT's metadata hash
+// Op 2: UPDATE — update config or asset metadata
 // ============================================================
-// Pub: old_root, new_root, supply, token_id,
-//      new_metadata_hash, config
-// Sec: config(5), NFT leaf, owner auth witness
+// Two modes:
+//   Config update: old_root == new_root, admin auth required
+//   Metadata update: owner auth + UPDATABLE flag required
 //
-// Only the NFT owner can update metadata.
-// Frozen NFTs cannot have their metadata updated.
-fn update_metadata() {
+// Pub: old_root, new_root, asset_count, asset_id,
+//      new_metadata_hash, config
+// Sec: config(10), leaf(10) [for metadata update]
+//
+// For config update: asset_id = 0, new_metadata_hash = 0,
+//   old_root == new_root
+fn update() {
     let old_root: Digest = pub_read5()
     let new_root: Digest = pub_read5()
-    let supply: Field = pub_read()
-    let token_id: Field = pub_read()
+    let asset_count: Field = pub_read()
+    let asset_id: Field = pub_read()
     let new_metadata_hash: Field = pub_read()
     let config: Digest = pub_read5()
     // --- Verify config ---
     let cfg_admin: Field = divine()
+    let cfg_pay: Field = divine()
+    let cfg_lock: Field = divine()
     let cfg_mint: Field = divine()
-    let cfg_freeze: Field = divine()
-    let cfg_transfer_hook: Field = divine()
-    let cfg_royalty_rate: Field = divine()
+    let cfg_burn: Field = divine()
+    let cfg_pay_hook: Field = divine()
+    let cfg_lock_hook: Field = divine()
+    let cfg_update_hook: Field = divine()
+    let cfg_mint_hook: Field = divine()
+    let cfg_burn_hook: Field = divine()
     verify_config(
         cfg_admin,
+        cfg_pay,
+        cfg_lock,
         cfg_mint,
-        cfg_freeze,
-        cfg_transfer_hook,
-        cfg_royalty_rate,
+        cfg_burn,
+        cfg_pay_hook,
+        cfg_lock_hook,
+        cfg_update_hook,
+        cfg_mint_hook,
+        cfg_burn_hook,
         config
     )
-    // --- NFT leaf (secret) ---
-    let nft_id: Field = divine()
-    let nft_owner: Field = divine()
-    let nft_metadata: Field = divine()
-    let nft_serial: Field = divine()
-    let nft_flags: Field = divine()
-    // Verify current NFT leaf
-    let old_leaf: Digest = hash_nft(
-        nft_id,
-        nft_owner,
-        nft_metadata,
-        nft_serial,
-        nft_flags
-    )
-    let old_leaf_expected: Digest = divine5()
-    assert_digest(old_leaf, old_leaf_expected)
-    // Token ID must match public input
-    assert_eq(nft_id, token_id)
-    // NFT must not be frozen
-    assert_not_frozen(nft_flags)
-    // Owner authorization (only owner can update metadata)
-    verify_auth(nft_owner)
-    // Compute new leaf with updated metadata
-    let new_leaf: Digest = hash_nft(
-        nft_id,
-        nft_owner,
-        new_metadata_hash,
-        nft_serial,
-        nft_flags
-    )
-    // Verify new leaf
-    let new_leaf_expected: Digest = divine5()
-    assert_digest(new_leaf, new_leaf_expected)
-    // Events
-    reveal
-    MetadataUpdate { token_id: nft_id, old_metadata: nft_metadata, new_metadata: new_metadata_hash }
-    // Supply unchanged
-    reveal
-    SupplyCheck { supply: supply }
+    if asset_id == 0 {
+        // --- Config update ---
+        // Admin authorization required
+        verify_auth(cfg_admin)
+    } else {
+        // admin_auth must not be renounced
+        // (verify_auth would fail on 0 anyway, since hash(secret)[0]
+        // cannot equal 0 for valid preimage)
+        // --- Metadata update ---
+        let leaf_asset_id: Field = divine()
+        let leaf_owner_id: Field = divine()
+        let leaf_nonce: Field = divine()
+        let leaf_auth_hash: Field = divine()
+        let leaf_lock_until: Field = divine()
+        let leaf_collection_id: Field = divine()
+        let leaf_metadata_hash: Field = divine()
+        let leaf_royalty_bps: Field = divine()
+        let leaf_creator_id: Field = divine()
+        let leaf_flags: Field = divine()
+        let old_leaf: Digest = hash_leaf(
+            leaf_asset_id,
+            leaf_owner_id,
+            leaf_nonce,
+            leaf_auth_hash,
+            leaf_lock_until,
+            leaf_collection_id,
+            leaf_metadata_hash,
+            leaf_royalty_bps,
+            leaf_creator_id,
+            leaf_flags
+        )
+        let old_leaf_expected: Digest = divine5()
+        assert_digest(old_leaf, old_leaf_expected)
+        assert_eq(leaf_asset_id, asset_id)
+        // Owner authorization
+        verify_auth(leaf_auth_hash)
+        // Flag check: must be updatable
+        assert_updatable(leaf_flags)
+        // New leaf: only metadata_hash and nonce change
+        let new_nonce: Field = leaf_nonce + 1
+        let new_leaf: Digest = hash_leaf(
+            leaf_asset_id,
+            leaf_owner_id,
+            new_nonce,
+            leaf_auth_hash,
+            leaf_lock_until,
+            leaf_collection_id,
+            new_metadata_hash,
+            leaf_royalty_bps,
+            leaf_creator_id,
+            leaf_flags
+        )
+        let new_leaf_expected: Digest = divine5()
+        assert_digest(new_leaf, new_leaf_expected)
+        reveal
+        MetadataUpdate { asset_id: leaf_asset_id, old_metadata: leaf_metadata_hash, new_metadata: new_metadata_hash }
+    }
 }
 
 // ============================================================
-// Op 4: FREEZE — freeze or unfreeze an NFT (admin/freeze auth)
+// Op 3: MINT — originate a new unique asset
 // ============================================================
-// Pub: old_root, new_root, supply, token_id,
-//      new_flags, config
-// Sec: config(5), NFT leaf, freeze auth witness
-//
-// Freeze authority can set flags on any NFT.
-// If freeze_auth == 0, freezing is disabled.
-// new_flags = 1 freezes the NFT, new_flags = 0 unfreezes.
-// Frozen NFTs cannot be transferred, burned, or have metadata updated.
-fn freeze() {
+// Pub: old_root, new_root, old_count, new_count, max_supply,
+//      asset_id, metadata_hash, collection_id, config
+// Sec: config(10), owner_id, auth_hash, creator_id,
+//      royalty_bps, flags
+fn mint() {
     let old_root: Digest = pub_read5()
     let new_root: Digest = pub_read5()
-    let supply: Field = pub_read()
-    let token_id: Field = pub_read()
-    let new_flags: Field = pub_read()
+    let old_count: Field = pub_read()
+    let new_count: Field = pub_read()
+    let max_supply: Field = pub_read()
+    let asset_id: Field = pub_read()
+    let metadata_hash: Field = pub_read()
+    let collection_id: Field = pub_read()
     let config: Digest = pub_read5()
     // --- Verify config ---
     let cfg_admin: Field = divine()
+    let cfg_pay: Field = divine()
+    let cfg_lock: Field = divine()
     let cfg_mint: Field = divine()
-    let cfg_freeze: Field = divine()
-    let cfg_transfer_hook: Field = divine()
-    let cfg_royalty_rate: Field = divine()
+    let cfg_burn: Field = divine()
+    let cfg_pay_hook: Field = divine()
+    let cfg_lock_hook: Field = divine()
+    let cfg_update_hook: Field = divine()
+    let cfg_mint_hook: Field = divine()
+    let cfg_burn_hook: Field = divine()
     verify_config(
         cfg_admin,
+        cfg_pay,
+        cfg_lock,
         cfg_mint,
-        cfg_freeze,
-        cfg_transfer_hook,
-        cfg_royalty_rate,
+        cfg_burn,
+        cfg_pay_hook,
+        cfg_lock_hook,
+        cfg_update_hook,
+        cfg_mint_hook,
+        cfg_burn_hook,
         config
     )
-    // Freeze authorization (always required, 0 = freeze disabled)
-    verify_auth(cfg_freeze)
-    // new_flags must be 0 or 1 (valid flag values)
-    // Enforce by checking new_flags * (new_flags - 1) == 0
-    // which is true iff new_flags is 0 or 1.
-    let flag_check: Field = new_flags * sub(new_flags, 1)
-    assert_eq(flag_check, 0)
-    // --- NFT leaf (secret) ---
-    let nft_id: Field = divine()
-    let nft_owner: Field = divine()
-    let nft_metadata: Field = divine()
-    let nft_serial: Field = divine()
-    let nft_flags: Field = divine()
-    // Verify current NFT leaf
-    let old_leaf: Digest = hash_nft(
-        nft_id,
-        nft_owner,
-        nft_metadata,
-        nft_serial,
-        nft_flags
+    // Mint authorization (always required, 0 = minting disabled)
+    verify_auth(cfg_mint)
+    // Supply accounting
+    let expected_count: Field = old_count + 1
+    assert_eq(new_count, expected_count)
+    // Max supply enforcement (0 = unlimited)
+    if max_supply == 0 {
+    } else {
+        let headroom: Field = sub(max_supply, new_count)
+        assert_non_negative(headroom)
+    }
+    // Asset fields from prover
+    let owner_id: Field = divine()
+    let auth_hash: Field = divine()
+    let creator_id: Field = divine()
+    let royalty_bps: Field = divine()
+    let flags: Field = divine()
+    // Validate fields
+    assert_non_negative(royalty_bps)
+    let royalty_headroom: Field = sub(10000, royalty_bps)
+    assert_non_negative(royalty_headroom)
+    assert_valid_flags(flags)
+    // New leaf: nonce = 0, lock_until = 0
+    let new_leaf: Digest = hash_leaf(
+        asset_id,
+        owner_id,
+        0,
+        auth_hash,
+        0,
+        collection_id,
+        metadata_hash,
+        royalty_bps,
+        creator_id,
+        flags
     )
-    let old_leaf_expected: Digest = divine5()
-    assert_digest(old_leaf, old_leaf_expected)
-    // Token ID must match public input
-    assert_eq(nft_id, token_id)
-    // Compute new leaf with updated flags
-    let new_leaf: Digest = hash_nft(
-        nft_id,
-        nft_owner,
-        nft_metadata,
-        nft_serial,
-        new_flags
-    )
-    // Verify new leaf
     let new_leaf_expected: Digest = divine5()
     assert_digest(new_leaf, new_leaf_expected)
     // Events
     reveal
-    Freeze { token_id: nft_id, new_flags: new_flags }
-    // Supply unchanged
+    Mint { asset_id: asset_id, creator_id: creator_id, collection_id: collection_id, metadata_hash: metadata_hash }
     reveal
-    SupplyCheck { supply: supply }
+    SupplyChange { old_count: old_count, new_count: new_count }
 }
 
 // ============================================================
-// Entry point — TSP-2 dispatch by operation code
+// Op 4: BURN — permanently destroy an asset
+// ============================================================
+// Pub: old_root, new_root, old_count, new_count,
+//      asset_id, current_time, config
+// Sec: config(10), leaf(10)
+fn burn() {
+    let old_root: Digest = pub_read5()
+    let new_root: Digest = pub_read5()
+    let old_count: Field = pub_read()
+    let new_count: Field = pub_read()
+    let asset_id: Field = pub_read()
+    let current_time: Field = pub_read()
+    let config: Digest = pub_read5()
+    // --- Verify config ---
+    let cfg_admin: Field = divine()
+    let cfg_pay: Field = divine()
+    let cfg_lock: Field = divine()
+    let cfg_mint: Field = divine()
+    let cfg_burn: Field = divine()
+    let cfg_pay_hook: Field = divine()
+    let cfg_lock_hook: Field = divine()
+    let cfg_update_hook: Field = divine()
+    let cfg_mint_hook: Field = divine()
+    let cfg_burn_hook: Field = divine()
+    verify_config(
+        cfg_admin,
+        cfg_pay,
+        cfg_lock,
+        cfg_mint,
+        cfg_burn,
+        cfg_pay_hook,
+        cfg_lock_hook,
+        cfg_update_hook,
+        cfg_mint_hook,
+        cfg_burn_hook,
+        config
+    )
+    // --- Asset leaf ---
+    let leaf_asset_id: Field = divine()
+    let leaf_owner_id: Field = divine()
+    let leaf_nonce: Field = divine()
+    let leaf_auth_hash: Field = divine()
+    let leaf_lock_until: Field = divine()
+    let leaf_collection_id: Field = divine()
+    let leaf_metadata_hash: Field = divine()
+    let leaf_royalty_bps: Field = divine()
+    let leaf_creator_id: Field = divine()
+    let leaf_flags: Field = divine()
+    let old_leaf: Digest = hash_leaf(
+        leaf_asset_id,
+        leaf_owner_id,
+        leaf_nonce,
+        leaf_auth_hash,
+        leaf_lock_until,
+        leaf_collection_id,
+        leaf_metadata_hash,
+        leaf_royalty_bps,
+        leaf_creator_id,
+        leaf_flags
+    )
+    let old_leaf_expected: Digest = divine5()
+    assert_digest(old_leaf, old_leaf_expected)
+    assert_eq(leaf_asset_id, asset_id)
+    // Owner authorization
+    verify_auth(leaf_auth_hash)
+    // Dual auth if burn_auth ≠ 0
+    if cfg_burn == 0 {
+    } else {
+        verify_auth(cfg_burn)
+    }
+    // Time-lock check
+    let lock_headroom: Field = sub(current_time, leaf_lock_until)
+    assert_non_negative(lock_headroom)
+    // Flag check: must be burnable
+    assert_burnable(leaf_flags)
+    // Supply accounting
+    let expected_count: Field = sub(old_count, 1)
+    assert_eq(new_count, expected_count)
+    // Nullifier (sealed — prevents double-burn)
+    seal Nullifier { asset_id: leaf_asset_id, nonce: leaf_nonce }
+    // Events
+    reveal
+    Burn { asset_id: leaf_asset_id, owner_id: leaf_owner_id }
+    reveal
+    SupplyChange { old_count: old_count, new_count: new_count }
+}
+
+// ============================================================
+// Entry point — TSP-2 dispatch by PLUMB operation code
 // ============================================================
 fn main() {
     let op: Field = pub_read()
     if op == 0 {
-        mint()
+        pay()
     } else if op == 1 {
-        transfer()
+        lock()
     } else if op == 2 {
-        burn()
+        update()
     } else if op == 3 {
-        update_metadata()
+        mint()
     } else if op == 4 {
-        freeze()
+        burn()
     }
 }
