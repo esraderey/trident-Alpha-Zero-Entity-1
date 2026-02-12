@@ -47,14 +47,14 @@ These properties emerged from ZK requirements. The discovery is that they define
 │  ─────────────────────────────────────────────────────── │
 │  Targets: Triton VM, Miden, Cairo, SP1/RISC-V zkVMs     │
 ├─────────────────────────────────────────────────────────┤
-│            Level 3: Platform Access                      │
-│  Thin adapters for target-specific capabilities         │
+│            Level 3: OS Access                            │
+│  os.* (portable) + os.<os>.* (OS-specific)              │
 │  ─────────────────────────────────────────────────────── │
-│  EVM: CALLER, CALLVALUE, SSTORE/SLOAD encoding          │
-│  SVM: account deserialization, PDAs                      │
-│  CosmWasm: Deps, Env, Response                           │
-│  Neptune: UTXO model, kernel interface                   │
-│  Miden: Miden-specific intrinsics                        │
+│  os.neuron: identity, authorization                      │
+│  os.signal: value transfer between neurons               │
+│  os.token: mint, burn, balance, ownership                │
+│  os.state: persistent storage                            │
+│  os.<os>.*: OS-specific extensions                       │
 └─────────────────────────────────────────────────────────┘
 ```
 
@@ -66,9 +66,17 @@ A `.tri` file that uses only Level 1 constructs compiles to **every** target. Le
 
 **Level 2** adds cryptographic provability. Secret witness inputs, public I/O, sealed events, Merkle authentication. The same Level 1 logic now produces STARK proofs. Only available on ZK targets.
 
-**Level 3** is the platform adapter. A thin layer that connects Level 1 logic to a specific chain's calling conventions, state model, and execution environment. This is mechanical, small, and target-locked by design.
+**Level 3** is the OS layer. Two tiers: `os.*` is the portable runtime
+(neuron identity, signals, tokens, state, time — available on all 25
+OSes), and `os.<os>.*` provides OS-specific extensions (PDAs on Solana,
+UTXO authentication on Neptune, CPI on Sui). The compiler lowers `os.*`
+calls to OS-native mechanisms based on `--target`. Importing `os.<os>.*`
+locks the program to that OS.
 
-The key insight: Level 3 is thin. The adapter between "raw bytes arrive from a transaction" and "call the Level 1 function" is a few dozen lines per target. The business logic — the part that's expensive to write, expensive to audit, and expensive to get wrong — lives entirely in Level 1.
+The key insight: `os.*` is thin. The entire blockchain design space reduces
+to three primitives — neurons (actors), signals (transactions), tokens
+(assets). The business logic — the part that's expensive to write, expensive
+to audit, and expensive to get wrong — lives entirely in Level 1.
 
 ---
 
@@ -102,8 +110,8 @@ The TIR (Trident Intermediate Representation) is already implemented. It's a lis
 ```
 program token_vault
 
-use vm.core.field
-use std.io.storage
+use os.state
+use os.neuron
 
 struct Vault {
     owner: Field,
@@ -112,28 +120,21 @@ struct Vault {
 }
 
 fn deposit(vault_id: Field, amount: Field) {
-    let vault: Vault = storage.read_struct(vault_id)
-    assert(vault.locked == 0)
-    let new_vault: Vault = Vault {
-        owner: vault.owner,
-        balance: vault.balance + amount,
-        locked: vault.locked,
-    }
-    storage.write_struct(vault_id, new_vault)
+    let owner: Field = state.read(vault_id)
+    let balance: Field = state.read(vault_id + 1)
+    let locked: Field = state.read(vault_id + 2)
+    assert_eq(locked, 0)
+    state.write(vault_id + 1, balance + amount)
     reveal Deposit { vault_id: vault_id, amount: amount }
 }
 
-fn withdraw(vault_id: Field, amount: Field, caller: Field) {
-    let vault: Vault = storage.read_struct(vault_id)
-    assert(vault.owner == caller)
+fn withdraw(vault_id: Field, amount: Field) {
+    let caller: Digest = neuron.id()
+    let owner: Field = state.read(vault_id)
+    let balance: Field = state.read(vault_id + 1)
     // Subtraction wraps modulo p; the prover must supply valid witness
-    let new_balance: Field = sub(vault.balance, amount)
-    let new_vault: Vault = Vault {
-        owner: vault.owner,
-        balance: new_balance,
-        locked: vault.locked,
-    }
-    storage.write_struct(vault_id, new_vault)
+    let new_balance: Field = sub(balance, amount)
+    state.write(vault_id + 1, new_balance)
     reveal Withdrawal { vault_id: vault_id, amount: amount }
 }
 
@@ -141,49 +142,16 @@ event Deposit { vault_id: Field, amount: Field }
 event Withdrawal { vault_id: Field, amount: Field }
 ```
 
-This program is pure Level 1. It compiles to EVM bytecode, WASM for CosmWasm, BPF for Solana, TASM for Triton VM, and MASM for Miden. The developer writes it once. One audit covers all deployments.
+This program uses `os.state` and `os.neuron` — the portable OS API. It
+compiles to EVM bytecode, WASM for CosmWasm, BPF for Solana, TASM for
+Triton VM, and MASM for Miden. The developer writes it once. One audit
+covers all deployments.
 
-### Platform adapters
-
-Each target needs a thin adapter that maps the chain's calling convention to the Level 1 entry points. These adapters are small and mechanical:
-
-**EVM adapter** — parses calldata, dispatches to the Trident function, encodes return data:
-```
-// Generated by the compiler for --target evm
-// Selector dispatch: first 4 bytes of calldata → function
-// deposit(uint64,uint64) → selector 0x...
-// withdraw(uint64,uint64,uint64) → selector 0x...
-// Storage: slot = keccak256(vault_id) for each struct field
-// Events: LOG2 with topic = keccak256("Deposit(uint64,uint64)")
-```
-
-**CosmWasm adapter** — entry point, Deps wiring, Response construction:
-```rust
-// Generated by the compiler for --target cosmwasm
-#[entry_point]
-pub fn execute(deps: DepsMut, _env: Env, info: MessageInfo,
-               msg: ExecuteMsg) -> Result<Response, ContractError> {
-    match msg {
-        ExecuteMsg::Deposit { vault_id, amount } => {
-            // Call compiled Trident logic (WASM function)
-            // Read/write storage via deps.storage
-            // Return Response with events
-        }
-    }
-}
-```
-
-**SVM adapter** — account deserialization, PDA derivation:
-```rust
-// Generated by the compiler for --target svm
-pub fn deposit(ctx: Context<DepositAccounts>, vault_id: u64, amount: u64) -> Result<()> {
-    // Deserialize vault from account data
-    // Call compiled Trident logic
-    // Serialize back
-}
-```
-
-The adapter is not written by the developer. The compiler generates it from the program's function signatures and storage declarations. The developer thinks only in business logic.
+The compiler lowers `os.state.read()` to `SLOAD` on EVM, `deps.storage`
+on CosmWasm, account data on Solana, RAM with Merkle authentication on
+Triton VM. `os.neuron.id()` becomes `msg.sender` on EVM,
+`predecessor_account_id` on Near, `tx_context::sender` on Sui. Same
+source, target-optimal execution. No adapters to write.
 
 ---
 
@@ -215,7 +183,7 @@ Level 1 provides abstract interfaces. The compiler maps them to target-native im
 | CosmWasm  | SHA-256 (native)    | ~microseconds   |
 | SVM       | SHA-256 syscall     | ~100 CUs        |
 
-**`storage.read()` / `storage.write()`** — persistent state:
+**`os.state.read()` / `os.state.write()`** — persistent state:
 | Target    | Mapping                                          |
 |-----------|--------------------------------------------------|
 | Triton VM | RAM addresses + Merkle commitment                |
@@ -279,7 +247,6 @@ A Level 2 program is a Level 1 program with these additions. The business logic 
 program private_transfer
 
 use std.crypto.merkle
-use vm.io.io
 
 fn main() {
     let old_root: Digest = pub_read5()
@@ -291,7 +258,9 @@ fn main() {
     let new_bal: Field = sub(sender_bal, amount)
 
     // Merkle proof (Level 2)
-    merkle.verify(old_root, sender_leaf, index, DEPTH)
+    let sender_leaf: Digest = divine5()
+    let index: Field = divine()
+    std.crypto.merkle.verify(old_root, sender_leaf, index, 20)
 
     seal Transfer { amount: amount }
 }
@@ -301,23 +270,37 @@ The `sender_bal - amount` and `assert(new_bal >= 0)` are pure Level 1 logic. The
 
 ---
 
-## Level 3: Platform Access
+## Level 3: OS Access
 
-Level 3 is the thin adapter layer. It connects Level 1 logic to a specific chain's environment. Importing any Level 3 module locks the program to that target.
+Level 3 connects business logic to the runtime environment. It has two
+tiers:
 
-Level 3 is **not** a rich framework. It's a minimal bridge between "transaction arrives" and "call the Level 1 function." The less Level 3 code in a program, the more portable it is. Good Trident programs have thick Level 1 and thin Level 3.
+**`os.*`** — the portable runtime. Available on all 25 OSes. Programs
+using only Level 1 + `os.*` are portable across every OS that supports
+the required operations.
 
-### What Level 3 provides per target
+| Module | Purpose | Lowers to |
+|--------|---------|-----------|
+| `os.neuron` | Identity, authorization | `msg.sender` (EVM), `predecessor_account_id` (Near), `divine()+hash()` (Neptune) |
+| `os.signal` | Value transfer | `CALL(to, amount)` (EVM), `system_program::transfer` (Solana), emit UTXO (Neptune) |
+| `os.token` | Token lifecycle | ERC-20/721 (EVM), SPL (Solana), TSP-1/2 (Neptune) |
+| `os.state` | Persistent storage | `SLOAD/SSTORE` (EVM), account data (Solana), Merkle-authenticated RAM (Neptune) |
+| `os.time` | Clock | `block.timestamp` (EVM), `Clock::unix_timestamp` (Solana), kernel timestamp (Neptune) |
 
-**EVM** — `CALLER` (msg.sender), `CALLVALUE` (msg.value), `BALANCE`, `SELFDESTRUCT`, raw `CALL`/`DELEGATECALL`, custom ABI encoding. Used when you need EVM-specific access control or composability.
+**`os.<os>.*`** — OS-specific extensions. Importing any `os.<os>.*`
+module locks the program to that OS. Used when you need capabilities
+that don't have a portable abstraction.
 
-**CosmWasm** — `Deps`/`Env`/`MessageInfo` access, `Response` builder, IBC packets, bank module, submessages. Used when you need Cosmos-specific interchain communication.
+| OS | Extensions | Use case |
+|----|-----------|----------|
+| Neptune | `os.neptune.kernel`, `os.neptune.utxo`, `os.neptune.xfield` | UTXO authentication, kernel MAST, extension field arithmetic |
+| Ethereum | `os.ethereum.call`, `os.ethereum.precompile` | Raw CALL/DELEGATECALL, precompile access |
+| Solana | `os.solana.pda`, `os.solana.cpi` | PDA derivation, cross-program invocation |
+| Cosmos | `os.cosmwasm.ibc`, `os.cosmwasm.bank` | IBC packets, bank module |
+| Sui | `os.sui.object`, `os.sui.transfer` | Object-centric model |
 
-**SVM** — Account declarations, `Pubkey` type, PDA derivation, CPI (cross-program invocation). Used when you need Solana's account model.
-
-**Neptune** — Kernel interface, UTXO authentication, MAST hash, transaction model. Used when you need Neptune-specific consensus features.
-
-**Triton VM** — `XField` type (cubic extension), `xx_dot_step`/`xb_dot_step` for FRI verification, raw `asm(triton)` blocks. Used for cryptographic primitives that exploit Triton's native extension field.
+The less `os.<os>.*` code in a program, the more portable it is. Good
+Trident programs have thick Level 1 and thin `os.<os>.*`.
 
 ---
 
@@ -331,7 +314,7 @@ The practical value of universal execution is economic, not theoretical.
 
 **Prove where it matters.** Level 1 logic can be deployed directly on conventional chains (fast, cheap, transparent execution) or wrapped in Level 2 for ZK targets (private, provable execution). The same business logic, different trust models. A lending protocol can run transparently on EVM while its risk engine runs privately on Triton VM, both from the same source.
 
-**Reduce attack surface.** Every rewrite is a chance to introduce bugs. Every new language is a chance to misunderstand semantics. Trident's constraints (bounded loops, no heap, no dynamic dispatch) eliminate entire classes of vulnerabilities that affect conventional smart contract languages: reentrancy (no callbacks without explicit Level 3 access), integer overflow (field arithmetic is modular by definition), unbounded gas consumption (loops are bounded).
+**Reduce attack surface.** Every rewrite is a chance to introduce bugs. Every new language is a chance to misunderstand semantics. Trident's constraints (bounded loops, no heap, no dynamic dispatch) eliminate entire classes of vulnerabilities that affect conventional smart contract languages: reentrancy (no callbacks without explicit `os.<os>.*` access), integer overflow (field arithmetic is modular by definition), unbounded gas consumption (loops are bounded).
 
 ---
 
@@ -376,7 +359,7 @@ This creates a spectrum of trust: deploy the same logic directly (transparent, a
 - **Triton VM backend:** Production-quality. Full type system, bounded loops, modules, cost analysis, 740+ tests.
 - **Miden VM backend:** Lowering implemented. Inline `if.true/else/end` control flow, correct instruction set. Not validated against Miden runtime.
 - **TIR pipeline:** Operational. `TIRBuilder` produces `Vec<TIROp>` from AST. `TritonLowering` and `MidenLowering` produce assembly from TIR. Adding new lowerings is mechanical.
-- **5 target configurations:** Triton, Miden, OpenVM, SP1, Cairo. TOML configs with field parameters, stack depth, cost tables.
+- **20 VM + 25 OS configurations:** TOML configs with field parameters, stack depth, cost tables. Each lives in `vm/{name}/target.toml` and `os/{name}/target.toml`.
 
 ### Near-term (next to build)
 
@@ -428,7 +411,7 @@ No existing language treats field arithmetic, bounded execution, and abstract st
 
 **Levels are enforced, not suggested.** The compiler rejects Level 2 constructs when targeting EVM. This is a compile error, not a warning. No surprises at deployment.
 
-**Thin Level 3, thick Level 1.** Good programs have most logic in the portable Level 1 core. Level 3 is a thin adapter. The less platform-specific code, the more value from universal deployment.
+**Thin `os.<os>.*`, thick Level 1.** Good programs have most logic in the portable Level 1 core. `os.*` is the portable runtime. `os.<os>.*` is OS-specific. The less OS-specific code, the more value from universal deployment.
 
 **Constraints are features.** Bounded loops prevent runaways. No heap prevents memory exploits. No dynamic dispatch prevents reentrancy. These aren't limitations — they're safety guarantees that hold on every chain.
 
