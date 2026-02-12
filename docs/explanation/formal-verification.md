@@ -11,16 +11,15 @@ The verification toolchain consists of:
 
 - **Specification annotations** (`#[requires]`, `#[ensures]`, `#[invariant]`,
   `#[pure]`) that declare properties directly in source code.
-- **Symbolic execution** (`sym.rs`) that converts programs into constraint
-  systems.
-- **Algebraic solving** (`solve.rs`) using Schwartz-Zippel random evaluation
-  over the Goldilocks field and bounded model checking.
-- **SMT checking** (`smt.rs`) that encodes constraints as SMT-LIB2 bitvector
-  queries for Z3.
-- **Invariant synthesis** (`synthesize.rs`) that automatically infers loop
-  invariants and pre/postconditions from code patterns.
-- **Semantic equivalence checking** (`equiv.rs`) that proves two functions
-  produce identical outputs for all inputs.
+- **Symbolic execution** that converts programs into constraint systems.
+- **Algebraic solving** using Schwartz-Zippel random evaluation over the
+  Goldilocks field and bounded model checking.
+- **SMT checking** that encodes constraints as SMT-LIB2 bitvector queries
+  for Z3.
+- **Invariant synthesis** that automatically infers loop invariants and
+  pre/postconditions from code patterns.
+- **Semantic equivalence checking** that proves two functions produce
+  identical outputs for all inputs.
 
 All of these are available today through the `trident verify`, `trident equiv`,
 and `trident generate` commands.
@@ -143,40 +142,33 @@ a Trident source file through three stages.
 
 ### Stage 1: Symbolic Execution
 
-The symbolic executor (`sym.rs`, ~1,005 lines) walks the type-checked AST and
+The symbolic executor walks the type-checked AST and
 builds a `ConstraintSystem`. Each variable becomes a symbolic value. Each
 operation becomes a constraint. The executor handles:
 
 - **`let` bindings** as symbolic variable assignments (SSA-versioned for
   mutable variables).
 - **`assert` / `assert_eq`** as equality or truth constraints.
-- **`if/else`** as path conditions, with ITE (if-then-else) merging of
-  environments from both branches.
-- **Bounded `for` loops** by unrolling up to the declared bound (default
-  maximum unroll: 64 iterations). Loops with dynamic bounds get path
-  conditions on each iteration.
-- **`match` arms** with per-arm path conditions and environment merging.
-- **Function calls** by inlining (up to depth 64; no recursion in Trident
-  means this always terminates).
-- **`divine()` / `pub_read()`** as fresh symbolic variables.
-- **`pub_write()`** by recording symbolic output values.
-- **Hash operations** as opaque symbolic values (uninterpreted).
+- **Control flow** (`if/else`, `match`) via path conditions with ITE merging
+  of environments from each branch.
+- **Bounded `for` loops** by unrolling up to the declared bound (max 64
+  iterations).
+- **Function calls** by inlining (up to depth 64; no recursion means this
+  always terminates).
+- **`divine()` / `pub_read()` / `pub_write()`** as fresh symbolic variables
+  or recorded symbolic outputs. Hash operations are opaque (uninterpreted).
 
 The resulting `ConstraintSystem` contains all constraints, variable bindings,
 public inputs/outputs, and divine inputs.
 
 ### Stage 2: Algebraic Solving
 
-The algebraic solver (`solve.rs`, ~1,032 lines) checks the constraint system
-using two methods:
+The algebraic solver checks the constraint system using two methods:
 
 **Schwartz-Zippel random evaluation.** Constraints are evaluated at 100 random
-points over the Goldilocks field (p = 2^64 - 2^32 + 1). If a polynomial
-identity holds at k random points, the probability it is false is at most d/p
-where d is the polynomial degree. For typical degrees (< 2^16) and Goldilocks
-p (approximately 2^64), the false-positive probability is negligible. Early
-rounds use special values (0, 1, p-1, small primes, powers of 2, U32 boundary
-values) for better coverage.
+points over the Goldilocks field. By the Schwartz-Zippel lemma, a false
+polynomial identity is overwhelmingly unlikely to pass all rounds -- the
+false-positive probability is negligible for the Goldilocks field size.
 
 **Bounded model checking.** For systems with few free variables (8 or fewer),
 the solver tests a grid of interesting field values exhaustively. For larger
@@ -189,7 +181,7 @@ tested inputs), which can be removed to reduce proving cost.
 
 ### Stage 3: SMT Checking
 
-The SMT encoder (`smt.rs`, ~534 lines) translates the constraint system into
+The SMT encoder translates the constraint system into
 an SMT-LIB2 script using the `QF_BV` (quantifier-free bitvector) logic.
 Goldilocks field arithmetic is encoded as 128-bit bitvector operations with
 modular reduction. Two query modes are supported:
@@ -225,70 +217,48 @@ trident verify main.tri --synthesize
 
 ### Verification Output
 
-A typical verification report looks like:
+A typical verification report:
 
 ```text
 Verifying main.tri...
-
-Static analysis: PASS (no trivially violated assertions)
-
-Random testing (Schwartz-Zippel):
-Solver: 5 constraints, 100 rounds
-  Result: ALL PASSED
-
-Bounded model checking:
-Solver: 5 constraints, 256 rounds
-  Result: ALL PASSED
-  Redundant assertions (always true): 1
-
-Optimization: 1 assertion(s) appear redundant (always true)
-  These could be removed to reduce proving cost.
-
+  Static analysis: PASS
+  Schwartz-Zippel (100 rounds): ALL PASSED
+  Bounded model checking (256 rounds): ALL PASSED
 Verdict: SAFE -- no violations found
 ```
 
 When a violation is found:
 
-```trident
+```text
 Verdict: UNSAFE -- random testing found violations (high confidence)
   Constraint #2: assert((pub_in_0 == 0))
-  Counterexample:
-    pub_in_0 = 7164325918402846317
+  Counterexample: pub_in_0 = 7164325918402846317
 ```
 
 ---
 
 ## 🔄 Invariant Synthesis
 
-The invariant synthesis engine (`synthesize.rs`, ~1,307 lines) automatically
-infers specifications from code patterns. Run it with `trident verify --synthesize`.
+The invariant synthesis engine automatically infers specifications from code
+patterns. Run it with `trident verify --synthesize`.
 
 ### Template-Based Pattern Matching
 
 The synthesizer recognizes common patterns in loop bodies and function
 structures:
 
-**Additive accumulation.** When a mutable variable is updated as
-`acc = acc + expr` inside a loop, the synthesizer infers invariants like
-`acc >= init_value` and suggests postconditions relating the final
-accumulator value to the loop bound.
+**Additive accumulation.** `acc = acc + expr` in a loop yields
+`acc >= init_value` and bound-related postconditions.
 
-**Counting patterns.** When `acc = acc + 1` appears inside a conditional
-within a loop, the synthesizer infers `count <= loop_var` as a loop
-invariant and `count <= N` as a postcondition.
+**Counting patterns.** Conditional `acc = acc + 1` yields `count <= loop_var`
+invariant and `count <= N` postcondition.
 
-**Monotonic updates.** When a variable only increases (e.g., `x = x + 3`
-with a non-negative literal), the synthesizer infers `x >= init_value`.
+**Monotonic updates.** Variables that only increase get `x >= init_value`.
 
-**Identity preservation.** Single-parameter functions that return their
-parameter unchanged get `result == param` as a postcondition with full
-confidence.
+**Identity / constant detection.** Functions returning their parameter
+unchanged get `result == param`; single-literal bodies get `result == constant`.
 
-**Range preservation.** Functions with U32 inputs and U32 outputs get
-`result <= 4294967295` as a suggested postcondition.
-
-**Constant result detection.** Functions whose body is a single literal
-expression get `result == constant` with full confidence.
+**Range preservation.** U32-to-U32 functions get `result <= 4294967295`.
 
 ### Precondition Inference
 
@@ -451,17 +421,12 @@ trident generate spec.tri -o implementation.tri
 ## 🛡️ Decidable Properties
 
 Trident's verification is tractable because the language eliminates the
-standard sources of undecidability:
-
-| Source of difficulty | Trident's answer |
-|---------------------|-----------------|
-| Termination | No recursion. All loops have compile-time bounds. |
-| Aliasing | No heap. No pointers. |
-| Dynamic dispatch | First-order only. No closures, no vtables. |
-| Unbounded state | Fixed memory layout at compile time. |
-| Side effects | Only `pub_read`, `pub_write`, `divine` -- all pure data. |
-| Integer undecidability | Arithmetic over Goldilocks finite field is decidable. |
-| Concurrency | Single-threaded, sequential execution. |
+standard sources of undecidability. No recursion and bounded loops guarantee
+termination. No heap, no pointers, no closures, and no dynamic dispatch mean
+fixed memory layout and finite state. Arithmetic over the Goldilocks finite
+field is decidable. Execution is single-threaded with only pure-data I/O
+(`pub_read`, `pub_write`, `divine`). Together these restrictions make the
+state space finite and enumerable.
 
 ### What Can Be Verified
 
@@ -502,51 +467,31 @@ be verified automatically.
 The verification system is functional end-to-end, but several components
 have incomplete coverage or known bugs:
 
-**Symbolic execution: opaque stubs for field access and indexing.** In
-`sym.rs`, struct field access (`expr.field`) and array indexing
-(`expr[index]`) produce fresh opaque symbolic variables rather than tracking
-the relationship to the source struct or array. This means the verifier
-cannot reason about properties that depend on reading back a struct field
-or array element that was previously written. Approximately 68% of the
-symbolic executor handles real cases; field access and indexing are the
-primary gaps.
+**Opaque stubs for field access and indexing.** Struct field access and array
+indexing produce fresh symbolic variables rather than tracking the source
+struct/array. The verifier cannot yet reason about read-back properties.
 
-**CEGIS is not complete.** The counterexample-guided invariant synthesis
-loop (`synthesize.rs`) has the refinement infrastructure in place but the
-source-construction step (`build_verification_source`) currently returns
-`None` for functions with parameters, which is the common case. Template-
-based synthesis works and produces useful suggestions; the CEGIS loop
-itself does not yet contribute verified candidates for most functions.
+**CEGIS is not complete.** Template-based synthesis works and produces useful
+suggestions, but the CEGIS refinement loop does not yet contribute verified
+candidates for functions with parameters.
 
-**SMT `Inv` encoding has a bug.** In `smt.rs`, the encoding of
-`SymValue::Inv` (multiplicative inverse) declares a fresh variable but
-does not emit the constraint `inv_x * x == 1 mod p` into the SMT script.
-The variable is declared but left unconstrained, which means the solver
-can assign it any value. Programs that rely on field inversion for
-verification correctness may produce unsound results through the SMT
-backend. The algebraic solver (Schwartz-Zippel) handles inversion
-correctly via Fermat's little theorem.
+**SMT `Inv` encoding bug.** The SMT encoding of multiplicative inverse
+declares a variable but omits the `inv_x * x == 1 mod p` constraint, making
+it unconstrained. The algebraic solver handles inversion correctly.
 
-**Polynomial normalization limited to `+`, `*`, `-`.** The equivalence
-checker's polynomial normalization only handles addition, multiplication,
-subtraction, negation, constants, and variables. Functions using division,
-hashes, conditionals, or I/O fall through to differential testing, which
-provides high confidence but not a proof.
+**Polynomial normalization limited to `+`, `*`, `-`.** Functions using
+division, hashes, conditionals, or I/O fall through to differential testing
+(high confidence, not a proof).
 
-**No `#[invariant]` parsing for loops yet.** The `#[invariant]` annotation
-is described in this document as part of the specification language design,
-but the parser does not yet recognize it on loop statements. Loop invariant
-checking currently requires manual unrolling or relies on the synthesizer.
+**No `#[invariant]` parsing for loops yet.** The annotation is part of the
+specification design but the parser does not yet recognize it on loop
+statements. Loop invariant checking relies on the synthesizer or unrolling.
 
 ---
 
 ## 🔗 See Also
 
+- [Language Reference](../reference/language.md) -- syntax, types, and specification annotations
+- [Content-Addressed Code](content-addressing.md) -- how verification results are cached via content hashing
 - [Tutorial](../tutorials/tutorial.md) -- getting started with Trident programs
-- [Language Reference](../reference/language.md) -- complete syntax and type reference, including `#[pure]` and specification annotations
-- [Target Reference](../reference/targets.md) -- OS model, integration tracking, how-to-add checklists
-- [Content-Addressed Code](content-addressing.md) -- how verification results are cached and shared via content hashing
-- [Optimization Guide](../guides/optimization.md) -- cost reduction strategies (verification can identify redundant assertions)
 - [Compiling a Program](../guides/compiling-a-program.md) -- build pipeline and `--costs` flag
-- [For Developers](for-developers.md) -- zero-knowledge concepts for general developers
-- [Vision](vision.md) -- project goals and design philosophy

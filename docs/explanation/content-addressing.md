@@ -145,19 +145,7 @@ computation always terminates.
 
 ### 2.6 What Does Not Affect the Hash
 
-| Element | Affects hash? |
-|---------|:------------:|
-| Variable names | No |
-| Function name | No |
-| Comments | No |
-| Formatting / whitespace | No |
-| `#[requires]` / `#[ensures]` annotations | No |
-| Source file path | No |
-| Struct field order in initializers | No |
-| Function body (computation) | **Yes** |
-| Parameter types | **Yes** |
-| Return type | **Yes** |
-| Called functions (by their hash) | **Yes** |
+Since hashing operates on the normalized AST, the hash is invariant to variable names, comments, whitespace, formatting, argument order in commutative expressions, and import paths. Only the computation's structure and the hashes of called functions matter.
 
 ---
 
@@ -307,22 +295,9 @@ File: #e1d2c3b4 myfile.tri
   #b4c5d6e7 main
 ```
 
-### 4.2 Full Hashes
+Use `trident hash --full` to display full 256-bit hashes instead of 7-character abbreviations.
 
-By default, hashes are shown in short (40-bit) form. Use `--full` for the complete
-256-bit hex:
-
-```bash
-trident hash myfile.tri --full
-```
-
-```text
-File: a7f3b2c1d4e5f6a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2 myfile.tri
-  a7f3b2c1d4e5f6a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2 verify_merkle
-  ...
-```
-
-### 4.3 Project Hashing
+### 4.2 Project Hashing
 
 Point `trident hash` at a project directory (with `trident.toml`) to hash the entry
 file:
@@ -331,20 +306,7 @@ file:
 trident hash .
 ```
 
-### 4.4 What Gets Hashed
-
-For each function, `trident hash` performs the full normalization pipeline:
-
-1. Parse the source file
-2. For each function: normalize the AST (de Bruijn indices, dependency substitution,
-   field-order canonicalization, metadata stripping)
-3. Serialize the normalized AST with version prefix and type tags
-4. Hash the serialized bytes with Poseidon2
-
-The file-level hash combines all function hashes (sorted by name for determinism)
-with the module name.
-
-### 4.5 Verifying Alpha-Equivalence
+### 4.3 Verifying Alpha-Equivalence
 
 Two functions with different variable names but identical computation produce the same
 hash. This is a quick way to check if a refactored function is alpha-equivalent to the
@@ -411,19 +373,7 @@ Verification Cache Entry:
 
 ### 5.4 Compilation Caching
 
-Compilation results follow the same model. Each entry is keyed by
-`(source_hash, target)`:
-
-```bash
-# First compile: full compilation
-trident build myfile.tri --target triton
-
-# Second compile of the same code (even from a different file):
-# instant cache hit, no recompilation
-trident build other_file.tri --target triton
-```
-
-Compilation caches store the TASM output and padded height metadata.
+Compilation results use the same content-hash-keyed cache.
 
 ### 5.5 Cache Invalidation
 
@@ -437,79 +387,9 @@ incorrect results.
 
 ---
 
-## 🔍 6. Semantic Equivalence
+## Semantic Equivalence
 
-The `trident equiv` command checks whether two functions are semantically equivalent --
-they produce the same output for all inputs, even if their ASTs differ.
-
-### 6.1 Basic Usage
-
-Both functions must be in the same `.tri` file:
-
-```bash
-trident equiv myfile.tri double_a double_b
-```
-
-Output for equivalent functions:
-
-```text
-Equivalence check: double_a vs double_b
-  Method: polynomial normalization
-  Verdict: EQUIVALENT
-```
-
-Output for non-equivalent functions:
-
-```text
-Equivalence check: f vs g
-  Method: differential testing (counterexample found)
-  Verdict: NOT EQUIVALENT
-  Counterexample:
-    __input_0 = 3
-    __input_1 = 5
-    f(...) = 8
-    g(...) = 15
-```
-
-### 6.2 Equivalence Methods
-
-The checker uses a layered strategy, from cheapest to most expensive:
-
-#### Level 1: Content hash comparison (alpha-equivalence)
-
-If both functions produce the same content hash, they are structurally identical
-(up to variable renaming). This is instant.
-
-#### Level 2: Polynomial normalization
-
-For pure field-arithmetic functions (using only `+`, `*`, constants, and variables),
-the checker normalizes both functions to multivariate polynomial normal form over the
-Goldilocks field. If the polynomials match, the functions are equivalent.
-
-This catches cases like `x + x` vs `x * 2`, or `(a + b) * c` vs `a * c + b * c`.
-
-#### Level 3: Differential testing
-
-For functions that cannot be reduced to polynomials, the checker builds a synthetic
-"differential test program" that calls both functions with the same inputs and asserts
-their outputs are equal. It then runs the full verification pipeline (symbolic
-execution, random testing, bounded model checking) on this synthetic program.
-
-If verification passes, the functions are equivalent. If it finds a counterexample,
-the functions are not equivalent, and the counterexample is reported.
-
-### 6.3 Verbose Mode
-
-Use `--verbose` to see content hashes and detailed analysis:
-
-```bash
-trident equiv myfile.tri f g --verbose
-```
-
-### 6.4 Signature Requirements
-
-Both functions must have compatible signatures (same parameter types and return type).
-If signatures do not match, the checker reports `UNKNOWN` with a diagnostic message.
+Two definitions with the same content hash are trivially equivalent. For definitions with different hashes, `trident equiv` checks semantic equivalence through three strategies: content hash comparison, polynomial normalization, and differential testing. See [Formal Verification](formal-verification.md) for the full equivalence pipeline.
 
 ---
 
@@ -573,10 +453,6 @@ itself.
 
 ## 🔗 8. See Also
 
-- [Tutorial](../tutorials/tutorial.md) -- Getting started with Trident, including first use of `trident hash` and `trident ucm`
-- [Formal Verification](formal-verification.md) -- How verification works, including how results are cached by content hash
 - [Language Reference](../reference/language.md) -- Complete language syntax, types, and built-in functions
+- [Formal Verification](formal-verification.md) -- How verification works, including how results are cached by content hash
 - [Deploying a Program](../guides/deploying-a-program.md) -- Deployment by content hash, on-chain registry
-- [Multi-Target Compilation](multi-target.md) -- Multi-target architecture and how hashes relate to backends
-- [Target Reference](../reference/targets.md) -- OS model, integration tracking, how-to-add checklists
-- [Vision](vision.md) -- The broader vision for content-addressed provable computation
