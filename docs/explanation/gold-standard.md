@@ -355,9 +355,17 @@ metadata = hash(name_hash, ticker_hash, teaser_hash, site_hash, custom_hash,
 
 1. **Leaf** represents an asset (unique item), not an account balance
 2. **Invariant:** uniqueness (`owner_count(id) = 1`) not divisible supply
-3. **Constraints:** `balance` always 0 or 1, metadata/royalty/creator fields active
+3. **No divisible arithmetic** — no `balance`, no range checks, no
+   splitting. An asset is owned or not.
+4. **Per-asset state** — metadata, royalty, creator, flags live in the
+   leaf (TSP-1 uses those positions for controller/locked_by/lock_data)
+5. **Creator immutability** — `creator_id` is set at mint and can never
+   change. No equivalent in TSP-1.
+6. **Flag-gated operations** — transferable, burnable, updatable bits
+   control which PLUMB operations are allowed per asset
 
-Operations are still Pay, Lock, Update, Mint, Burn — PLUMB operations. What changes is what the circuit enforces inside each.
+Operations are still Pay, Lock, Update, Mint, Burn — PLUMB operations. What
+changes is what the circuit enforces inside each.
 
 ### 6.2 Asset Leaf — 10 field elements
 
@@ -377,37 +385,260 @@ leaf = hash(asset_id, owner_id, nonce, auth_hash, lock_until,
 | `metadata_hash` | Field | Hash of item metadata |
 | `royalty_bps` | Field | Royalty basis points (0-10000) |
 | `creator_id` | Field | Original creator (immutable after mint) |
-| `flags` | Field | Bits: transferable, burnable, updatable |
+| `flags` | Field | Bits: transferable (bit 0), burnable (bit 1), updatable (bit 2) |
 
-First 5 fields occupy same positions as TSP-1. Last 5 — reserved zeros in TSP-1 — carry per-asset state in TSP-2.
+First 5 fields occupy same positions as TSP-1. Last 5 — reserved zeros in
+TSP-1 — carry per-asset state in TSP-2.
 
-### 6.3 Collection Metadata
+#### Flags Bitfield
+
+| Bit | Name | When set | When clear |
+|-----|------|----------|------------|
+| 0 | `TRANSFERABLE` | Pay (transfer) allowed | Pay rejected |
+| 1 | `BURNABLE` | Burn allowed | Burn rejected |
+| 2 | `UPDATABLE` | Metadata update allowed | Metadata frozen forever |
+
+Flags are set at mint time and **cannot be changed** after creation. A
+soulbound credential is minted with `flags = 0` (no transfer, no burn, no
+update). A game item is minted with `flags = 7` (all operations allowed).
+
+#### Collection Binding
+
+When `collection_id ≠ 0`, the asset belongs to a collection. The collection
+is identified by its config hash — all assets in the same collection share
+the same config (same authorities, same hooks, same royalty receiver).
+
+Collection membership is **immutable after mint** — an asset cannot be moved
+between collections. The circuit enforces `collection_id` unchanged on
+every operation except Mint.
+
+#### Creator Immutability
+
+`creator_id` is set to the minter's identity at mint time and can **never
+change**. Every subsequent operation preserves `creator_id` unchanged. This
+provides an unforgeable provenance chain: given any asset leaf, you can
+always determine who created it, regardless of how many times it was
+transferred.
+
+The royalty system depends on this: PAY_ROYALTY hooks read `royalty_bps`
+from the leaf and `royalty_receiver` from collection metadata — the creator
+is always known and always paid.
+
+### 6.3 Collection Metadata — 10 field elements
 
 ```
 metadata = hash(name_hash, description_hash, image_hash, site_hash, custom_hash,
                 max_supply, royalty_receiver, 0, 0, 0)
 ```
 
+| Field | Type | Description |
+|---|---|---|
+| `name_hash` | Field | Hash of collection name |
+| `description_hash` | Field | Hash of collection description |
+| `image_hash` | Field | Hash of collection image/avatar |
+| `site_hash` | Field | Hash of collection website URL |
+| `custom_hash` | Field | Hash of application-specific data |
+| `max_supply` | Field | Maximum number of assets (0 = unlimited) |
+| `royalty_receiver` | Field | Account that receives royalties on transfers |
+| *reserved* | Field×3 | Extension space |
+
+`royalty_receiver` + `royalty_bps` (per-leaf) together define the royalty
+contract. The receiver is collection-wide; the rate is per-asset. This
+allows collections where different rarity tiers have different royalty
+rates while sharing a single receiver.
+
 ### 6.4 Circuit Constraints
 
+All 5 operations follow the PLUMB proof envelope (section 3.2). Config is
+the standard 10-field PLUMB config (section 3.1) — 5 authorities + 5 hooks.
+
 #### Op 0: Pay (Transfer Ownership)
-1–6. Same as TSP-1 Pay, plus:
-7. `leaf.flags & TRANSFERABLE`
-8. New leaf: `owner_id = new_owner`, `auth_hash = new_auth`, `nonce += 1`
-9. If `royalty_bps > 0`: royalty proof composed via `pay_hook`
-10. `asset_count` unchanged
+1. Config verified: divine 10 config fields, hash, assert match against
+   public `config_hash`
+2. `pay_auth` and `pay_hook` extracted from config
+3. Asset leaf verified against `old_root` (Merkle inclusion proof)
+4. `hash(secret) == leaf.auth_hash` (owner authorization)
+5. If `pay_auth ≠ 0`: `hash(pay_secret) == pay_auth` (dual auth required)
+6. `current_time >= leaf.lock_until` (time-lock check)
+7. `leaf.flags & TRANSFERABLE` (flag check — reject if not transferable)
+8. `leaf.collection_id` unchanged
+9. `leaf.creator_id` unchanged
+10. `leaf.royalty_bps` unchanged
+11. `leaf.metadata_hash` unchanged (Pay does not update metadata)
+12. `leaf.flags` unchanged
+13. New leaf: `owner_id = new_owner`, `auth_hash = new_auth`, `nonce += 1`
+14. New leaf → `new_root` (Merkle update)
+15. If `royalty_bps > 0` and `pay_hook ≠ 0`: royalty proof composed via
+    hook — the hook verifies that the buyer sent
+    `sale_price × royalty_bps / 10000` to `royalty_receiver` (from
+    collection metadata) via a composed TSP-1 pay proof
+16. `asset_count` unchanged (transfer, not creation/destruction)
+17. Nullifier emitted: `hash(asset_id, nonce)` — prevents replay
+
+#### Op 1: Lock (Time-Lock Asset)
+1. Config verified, `lock_auth` and `lock_hook` extracted
+2. Asset leaf verified against `old_root`
+3. `hash(secret) == leaf.auth_hash` (owner authorization)
+4. If `lock_auth ≠ 0`: `hash(lock_secret) == lock_auth` (dual auth)
+5. `lock_until_time >= leaf.lock_until` (extend only — locks can be
+   extended but never shortened)
+6. `leaf.owner_id` unchanged
+7. `leaf.collection_id` unchanged
+8. `leaf.creator_id` unchanged
+9. `leaf.metadata_hash` unchanged
+10. `leaf.royalty_bps` unchanged
+11. `leaf.flags` unchanged
+12. Leaf: `lock_until = lock_until_time`, `nonce += 1`
+13. New leaf → `new_root`
+14. `asset_count` unchanged
+
+Lock prevents Pay and Burn until `current_time >= lock_until`. The owner
+retains ownership but cannot transfer or destroy the asset.
+
+Use cases:
+- **Rental:** lock asset for rental period, lessee uses it, owner reclaims
+  after expiry
+- **Staking:** lock NFT to earn rewards (compose with LOCK_REWARDS hook)
+- **Vesting:** lock asset until vesting cliff
+- **Collateral:** lock asset backing a loan (compose with lending hook)
+
+#### Op 2: Update (Config or Metadata)
+
+Config update and metadata update are both Op 2 but with different
+semantics. The circuit distinguishes them by checking which fields changed.
+
+##### Config Update
+1. `old_root == new_root` (asset tree unchanged — config-only operation)
+2. Old config verified, `update_hook` extracted
+3. `hash(admin_secret) == old_config.admin_auth` (admin authorization)
+4. `admin_auth ≠ 0` (not renounced — renounced configs are frozen forever)
+5. New config fields → `new_config_hash`
+6. If `update_hook ≠ 0`: hook proof composed (e.g. UPDATE_TIMELOCK,
+   UPDATE_THRESHOLD)
+
+##### Metadata Update (Per-Asset)
+1. Config verified, `update_hook` extracted
+2. Asset leaf verified against `old_root`
+3. `hash(secret) == leaf.auth_hash` (owner authorization)
+4. `leaf.flags & UPDATABLE` (flag check — reject if not updatable)
+5. `leaf.asset_id` unchanged
+6. `leaf.owner_id` unchanged
+7. `leaf.collection_id` unchanged
+8. `leaf.creator_id` unchanged
+9. `leaf.royalty_bps` unchanged
+10. `leaf.flags` unchanged
+11. Leaf: `metadata_hash = new_metadata_hash`, `nonce += 1`
+12. New leaf → `new_root`
+13. `asset_count` unchanged
+
+Only the owner can update metadata, and only if `flags.UPDATABLE` is set.
+This enables evolving assets (game items that level up, dynamic art that
+changes) while protecting assets that should be immutable (art editions,
+certificates).
 
 #### Op 3: Mint (Originate)
-1–2. Same as TSP-1 Mint, plus:
-3. `asset_id` not in tree (uniqueness proof)
-4. `creator_id` set to minter (immutable forever)
-5. `new_asset_count == old_asset_count + 1`
+1. Config verified, `mint_auth` and `mint_hook` extracted
+2. `mint_auth ≠ 0` (minting enabled — `0` means minting disabled forever)
+3. `hash(mint_secret) == config.mint_auth` (mint authorization)
+4. `asset_id` not in tree (non-membership proof — proves the asset is new)
+5. `creator_id = minter_id` (set at mint, immutable forever after)
+6. `collection_id` set (binds asset to collection, immutable forever after)
+7. `flags` set (transferable, burnable, updatable bits, immutable after)
+8. `royalty_bps` set (royalty rate, immutable after mint)
+9. `nonce = 0` (initial nonce)
+10. `lock_until = 0` (initially unlocked)
+11. New leaf → `new_root` (Merkle insert)
+12. `new_asset_count == old_asset_count + 1`
+13. If `max_supply ≠ 0` (from collection metadata):
+    `new_asset_count <= max_supply` (cap enforcement)
+14. If `mint_hook ≠ 0`: hook proof composed (e.g. MINT_UNIQUE for extra
+    uniqueness checks, MINT_ALLOWLIST for approved minters)
+
+The non-membership proof (step 4) is the key difference from TSP-1 minting.
+TSP-1 mints to an existing account (incrementing balance). TSP-2 creates a
+new leaf that must not already exist in the tree. The proof shows the
+Merkle path to where the leaf would be, and that the position is empty.
 
 #### Op 4: Burn (Release)
-1–4. Same as TSP-1 Burn, plus:
-5. `leaf.flags & BURNABLE`
-6. Leaf → null
-7. `new_asset_count == old_asset_count - 1`
+1. Config verified, `burn_auth` and `burn_hook` extracted
+2. Asset leaf verified against `old_root`
+3. `hash(secret) == leaf.auth_hash` (owner authorization)
+4. If `burn_auth ≠ 0`: `hash(burn_secret) == burn_auth` (dual auth)
+5. `current_time >= leaf.lock_until` (time-lock check — locked assets
+   cannot be burned)
+6. `leaf.flags & BURNABLE` (flag check — reject if not burnable)
+7. Leaf → null (Merkle deletion)
+8. `new_asset_count == old_asset_count - 1`
+9. Nullifier emitted: `hash(asset_id, nonce)` — prevents double-burn
+10. If `burn_hook ≠ 0`: hook proof composed (e.g. BURN_REDEEM for
+    burn-to-claim patterns)
+
+Burning is permanent and irreversible. The asset is removed from the tree.
+The nullifier prevents replay attacks where a prover tries to burn an
+already-burned asset.
+
+### 6.5 TSP-2 Proof Composition Patterns
+
+TSP-2 assets compose with the same primitive set as TSP-1 — TIDE, COMPASS,
+hooks, and application state trees.
+
+#### NFT Marketplace (TSP-2 + TSP-1 + COMPASS)
+
+```
+Seller lists NFT at price P:
+  1. TSP-2 Pay: seller → buyer (asset transfer)
+     pay_hook = PAY_ROYALTY
+  2. TSP-1 Pay: buyer → seller, amount = P (payment)
+  3. TSP-1 Pay: buyer → royalty_receiver, amount = P × royalty_bps / 10000
+  4. Optional: COMPASS price proof (floor price oracle for automated offers)
+
+Composed proof: TSP-2 ⊗ TSP-1(payment) ⊗ TSP-1(royalty) → single verification
+```
+
+#### NFT-Collateralized Lending (TSP-2 + TSP-1 + COMPASS)
+
+```
+Borrow against an NFT:
+  1. TSP-2 Lock: owner locks NFT (lock_until = loan_expiry)
+  2. COMPASS proves NFT collection floor price = V
+  3. TSP-1 Mint: lender mints loan tokens to borrower
+     mint_hook composes with:
+       ⊗ TSP-2 lock proof (collateral locked)
+       ⊗ COMPASS price proof (valuation)
+       ⊗ LTV check (loan_amount ≤ V × ltv_ratio)
+
+Liquidation (if borrower defaults):
+  1. current_time >= lock_until (lock expired)
+  2. TSP-2 Pay: locked NFT → liquidator (transfer at discount)
+     Authorized by lock expiry + lending program hook
+  3. TSP-1 Burn: liquidator returns partial loan tokens
+```
+
+#### Burn-to-Redeem (TSP-2 → physical goods or new asset)
+
+```
+Burn NFT to claim:
+  1. TSP-2 Burn: holder burns NFT
+     burn_hook = BURN_REDEEM
+  2. Burn receipt proof composed with:
+     - TSP-1 Mint (claim reward token), or
+     - Application state update (mark physical shipment), or
+     - TSP-2 Mint (upgrade to new NFT edition)
+```
+
+#### Game Item Economy (TSP-2 with UPDATABLE flag)
+
+```
+Crafting: combine two items into one:
+  1. TSP-2 Burn: destroy item_A (flags & BURNABLE)
+  2. TSP-2 Burn: destroy item_B (flags & BURNABLE)
+  3. TSP-2 Mint: create item_C with metadata = f(item_A, item_B)
+     mint_hook = CRAFT_RULES (validates recipe)
+
+Leveling up:
+  1. TSP-2 Update: update item metadata_hash (flags & UPDATABLE)
+     update_hook = LEVEL_RULES (validates XP threshold)
+```
 
 ---
 
