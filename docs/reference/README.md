@@ -7,11 +7,40 @@ and code disagree, the reference wins.
 
 ---
 
-## Core Reference
+## Language Reference
+
+[language.md](language.md) — the complete language in one file, 16 sections.
+
+**Part I — Universal Language (Tier 0 + Tier 1)**
+
+| # | Section | What it covers |
+|---|---------|----------------|
+| 1 | [Programs and Modules](language.md#1-programs-and-modules) | `program`, `module`, `use`, visibility, project layout |
+| 2 | [Types](language.md#2-types) | Field, Bool, U32, Digest, arrays, tuples, structs, widths |
+| 3 | [Declarations](language.md#3-declarations) | Functions, size generics, structs, events, constants, I/O |
+| 4 | [Expressions and Operators](language.md#4-expressions-and-operators) | Arithmetic, comparison, bitwise, field access, indexing |
+| 5 | [Statements](language.md#5-statements) | Let, assignment, if/else, for, match, return |
+| 6 | [Builtin Functions](language.md#6-builtin-functions) | I/O, field math, U32 ops, assertions, memory, hash, `os.*` |
+| 7 | [Attributes](language.md#7-attributes) | `#[cfg]`, `#[test]`, `#[pure]`, `#[requires]`, `#[ensures]` |
+| 8 | [Memory Model](language.md#8-memory-model) | Stack (16 slots), RAM (word-addressed), no heap |
+| 9 | [Inline Assembly](language.md#9-inline-assembly) | `asm` blocks, target-tagged, stack effect annotations |
+| 10 | [Events](language.md#10-events) | `event` declaration, `reveal` (public), `seal` (committed) |
+| 11 | [Type Checking Rules](language.md#11-type-checking-rules) | No implicit conversions, exhaustive match, purity |
+| 12 | [Permanent Exclusions](language.md#12-permanent-exclusions) | What Trident will never add, and why |
+
+**Part II — Provable Computation (Tier 2 + Tier 3)**
+
+| # | Section | What it covers |
+|---|---------|----------------|
+| 13 | [Sponge](language.md#13-sponge) | `sponge_init`, `sponge_absorb`, `sponge_squeeze` |
+| 14 | [Merkle Authentication](language.md#14-merkle-authentication) | `merkle_step`, Merkle path verification |
+| 15 | [Extension Field](language.md#15-extension-field) | XField type, `*.` operator, dot-step builtins |
+| 16 | [Proof Composition](language.md#16-proof-composition-tier-3) | `proof_block`, STARK-in-STARK recursion |
+
+## Other Core Reference
 
 | Document | Description |
 |----------|-------------|
-| [Language](language.md) | Types, operators, builtins, syntax, memory model |
 | [Grammar (EBNF)](grammar.md) | Complete formal grammar |
 | [IR Design](ir.md) | TIR operations (54 ops, 4 tiers), lowering paths |
 | [Target Reference](targets.md) | OS model, target profiles, cost models |
