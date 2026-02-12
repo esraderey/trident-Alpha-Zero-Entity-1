@@ -403,7 +403,7 @@ builtins do.
 | `os.neuron` | `id() -> Digest`, `verify(expected: Digest) -> Bool`, `auth(credential: Digest) -> ()` | Target has identity |
 | `os.signal` | `send(from: Digest, to: Digest, amount: Field)`, `balance(neuron: Digest) -> Field` | Target has native value |
 | `os.state` | `read(key: Field) -> Field`, `write(key, value)`, `exists(key)` | Target has persistent state |
-| `os.time` | `now() -> Field`, `block_height() -> Field` | All targets |
+| `os.time` | `now() -> Field`, `step() -> Field` | All targets |
 
 These sit between `std.*` (pure computation, all targets) and `os.<os>.*`
 (OS-native, one target). A program using only `std.*` + `os.*` compiles

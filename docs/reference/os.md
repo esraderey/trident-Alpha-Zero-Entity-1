@@ -285,13 +285,15 @@ on an account or asset (extend only — cannot shorten).
 | Function | Signature | Description |
 |----------|-----------|-------------|
 | `now()` | `() -> Field` | Current timestamp |
-| `block_height()` | `() -> Field` | Current block/slot number |
+| `step()` | `() -> Field` | Current step number (block height, slot, epoch, etc.) |
 
 **Supported:** All OS families.
 
 On blockchain OSes, `now()` returns block/slot timestamp. On traditional
 OSes, it returns wall-clock time. On journal targets, it returns the
-timestamp provided as public input.
+timestamp provided as public input. `step()` returns the discrete
+progression counter — block height on most chains, slot on Solana,
+tick count on process OSes.
 
 #### Per-OS Lowering
 
@@ -307,6 +309,19 @@ timestamp provided as public input.
 | Process | Linux, macOS, Android | `clock_gettime(CLOCK_REALTIME)` |
 | WASI/Browser | WASI, Browser | `wall_clock.now()` / `Date.now()` |
 | Journal | Boundless, Succinct, OpenVM Network | Timestamp from public input |
+
+| OS family | OSes | `time.step()` lowers to |
+|-----------|------|------------------------|
+| Account (EVM) | Ethereum | `block.number` |
+| Account (Cairo) | Starknet | `get_block_number` |
+| Account (WASM) | Near, Cosmos | `env.block.height` |
+| Account (other) | Ton, Polkadot | OS-native block number |
+| Stateless | Solana | `Clock::slot` |
+| Object | Sui, Aptos | `tx_context::epoch()` |
+| UTXO | Neptune, Nockchain | `kernel.authenticate_block_height(root)` |
+| Process | Linux, macOS, Android | Monotonic tick counter |
+| WASI/Browser | WASI, Browser | `monotonic_clock.now()` / `performance.now()` |
+| Journal | Boundless, Succinct, OpenVM Network | Step number from public input |
 
 ### `os.event` — Events
 

@@ -200,7 +200,7 @@ The `os.*` tier provides five modules that abstract over every supported OS:
 | `os.signal` | Value transfer | `send()`, `receive()` |
 | `os.token` | Token operations (PLUMB) | `pay()`, `lock()`, `update()`, `mint()`, `burn()` |
 | `os.state` | Persistent storage | `read()`, `write()`, `root()` |
-| `os.time` | Clock and timestamps | `now()`, `slot()` |
+| `os.time` | Clock and timestamps | `now()`, `step()` |
 
 The compiler lowers each `os.*` call to the target OS's native mechanism.
 `os.neuron.id()` becomes a UTXO lookup on Neptune, an `msg.sender` on

@@ -264,7 +264,7 @@ layer cannot express what you need.
 | `os.neuron` | Identity and authorization | UTXO (no caller for `id()`), Journal (no identity) |
 | `os.signal` | Send weighted edges between neurons | Journal + process targets (no value) |
 | `os.state` | Read/write persistent state | Journal targets (no state) |
-| `os.time` | Current time / block height | -- (all OSes have time) |
+| `os.time` | Current time and step | -- (all OSes have time) |
 | `os.event` | Observable side effects | -- (uses `reveal`/`seal` directly) |
 
 The compiler emits a clear error when an `os.*` function targets an OS
