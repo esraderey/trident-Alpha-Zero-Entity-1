@@ -4,7 +4,7 @@
 
 An OS defines the runtime environment: storage, accounts, syscalls, and
 I/O conventions. The compiler's job is runtime binding — link against
-OS-specific modules (`<os>.ext.*`). Everything in this document is about
+OS-specific modules (`os.<os>.*`). Everything in this document is about
 the OS, not the instruction set. For VMs, see [vm.md](vm.md).
 
 ---
@@ -37,11 +37,11 @@ compiler's job is to map neuron/signal operations down to those internals.
 ```
 std.*          Standard library      Pure computation (all 20 VMs, all 25 OSes)
 os.*           OS standard           Universal runtime contract (all OSes)
-<os>.ext.*     OS extensions         OS-native API (one specific OS)
+os.<os>.*      OS extensions         OS-native API (one specific OS)
 ```
 
 Programs can mix all three tiers. `std.*` for math and crypto. `os.*`
-for portable neuron identity, signals, state, and events. `<os>.ext.*`
+for portable neuron identity, signals, state, and events. `os.<os>.*`
 when OS-native features are needed (PDAs, object ownership, L1/L2
 messaging, CPI, etc.).
 
@@ -207,39 +207,39 @@ No additional `os.event` module needed — events use language-level
 | OS | VM | Runtime binding | Account / process model | Interop | Details |
 |----|-----|----------------|------------------------|---------|---------|
 | **Provable** | | | | | |
-| Neptune | [TRITON](vm/triton.md) | `neptune.ext.*` | UTXO | -- | [neptune.md](os/neptune.md) |
-| Polygon Miden | [MIDEN](vm/miden.md) | `miden.ext.*` | Account | -- | [miden.md](os/miden.md) |
-| Nockchain | [NOCK](vm/nock.md) | `nockchain.ext.*` | UTXO (Notes) | -- | [nockchain.md](os/nockchain.md) |
-| Starknet | [CAIRO](vm/cairo.md) | `starknet.ext.*` | Account | Ethereum L2 | [starknet.md](os/starknet.md) |
-| Boundless | [RISCZERO](vm/risczero.md) | `boundless.ext.*` | -- | Ethereum verification | [boundless.md](os/boundless.md) |
-| Succinct | [SP1](vm/sp1.md) | `succinct.ext.*` | -- | Ethereum verification | [succinct.md](os/succinct.md) |
-| OpenVM Network | [OPENVM](vm/openvm.md) | `openvm.ext.*` | -- | -- | [openvm-network.md](os/openvm-network.md) |
-| Aleo | [AVM](vm/avm.md) | `aleo.ext.*` | Record (UTXO) | -- | [aleo.md](os/aleo.md) |
-| Aztec | [AZTEC](vm/aztec.md) | `aztec.ext.*` | Note (UTXO) + public | Ethereum L2 | [aztec.md](os/aztec.md) |
+| Neptune | [TRITON](../../vm/triton/README.md) | `os.neptune.*` | UTXO | -- | [neptune.md](../../os/neptune/README.md) |
+| Polygon Miden | [MIDEN](../../vm/miden/README.md) | `os.miden.*` | Account | -- | [miden.md](../../os/miden/README.md) |
+| Nockchain | [NOCK](../../vm/nock/README.md) | `os.nockchain.*` | UTXO (Notes) | -- | [nockchain.md](../../os/nockchain/README.md) |
+| Starknet | [CAIRO](../../vm/cairo/README.md) | `os.starknet.*` | Account | Ethereum L2 | [starknet.md](../../os/starknet/README.md) |
+| Boundless | [RISCZERO](../../vm/risczero/README.md) | `os.boundless.*` | -- | Ethereum verification | [boundless.md](../../os/boundless/README.md) |
+| Succinct | [SP1](../../vm/sp1/README.md) | `os.succinct.*` | -- | Ethereum verification | [succinct.md](../../os/succinct/README.md) |
+| OpenVM Network | [OPENVM](../../vm/openvm/README.md) | `os.openvm.*` | -- | -- | [openvm-network.md](../../os/openvm-network/README.md) |
+| Aleo | [AVM](../../vm/avm/README.md) | `os.aleo.*` | Record (UTXO) | -- | [aleo.md](../../os/aleo/README.md) |
+| Aztec | [AZTEC](../../vm/aztec/README.md) | `os.aztec.*` | Note (UTXO) + public | Ethereum L2 | [aztec.md](../../os/aztec/README.md) |
 | **Blockchain** | | | | | |
-| Ethereum | [EVM](vm/evm.md) | `ethereum.ext.*` | Account | -- | [ethereum.md](os/ethereum.md) |
-| Solana | [SBPF](vm/sbpf.md) | `solana.ext.*` | Account (stateless programs) | -- | [solana.md](os/solana.md) |
-| Near Protocol | [WASM](vm/wasm.md) | `near.ext.*` | Account (1 contract each) | -- | [near.md](os/near.md) |
-| Cosmos (100+ chains) | [WASM](vm/wasm.md) | `cosmwasm.ext.*` | Account | IBC | [cosmwasm.md](os/cosmwasm.md) |
-| Arbitrum | [WASM](vm/wasm.md) + [EVM](vm/evm.md) | `arbitrum.ext.*` | Account (EVM-compatible) | Ethereum L2 | [arbitrum.md](os/arbitrum.md) |
-| Internet Computer | [WASM](vm/wasm.md) | `icp.ext.*` | Canister | -- | [icp.md](os/icp.md) |
-| Sui | [MOVEVM](vm/movevm.md) | `sui.ext.*` | Object-centric | -- | [sui.md](os/sui.md) |
-| Aptos | [MOVEVM](vm/movevm.md) | `aptos.ext.*` | Account (resources) | -- | [aptos.md](os/aptos.md) |
-| Ton | [TVM](vm/tvm.md) | `ton.ext.*` | Account (cells) | -- | [ton.md](os/ton.md) |
-| Nervos CKB | [CKB](vm/ckb.md) | `nervos.ext.*` | Cell (UTXO-like) | -- | [nervos.md](os/nervos.md) |
-| Polkadot | [POLKAVM](vm/polkavm.md) | `polkadot.ext.*` | Account | XCM | [polkadot.md](os/polkadot.md) |
+| Ethereum | [EVM](../../vm/evm/README.md) | `os.ethereum.*` | Account | -- | [ethereum.md](../../os/ethereum/README.md) |
+| Solana | [SBPF](../../vm/sbpf/README.md) | `os.solana.*` | Account (stateless programs) | -- | [solana.md](../../os/solana/README.md) |
+| Near Protocol | [WASM](../../vm/wasm/README.md) | `os.near.*` | Account (1 contract each) | -- | [near.md](../../os/near/README.md) |
+| Cosmos (100+ chains) | [WASM](../../vm/wasm/README.md) | `os.cosmwasm.*` | Account | IBC | [cosmwasm.md](../../os/cosmwasm/README.md) |
+| Arbitrum | [WASM](../../vm/wasm/README.md) + [EVM](../../vm/evm/README.md) | `os.arbitrum.*` | Account (EVM-compatible) | Ethereum L2 | [arbitrum.md](../../os/arbitrum/README.md) |
+| Internet Computer | [WASM](../../vm/wasm/README.md) | `os.icp.*` | Canister | -- | [icp.md](../../os/icp/README.md) |
+| Sui | [MOVEVM](../../vm/movevm/README.md) | `os.sui.*` | Object-centric | -- | [sui.md](../../os/sui/README.md) |
+| Aptos | [MOVEVM](../../vm/movevm/README.md) | `os.aptos.*` | Account (resources) | -- | [aptos.md](../../os/aptos/README.md) |
+| Ton | [TVM](../../vm/tvm/README.md) | `os.ton.*` | Account (cells) | -- | [ton.md](../../os/ton/README.md) |
+| Nervos CKB | [CKB](../../vm/ckb/README.md) | `os.nervos.*` | Cell (UTXO-like) | -- | [nervos.md](../../os/nervos/README.md) |
+| Polkadot | [POLKAVM](../../vm/polkavm/README.md) | `os.polkadot.*` | Account | XCM | [polkadot.md](../../os/polkadot/README.md) |
 | **Traditional** | | | | | |
-| Linux | [X86-64](vm/x86-64.md) / [ARM64](vm/arm64.md) / [RISCV](vm/riscv.md) | `linux.ext.*` | Process | POSIX syscalls | [linux.md](os/linux.md) |
-| macOS | [ARM64](vm/arm64.md) / [X86-64](vm/x86-64.md) | `macos.ext.*` | Process | POSIX + Mach | [macos.md](os/macos.md) |
-| Android | [ARM64](vm/arm64.md) / [X86-64](vm/x86-64.md) | `android.ext.*` | Process (sandboxed) | NDK, JNI | [android.md](os/android.md) |
-| WASI | [WASM](vm/wasm.md) | `wasi.ext.*` | Process (capability) | WASI preview 2 | [wasi.md](os/wasi.md) |
-| Browser | [WASM](vm/wasm.md) | `browser.ext.*` | Event loop | JavaScript, Web APIs | [browser.md](os/browser.md) |
+| Linux | [X86-64](../../vm/x86-64/README.md) / [ARM64](../../vm/arm64/README.md) / [RISCV](../../vm/riscv/README.md) | `os.linux.*` | Process | POSIX syscalls | [linux.md](../../os/linux/README.md) |
+| macOS | [ARM64](../../vm/arm64/README.md) / [X86-64](../../vm/x86-64/README.md) | `os.macos.*` | Process | POSIX + Mach | [macos.md](../../os/macos/README.md) |
+| Android | [ARM64](../../vm/arm64/README.md) / [X86-64](../../vm/x86-64/README.md) | `os.android.*` | Process (sandboxed) | NDK, JNI | [android.md](../../os/android/README.md) |
+| WASI | [WASM](../../vm/wasm/README.md) | `os.wasi.*` | Process (capability) | WASI preview 2 | [wasi.md](../../os/wasi/README.md) |
+| Browser | [WASM](../../vm/wasm/README.md) | `os.browser.*` | Event loop | JavaScript, Web APIs | [browser.md](../../os/browser/README.md) |
 
 Key observations:
 
 - **One VM, many OSes.** WASM powers 6+ OSes (Near, Cosmos, ICP, Arbitrum,
   WASI, Browser). x86-64 and ARM64 power Linux, macOS, Android. MOVEVM
-  powers Sui and Aptos. Same bytecode output, different `<os>.ext.*` bindings.
+  powers Sui and Aptos. Same bytecode output, different `os.<os>.*` bindings.
 - **RISC-V lowering is shared** across SP1, OPENVM, RISCZERO, JOLT, CKB,
   POLKAVM, and native RISCV — 7 targets from one `RiscVLowering`.
 - **Arbitrum** supports both WASM (Stylus) and EVM.
@@ -260,30 +260,30 @@ The compiler selects lowering strategy from three fields in `os/*.toml`:
 
 ## Extension Tracking
 
-Each OS provides its own `<os>.ext.*` modules with runtime-specific
+Each OS provides its own `os.<os>.*` modules with runtime-specific
 bindings: storage, accounts, syscalls, transaction models. Importing any
-`<os>.ext.*` module binds the program to that OS — the compiler rejects
+`os.<os>.*` module binds the program to that OS — the compiler rejects
 cross-OS imports.
 
 ### Implemented
 
 | Module | Description | OS doc |
 |--------|-------------|--------|
-| `neptune.ext.kernel` | Transaction kernel MAST authentication | [neptune.md](os/neptune.md) |
-| `neptune.ext.utxo` | UTXO structure authentication | [neptune.md](os/neptune.md) |
-| `neptune.ext.xfield` | Extension field arithmetic intrinsics | [neptune.md](os/neptune.md) |
-| `neptune.ext.proof` | Recursive STARK verification | [neptune.md](os/neptune.md) |
-| `neptune.ext.recursive` | Low-level recursive proof primitives | [neptune.md](os/neptune.md) |
-| `neptune.ext.registry` | On-chain definition registry (5 ops) | [neptune.md](os/neptune.md) |
+| `os.neptune.kernel` | Transaction kernel MAST authentication | [neptune.md](../../os/neptune/README.md) |
+| `os.neptune.utxo` | UTXO structure authentication | [neptune.md](../../os/neptune/README.md) |
+| `os.neptune.xfield` | Extension field arithmetic intrinsics | [neptune.md](../../os/neptune/README.md) |
+| `os.neptune.proof` | Recursive STARK verification | [neptune.md](../../os/neptune/README.md) |
+| `os.neptune.recursive` | Low-level recursive proof primitives | [neptune.md](../../os/neptune/README.md) |
+| `os.neptune.registry` | On-chain definition registry (5 ops) | [neptune.md](../../os/neptune/README.md) |
 
 ### Designed (not yet implemented)
 
 | OS | Modules | OS doc |
 |----|---------|--------|
-| Ethereum | `ethereum.ext.` storage, account, transfer, call, event, block, tx, precompile | [ethereum.md](os/ethereum.md) |
-| Solana | `solana.ext.` account, pda, cpi, transfer, system, log, clock, rent | [solana.md](os/solana.md) |
-| Starknet | `starknet.ext.` storage, account, call, event, messaging, crypto | [starknet.md](os/starknet.md) |
-| Sui | `sui.ext.` object, transfer, dynamic_field, tx, coin, event | [sui.md](os/sui.md) |
+| Ethereum | `os.ethereum.` storage, account, transfer, call, event, block, tx, precompile | [ethereum.md](../../os/ethereum/README.md) |
+| Solana | `os.solana.` account, pda, cpi, transfer, system, log, clock, rent | [solana.md](../../os/solana/README.md) |
+| Starknet | `os.starknet.` storage, account, call, event, messaging, crypto | [starknet.md](../../os/starknet/README.md) |
+| Sui | `os.sui.` object, transfer, dynamic_field, tx, coin, event | [sui.md](../../os/sui/README.md) |
 
 See each OS doc for the full API reference.
 
@@ -296,7 +296,7 @@ See each OS doc for the full API reference.
 - [Standard Library](stdlib.md) — `std.*` modules
 - [Language Reference](language.md) — Types, operators, builtins, grammar
 - [Provable Computation](provable.md) — Hash, sponge, Merkle, extension field (Tier 2-3)
-- Per-OS docs: `os/<os>.md`
+- Per-OS docs: `os/<os>/README.md`
 
 ---
 

@@ -137,7 +137,7 @@ Pattern:
 6. Write public outputs (new commitments, nullifiers)
 7. Seal private data (hash commitments for privacy)
 
-Use: std.crypto.hash, std.crypto.merkle, std.crypto.auth
+Use: vm.crypto.hash, std.crypto.merkle, std.crypto.auth
 Events: emit for public data, seal for private commitments
 ```
 

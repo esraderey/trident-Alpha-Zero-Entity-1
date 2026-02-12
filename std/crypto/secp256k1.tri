@@ -12,7 +12,7 @@ module std.crypto.secp256k1
 // verification patterns (divine the result, verify the constraint).
 use std.crypto.bigint
 
-use std.core.convert
+use vm.core.convert
 
 // A point on the secp256k1 curve in affine coordinates.
 // The point at infinity (identity) is represented as (0, 0), which is

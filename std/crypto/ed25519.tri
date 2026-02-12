@@ -13,7 +13,7 @@ module std.crypto.ed25519
 // approximately 2^255, requiring 256-bit arithmetic.
 use std.crypto.bigint
 
-use std.core.convert
+use vm.core.convert
 
 // An Ed25519 point in affine coordinates.
 // The neutral element (identity) is (0, 1).

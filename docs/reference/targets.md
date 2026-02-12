@@ -30,7 +30,7 @@ The compiler does two jobs, just like gcc:
    native instructions. This is the same job gcc does for x86-64 vs ARM64.
 
 2. **Runtime binding** (OS) — link against OS-specific modules
-   (`<os>.ext.*`) that provide transaction models, account structures,
+   (`os.<os>.*`) that provide transaction models, account structures,
    storage layouts, and syscall conventions. This is the same job libc
    does — it differs between Linux and macOS even on the same CPU.
 
@@ -53,8 +53,8 @@ trident build --target evm         # bare VM → EVM bytecode, no OS
 trident build --target wasm        # bare VM → generic WASM, no OS
 ```
 
-When targeting an OS, `<os>.ext.*` modules are automatically available.
-When targeting a bare VM, using `<os>.ext.*` modules is a compile error —
+When targeting an OS, `os.<os>.*` modules are automatically available.
+When targeting a bare VM, using `os.<os>.*` modules is a compile error —
 there is no OS to bind against.
 
 ---
@@ -171,14 +171,14 @@ KernelLowering.
 | Module | File | Status | Notes |
 |--------|------|--------|-------|
 | std.target | std/target.tri | Hardcoded | Triton-only constants (DIGEST_WIDTH=5, HASH_RATE=10, etc.). Needs target-aware codegen. |
-| std.core.field | std/core/field.tri | Done | Field arithmetic intrinsics (add, mul, sub, neg, inv). |
-| std.core.convert | std/core/convert.tri | Done | Type conversion intrinsics (as_u32, as_field, split). |
-| std.core.u32 | std/core/u32.tri | Done | U32 operations (log2, pow, popcount). |
-| std.core.assert | std/core/assert.tri | Done | Assertion intrinsics (is_true, eq, digest). |
-| std.io.io | std/io/io.tri | Done | Public I/O (read, write, divine). |
-| std.io.mem | std/io/mem.tri | Done | RAM access (read, write, read_block, write_block). |
+| vm.core.field | std/core/field.tri | Done | Field arithmetic intrinsics (add, mul, sub, neg, inv). |
+| vm.core.convert | std/core/convert.tri | Done | Type conversion intrinsics (as_u32, as_field, split). |
+| vm.core.u32 | std/core/u32.tri | Done | U32 operations (log2, pow, popcount). |
+| vm.core.assert | std/core/assert.tri | Done | Assertion intrinsics (is_true, eq, digest). |
+| vm.io.io | std/io/io.tri | Done | Public I/O (read, write, divine). |
+| vm.io.mem | std/io/mem.tri | Done | RAM access (read, write, read_block, write_block). |
 | std.io.storage | std/io/storage.tri | Done | Storage wrapper (delegates to mem). |
-| std.crypto.hash | std/crypto/hash.tri | Done | Tip5 hash with sponge API (intrinsics). |
+| vm.crypto.hash | std/crypto/hash.tri | Done | Tip5 hash with sponge API (intrinsics). |
 | std.crypto.merkle | std/crypto/merkle.tri | Done | Merkle tree verification (verify1--4, leaf auth). |
 | std.crypto.auth | std/crypto/auth.tri | Done | Preimage verification, Neptune lock script pattern. |
 | std.crypto.bigint | std/crypto/bigint.tri | Done | 256-bit unsigned integer arithmetic. |
@@ -267,7 +267,7 @@ Only if using the legacy emitter pipeline. New VMs should prefer L3.
 ### L1 — Document
 
 - [ ] Create `docs/reference/os/<os>.md` — include programming model,
-  state model, `<os>.ext.*` API surface, and deployment patterns
+  state model, `os.<os>.*` API surface, and deployment patterns
 - [ ] Add the OS to the OS Registry table in [os.md](os.md)
 - [ ] Update the OS Integration Matrix in this file
 - [ ] Set `[status] level = 1`
@@ -277,14 +277,14 @@ Only if using the legacy emitter pipeline. New VMs should prefer L3.
 - [ ] Create `ext/<os>/` directory
 - [ ] Write `.tri` binding modules (one per concern: storage, account,
   transfer, events, etc.)
-- [ ] Each file declares `module <os>.ext.<name>`
+- [ ] Each file declares `module os.<os>.<name>`
 - [ ] Set `[status] level = 2`, `ext_modules = <count>`,
   `notes = "<comma-separated module names>"`
 
 ### L3 — Test
 
 - [ ] Add end-to-end compilation tests targeting this OS
-- [ ] Verify `<os>.ext.*` module resolution works
+- [ ] Verify `os.<os>.*` module resolution works
 - [ ] Set `[status] level = 3`, `tests = true`
 
 ### Finalize

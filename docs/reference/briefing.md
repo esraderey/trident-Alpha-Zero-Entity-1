@@ -31,8 +31,8 @@ Then imports, then items (constants, structs, events, functions).
 ```
 program my_program
 
-use std.crypto.hash
-use std.io.mem
+use vm.crypto.hash
+use vm.io.mem
 
 const MAX: U32 = 32
 

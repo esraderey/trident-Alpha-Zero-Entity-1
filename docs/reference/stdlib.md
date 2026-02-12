@@ -10,20 +10,20 @@ Available on all targets. These modules provide the core language runtime.
 
 | Module | Key functions |
 |--------|---------------|
-| `std.core.field` | `add`, `sub`, `mul`, `neg`, `inv` |
-| `std.core.convert` | `as_u32`, `as_field`, `split` |
-| `std.core.u32` | U32 arithmetic helpers |
-| `std.core.assert` | `is_true`, `eq`, `digest` |
-| `std.io.io` | `pub_read`, `pub_write`, `divine` |
-| `std.io.mem` | `read`, `write`, `read_block`, `write_block` |
+| `vm.core.field` | `add`, `sub`, `mul`, `neg`, `inv` |
+| `vm.core.convert` | `as_u32`, `as_field`, `split` |
+| `vm.core.u32` | U32 arithmetic helpers |
+| `vm.core.assert` | `is_true`, `eq`, `digest` |
+| `vm.io.io` | `pub_read`, `pub_write`, `divine` |
+| `vm.io.mem` | `read`, `write`, `read_block`, `write_block` |
 | `std.io.storage` | Persistent storage helpers |
-| `std.crypto.hash` | `hash`, `sponge_init`, `sponge_absorb`, `sponge_squeeze` |
+| `vm.crypto.hash` | `hash`, `sponge_init`, `sponge_absorb`, `sponge_squeeze` |
 | `std.crypto.merkle` | `verify1`..`verify4`, `authenticate_leaf3` |
 | `std.crypto.auth` | `verify_preimage`, `verify_digest_preimage` |
 
 ---
 
-## `std.core`
+## `vm.core`
 
 ### `core.field` — Field arithmetic
 
@@ -50,7 +50,7 @@ revert. On NOCK, they crash.
 
 ---
 
-## `std.io`
+## `vm.io`
 
 ### `io.io` — Public I/O
 
@@ -65,6 +65,10 @@ hint).
 machines, these map to RAM table operations. On register machines, these
 map to load/store instructions.
 
+---
+
+## `std.io`
+
 ### `io.storage` — Persistent storage
 
 Storage wrapper that delegates to mem operations. For OS-level persistent
@@ -72,7 +76,7 @@ state (blockchain storage, filesystem), see [os.state](os.md).
 
 ---
 
-## `std.crypto`
+## `vm.crypto`
 
 ### `crypto.hash` — Hash functions
 
@@ -80,6 +84,10 @@ state (blockchain storage, filesystem), see [os.state](os.md).
 function is VM-specific (Tip5 on TRITON/NOCK, Rescue on MIDEN, etc.) but
 the API is identical. `hash()` is Tier 1 (all VMs). Sponge operations are
 Tier 2 (provable VMs only).
+
+---
+
+## `std.crypto`
 
 ### `crypto.merkle` — Merkle authentication
 

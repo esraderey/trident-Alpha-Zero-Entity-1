@@ -1,0 +1,22 @@
+# Nervos CKB — cell-based UTXO-like smart contract platform
+# https://nervos.org
+
+[os]
+name = "nervos"
+display_name = "Nervos CKB"
+vm = "ckb"
+
+[runtime]
+binding_prefix = "os.nervos"
+account_model = "cell"
+storage_model = "cell-based"
+transaction_model = "signed"
+
+[cross_chain]
+protocols = []
+
+[status]
+level = 1
+ext_modules = 0
+tests = false
+notes = ""

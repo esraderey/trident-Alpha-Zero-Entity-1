@@ -384,7 +384,7 @@ fn foo(x: Field) -> Field {
 
 `hash()` is the Tier 1 hash operation — available on every target. The rate R
 and digest width D are target-dependent. The user-facing function name varies
-by target: `std.crypto.hash.tip5()` on TRITON, with other targets providing
+by target: `vm.crypto.hash.tip5()` on TRITON, with other targets providing
 their native hash function. All compile to the `Hash` TIR operation internally.
 See [targets.md](targets.md) for per-VM hash functions.
 
@@ -405,7 +405,7 @@ builtins do.
 | `os.state` | `read(key: Field) -> Field`, `write(key, value)`, `exists(key)` | Target has persistent state |
 | `os.time` | `now() -> Field`, `block_height() -> Field` | All targets |
 
-These sit between `std.*` (pure computation, all targets) and `<os>.ext.*`
+These sit between `std.*` (pure computation, all targets) and `os.<os>.*`
 (OS-native, one target). A program using only `std.*` + `os.*` compiles
 to any OS that supports the required concepts. The compiler emits clear
 errors when targeting an OS that lacks a concept (e.g., `os.neuron.id()`

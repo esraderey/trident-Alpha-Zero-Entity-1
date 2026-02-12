@@ -7,7 +7,7 @@
 ### Unused import
 
 ```
-warning: unused import 'std.crypto.hash'
+warning: unused import 'vm.crypto.hash'
 ```
 
 **Fix:** Remove the unused `use` statement.

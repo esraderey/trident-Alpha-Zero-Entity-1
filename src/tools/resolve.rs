@@ -84,12 +84,20 @@ pub(crate) fn find_stdlib_dir() -> Option<PathBuf> {
     None
 }
 
-/// Find the extension library directory.
-/// Search order mirrors `find_stdlib_dir` but looks for `ext/`.
-///   1. TRIDENT_EXTLIB environment variable
-///   2. `ext/` relative to the compiler binary (and ancestors)
-///   3. `ext/` in the current working directory (development)
-pub(crate) fn find_ext_dir() -> Option<PathBuf> {
+/// Find the OS library directory.
+/// OS-specific extension code lives in `os/<os_name>/`.
+/// Search order mirrors `find_stdlib_dir` but looks for `os/`.
+///   1. TRIDENT_OSLIB environment variable (or legacy TRIDENT_EXTLIB)
+///   2. `os/` relative to the compiler binary (and ancestors)
+///   3. `os/` in the current working directory (development)
+pub(crate) fn find_os_dir() -> Option<PathBuf> {
+    if let Ok(p) = std::env::var("TRIDENT_OSLIB") {
+        let path = PathBuf::from(p);
+        if path.is_dir() {
+            return Some(path);
+        }
+    }
+    // Legacy env var
     if let Ok(p) = std::env::var("TRIDENT_EXTLIB") {
         let path = PathBuf::from(p);
         if path.is_dir() {
@@ -99,17 +107,17 @@ pub(crate) fn find_ext_dir() -> Option<PathBuf> {
 
     if let Ok(exe) = std::env::current_exe() {
         if let Some(dir) = exe.parent() {
-            let path = dir.join("ext");
+            let path = dir.join("os");
             if path.is_dir() {
                 return Some(path);
             }
             if let Some(parent) = dir.parent() {
-                let path = parent.join("ext");
+                let path = parent.join("os");
                 if path.is_dir() {
                     return Some(path);
                 }
                 if let Some(grandparent) = parent.parent() {
-                    let path = grandparent.join("ext");
+                    let path = grandparent.join("os");
                     if path.is_dir() {
                         return Some(path);
                     }
@@ -118,9 +126,9 @@ pub(crate) fn find_ext_dir() -> Option<PathBuf> {
         }
     }
 
-    let cwd_ext = PathBuf::from("ext");
-    if cwd_ext.is_dir() {
-        return Some(cwd_ext);
+    let cwd_os = PathBuf::from("os");
+    if cwd_os.is_dir() {
+        return Some(cwd_os);
     }
 
     None
@@ -130,29 +138,44 @@ pub(crate) fn find_ext_dir() -> Option<PathBuf> {
 /// Maps old module names to their new layered locations.
 fn legacy_stdlib_fallback(name: &str) -> Option<&'static str> {
     match name {
-        // Legacy flat std.* → layered std.*
-        "std.assert" => Some("std.core.assert"),
-        "std.convert" => Some("std.core.convert"),
-        "std.field" => Some("std.core.field"),
-        "std.u32" => Some("std.core.u32"),
-        "std.io" => Some("std.io.io"),
-        "std.mem" => Some("std.io.mem"),
+        // Legacy flat std.* → vm.* or std.* (final destination)
+        "std.assert" => Some("vm.core.assert"),
+        "std.convert" => Some("vm.core.convert"),
+        "std.field" => Some("vm.core.field"),
+        "std.u32" => Some("vm.core.u32"),
+        "std.io" => Some("vm.io.io"),
+        "std.mem" => Some("vm.io.mem"),
         "std.storage" => Some("std.io.storage"),
-        "std.hash" => Some("std.crypto.hash"),
+        "std.hash" => Some("vm.crypto.hash"),
         "std.merkle" => Some("std.crypto.merkle"),
         "std.auth" => Some("std.crypto.auth"),
-        // Legacy std.xfield/kernel/utxo → neptune.ext.*
-        "std.xfield" => Some("neptune.ext.xfield"),
-        "std.kernel" => Some("neptune.ext.kernel"),
-        "std.utxo" => Some("neptune.ext.utxo"),
-        // Backward compatibility: ext.triton.* → neptune.ext.*
-        "ext.triton.xfield" => Some("neptune.ext.xfield"),
-        "ext.triton.kernel" => Some("neptune.ext.kernel"),
-        "ext.triton.utxo" => Some("neptune.ext.utxo"),
-        "ext.triton.proof" => Some("neptune.ext.proof"),
-        "ext.triton.recursive" => Some("neptune.ext.recursive"),
-        "ext.triton.registry" => Some("neptune.ext.registry"),
-        // Backward compatibility: ext.<os>.* → <os>.ext.*
+        // Legacy std.* intrinsics → vm.* (intrinsics moved out of std)
+        "std.core.field" => Some("vm.core.field"),
+        "std.core.convert" => Some("vm.core.convert"),
+        "std.core.u32" => Some("vm.core.u32"),
+        "std.core.assert" => Some("vm.core.assert"),
+        "std.io.io" => Some("vm.io.io"),
+        "std.io.mem" => Some("vm.io.mem"),
+        "std.crypto.hash" => Some("vm.crypto.hash"),
+        // Legacy std.xfield/kernel/utxo → os.neptune.*
+        "std.xfield" => Some("os.neptune.xfield"),
+        "std.kernel" => Some("os.neptune.kernel"),
+        "std.utxo" => Some("os.neptune.utxo"),
+        // Backward compatibility: ext.triton.* → os.neptune.*
+        "ext.triton.xfield" => Some("os.neptune.xfield"),
+        "ext.triton.kernel" => Some("os.neptune.kernel"),
+        "ext.triton.utxo" => Some("os.neptune.utxo"),
+        "ext.triton.proof" => Some("os.neptune.proof"),
+        "ext.triton.recursive" => Some("os.neptune.recursive"),
+        "ext.triton.registry" => Some("os.neptune.registry"),
+        // Backward compatibility: <os>.ext.* → os.<os>.*
+        "neptune.ext.kernel" => Some("os.neptune.kernel"),
+        "neptune.ext.utxo" => Some("os.neptune.utxo"),
+        "neptune.ext.xfield" => Some("os.neptune.xfield"),
+        "neptune.ext.proof" => Some("os.neptune.proof"),
+        "neptune.ext.recursive" => Some("os.neptune.recursive"),
+        "neptune.ext.registry" => Some("os.neptune.registry"),
+        // Backward compatibility: ext.<os>.* → os.<os>.*
         _ if name.starts_with("ext.") => {
             None // handled by resolve_path directly
         }
@@ -165,8 +188,8 @@ struct ModuleResolver {
     root_dir: PathBuf,
     /// Standard library directory (if found).
     stdlib_dir: Option<PathBuf>,
-    /// Extension library directory (if found).
-    ext_dir: Option<PathBuf>,
+    /// OS library directory — OS-specific extension code (if found).
+    os_dir: Option<PathBuf>,
     /// Additional directories to search for modules (from locked dependencies).
     dep_dirs: Vec<PathBuf>,
     /// All discovered modules by name.
@@ -206,12 +229,32 @@ impl ModuleResolver {
         Ok(Self {
             root_dir,
             stdlib_dir: find_stdlib_dir(),
-            ext_dir: find_ext_dir(),
+            os_dir: find_os_dir(),
             dep_dirs: Vec::new(),
             modules,
             queue: deps,
             diagnostics: Vec::new(),
         })
+    }
+
+    /// Find the VM intrinsic library directory.
+    /// Mirrors stdlib_dir search but looks for `vm/` sibling to `std/`.
+    fn find_vm_dir(&self) -> Option<PathBuf> {
+        // If we have a stdlib_dir, look for vm/ as a sibling
+        if let Some(ref stdlib_dir) = self.stdlib_dir {
+            if let Some(parent) = stdlib_dir.parent() {
+                let vm_dir = parent.join("vm");
+                if vm_dir.is_dir() {
+                    return Some(vm_dir);
+                }
+            }
+        }
+        // Fallback: vm/ in current working directory
+        let cwd_vm = PathBuf::from("vm");
+        if cwd_vm.is_dir() {
+            return Some(cwd_vm);
+        }
+        None
     }
 
     fn discover_all(&mut self) -> Result<(), Vec<Diagnostic>> {
@@ -272,17 +315,18 @@ impl ModuleResolver {
     }
 
     /// Resolve a dotted module name to a file path.
-    /// "std.core.assert" → stdlib_dir/core/assert.tri
-    /// "std.crypto.hash" → stdlib_dir/crypto/hash.tri
-    /// "neptune.ext.xfield" → ext_dir/neptune/xfield.tri
-    /// "crypto.sponge" → root_dir/crypto/sponge.tri
-    /// "merkle" → root_dir/merkle.tri
     ///
-    /// Backward compatibility: "ext.neptune.xfield" still resolves to
-    /// ext_dir/neptune/xfield.tri.
+    /// Four-tier namespace:
+    /// "vm.core.field"       → vm_dir/core/field.tri     (VM intrinsics)
+    /// "std.crypto.sha256"   → stdlib_dir/crypto/sha256.tri (real libraries)
+    /// "os.neptune.kernel"   → os_dir/neptune/kernel.tri (OS-specific)
+    /// "crypto.sponge"       → root_dir/crypto/sponge.tri (local)
     ///
-    /// Legacy backward compatibility: "std.hash" tries stdlib_dir/hash.tri
-    /// first, then falls back to the layered path (std.crypto.hash).
+    /// Legacy backward compatibility still supported:
+    /// "neptune.ext.kernel"  → os_dir/neptune/kernel.tri
+    /// "ext.neptune.kernel"  → os_dir/neptune/kernel.tri
+    /// "std.crypto.hash"     → vm_dir/crypto/hash.tri (intrinsics moved)
+    /// "std.hash"            → vm_dir/crypto/hash.tri (flat → layered → vm)
     fn resolve_path(&self, module_name: &str) -> PathBuf {
         // Validate: reject path traversal components
         let raw_parts: Vec<&str> = module_name.split('.').collect();
@@ -297,13 +341,46 @@ impl ModuleResolver {
             }
         }
 
-        // Extension modules: <os>.ext.<module> → ext/<os>/<module>.tri
+        // OS-specific extension modules: os.<os>.<module> → os/<os>/<module>.tri
+        // Distinguishes os.neptune.kernel (extension) from os.neuron (portable).
+        // An OS name is recognized if os/<os_name>/ exists as a directory.
+        if let Some(rest) = module_name.strip_prefix("os.") {
+            if let Some(ref os_dir) = self.os_dir {
+                let parts: Vec<&str> = rest.split('.').collect();
+                if parts.len() >= 2 {
+                    let os_name = parts[0];
+                    let target_dir = os_dir.join(os_name);
+                    if target_dir.is_dir() {
+                        let mut path = target_dir;
+                        for part in &parts[1..] {
+                            path = path.join(part);
+                        }
+                        return path.with_extension("tri");
+                    }
+                }
+            }
+        }
+
+        // VM intrinsic modules: vm.* → vm/<rest>.tri
+        if let Some(rest) = module_name.strip_prefix("vm.") {
+            // Look for vm/ directory using same search strategy as stdlib
+            if let Some(ref vm_dir) = self.find_vm_dir() {
+                let parts: Vec<&str> = rest.split('.').collect();
+                let mut path = vm_dir.clone();
+                for part in &parts {
+                    path = path.join(part);
+                }
+                return path.with_extension("tri");
+            }
+        }
+
+        // Legacy: <os>.ext.<module> → os/<os>/<module>.tri
         if let Some(ext_pos) = raw_parts.iter().position(|&p| p == "ext") {
             if ext_pos > 0 && ext_pos + 1 < raw_parts.len() {
-                if let Some(ref ext_dir) = self.ext_dir {
+                if let Some(ref os_dir) = self.os_dir {
                     let os_name = &raw_parts[..ext_pos].join("/");
                     let rest = &raw_parts[ext_pos + 1..];
-                    let mut path = ext_dir.join(os_name);
+                    let mut path = os_dir.join(os_name);
                     for part in rest {
                         path = path.join(part);
                     }
@@ -312,11 +389,11 @@ impl ModuleResolver {
             }
         }
 
-        // Backward compatibility: ext.<os>.<module> → ext/<os>/<module>.tri
+        // Legacy: ext.<os>.<module> → os/<os>/<module>.tri
         if let Some(rest) = module_name.strip_prefix("ext.") {
-            if let Some(ref ext_dir) = self.ext_dir {
+            if let Some(ref os_dir) = self.os_dir {
                 let parts: Vec<&str> = rest.split('.').collect();
-                let mut path = ext_dir.clone();
+                let mut path = os_dir.clone();
                 for part in &parts {
                     path = path.join(part);
                 }

@@ -32,11 +32,11 @@ program transaction_validation
 // Secret input:
 //   kernel field digests + Merkle paths,
 //   STARK proof data for each lock/type script
-use neptune.ext.kernel
+use os.neptune.kernel
 
-use neptune.ext.proof
+use os.neptune.proof
 
-use std.core.convert
+use vm.core.convert
 
 // Verify all lock script proofs for the transaction's inputs.
 // Each input UTXO has a lock script that must be satisfied.

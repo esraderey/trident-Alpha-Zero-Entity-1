@@ -1,35 +1,24 @@
 module std.crypto.merkle
 
-use std.io.io
+use vm.crypto.merkle
 
-use std.core.assert
+use vm.io.io
 
-// One step up a Merkle tree: given a node index and digest (as 5 Fields),
-// divine the sibling and compute the parent.
-// The sibling comes from the secret digest queue (NonDeterminism.digests).
-#[intrinsic(merkle_step)]
-pub fn step(
-    idx: U32,
-    d0: Field,
-    d1: Field,
-    d2: Field,
-    d3: Field,
-    d4: Field
-) -> (U32, Digest)
+use vm.core.assert
 
 // Verify a Merkle path of depth 1: single step from leaf to root.
 pub fn verify1(leaf: Digest, root: Digest, leaf_idx: U32) {
     let (d0, d1, d2, d3, d4) = leaf
-    let (_, computed) = step(leaf_idx, d0, d1, d2, d3, d4)
+    let (_, computed) = merkle.step(leaf_idx, d0, d1, d2, d3, d4)
     assert.digest(computed, root)
 }
 
 // Verify a Merkle path of depth 2: two steps from leaf to root.
 pub fn verify2(leaf: Digest, root: Digest, leaf_idx: U32) {
     let (d0, d1, d2, d3, d4) = leaf
-    let (idx1, node1) = step(leaf_idx, d0, d1, d2, d3, d4)
+    let (idx1, node1) = merkle.step(leaf_idx, d0, d1, d2, d3, d4)
     let (n0, n1, n2, n3, n4) = node1
-    let (_, computed) = step(idx1, n0, n1, n2, n3, n4)
+    let (_, computed) = merkle.step(idx1, n0, n1, n2, n3, n4)
     assert.digest(computed, root)
 }
 
@@ -37,24 +26,24 @@ pub fn verify2(leaf: Digest, root: Digest, leaf_idx: U32) {
 // This is the exact depth of Neptune's transaction kernel MAST tree (8 leaves).
 pub fn verify3(leaf: Digest, root: Digest, leaf_idx: U32) {
     let (d0, d1, d2, d3, d4) = leaf
-    let (idx1, node1) = step(leaf_idx, d0, d1, d2, d3, d4)
+    let (idx1, node1) = merkle.step(leaf_idx, d0, d1, d2, d3, d4)
     let (n0, n1, n2, n3, n4) = node1
-    let (idx2, node2) = step(idx1, n0, n1, n2, n3, n4)
+    let (idx2, node2) = merkle.step(idx1, n0, n1, n2, n3, n4)
     let (m0, m1, m2, m3, m4) = node2
-    let (_, computed) = step(idx2, m0, m1, m2, m3, m4)
+    let (_, computed) = merkle.step(idx2, m0, m1, m2, m3, m4)
     assert.digest(computed, root)
 }
 
 // Verify a Merkle path of depth 4 (16 leaves).
 pub fn verify4(leaf: Digest, root: Digest, leaf_idx: U32) {
     let (d0, d1, d2, d3, d4) = leaf
-    let (idx1, node1) = step(leaf_idx, d0, d1, d2, d3, d4)
+    let (idx1, node1) = merkle.step(leaf_idx, d0, d1, d2, d3, d4)
     let (n0, n1, n2, n3, n4) = node1
-    let (idx2, node2) = step(idx1, n0, n1, n2, n3, n4)
+    let (idx2, node2) = merkle.step(idx1, n0, n1, n2, n3, n4)
     let (m0, m1, m2, m3, m4) = node2
-    let (idx3, node3) = step(idx2, m0, m1, m2, m3, m4)
+    let (idx3, node3) = merkle.step(idx2, m0, m1, m2, m3, m4)
     let (p0, p1, p2, p3, p4) = node3
-    let (_, computed) = step(idx3, p0, p1, p2, p3, p4)
+    let (_, computed) = merkle.step(idx3, p0, p1, p2, p3, p4)
     assert.digest(computed, root)
 }
 

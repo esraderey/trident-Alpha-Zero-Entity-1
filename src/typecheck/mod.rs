@@ -198,6 +198,8 @@ impl TypeChecker {
 
     pub(crate) fn check_file(mut self, file: &File) -> Result<ModuleExports, Vec<Diagnostic>> {
         let is_std_module = file.name.node.starts_with("std.")
+            || file.name.node.starts_with("vm.")
+            || file.name.node.starts_with("os.")
             || file.name.node.starts_with("ext.")
             || file.name.node.contains(".ext.");
 
@@ -221,11 +223,11 @@ impl TypeChecker {
                     self.structs.insert(sdef.name.node.clone(), sty);
                 }
                 Item::Fn(func) => {
-                    // #[intrinsic] is only allowed in std.* modules
+                    // #[intrinsic] is only allowed in vm.*/std.*/os.*/ext.* modules
                     if func.intrinsic.is_some() && !is_std_module {
                         self.error(
                             format!(
-                                "#[intrinsic] is only allowed in std.*/ext.* modules, \
+                                "#[intrinsic] is only allowed in vm.*/std.*/os.* modules, \
                                  not in '{}'",
                                 file.name.node
                             ),

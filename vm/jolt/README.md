@@ -1,0 +1,52 @@
+# JOLT
+
+[← Target Reference](../../docs/reference/targets.md)
+
+---
+
+## VM Parameters
+
+| Parameter | Value |
+|---|---|
+| Architecture | Register (RISC-V RV32I) |
+| Field | BN254 scalar field 254-bit |
+| Field bits | 254 |
+| Hash function | Poseidon2 |
+| Digest width | 1 field element |
+| Extension field | None |
+| Stack depth | 32 GP registers |
+| Output format | ELF (RISC-V) |
+| Cost model | Cycles |
+
+Sumcheck-based SNARK zkVM from a16z. Fundamentally different proof system
+from STARK-based VMs (SP1, RISCZERO): uses multivariate polynomials and
+lookup tables ("Just One Lookup Table") with the sum-check protocol.
+
+2x faster than RISCZERO/SP1 in some benchmarks. Twist and Shout memory
+checking achieves 6x speedup. Highly extensible via "Inlines" — custom
+operations added without full precompile overhead.
+
+Standard RISC-V RV32I instruction set. Shares `RiscVLowering` with SP1,
+OPENVM, RISCZERO, CKB, POLKAVM, and RISCV.
+
+## OS
+
+No dedicated OS. Jolt is a general-purpose proving backend. Proofs
+can verify on Ethereum or any chain with a suitable verifier contract.
+
+---
+
+## Cost Model (Cycles)
+
+Single metric: cycle count. Sumcheck-based proof system means cost
+characteristics differ from STARK-based VMs.
+
+| Operation class | Cycles | Notes |
+|---|---:|---|
+| Arithmetic / logic | 1 | Standard RISC-V RV32I |
+| Memory access | 1 | Twist and Shout checking |
+| Branch | 1 | Conditional and unconditional |
+| Inlines (custom ops) | 1 | Extensible via lookup tables |
+
+No dedicated hash coprocessor — all computation is uniform cost.
+Detailed cost model planned.

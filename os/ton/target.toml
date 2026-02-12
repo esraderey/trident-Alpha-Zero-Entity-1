@@ -1,0 +1,22 @@
+# TON — cell-based smart contract platform on TVM
+# https://ton.org
+
+[os]
+name = "ton"
+display_name = "TON"
+vm = "tvm"
+
+[runtime]
+binding_prefix = "os.ton"
+account_model = "account"
+storage_model = "cell-based"
+transaction_model = "signed"
+
+[cross_chain]
+protocols = []
+
+[status]
+level = 1
+ext_modules = 0
+tests = false
+notes = ""

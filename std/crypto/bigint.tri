@@ -14,9 +14,9 @@ module std.crypto.bigint
 //   - `convert.as_field(u)` widens U32 -> Field losslessly.
 //   - `convert.as_u32(f)` narrows Field -> U32 (asserts fits in 32 bits).
 //   - `convert.split(f)` splits a Field into (hi: U32, lo: U32).
-use std.core.convert
+use vm.core.convert
 
-use std.core.field
+use vm.core.field
 
 // A 256-bit integer represented as 8 U32 limbs (little-endian).
 // l0 is the least significant limb, l7 is the most significant.

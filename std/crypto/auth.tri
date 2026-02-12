@@ -1,10 +1,10 @@
 module std.crypto.auth
 
-use std.crypto.hash
+use vm.crypto.hash
 
-use std.io.io
+use vm.io.io
 
-use std.core.assert
+use vm.core.assert
 
 // Verify knowledge of a hash preimage.
 // The prover supplies a single-field secret via divine input.

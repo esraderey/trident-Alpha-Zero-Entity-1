@@ -16,7 +16,7 @@ program bitcoin_light_client
 // ======================================================================
 use std.crypto.bigint
 
-use std.core.convert
+use vm.core.convert
 
 // --- Events ---
 event HeaderVerified {

@@ -46,17 +46,17 @@ compiles to multiple STARK VMs:
 
 | Layer | What It Contains | Example |
 |-------|-----------------|---------|
-| **Universal core** | Types, control flow, I/O, hashing, Merkle proofs | `std.crypto.hash`, `std.crypto.merkle`, `std.io.io` |
-| **Backend extensions** | Target-specific intrinsics | `neptune.ext.xfield`, `neptune.ext.kernel` |
+| **Universal core** | Types, control flow, I/O, hashing, Merkle proofs | `vm.crypto.hash`, `std.crypto.merkle`, `vm.io.io` |
+| **Backend extensions** | Target-specific intrinsics | `os.neptune.xfield`, `os.neptune.kernel` |
 
 Programs that use only `std.*` modules are **fully portable** -- they compile
 and generate valid proofs on any supported backend. Programs that import
-`<os>.ext.*` modules are backend-specific and will only compile for that target.
+`os.<os>.*` modules are backend-specific and will only compile for that target.
 
 ```
 // Portable program -- compiles to any backend
 use std.crypto.merkle
-use std.io.io
+use vm.io.io
 
 fn verify_membership(root: Digest, leaf: Digest, index: U32, depth: U32) {
     std.crypto.merkle.verify(root, leaf, index, depth)
@@ -66,10 +66,10 @@ fn verify_membership(root: Digest, leaf: Digest, index: U32, depth: U32) {
 ```
 // Triton-specific program -- uses extension field arithmetic
 use std.crypto.merkle
-use neptune.ext.xfield           // binds to Triton VM backend
+use os.neptune.xfield           // binds to Triton VM backend
 
 fn verify_with_xfield(root: Digest) {
-    // neptune.ext.xfield provides extension field operations
+    // os.neptune.xfield provides extension field operations
     // that map directly to Triton VM instructions
 }
 ```
@@ -131,19 +131,19 @@ divine-and-authenticate pattern (see [Programming Model](../explanation/programm
 
 ```
 // Trident — read an account from the state tree
-use std.io.io
-use std.crypto.hash
+use vm.io.io
+use vm.crypto.hash
 
-let state_root: Digest = std.io.io.pub_read5()    // verifier provides the root
+let state_root: Digest = vm.io.io.pub_read5()    // verifier provides the root
 
-let account_id: Field = std.io.io.divine()         // prover secretly inputs the data
-let balance: Field = std.io.io.divine()
-let nonce: Field = std.io.io.divine()
-let auth_hash: Field = std.io.io.divine()
-let lock_until: Field = std.io.io.divine()
+let account_id: Field = vm.io.io.divine()         // prover secretly inputs the data
+let balance: Field = vm.io.io.divine()
+let nonce: Field = vm.io.io.divine()
+let auth_hash: Field = vm.io.io.divine()
+let lock_until: Field = vm.io.io.divine()
 
 // Hash the leaf and prove it belongs to the tree
-let leaf: Digest = std.crypto.hash.tip5(account_id, balance, nonce,
+let leaf: Digest = vm.crypto.hash.tip5(account_id, balance, nonce,
                                         auth_hash, lock_until,
                                         0, 0, 0, 0, 0)
 // Merkle proof authenticates leaf against root
@@ -167,17 +167,17 @@ function balanceOf(address who) view returns (uint256) {
 
 ```
 // Trident
-use std.io.io
-use std.crypto.hash
+use vm.io.io
+use vm.crypto.hash
 
 fn load_account() -> (Field, Field, Field, Field, Field) {
-    let id: Field = std.io.io.divine()
-    let bal: Field = std.io.io.divine()
-    let nonce: Field = std.io.io.divine()
-    let auth: Field = std.io.io.divine()
-    let lock: Field = std.io.io.divine()
+    let id: Field = vm.io.io.divine()
+    let bal: Field = vm.io.io.divine()
+    let nonce: Field = vm.io.io.divine()
+    let auth: Field = vm.io.io.divine()
+    let lock: Field = vm.io.io.divine()
     // prove this data is in the state tree (Merkle proof)
-    let leaf: Digest = std.crypto.hash.tip5(id, bal, nonce, auth, lock,
+    let leaf: Digest = vm.crypto.hash.tip5(id, bal, nonce, auth, lock,
                                             0, 0, 0, 0, 0)
     (id, bal, nonce, auth, lock)
 }
@@ -217,16 +217,16 @@ it and asserting the hash matches an expected value.
 
 ```
 // Trident — authorization via hash preimage
-use std.io.io
-use std.crypto.hash
-use std.core.assert
+use vm.io.io
+use vm.crypto.hash
+use vm.core.assert
 
 fn verify_auth(auth_hash: Field) {
-    let secret: Field = std.io.io.divine()             // prover inputs secret
-    let computed: Digest = std.crypto.hash.tip5(secret, 0, 0, 0, 0,
+    let secret: Field = vm.io.io.divine()             // prover inputs secret
+    let computed: Digest = vm.crypto.hash.tip5(secret, 0, 0, 0, 0,
                                                 0, 0, 0, 0, 0)
     let (h0, _, _, _, _) = computed
-    std.core.assert.assert_eq(auth_hash, h0)           // must match stored hash
+    vm.core.assert.assert_eq(auth_hash, h0)           // must match stored hash
 }
 ```
 
@@ -260,13 +260,13 @@ function setConfig(uint256 val) external onlyOwner {
 
 ```
 // Trident — admin auth pattern
-use std.io.io
+use vm.io.io
 
 fn update() {
-    let old_config: Digest = std.io.io.pub_read5()
-    let new_config: Digest = std.io.io.pub_read5()
+    let old_config: Digest = vm.io.io.pub_read5()
+    let new_config: Digest = vm.io.io.pub_read5()
 
-    let admin_auth: Field = std.io.io.divine()    // divine the admin auth hash
+    let admin_auth: Field = vm.io.io.divine()    // divine the admin auth hash
     // ... divine and verify full config ...
 
     verify_auth(admin_auth)                       // prove knowledge of admin secret
@@ -396,14 +396,14 @@ exists.
 
 ```
 // Trident — range check pattern (balance >= amount)
-use std.core.convert
-use std.core.field
+use vm.core.convert
+use vm.core.field
 
 fn assert_non_negative(val: Field) {
-    let checked: U32 = std.core.convert.as_u32(val)   // fails if val > 2^32 or negative in field
+    let checked: U32 = vm.core.convert.as_u32(val)   // fails if val > 2^32 or negative in field
 }
 
-let new_balance: Field = std.core.field.sub(balance, amount)
+let new_balance: Field = vm.core.field.sub(balance, amount)
 assert_non_negative(new_balance)                       // no proof if balance < amount
 ```
 
@@ -487,21 +487,21 @@ function transfer(address to, uint256 amount) external returns (bool) {
 
 ```
 // Trident (simplified from fungible_token/token.tri)
-use std.io.io
-use std.core.field
+use vm.io.io
+use vm.core.field
 use std.crypto.auth
 
 fn pay() {
-    let old_root: Digest = std.io.io.pub_read5()
-    let new_root: Digest = std.io.io.pub_read5()
-    let amount: Field = std.io.io.pub_read()
+    let old_root: Digest = vm.io.io.pub_read5()
+    let new_root: Digest = vm.io.io.pub_read5()
+    let amount: Field = vm.io.io.pub_read()
 
     // Divine and verify sender account from Merkle tree
-    let s_bal: Field = std.io.io.divine()
+    let s_bal: Field = vm.io.io.divine()
     // ... authenticate against old_root ...
 
     verify_auth(s_auth)                               // prove ownership
-    let new_s_bal: Field = std.core.field.sub(s_bal, amount)
+    let new_s_bal: Field = vm.core.field.sub(s_bal, amount)
     assert_non_negative(new_s_bal)                     // balance check
 
     // Divine and verify receiver, compute new leaves
@@ -525,16 +525,16 @@ modifier onlyOwner() {
 
 ```
 // Trident
-use std.io.io
-use std.crypto.hash
-use std.core.assert
+use vm.io.io
+use vm.crypto.hash
+use vm.core.assert
 
 fn verify_auth(auth_hash: Field) {
-    let secret: Field = std.io.io.divine()
-    let computed: Digest = std.crypto.hash.tip5(secret, 0, 0, 0, 0,
+    let secret: Field = vm.io.io.divine()
+    let computed: Digest = vm.crypto.hash.tip5(secret, 0, 0, 0, 0,
                                                 0, 0, 0, 0, 0)
     let (h0, _, _, _, _) = computed
-    std.core.assert.assert_eq(auth_hash, h0)
+    vm.core.assert.assert_eq(auth_hash, h0)
 }
 ```
 
@@ -547,11 +547,11 @@ require(block.timestamp >= unlockTime, "locked");
 
 ```
 // Trident
-use std.io.io
-use std.core.field
+use vm.io.io
+use vm.core.field
 
-let current_time: Field = std.io.io.pub_read()          // verifier provides timestamp
-let time_diff: Field = std.core.field.sub(current_time, lock_until)
+let current_time: Field = vm.io.io.pub_read()          // verifier provides timestamp
+let time_diff: Field = vm.core.field.sub(current_time, lock_until)
 assert_non_negative(time_diff)                           // current_time >= lock_until
 ```
 
@@ -566,9 +566,9 @@ uint256 bal = balances[user];
 
 ```
 // Trident — state is a Merkle tree, each "mapping entry" is a leaf
-use std.crypto.hash
+use vm.crypto.hash
 
-let leaf: Digest = std.crypto.hash.tip5(account_id, balance, nonce, auth, lock,
+let leaf: Digest = vm.crypto.hash.tip5(account_id, balance, nonce, auth, lock,
                                         0, 0, 0, 0, 0)
 // Leaf membership proven via Merkle proof against state root
 ```
@@ -585,12 +585,12 @@ constructor(string memory name_, uint256 supply_) {
 
 ```
 // Trident — config is a hash commitment, provided as public input
-use std.io.io
+use vm.io.io
 
-let config: Digest = std.io.io.pub_read5()
+let config: Digest = vm.io.io.pub_read5()
 // Divine and verify config fields
-let admin_auth: Field = std.io.io.divine()
-let mint_auth: Field = std.io.io.divine()
+let admin_auth: Field = vm.io.io.divine()
+let mint_auth: Field = vm.io.io.divine()
 // ... hash all fields and assert match ...
 ```
 
@@ -605,13 +605,13 @@ function balanceOf(address who) view returns (uint256) {
 
 ```
 // Trident — prove a value and output it publicly
-use std.io.io
+use vm.io.io
 
 fn balance_proof() {
-    let root: Digest = std.io.io.pub_read5()
-    let bal: Field = std.io.io.divine()
+    let root: Digest = vm.io.io.pub_read5()
+    let bal: Field = vm.io.io.divine()
     // ... authenticate bal against root ...
-    std.io.io.pub_write(bal)           // verifier sees the balance
+    vm.io.io.pub_write(bal)           // verifier sees the balance
 }
 ```
 
@@ -638,9 +638,9 @@ uint256 ts = block.timestamp;     // injected by EVM
 
 ```
 // Trident
-use std.io.io
+use vm.io.io
 
-let current_time: Field = std.io.io.pub_read()   // verifier provides the timestamp
+let current_time: Field = vm.io.io.pub_read()   // verifier provides the timestamp
 // The verifier is responsible for providing the correct value.
 // The program can authenticate it against a kernel MAST hash
 // if running inside Neptune's transaction model.
@@ -657,14 +657,14 @@ function upgradeTo(address newImpl) external onlyOwner {
 
 ```
 // Trident — config update operation (Op 2 in fungible token)
-use std.io.io
+use vm.io.io
 
 fn update() {
-    let old_config: Digest = std.io.io.pub_read5()
-    let new_config: Digest = std.io.io.pub_read5()
+    let old_config: Digest = vm.io.io.pub_read5()
+    let new_config: Digest = vm.io.io.pub_read5()
 
     // Verify old config and authenticate admin
-    let old_admin: Field = std.io.io.divine()
+    let old_admin: Field = vm.io.io.divine()
     // ... verify old config hash ...
     verify_auth(old_admin)             // prove admin knowledge
 
@@ -687,18 +687,18 @@ function mint(address to, uint256 amount) external onlyMinter {
 
 ```
 // Trident
-use std.io.io
-use std.core.assert
+use vm.io.io
+use vm.core.assert
 
 fn mint() {
-    let old_supply: Field = std.io.io.pub_read()
-    let new_supply: Field = std.io.io.pub_read()
-    let amount: Field = std.io.io.pub_read()
+    let old_supply: Field = vm.io.io.pub_read()
+    let new_supply: Field = vm.io.io.pub_read()
+    let amount: Field = vm.io.io.pub_read()
 
     verify_auth(cfg_mint_auth)                        // mint authority required
 
     let expected: Field = old_supply + amount
-    std.core.assert.assert_eq(new_supply, expected)   // supply accounting
+    vm.core.assert.assert_eq(new_supply, expected)   // supply accounting
 
     // Update recipient leaf in Merkle tree
     let new_r_bal: Field = r_bal + amount
@@ -721,10 +721,10 @@ you feed private data into a proof. The program must verify any divined value
 is legitimate (via hashing, Merkle proofs, or range checks).
 
 ```
-use std.io.io
+use vm.io.io
 
-let secret: Field = std.io.io.divine()       // one field element, invisible to verifier
-let preimage: Digest = std.io.io.divine5()   // five field elements (a Digest)
+let secret: Field = vm.io.io.divine()       // one field element, invisible to verifier
+let preimage: Digest = vm.io.io.divine5()   // five field elements (a Digest)
 ```
 
 In EVM, all calldata is public. In Trident, `divine` is the default way to
@@ -827,61 +827,61 @@ major ZK system scores on quantum safety.
 
 - **No reentrancy.** There are no external calls. Programs are isolated.
 - **No overflow/underflow.** Arithmetic wraps in the prime field. Use
-  `std.core.convert.as_u32()` for explicit range checks when you need bounded
+  `vm.core.convert.as_u32()` for explicit range checks when you need bounded
   integers.
 - **No `address` type.** Identity is a `Digest` (hash of an auth secret) or
   a `Field` (single element of a hash). There are no 20-byte addresses.
 - **No ABI.** Public I/O is a sequence of field elements. No encoding/decoding.
 - **No inheritance.** Use modules and `use` imports. Composition over inheritance.
 
-When targeting Ethereum directly, `ethereum.ext.*` provides familiar EVM
-primitives: `ethereum.ext.account.caller()` = msg.sender,
-`ethereum.ext.storage.read(slot)` = SLOAD, etc. See
-[Ethereum OS Reference](../reference/os/ethereum.md) for the full API.
+When targeting Ethereum directly, `os.ethereum.*` provides familiar EVM
+primitives: `os.ethereum.account.caller()` = msg.sender,
+`os.ethereum.storage.read(slot)` = SLOAD, etc. See
+[Ethereum OS Reference](../../os/ethereum/README.md) for the full API.
 
-Also see: [Starknet](../reference/os/starknet.md) (Cairo VM, native account
-abstraction), [Sui](../reference/os/sui.md) (MoveVM, object-centric model).
+Also see: [Starknet](../../os/starknet/README.md) (Cairo VM, native account
+abstraction), [Sui](../../os/sui/README.md) (MoveVM, object-centric model).
 
 ### Coming from SVM (Anchor / Rust)
 
 - **No accounts model** (on provable targets). State is a Merkle tree, not
-  separate account buffers. On Solana itself, `solana.ext.account.*` provides
+  separate account buffers. On Solana itself, `os.solana.account.*` provides
   the familiar account-passing model.
 - **No PDAs** (on provable targets). Identity is a hash preimage. On Solana,
-  `solana.ext.pda.find()` works as expected.
+  `os.solana.pda.find()` works as expected.
 - **No CPI** (on provable targets). Composition happens through recursive proof
-  verification. On Solana, `solana.ext.cpi.invoke()` provides native CPI.
-- **No `Signer` constraint.** Use `solana.ext.account.is_signer(index)` on
+  verification. On Solana, `os.solana.cpi.invoke()` provides native CPI.
+- **No `Signer` constraint.** Use `os.solana.account.is_signer(index)` on
   Solana, or `divine` + `hash` + `assert` on provable targets.
 - **Simpler type system.** No lifetimes, no borrows, no `Option<T>`. Every type
   has a fixed width known at compile time.
 
-See [Solana OS Reference](../reference/os/solana.md) for the full `solana.ext.*`
+See [Solana OS Reference](../../os/solana/README.md) for the full `os.solana.*`
 API and programming model.
 
 ### Coming from CosmWasm
 
 - **No `deps.storage`** (on provable targets). State is a Merkle root. On
-  Cosmos chains, `cosmwasm.ext.*` provides the familiar key-value store.
+  Cosmos chains, `os.cosmwasm.*` provides the familiar key-value store.
 - **No `info.sender`** (on provable targets). Auth is explicit hash preimage
   verification. On Cosmos, the runtime provides sender identity.
 - **No `Response` with messages.** No inter-contract messages. Programs produce
   proofs, not responses.
 - **No JSON schema.** I/O is field elements, not JSON.
 
-See [CosmWasm OS Reference](../reference/os/cosmwasm.md) for the programming model.
+See [CosmWasm OS Reference](../../os/cosmwasm/README.md) for the programming model.
 
 ### Coming from Substrate
 
 - **No runtime pallets.** Each program is self-contained.
 - **No weight system** (on provable targets). Cost is the padded table height.
-  On Polkadot, `polkadot.ext.*` uses the native 2D weight model (ref_time +
+  On Polkadot, `os.polkadot.*` uses the native 2D weight model (ref_time +
   proof_size).
 - **No on-chain governance hooks.** Admin auth is a hash preimage; governance
   would be a separate proof that composes with the program proof.
 - **No storage tries.** State is a Merkle tree you manage explicitly.
 
-See [Polkadot OS Reference](../reference/os/polkadot.md) for the programming model.
+See [Polkadot OS Reference](../../os/polkadot/README.md) for the programming model.
 
 ---
 

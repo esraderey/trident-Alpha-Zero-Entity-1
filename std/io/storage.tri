@@ -1,6 +1,6 @@
 module std.io.storage
 
-use std.io.mem
+use vm.io.mem
 
 // Read a single field element from storage at `key`.
 pub fn read(key: Field) -> Field {

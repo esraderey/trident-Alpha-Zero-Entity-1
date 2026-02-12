@@ -25,9 +25,9 @@ module std.crypto.sha256
 //     then rotr(x, n) = remainder * 2^(32-n) + quotient.
 //   - Right shift uses divmod: shr(x, n) = quotient from x /% 2^n.
 //   - Bitwise NOT is x ^ 0xFFFFFFFF.
-use std.core.convert
+use vm.core.convert
 
-use std.core.field
+use vm.core.field
 
 // ---------------------------------------------------------------------------
 // SHA-256 state: 8 U32 working variables

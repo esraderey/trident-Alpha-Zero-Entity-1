@@ -117,24 +117,26 @@ impl TargetConfig {
             return Ok(Self::triton());
         }
 
-        // Search for vm/{name}.toml
-        let filename = format!("vm/{}.toml", name);
+        // Search for vm/{name}/target.toml first, then vm/{name}.toml (legacy)
+        let primary = format!("vm/{}/target.toml", name);
+        let fallback = format!("vm/{}.toml", name);
 
         // 1. Relative to compiler binary
         if let Ok(exe) = std::env::current_exe() {
             if let Some(dir) = exe.parent() {
-                let path = dir.join(&filename);
-                if path.exists() {
-                    return Self::load(&path);
-                }
-                // One level up (target/debug/../vm/)
-                if let Some(parent) = dir.parent() {
-                    let path = parent.join(&filename);
-                    if path.exists() {
-                        return Self::load(&path);
-                    }
-                    if let Some(grandparent) = parent.parent() {
-                        let path = grandparent.join(&filename);
+                for ancestor in &[
+                    Some(dir.to_path_buf()),
+                    dir.parent().map(|p| p.to_path_buf()),
+                    dir.parent()
+                        .and_then(|p| p.parent())
+                        .map(|p| p.to_path_buf()),
+                ] {
+                    if let Some(base) = ancestor {
+                        let path = base.join(&primary);
+                        if path.exists() {
+                            return Self::load(&path);
+                        }
+                        let path = base.join(&fallback);
                         if path.exists() {
                             return Self::load(&path);
                         }
@@ -144,13 +146,17 @@ impl TargetConfig {
         }
 
         // 2. Current working directory
-        let cwd_path = std::path::PathBuf::from(&filename);
+        let cwd_path = std::path::PathBuf::from(&primary);
+        if cwd_path.exists() {
+            return Self::load(&cwd_path);
+        }
+        let cwd_path = std::path::PathBuf::from(&fallback);
         if cwd_path.exists() {
             return Self::load(&cwd_path);
         }
 
         Err(Diagnostic::error(
-            format!("unknown target '{}' (looked for '{}')", name, filename),
+            format!("unknown target '{}' (looked for '{}')", name, primary),
             Span::dummy(),
         )
         .with_help("available targets: triton, miden, openvm, sp1, cairo, nock".to_string()))

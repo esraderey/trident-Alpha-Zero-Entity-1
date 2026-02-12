@@ -232,12 +232,12 @@ When absorbing data that's already in RAM, prefer `sponge_absorb_mem` over readi
 
 ```
 // Expensive: 10 RAM reads + sponge_absorb = 10 cc + 10 RAM rows + 6 hash rows
-let a: Field = std.io.mem.read(addr)
+let a: Field = vm.io.mem.read(addr)
 // ... read 9 more values ...
-std.crypto.hash.sponge_absorb(a, b, c, d, e, f, g, h, i, j)
+vm.crypto.hash.sponge_absorb(a, b, c, d, e, f, g, h, i, j)
 
 // Cheaper: sponge_absorb_mem = 1 cc + 10 RAM rows + 6 hash rows
-std.crypto.hash.sponge_absorb_mem(addr)
+vm.crypto.hash.sponge_absorb_mem(addr)
 ```
 
 Both cost the same 6 Hash Table rows, but `sponge_absorb_mem` saves ~10 processor cycles by avoiding individual `read_mem` instructions.

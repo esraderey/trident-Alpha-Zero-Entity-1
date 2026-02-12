@@ -29,9 +29,9 @@ module std.crypto.keccak256
 //   - `convert.as_field(u)` widens U32 -> Field losslessly.
 //   - `convert.as_u32(f)` narrows Field -> U32 (asserts fits in 32 bits).
 //   - `convert.split(f)` splits a Field into (hi: U32, lo: U32).
-use std.core.convert
+use vm.core.convert
 
-use std.core.field
+use vm.core.field
 
 // ---------------------------------------------------------------------------
 // Lane: a 64-bit value as two U32 halves (little-endian)

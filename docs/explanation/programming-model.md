@@ -59,9 +59,9 @@ Practical consequences:
 
 Every OS, regardless of model, must address six concerns. The compiler's
 job is **runtime binding** -- translating these concerns to OS-native
-primitives via `<os>.ext.*` modules.
+primitives via `os.<os>.*` modules.
 
-The tables below describe **OS-native patterns** (the `<os>.ext.*` layer — S2).
+The tables below describe **OS-native patterns** (the `os.<os>.*` layer — S2).
 For the portable `os.*` layer (S1) that abstracts these patterns, see
 [Standard Library — Portable OS Layer](../reference/stdlib.md).
 
@@ -81,11 +81,11 @@ For the portable `os.*` layer (S1) that abstracts these patterns, see
 | OS family | State model | Trident pattern |
 |-----------|-------------|-----------------|
 | UTXO | Merkle tree of UTXOs | Divine leaf data, authenticate against root via `merkle_step` |
-| Account | Key-value storage slots | `<os>.ext.storage.read(key)` / `write(key, value)` |
-| Stateless | Account data buffers | `solana.ext.account.data(index)` (accounts passed by caller) |
-| Object | Object store (ownership graph) | `sui.ext.object.borrow(id)` / `transfer.send(obj, recipient)` |
+| Account | Key-value storage slots | `os.<os>.storage.read(key)` / `write(key, value)` |
+| Stateless | Account data buffers | `os.solana.account.data(index)` (accounts passed by caller) |
+| Object | Object store (ownership graph) | `os.sui.object.borrow(id)` / `transfer.send(obj, recipient)` |
 | Journal | No persistent state | Public I/O only (`pub_read` / `pub_write`) |
-| Process | Filesystem, environment | `<os>.ext.fs.read()` / `write()` |
+| Process | Filesystem, environment | `os.<os>.fs.read()` / `write()` |
 
 The divine-and-authenticate pattern is specific to UTXO chains. Account-based
 chains provide direct storage access. The same Trident program structure
@@ -97,21 +97,21 @@ mechanism differs.
 | OS family | Identity mechanism | Trident pattern |
 |-----------|-------------------|-----------------|
 | UTXO | Hash preimage (no sender concept) | `divine()` secret, `hash()`, `assert_eq()` |
-| Account (EVM) | Protocol-level signature verification | `ethereum.ext.account.caller()` (= msg.sender) |
-| Account (Starknet) | Native account abstraction | `starknet.ext.account.caller()` |
-| Stateless (Solana) | Signer accounts in transaction | `solana.ext.account.is_signer(index)` |
-| Object (Sui) | Transaction sender | `sui.ext.tx.sender()` |
+| Account (EVM) | Protocol-level signature verification | `os.ethereum.account.caller()` (= msg.sender) |
+| Account (Starknet) | Native account abstraction | `os.starknet.account.caller()` |
+| Stateless (Solana) | Signer accounts in transaction | `os.solana.account.is_signer(index)` |
+| Object (Sui) | Transaction sender | `os.sui.tx.sender()` |
 | Journal | No identity (pure computation) | N/A |
-| Process | UID/PID | `<os>.ext.process.uid()` |
+| Process | UID/PID | `os.<os>.process.uid()` |
 
 ### 4. Signals -- How Neurons Communicate
 
 | OS family | Signal mechanism | Trident pattern |
 |-----------|-----------------|-----------------|
 | UTXO | Create new UTXOs, destroy old ones | Kernel outputs (new UTXOs) in transaction |
-| Account (EVM) | Transfer opcode | `ethereum.ext.transfer.send(from, to, amount)` |
-| Stateless (Solana) | Lamport transfer via system program | `solana.ext.transfer.lamports(from, to, amount)` |
-| Object (Sui) | Object transfer (ownership change) | `sui.ext.coin.split()`, `sui.ext.transfer.send()` |
+| Account (EVM) | Transfer opcode | `os.ethereum.transfer.send(from, to, amount)` |
+| Stateless (Solana) | Lamport transfer via system program | `os.solana.transfer.lamports(from, to, amount)` |
+| Object (Sui) | Object transfer (ownership change) | `os.sui.coin.split()`, `os.sui.transfer.send()` |
 | Journal | No value (off-chain computation) | N/A |
 | Process | N/A | N/A |
 
@@ -119,14 +119,14 @@ mechanism differs.
 
 | OS family | Mechanism | Trident pattern |
 |-----------|-----------|-----------------|
-| UTXO (Neptune) | Recursive proof verification | `neptune.ext.proof.verify_inner_proof()` |
-| Account (EVM) | CALL/STATICCALL/DELEGATECALL | `ethereum.ext.call.call(address, data)` |
-| Account (Starknet) | Contract calls, library calls | `starknet.ext.call.invoke(address, selector, args)` |
-| Stateless (Solana) | CPI (cross-program invocation) | `solana.ext.cpi.invoke(program, accounts, data)` |
+| UTXO (Neptune) | Recursive proof verification | `os.neptune.proof.verify_inner_proof()` |
+| Account (EVM) | CALL/STATICCALL/DELEGATECALL | `os.ethereum.call.call(address, data)` |
+| Account (Starknet) | Contract calls, library calls | `os.starknet.call.invoke(address, selector, args)` |
+| Stateless (Solana) | CPI (cross-program invocation) | `os.solana.cpi.invoke(program, accounts, data)` |
 | Object (Sui) | Direct function calls on shared objects | Call functions from other modules directly |
-| Cosmos | IBC messages | `cosmwasm.ext.ibc.send(channel, data)` |
+| Cosmos | IBC messages | `os.cosmwasm.ibc.send(channel, data)` |
 | Journal | Proof composition | Recursive verification in the same journal |
-| Process | Subprocess, IPC | `<os>.ext.process.exec()` |
+| Process | Subprocess, IPC | `os.<os>.process.exec()` |
 
 ### 6. Events -- Observable Side Effects
 
@@ -161,8 +161,8 @@ via `divine()`, then proves it belongs to the committed state via Merkle proofs.
 This is the fundamental state access pattern for all UTXO chains.
 
 For the complete Neptune programming model -- transaction kernels, UTXO
-structure, address types, block structure, and `neptune.ext.*` API -- see
-[Neptune OS Reference](../reference/os/neptune.md).
+structure, address types, block structure, and `os.neptune.*` API -- see
+[Neptune OS Reference](../../os/neptune/README.md).
 
 ### Account Model (Ethereum, Starknet, Near, Cosmos, Ton, Polkadot)
 
@@ -172,12 +172,12 @@ read/write access to storage slots. Identity comes from the protocol layer
 repeatedly with different inputs.
 
 For programming models:
-[Ethereum](../reference/os/ethereum.md) |
-[Starknet](../reference/os/starknet.md) |
-[Near](../reference/os/near.md) |
-[Cosmos](../reference/os/cosmwasm.md) |
-[Ton](../reference/os/ton.md) |
-[Polkadot](../reference/os/polkadot.md)
+[Ethereum](../../os/ethereum/README.md) |
+[Starknet](../../os/starknet/README.md) |
+[Near](../../os/near/README.md) |
+[Cosmos](../../os/cosmwasm/README.md) |
+[Ton](../../os/ton/README.md) |
+[Polkadot](../../os/polkadot/README.md)
 
 ### Stateless Model (Solana)
 
@@ -187,7 +187,7 @@ and writes account data but does not own storage. Identity comes from
 signer accounts in the transaction.
 
 For the complete Solana programming model -- accounts, PDAs, CPI, and
-`solana.ext.*` API -- see [Solana OS Reference](../reference/os/solana.md).
+`os.solana.*` API -- see [Solana OS Reference](../../os/solana/README.md).
 
 ### Object Model (Sui, Aptos)
 
@@ -197,8 +197,8 @@ or immutable. The type system enforces resource safety -- objects cannot be
 copied or dropped unless explicitly allowed.
 
 For programming models:
-[Sui](../reference/os/sui.md) |
-[Aptos](../reference/os/aptos.md)
+[Sui](../../os/sui/README.md) |
+[Aptos](../../os/aptos/README.md)
 
 ### Journal Model (SP1, RISC Zero, OpenVM, Boundless, Succinct)
 
@@ -208,9 +208,9 @@ a journal. The proof attests that the computation was performed correctly.
 No accounts, no storage, no identity.
 
 For programming models:
-[Boundless](../reference/os/boundless.md) |
-[Succinct](../reference/os/succinct.md) |
-[OpenVM](../reference/os/openvm-network.md)
+[Boundless](../../os/boundless/README.md) |
+[Succinct](../../os/succinct/README.md) |
+[OpenVM](../../os/openvm-network/README.md)
 
 ### Process Model (Linux, macOS, WASI, Browser, Android)
 
@@ -220,29 +220,29 @@ These targets exist for testing, debugging, and running Trident programs
 as conventional software.
 
 For programming models:
-[Linux](../reference/os/linux.md) |
-[macOS](../reference/os/macos.md) |
-[WASI](../reference/os/wasi.md) |
-[Browser](../reference/os/browser.md) |
-[Android](../reference/os/android.md)
+[Linux](../../os/linux/README.md) |
+[macOS](../../os/macos/README.md) |
+[WASI](../../os/wasi/README.md) |
+[Browser](../../os/browser/README.md) |
+[Android](../../os/android/README.md)
 
 ---
 
-## The Portable OS Layer: `std.*` → `os.*` → `<os>.ext.*`
+## The Portable OS Layer: `std.*` → `os.*` → `os.<os>.*`
 
 The stdlib has three tiers. Each trades portability for OS access:
 
 ```
 std.*          S0 — Proof primitives      All 20 VMs, all 25 OSes
 os.*           S1 — Portable OS           All blockchain + traditional OSes
-<os>.ext.*     S2 — OS-native             One specific OS
+os.<os>.*      S2 — OS-native             One specific OS
 ```
 
 | Tier | Layer | Scope | Example |
 |------|-------|-------|---------|
-| S0 | **`std.*`** | All targets | `std.crypto.hash`, `std.crypto.merkle`, `std.io.io` |
+| S0 | **`std.*`** | All targets | `vm.crypto.hash`, `std.crypto.merkle`, `vm.io.io` |
 | S1 | **`os.*`** | All OSes with the concept | `os.state.read`, `os.neuron.id`, `os.neuron.auth` |
-| S2 | **`<os>.ext.*`** | One OS | `neptune.ext.kernel`, `ethereum.ext.storage`, `solana.ext.account` |
+| S2 | **`os.<os>.*`** | One OS | `os.neptune.kernel`, `os.ethereum.storage`, `os.solana.account` |
 
 **S0 — `std.*`**: Pure computation. Hash, Merkle, field arithmetic, I/O
 channels. Works everywhere but cannot touch state, identity, or money.
@@ -253,7 +253,7 @@ on the target OS. A program using `os.state.read(key)` compiles to SLOAD
 on Ethereum, `account.data` on Solana, `dynamic_field.borrow` on Sui, and
 `divine()` + `merkle_authenticate` on Neptune. Same source, different lowering.
 
-**S2 — `<os>.ext.*`**: OS-native API. Full access to OS-specific features
+**S2 — `os.<os>.*`**: OS-native API. Full access to OS-specific features
 (PDAs, object ownership, CPI, kernel MAST, IBC). Required when the portable
 layer cannot express what you need.
 
@@ -270,7 +270,7 @@ layer cannot express what you need.
 The compiler emits a clear error when an `os.*` function targets an OS
 that doesn't support the concept. For example, `os.neuron.id()` on
 Neptune produces: *"UTXO chains have no caller — use `os.neuron.auth()`
-or `neptune.ext.*` for hash-preimage identity."*
+or `os.neptune.*` for hash-preimage identity."*
 
 ### Choosing a Tier
 
@@ -290,16 +290,16 @@ fn guarded_write(key: Field, value: Field, credential: Digest) {
 }
 
 // S2 — OS-native, Ethereum only
-use ethereum.ext.storage
+use os.ethereum.storage
 fn read_balance(slot: Field) -> Field {
-    ethereum.ext.storage.read(slot)
+    os.ethereum.storage.read(slot)
 }
 ```
 
 A program can mix all three tiers. Use `std.*` for portable math, `os.*`
-for portable OS interaction, and `<os>.ext.*` when you need OS-specific
-features. The compiler rejects `<os>.ext.*` imports when targeting a different OS:
-`use ethereum.ext.storage` is a compile error with `--target solana`.
+for portable OS interaction, and `os.<os>.*` when you need OS-specific
+features. The compiler rejects `os.<os>.*` imports when targeting a different OS:
+`use os.ethereum.storage` is a compile error with `--target solana`.
 
 For full `os.*` API specifications and per-OS lowering tables, see
 [Standard Library Reference](../reference/stdlib.md).

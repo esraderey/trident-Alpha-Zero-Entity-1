@@ -2363,12 +2363,12 @@ fn main() {
     #[test]
     fn test_xfield_dot_step_intrinsics() {
         let dir = tempfile::tempdir().unwrap();
-        // Write the entry program that uses xx_dot_step via neptune.ext.xfield
+        // Write the entry program that uses xx_dot_step via os.neptune.xfield
         let main_path = dir.path().join("main.tri");
         std::fs::write(
             &main_path,
             r#"program test
-use neptune.ext.xfield
+use os.neptune.xfield
 
 fn main() {
     let ptr_a: Field = divine()
@@ -2380,10 +2380,10 @@ fn main() {
 "#,
         )
         .unwrap();
-        // Create ext/neptune directory and copy xfield.tri
-        let ext_dir = dir.path().join("ext").join("neptune");
+        // Create os/neptune directory and copy xfield.tri
+        let ext_dir = dir.path().join("os").join("neptune");
         std::fs::create_dir_all(&ext_dir).unwrap();
-        std::fs::copy("ext/neptune/xfield.tri", ext_dir.join("xfield.tri")).unwrap_or_default();
+        std::fs::copy("os/neptune/xfield.tri", ext_dir.join("xfield.tri")).unwrap_or_default();
 
         let result = compile_project(&main_path);
         assert!(
@@ -2405,7 +2405,7 @@ fn main() {
         std::fs::write(
             &main_path,
             r#"program test
-use neptune.ext.xfield
+use os.neptune.xfield
 
 fn main() {
     let ptr_a: Field = divine()
@@ -2417,9 +2417,9 @@ fn main() {
 "#,
         )
         .unwrap();
-        let ext_dir = dir.path().join("ext").join("neptune");
+        let ext_dir = dir.path().join("os").join("neptune");
         std::fs::create_dir_all(&ext_dir).unwrap();
-        std::fs::copy("ext/neptune/xfield.tri", ext_dir.join("xfield.tri")).unwrap_or_default();
+        std::fs::copy("os/neptune/xfield.tri", ext_dir.join("xfield.tri")).unwrap_or_default();
 
         let result = compile_project(&main_path);
         assert!(
@@ -2441,7 +2441,7 @@ fn main() {
         std::fs::write(
             &main_path,
             r#"program test
-use neptune.ext.recursive
+use os.neptune.recursive
 
 fn main() {
     let ptr_a: Field = divine()
@@ -2457,18 +2457,18 @@ fn main() {
         )
         .unwrap();
         // Copy library files
-        let ext_dir = dir.path().join("ext").join("neptune");
+        let ext_dir = dir.path().join("os").join("neptune");
         std::fs::create_dir_all(&ext_dir).unwrap();
-        std::fs::copy("ext/neptune/xfield.tri", ext_dir.join("xfield.tri")).unwrap_or_default();
-        std::fs::copy("ext/neptune/recursive.tri", ext_dir.join("recursive.tri"))
+        std::fs::copy("os/neptune/xfield.tri", ext_dir.join("xfield.tri")).unwrap_or_default();
+        std::fs::copy("os/neptune/recursive.tri", ext_dir.join("recursive.tri"))
             .unwrap_or_default();
-        // Copy std files that recursive.tri depends on
-        let std_io = dir.path().join("std").join("io");
-        let std_core = dir.path().join("std").join("core");
-        std::fs::create_dir_all(&std_io).unwrap();
-        std::fs::create_dir_all(&std_core).unwrap();
-        std::fs::copy("std/io/io.tri", std_io.join("io.tri")).unwrap_or_default();
-        std::fs::copy("std/core/assert.tri", std_core.join("assert.tri")).unwrap_or_default();
+        // Copy vm files that recursive.tri depends on
+        let vm_io = dir.path().join("vm").join("io");
+        let vm_core = dir.path().join("vm").join("core");
+        std::fs::create_dir_all(&vm_io).unwrap();
+        std::fs::create_dir_all(&vm_core).unwrap();
+        std::fs::copy("vm/io/io.tri", vm_io.join("io.tri")).unwrap_or_default();
+        std::fs::copy("vm/core/assert.tri", vm_core.join("assert.tri")).unwrap_or_default();
 
         let result = compile_project(&main_path);
         assert!(
@@ -2490,7 +2490,7 @@ fn main() {
         std::fs::write(
             &main_path,
             r#"program test
-use neptune.ext.recursive
+use os.neptune.recursive
 
 fn main() {
     let ptr_a: Field = divine()
@@ -2503,17 +2503,17 @@ fn main() {
 "#,
         )
         .unwrap();
-        let ext_dir = dir.path().join("ext").join("neptune");
+        let ext_dir = dir.path().join("os").join("neptune");
         std::fs::create_dir_all(&ext_dir).unwrap();
-        std::fs::copy("ext/neptune/xfield.tri", ext_dir.join("xfield.tri")).unwrap_or_default();
-        std::fs::copy("ext/neptune/recursive.tri", ext_dir.join("recursive.tri"))
+        std::fs::copy("os/neptune/xfield.tri", ext_dir.join("xfield.tri")).unwrap_or_default();
+        std::fs::copy("os/neptune/recursive.tri", ext_dir.join("recursive.tri"))
             .unwrap_or_default();
-        let std_io = dir.path().join("std").join("io");
-        let std_core = dir.path().join("std").join("core");
-        std::fs::create_dir_all(&std_io).unwrap();
-        std::fs::create_dir_all(&std_core).unwrap();
-        std::fs::copy("std/io/io.tri", std_io.join("io.tri")).unwrap_or_default();
-        std::fs::copy("std/core/assert.tri", std_core.join("assert.tri")).unwrap_or_default();
+        let vm_io = dir.path().join("vm").join("io");
+        let vm_core = dir.path().join("vm").join("core");
+        std::fs::create_dir_all(&vm_io).unwrap();
+        std::fs::create_dir_all(&vm_core).unwrap();
+        std::fs::copy("vm/io/io.tri", vm_io.join("io.tri")).unwrap_or_default();
+        std::fs::copy("vm/core/assert.tri", vm_core.join("assert.tri")).unwrap_or_default();
 
         let result = compile_project(&main_path);
         assert!(
@@ -2535,7 +2535,7 @@ fn main() {
         std::fs::write(
             &main_path,
             r#"program test
-use neptune.ext.proof
+use os.neptune.proof
 
 fn main() {
     proof.verify_inner_proof(4)
@@ -2544,18 +2544,18 @@ fn main() {
         )
         .unwrap();
         // Copy all required library files
-        let ext_dir = dir.path().join("ext").join("neptune");
+        let ext_dir = dir.path().join("os").join("neptune");
         std::fs::create_dir_all(&ext_dir).unwrap();
-        std::fs::copy("ext/neptune/proof.tri", ext_dir.join("proof.tri")).unwrap_or_default();
-        std::fs::copy("ext/neptune/recursive.tri", ext_dir.join("recursive.tri"))
+        std::fs::copy("os/neptune/proof.tri", ext_dir.join("proof.tri")).unwrap_or_default();
+        std::fs::copy("os/neptune/recursive.tri", ext_dir.join("recursive.tri"))
             .unwrap_or_default();
-        std::fs::copy("ext/neptune/xfield.tri", ext_dir.join("xfield.tri")).unwrap_or_default();
-        let std_io = dir.path().join("std").join("io");
-        let std_core = dir.path().join("std").join("core");
-        std::fs::create_dir_all(&std_io).unwrap();
-        std::fs::create_dir_all(&std_core).unwrap();
-        std::fs::copy("std/io/io.tri", std_io.join("io.tri")).unwrap_or_default();
-        std::fs::copy("std/core/assert.tri", std_core.join("assert.tri")).unwrap_or_default();
+        std::fs::copy("os/neptune/xfield.tri", ext_dir.join("xfield.tri")).unwrap_or_default();
+        let vm_io = dir.path().join("vm").join("io");
+        let vm_core = dir.path().join("vm").join("core");
+        std::fs::create_dir_all(&vm_io).unwrap();
+        std::fs::create_dir_all(&vm_core).unwrap();
+        std::fs::copy("vm/io/io.tri", vm_io.join("io.tri")).unwrap_or_default();
+        std::fs::copy("vm/core/assert.tri", vm_core.join("assert.tri")).unwrap_or_default();
 
         let result = compile_project(&main_path);
         assert!(
@@ -2577,7 +2577,7 @@ fn main() {
         std::fs::write(
             &main_path,
             r#"program test
-use neptune.ext.proof
+use os.neptune.proof
 
 fn main() {
     let n: Field = pub_read()
@@ -2586,18 +2586,18 @@ fn main() {
 "#,
         )
         .unwrap();
-        let ext_dir = dir.path().join("ext").join("neptune");
+        let ext_dir = dir.path().join("os").join("neptune");
         std::fs::create_dir_all(&ext_dir).unwrap();
-        std::fs::copy("ext/neptune/proof.tri", ext_dir.join("proof.tri")).unwrap_or_default();
-        std::fs::copy("ext/neptune/recursive.tri", ext_dir.join("recursive.tri"))
+        std::fs::copy("os/neptune/proof.tri", ext_dir.join("proof.tri")).unwrap_or_default();
+        std::fs::copy("os/neptune/recursive.tri", ext_dir.join("recursive.tri"))
             .unwrap_or_default();
-        std::fs::copy("ext/neptune/xfield.tri", ext_dir.join("xfield.tri")).unwrap_or_default();
-        let std_io = dir.path().join("std").join("io");
-        let std_core = dir.path().join("std").join("core");
-        std::fs::create_dir_all(&std_io).unwrap();
-        std::fs::create_dir_all(&std_core).unwrap();
-        std::fs::copy("std/io/io.tri", std_io.join("io.tri")).unwrap_or_default();
-        std::fs::copy("std/core/assert.tri", std_core.join("assert.tri")).unwrap_or_default();
+        std::fs::copy("os/neptune/xfield.tri", ext_dir.join("xfield.tri")).unwrap_or_default();
+        let vm_io = dir.path().join("vm").join("io");
+        let vm_core = dir.path().join("vm").join("core");
+        std::fs::create_dir_all(&vm_io).unwrap();
+        std::fs::create_dir_all(&vm_core).unwrap();
+        std::fs::copy("vm/io/io.tri", vm_io.join("io.tri")).unwrap_or_default();
+        std::fs::copy("vm/core/assert.tri", vm_core.join("assert.tri")).unwrap_or_default();
 
         let result = compile_project(&main_path);
         assert!(

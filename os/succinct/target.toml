@@ -1,0 +1,22 @@
+# Succinct — verifiable compute network powered by SP1
+# https://succinct.xyz
+
+[os]
+name = "succinct"
+display_name = "Succinct"
+vm = "sp1"
+
+[runtime]
+binding_prefix = "os.succinct"
+account_model = "journal"
+storage_model = "none"
+transaction_model = "proof-based"
+
+[cross_chain]
+protocols = ["ethereum-verification"]
+
+[status]
+level = 1
+ext_modules = 0
+tests = false
+notes = ""

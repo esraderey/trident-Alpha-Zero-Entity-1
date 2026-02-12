@@ -77,28 +77,28 @@ CPU parameters. `TargetConfig` is the compiler's hardware abstraction layer.
 | VM | Arch | Word | Hash | Tier | Output | Details |
 |----|------|------|------|------|--------|---------|
 | **Provable** | | | | | | |
-| TRITON | Stack | Goldilocks 64-bit | Tip5 | 0-3 | `.tasm` | [triton.md](vm/triton.md) |
-| MIDEN | Stack | Goldilocks 64-bit | Rescue-Prime | 0-2 | `.masm` | [miden.md](vm/miden.md) |
-| NOCK | Tree | Goldilocks 64-bit | Tip5 | 0-3 | `.jam` | [nock.md](vm/nock.md) |
-| SP1 | Register (RISC-V) | Mersenne31 31-bit | Poseidon2 | 0-1 | `.S` | [sp1.md](vm/sp1.md) |
-| OPENVM | Register (RISC-V) | Goldilocks 64-bit | Poseidon2 | 0-1 | `.S` | [openvm.md](vm/openvm.md) |
-| RISCZERO | Register (RISC-V) | BabyBear 31-bit | SHA-256 | 0-1 | ELF | [risczero.md](vm/risczero.md) |
-| JOLT | Register (RISC-V) | BN254 254-bit | Poseidon2 | 0-1 | ELF | [jolt.md](vm/jolt.md) |
-| CAIRO | Register | STARK-252 251-bit | Pedersen | 0-1 | `.sierra` | [cairo.md](vm/cairo.md) |
-| AVM | Register | Aleo 251-bit | Poseidon | 0-1 | `.aleo` | [avm.md](vm/avm.md) |
-| AZTEC | Circuit (ACIR) | BN254 254-bit | Poseidon2 | 0-1 | `.acir` | [aztec.md](vm/aztec.md) |
+| TRITON | Stack | Goldilocks 64-bit | Tip5 | 0-3 | `.tasm` | [triton.md](../../vm/triton/README.md) |
+| MIDEN | Stack | Goldilocks 64-bit | Rescue-Prime | 0-2 | `.masm` | [miden.md](../../vm/miden/README.md) |
+| NOCK | Tree | Goldilocks 64-bit | Tip5 | 0-3 | `.jam` | [nock.md](../../vm/nock/README.md) |
+| SP1 | Register (RISC-V) | Mersenne31 31-bit | Poseidon2 | 0-1 | `.S` | [sp1.md](../../vm/sp1/README.md) |
+| OPENVM | Register (RISC-V) | Goldilocks 64-bit | Poseidon2 | 0-1 | `.S` | [openvm.md](../../vm/openvm/README.md) |
+| RISCZERO | Register (RISC-V) | BabyBear 31-bit | SHA-256 | 0-1 | ELF | [risczero.md](../../vm/risczero/README.md) |
+| JOLT | Register (RISC-V) | BN254 254-bit | Poseidon2 | 0-1 | ELF | [jolt.md](../../vm/jolt/README.md) |
+| CAIRO | Register | STARK-252 251-bit | Pedersen | 0-1 | `.sierra` | [cairo.md](../../vm/cairo/README.md) |
+| AVM | Register | Aleo 251-bit | Poseidon | 0-1 | `.aleo` | [avm.md](../../vm/avm/README.md) |
+| AZTEC | Circuit (ACIR) | BN254 254-bit | Poseidon2 | 0-1 | `.acir` | [aztec.md](../../vm/aztec/README.md) |
 | **Non-provable** | | | | | | |
-| EVM | Stack | u256 | Keccak-256 | 0-1 | `.evm` | [evm.md](vm/evm.md) |
-| WASM | Stack | u64 | -- (runtime-dependent) | 0-1 | `.wasm` | [wasm.md](vm/wasm.md) |
-| SBPF | Register | u64 | SHA-256 | 0-1 | `.so` | [sbpf.md](vm/sbpf.md) |
-| MOVEVM | Register/hybrid | u64 | SHA3-256 | 0-1 | `.mv` | [movevm.md](vm/movevm.md) |
-| TVM | Stack | u257 | SHA-256 | 0-1 | `.boc` | [tvm.md](vm/tvm.md) |
-| CKB | Register (RISC-V) | u64 | Blake2b | 0-1 | ELF | [ckb.md](vm/ckb.md) |
-| POLKAVM | Register (RISC-V) | u64 | Blake2b | 0-1 | PVM | [polkavm.md](vm/polkavm.md) |
+| EVM | Stack | u256 | Keccak-256 | 0-1 | `.evm` | [evm.md](../../vm/evm/README.md) |
+| WASM | Stack | u64 | -- (runtime-dependent) | 0-1 | `.wasm` | [wasm.md](../../vm/wasm/README.md) |
+| SBPF | Register | u64 | SHA-256 | 0-1 | `.so` | [sbpf.md](../../vm/sbpf/README.md) |
+| MOVEVM | Register/hybrid | u64 | SHA3-256 | 0-1 | `.mv` | [movevm.md](../../vm/movevm/README.md) |
+| TVM | Stack | u257 | SHA-256 | 0-1 | `.boc` | [tvm.md](../../vm/tvm/README.md) |
+| CKB | Register (RISC-V) | u64 | Blake2b | 0-1 | ELF | [ckb.md](../../vm/ckb/README.md) |
+| POLKAVM | Register (RISC-V) | u64 | Blake2b | 0-1 | PVM | [polkavm.md](../../vm/polkavm/README.md) |
 | **Native** | | | | | | |
-| X86-64 | Register | u64 | Software | 0-1 | ELF | [x86-64.md](vm/x86-64.md) |
-| ARM64 | Register | u64 | Software | 0-1 | ELF | [arm64.md](vm/arm64.md) |
-| RISCV | Register | u64 | Software | 0-1 | ELF | [riscv.md](vm/riscv.md) |
+| X86-64 | Register | u64 | Software | 0-1 | ELF | [x86-64.md](../../vm/x86-64/README.md) |
+| ARM64 | Register | u64 | Software | 0-1 | ELF | [arm64.md](../../vm/arm64/README.md) |
+| RISCV | Register | u64 | Software | 0-1 | ELF | [riscv.md](../../vm/riscv/README.md) |
 
 **Planned**: CUDA, Metal, Vulkan (GPU — `KernelLowering`).
 
@@ -217,24 +217,24 @@ per-function annotations, `--costs` flag — works identically across all VMs.
 
 | VM | Cost unit | What determines cost |
 |----|-----------|---------------------|
-| [TRITON](vm/triton.md) | Table rows | Tallest of 6 tables, padded to next power of 2 |
-| [MIDEN](vm/miden.md) | Table rows | Tallest of 4 tables |
-| [NOCK](vm/nock.md) | Nock reductions | Formula evaluation steps (jet calls count as 1) |
-| [SP1](vm/sp1.md) | Cycles | Total cycle count |
-| [OPENVM](vm/openvm.md) | Cycles | Total cycle count |
-| [RISCZERO](vm/risczero.md) | Cycles (segments) | Cycle count, split into segments for parallel proving |
-| [JOLT](vm/jolt.md) | Cycles | Total cycle count (sumcheck-based) |
-| [CAIRO](vm/cairo.md) | Steps + builtins | Step count plus builtin usage |
-| [AVM](vm/avm.md) | Constraints | Constraint count (off-chain); microcredits (on-chain finalize) |
-| [AZTEC](vm/aztec.md) | Gates / Gas | Private: gate count (client-side); Public: gas (sequencer) |
-| [EVM](vm/evm.md) | Gas | Per-opcode cost (arithmetic 3-8, storage 5K-20K) |
-| [WASM](vm/wasm.md) | Gas / Cycles | Per-instruction cost (varies by OS runtime) |
-| [SBPF](vm/sbpf.md) | Compute units | Per-instruction cost (budget 200K default, 1.4M max) |
-| [MOVEVM](vm/movevm.md) | Gas | Per-bytecode-instruction + storage operations |
-| [TVM](vm/tvm.md) | Gas | Per-opcode + cell creation/storage charges |
-| [CKB](vm/ckb.md) | Cycles | Flat per-instruction (1 cycle), higher for branches/mul |
-| [POLKAVM](vm/polkavm.md) | Weight | ref_time (computation) + proof_size (state proof overhead) |
-| [X86-64](vm/x86-64.md) / [ARM64](vm/arm64.md) / [RISCV](vm/riscv.md) | Wall-clock | No proof cost — direct execution |
+| [TRITON](../../vm/triton/README.md) | Table rows | Tallest of 6 tables, padded to next power of 2 |
+| [MIDEN](../../vm/miden/README.md) | Table rows | Tallest of 4 tables |
+| [NOCK](../../vm/nock/README.md) | Nock reductions | Formula evaluation steps (jet calls count as 1) |
+| [SP1](../../vm/sp1/README.md) | Cycles | Total cycle count |
+| [OPENVM](../../vm/openvm/README.md) | Cycles | Total cycle count |
+| [RISCZERO](../../vm/risczero/README.md) | Cycles (segments) | Cycle count, split into segments for parallel proving |
+| [JOLT](../../vm/jolt/README.md) | Cycles | Total cycle count (sumcheck-based) |
+| [CAIRO](../../vm/cairo/README.md) | Steps + builtins | Step count plus builtin usage |
+| [AVM](../../vm/avm/README.md) | Constraints | Constraint count (off-chain); microcredits (on-chain finalize) |
+| [AZTEC](../../vm/aztec/README.md) | Gates / Gas | Private: gate count (client-side); Public: gas (sequencer) |
+| [EVM](../../vm/evm/README.md) | Gas | Per-opcode cost (arithmetic 3-8, storage 5K-20K) |
+| [WASM](../../vm/wasm/README.md) | Gas / Cycles | Per-instruction cost (varies by OS runtime) |
+| [SBPF](../../vm/sbpf/README.md) | Compute units | Per-instruction cost (budget 200K default, 1.4M max) |
+| [MOVEVM](../../vm/movevm/README.md) | Gas | Per-bytecode-instruction + storage operations |
+| [TVM](../../vm/tvm/README.md) | Gas | Per-opcode + cell creation/storage charges |
+| [CKB](../../vm/ckb/README.md) | Cycles | Flat per-instruction (1 cycle), higher for branches/mul |
+| [POLKAVM](../../vm/polkavm/README.md) | Weight | ref_time (computation) + proof_size (state proof overhead) |
+| [X86-64](../../vm/x86-64/README.md) / [ARM64](../../vm/arm64/README.md) / [RISCV](../../vm/riscv/README.md) | Wall-clock | No proof cost — direct execution |
 
 The cost model is a property of the VM, not the OS. Provable VMs report
 proving cost. Non-provable VMs report execution metering. Native targets
@@ -248,7 +248,7 @@ report wall-clock time. Each VM doc has per-instruction cost tables.
 - [OS Reference](os.md) — OS concepts, `os.*` gold standard, extensions
 - [IR Reference](ir.md) — 54 operations, 4 tiers, lowering paths
 - [Language Reference](language.md) — Types, operators, builtins, grammar
-- Per-VM docs: `vm/<vm>.md`
+- Per-VM docs: `vm/<vm>/README.md`
 
 ---
 

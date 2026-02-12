@@ -1,16 +1,16 @@
 program stdlib_test
 
-use std.io.io
+use vm.io.io
 
-use std.crypto.hash
+use vm.crypto.hash
 
-use std.core.field
+use vm.core.field
 
-use std.core.assert
+use vm.core.assert
 
-use std.core.convert
+use vm.core.convert
 
-use std.io.mem
+use vm.io.mem
 
 fn main() {
     // Test std.io

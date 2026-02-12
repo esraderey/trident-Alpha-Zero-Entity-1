@@ -102,7 +102,7 @@ The TIR (Trident Intermediate Representation) is already implemented. It's a lis
 ```
 program token_vault
 
-use std.core.field
+use vm.core.field
 use std.io.storage
 
 struct Vault {
@@ -279,7 +279,7 @@ A Level 2 program is a Level 1 program with these additions. The business logic 
 program private_transfer
 
 use std.crypto.merkle
-use std.io.io
+use vm.io.io
 
 fn main() {
     let old_root: Digest = pub_read5()

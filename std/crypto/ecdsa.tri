@@ -7,9 +7,9 @@ module std.crypto.ecdsa
 // with any curve whose order fits in 256 bits.
 use std.crypto.bigint
 
-use std.core.convert
+use vm.core.convert
 
-use std.io.io
+use vm.io.io
 
 // An ECDSA signature consisting of (r, s), each a 256-bit scalar.
 pub struct Signature {

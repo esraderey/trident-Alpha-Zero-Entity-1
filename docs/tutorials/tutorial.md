@@ -115,15 +115,15 @@ let x: Field = 42
 let y: Field = x + x
 ```
 
-There is no `-` operator. Use `sub(a, b)` from `std.core.field`. This is deliberate -- in a prime field, `1 - 2` gives `p - 1`, not `-1`. Making subtraction explicit avoids this footgun (see the [Key Differences](#17-key-differences-from-conventional-languages) table at the end):
+There is no `-` operator. Use `sub(a, b)` from `vm.core.field`. This is deliberate -- in a prime field, `1 - 2` gives `p - 1`, not `-1`. Making subtraction explicit avoids this footgun (see the [Key Differences](#17-key-differences-from-conventional-languages) table at the end):
 
 ```
 program example
 
-use std.core.field
+use vm.core.field
 
 fn main() {
-    let diff: Field = std.core.field.sub(10, 3)
+    let diff: Field = vm.core.field.sub(10, 3)
     pub_write(diff)
 }
 ```
@@ -300,14 +300,14 @@ let (quot, rem) = divmod(17, 5)
 
 ### Operators
 
-Field arithmetic uses `+` and `*`. There is no `-` operator -- in a prime field, `1 - 2` produces `p - 1`, not `-1`. Subtraction is explicit via `std.core.field.sub`:
+Field arithmetic uses `+` and `*`. There is no `-` operator -- in a prime field, `1 - 2` produces `p - 1`, not `-1`. Subtraction is explicit via `vm.core.field.sub`:
 
 ```
-use std.core.field
+use vm.core.field
 
 let sum: Field = a + b
 let product: Field = a * b
-let difference: Field = std.core.field.sub(a, b)
+let difference: Field = vm.core.field.sub(a, b)
 ```
 
 Comparisons produce `Bool`:
@@ -439,7 +439,7 @@ fn abs_diff(a: Field, b: Field) -> Field {
     if a == b {
         return 0
     }
-    std.core.field.sub(a, b)
+    vm.core.field.sub(a, b)
 }
 ```
 
@@ -540,13 +540,13 @@ program my_app
 
 use helpers
 use crypto.auth
-use std.crypto.hash
+use vm.crypto.hash
 ```
 
 Call functions with the module prefix:
 
 ```
-let d: Digest = std.crypto.hash.tip5(x, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+let d: Digest = vm.crypto.hash.tip5(x, 0, 0, 0, 0, 0, 0, 0, 0, 0)
 let result: Field = helpers.double(x)
 ```
 
@@ -556,8 +556,8 @@ let result: Field = helpers.double(x)
 |--------|-------------|
 | `use helpers` | `helpers.tri` in the project directory |
 | `use crypto.auth` | `crypto/auth.tri` in the project directory |
-| `use std.crypto.hash` | `crypto/hash.tri` in the standard library |
-| `use neptune.ext.xfield` | `triton/xfield.tri` in the extensions directory |
+| `use vm.crypto.hash` | `crypto/hash.tri` in the standard library |
+| `use os.neptune.xfield` | `triton/xfield.tri` in the extensions directory |
 
 ### Standard Library Layers
 
@@ -565,12 +565,15 @@ The standard library is organized in three universal layers plus backend extensi
 
 | Layer | Modules | Purpose |
 |-------|---------|---------|
-| `std.core` | `field`, `convert`, `u32`, `assert`, `bool` | Arithmetic, conversions, assertions |
-| `std.io` | `io`, `mem`, `storage` | Public/secret I/O, RAM, persistent storage |
-| `std.crypto` | `hash`, `merkle`, `auth` | Tip5 hashing, Merkle proofs, authorization |
-| `neptune.ext` | `xfield`, `kernel`, `utxo`, `storage` | Triton VM-specific operations |
+| `vm.core` | `field`, `convert`, `u32`, `assert` | Arithmetic, conversions, assertions (VM intrinsics) |
+| `vm.io` | `io`, `mem` | Public/secret I/O, RAM (VM intrinsics) |
+| `vm.crypto` | `hash` | Tip5 hashing (VM intrinsic) |
+| `std.core` | `bool` | Boolean combinators |
+| `std.io` | `storage` | Persistent storage helpers |
+| `std.crypto` | `merkle`, `auth` | Merkle proofs, authorization |
+| `os.neptune` | `xfield`, `kernel`, `utxo`, `storage` | Triton VM-specific operations |
 
-The `std.*` modules are target-agnostic and work across all backends. The `neptune.ext.*` modules are available only when compiling with `--target triton` (the default). Importing an `<os>.ext.*` module while targeting a different backend is a compile error.
+The `vm.*` and `std.*` modules are target-agnostic and work across all backends. The `os.neptune.*` modules are available only when compiling with `--target triton` (the default). Importing an `os.<os>.*` module while targeting a different backend is a compile error.
 
 See the [Reference](../reference/language.md) for a complete list of standard library functions, and the [Programming Model](../explanation/programming-model.md) for how I/O interacts with the prover and verifier.
 
@@ -605,7 +608,7 @@ The program must verify divine values are correct:
 ```
 let claimed_root: Digest = divine5()
 let actual_root: Digest = compute_root(data)
-std.core.assert.digest(claimed_root, actual_root)
+vm.core.assert.digest(claimed_root, actual_root)
 ```
 
 ---
@@ -615,10 +618,10 @@ std.core.assert.digest(claimed_root, actual_root)
 [Tip5](https://eprint.iacr.org/2023/107) is Triton VM's native algebraic hash function (see [How STARK Proofs Work](../explanation/stark-proofs.md) Section 5 for why this hash matters for proofs). It always takes exactly 10 field elements as input and produces a 5-element Digest. Pad unused inputs with zeros:
 
 ```
-use std.crypto.hash
+use vm.crypto.hash
 
 fn hash_pair(a: Field, b: Field) -> Digest {
-    std.crypto.hash.tip5(a, b, 0, 0, 0, 0, 0, 0, 0, 0)
+    vm.crypto.hash.tip5(a, b, 0, 0, 0, 0, 0, 0, 0, 0)
 }
 ```
 
@@ -626,10 +629,10 @@ For streaming data, use the sponge API:
 
 ```
 fn hash_stream() -> Digest {
-    std.crypto.hash.sponge_init()
-    std.crypto.hash.sponge_absorb(a, b, c, d, e, f, g, h, i, j)
-    std.crypto.hash.sponge_absorb(k, l, m, n, o, p, q, r, s, t)
-    std.crypto.hash.sponge_squeeze()
+    vm.crypto.hash.sponge_init()
+    vm.crypto.hash.sponge_absorb(a, b, c, d, e, f, g, h, i, j)
+    vm.crypto.hash.sponge_absorb(k, l, m, n, o, p, q, r, s, t)
+    vm.crypto.hash.sponge_squeeze()
 }
 ```
 
@@ -832,7 +835,7 @@ These are not limitations -- they are properties required for provable computati
 | Unbounded loops | All loops require a `bounded` annotation. | The proof trace has a fixed length determined before execution. |
 | Strings | No string type. | Strings are variable-length; all types must have compile-time known widths. |
 | Floating point | No floats. `Field` is the native numeric type. | The VM operates over a prime field. Floats have no representation. |
-| Subtraction operator | No `-`. Use `std.core.field.sub()`. | `1 - 2` in a prime field is `p - 1`, not `-1`. Explicit subtraction prevents this footgun. |
+| Subtraction operator | No `-`. Use `vm.core.field.sub()`. | `1 - 2` in a prime field is `p - 1`, not `-1`. Explicit subtraction prevents this footgun. |
 | Many comparison operators | Only `==` and `<`. No `!=`, `>`, `<=`, `>=`. | Fewer primitives means a smaller, more auditable instruction set. |
 | Boolean connectives | No `&&` or `||`. Use `std.core.bool` combinators. | Same rationale: fewer primitives, easier audits. |
 | Garbage collection | No GC. All lifetimes are lexical. | There is no runtime; the program is a static trace. |

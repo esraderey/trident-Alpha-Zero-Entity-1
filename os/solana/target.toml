@@ -1,0 +1,22 @@
+# Solana — high-performance blockchain with stateless programs
+# https://solana.com
+
+[os]
+name = "solana"
+display_name = "Solana"
+vm = "sbpf"
+
+[runtime]
+binding_prefix = "os.solana"
+account_model = "account"
+storage_model = "account-based"
+transaction_model = "signed"
+
+[cross_chain]
+protocols = []
+
+[status]
+level = 1
+ext_modules = 0
+tests = false
+notes = ""

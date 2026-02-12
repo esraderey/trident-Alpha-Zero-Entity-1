@@ -19,7 +19,7 @@ program proof_aggregator
 //
 // Public output:
 //   For each verified proof: the inner program's digest (5 fields)
-use neptune.ext.proof
+use os.neptune.proof
 
 fn main() {
     let num_proofs: Field = pub_read()
