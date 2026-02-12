@@ -7,7 +7,7 @@ display_name = "Polkadot"
 vm = "polkavm"
 
 [runtime]
-binding_prefix = "ext.polkadot"
+binding_prefix = "polkadot.ext"
 account_model = "account"
 storage_model = "key-value"
 transaction_model = "signed"

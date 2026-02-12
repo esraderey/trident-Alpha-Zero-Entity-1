@@ -9,13 +9,13 @@
 | Parameter | Value |
 |---|---|
 | VM | SP1 |
-| Runtime binding | `ext.succinct.*` |
+| Runtime binding | `succinct.ext.*` |
 | Account model | Journal I/O |
 | Storage model | No persistent storage |
 | Cost model | Cycles |
 | Cross-chain | Ethereum verification |
 
-## Runtime Binding (`ext.succinct.*`)
+## Runtime Binding (`succinct.ext.*`)
 
 - **Journal I/O** — public inputs and outputs for proof verification
 - **Guest-host communication** — data exchange between guest program and host

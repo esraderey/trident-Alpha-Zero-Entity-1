@@ -261,10 +261,10 @@ std/crypto/
   bigint.tri      Big integer arithmetic
 ```
 
-### Layer 3: `ext.<target>` -- Target-Specific
+### Layer 3: `<target>.ext` -- Target-Specific
 
 Backend extensions that expose target-unique capabilities. Programs that import
-from `ext.*` are explicitly bound to that target.
+from `<target>.ext.*` are explicitly bound to that target.
 
 ```
 ext/neptune/
@@ -329,7 +329,7 @@ The `#[cfg(target)]` conditional compilation attribute works for larger blocks:
 
 ```
 #[cfg(triton)]
-use ext.neptune.xfield
+use neptune.ext.xfield
 
 fn compute() -> Field {
     #[cfg(triton)]
@@ -415,8 +415,8 @@ and instruction encoding.
   analysis, and tooling work with Triton VM.
 - **Architecture:** 16-element operand stack, Goldilocks field, Tip5 hash.
 - **Output:** `.tasm` files (Triton Assembly).
-- **Extensions:** `ext.neptune.xfield`, `ext.neptune.kernel`, `ext.neptune.utxo`,
-  `ext.neptune.proof`, `ext.neptune.recursive`, `ext.neptune.registry`.
+- **Extensions:** `neptune.ext.xfield`, `neptune.ext.kernel`, `neptune.ext.utxo`,
+  `neptune.ext.proof`, `neptune.ext.recursive`, `neptune.ext.registry`.
 - **Cost model:** 6-table model (processor, hash, u32, op_stack, ram,
   jump_stack) with padded-height estimation, boundary warnings, and hotspot
   analysis.

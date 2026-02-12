@@ -7,7 +7,7 @@ display_name = "Cosmos (CosmWasm)"
 vm = "wasm"
 
 [runtime]
-binding_prefix = "ext.cosmwasm"
+binding_prefix = "cosmwasm.ext"
 account_model = "account"
 storage_model = "key-value"
 transaction_model = "signed"

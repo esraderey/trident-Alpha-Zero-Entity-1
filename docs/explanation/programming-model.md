@@ -59,10 +59,10 @@ Practical consequences:
 
 Every OS, regardless of model, must address six concerns. The compiler's
 job is **runtime binding** -- translating these concerns to OS-native
-primitives via `ext.<os>.*` modules.
+primitives via `<os>.ext.*` modules.
 
-The tables below describe **OS-native patterns** (the `ext.*` layer — S2).
-For the portable `std.os.*` layer (S1) that abstracts these patterns, see
+The tables below describe **OS-native patterns** (the `<os>.ext.*` layer — S2).
+For the portable `os.*` layer (S1) that abstracts these patterns, see
 [Standard Library — Portable OS Layer](../reference/stdlib.md).
 
 ### 1. Entry Points -- How Programs Start
@@ -81,11 +81,11 @@ For the portable `std.os.*` layer (S1) that abstracts these patterns, see
 | OS family | State model | Trident pattern |
 |-----------|-------------|-----------------|
 | UTXO | Merkle tree of UTXOs | Divine leaf data, authenticate against root via `merkle_step` |
-| Account | Key-value storage slots | `ext.<os>.storage.read(key)` / `write(key, value)` |
-| Stateless | Account data buffers | `ext.solana.account.data(index)` (accounts passed by caller) |
-| Object | Object store (ownership graph) | `ext.sui.object.borrow(id)` / `transfer.send(obj, recipient)` |
+| Account | Key-value storage slots | `<os>.ext.storage.read(key)` / `write(key, value)` |
+| Stateless | Account data buffers | `solana.ext.account.data(index)` (accounts passed by caller) |
+| Object | Object store (ownership graph) | `sui.ext.object.borrow(id)` / `transfer.send(obj, recipient)` |
 | Journal | No persistent state | Public I/O only (`pub_read` / `pub_write`) |
-| Process | Filesystem, environment | `ext.<os>.fs.read()` / `write()` |
+| Process | Filesystem, environment | `<os>.ext.fs.read()` / `write()` |
 
 The divine-and-authenticate pattern is specific to UTXO chains. Account-based
 chains provide direct storage access. The same Trident program structure
@@ -97,21 +97,21 @@ mechanism differs.
 | OS family | Identity mechanism | Trident pattern |
 |-----------|-------------------|-----------------|
 | UTXO | Hash preimage (no sender concept) | `divine()` secret, `hash()`, `assert_eq()` |
-| Account (EVM) | Protocol-level signature verification | `ext.ethereum.account.caller()` (= msg.sender) |
-| Account (Starknet) | Native account abstraction | `ext.starknet.account.caller()` |
-| Stateless (Solana) | Signer accounts in transaction | `ext.solana.account.is_signer(index)` |
-| Object (Sui) | Transaction sender | `ext.sui.tx.sender()` |
+| Account (EVM) | Protocol-level signature verification | `ethereum.ext.account.caller()` (= msg.sender) |
+| Account (Starknet) | Native account abstraction | `starknet.ext.account.caller()` |
+| Stateless (Solana) | Signer accounts in transaction | `solana.ext.account.is_signer(index)` |
+| Object (Sui) | Transaction sender | `sui.ext.tx.sender()` |
 | Journal | No identity (pure computation) | N/A |
-| Process | UID/PID | `ext.<os>.process.uid()` |
+| Process | UID/PID | `<os>.ext.process.uid()` |
 
 ### 4. Signals -- How Neurons Communicate
 
 | OS family | Signal mechanism | Trident pattern |
 |-----------|-----------------|-----------------|
 | UTXO | Create new UTXOs, destroy old ones | Kernel outputs (new UTXOs) in transaction |
-| Account (EVM) | Transfer opcode | `ext.ethereum.transfer.send(from, to, amount)` |
-| Stateless (Solana) | Lamport transfer via system program | `ext.solana.transfer.lamports(from, to, amount)` |
-| Object (Sui) | Object transfer (ownership change) | `ext.sui.coin.split()`, `ext.sui.transfer.send()` |
+| Account (EVM) | Transfer opcode | `ethereum.ext.transfer.send(from, to, amount)` |
+| Stateless (Solana) | Lamport transfer via system program | `solana.ext.transfer.lamports(from, to, amount)` |
+| Object (Sui) | Object transfer (ownership change) | `sui.ext.coin.split()`, `sui.ext.transfer.send()` |
 | Journal | No value (off-chain computation) | N/A |
 | Process | N/A | N/A |
 
@@ -119,14 +119,14 @@ mechanism differs.
 
 | OS family | Mechanism | Trident pattern |
 |-----------|-----------|-----------------|
-| UTXO (Neptune) | Recursive proof verification | `ext.neptune.proof.verify_inner_proof()` |
-| Account (EVM) | CALL/STATICCALL/DELEGATECALL | `ext.ethereum.call.call(address, data)` |
-| Account (Starknet) | Contract calls, library calls | `ext.starknet.call.invoke(address, selector, args)` |
-| Stateless (Solana) | CPI (cross-program invocation) | `ext.solana.cpi.invoke(program, accounts, data)` |
+| UTXO (Neptune) | Recursive proof verification | `neptune.ext.proof.verify_inner_proof()` |
+| Account (EVM) | CALL/STATICCALL/DELEGATECALL | `ethereum.ext.call.call(address, data)` |
+| Account (Starknet) | Contract calls, library calls | `starknet.ext.call.invoke(address, selector, args)` |
+| Stateless (Solana) | CPI (cross-program invocation) | `solana.ext.cpi.invoke(program, accounts, data)` |
 | Object (Sui) | Direct function calls on shared objects | Call functions from other modules directly |
-| Cosmos | IBC messages | `ext.cosmwasm.ibc.send(channel, data)` |
+| Cosmos | IBC messages | `cosmwasm.ext.ibc.send(channel, data)` |
 | Journal | Proof composition | Recursive verification in the same journal |
-| Process | Subprocess, IPC | `ext.<os>.process.exec()` |
+| Process | Subprocess, IPC | `<os>.ext.process.exec()` |
 
 ### 6. Events -- Observable Side Effects
 
@@ -161,7 +161,7 @@ via `divine()`, then proves it belongs to the committed state via Merkle proofs.
 This is the fundamental state access pattern for all UTXO chains.
 
 For the complete Neptune programming model -- transaction kernels, UTXO
-structure, address types, block structure, and `ext.neptune.*` API -- see
+structure, address types, block structure, and `neptune.ext.*` API -- see
 [Neptune OS Reference](../reference/os/neptune.md).
 
 ### Account Model (Ethereum, Starknet, Near, Cosmos, Ton, Polkadot)
@@ -187,7 +187,7 @@ and writes account data but does not own storage. Identity comes from
 signer accounts in the transaction.
 
 For the complete Solana programming model -- accounts, PDAs, CPI, and
-`ext.solana.*` API -- see [Solana OS Reference](../reference/os/solana.md).
+`solana.ext.*` API -- see [Solana OS Reference](../reference/os/solana.md).
 
 ### Object Model (Sui, Aptos)
 
@@ -228,49 +228,49 @@ For programming models:
 
 ---
 
-## The Portable OS Layer: `std.*` → `std.os.*` → `ext.*`
+## The Portable OS Layer: `std.*` → `os.*` → `<os>.ext.*`
 
 The stdlib has three tiers. Each trades portability for OS access:
 
 ```
 std.*          S0 — Proof primitives      All 20 VMs, all 25 OSes
-std.os.*       S1 — Portable OS           All blockchain + traditional OSes
-ext.<os>.*     S2 — OS-native             One specific OS
+os.*           S1 — Portable OS           All blockchain + traditional OSes
+<os>.ext.*     S2 — OS-native             One specific OS
 ```
 
 | Tier | Layer | Scope | Example |
 |------|-------|-------|---------|
 | S0 | **`std.*`** | All targets | `std.crypto.hash`, `std.crypto.merkle`, `std.io.io` |
-| S1 | **`std.os.*`** | All OSes with the concept | `std.os.state.read`, `std.os.neuron.id`, `std.os.neuron.auth` |
-| S2 | **`ext.<os>.*`** | One OS | `ext.neptune.kernel`, `ext.ethereum.storage`, `ext.solana.account` |
+| S1 | **`os.*`** | All OSes with the concept | `os.state.read`, `os.neuron.id`, `os.neuron.auth` |
+| S2 | **`<os>.ext.*`** | One OS | `neptune.ext.kernel`, `ethereum.ext.storage`, `solana.ext.account` |
 
 **S0 — `std.*`**: Pure computation. Hash, Merkle, field arithmetic, I/O
 channels. Works everywhere but cannot touch state, identity, or money.
 
-**S1 — `std.os.*`**: Portable OS abstraction. Names the *intent* (identify
+**S1 — `os.*`**: Portable OS abstraction. Names the *intent* (identify
 neuron, send signal, read state) — the compiler picks the *mechanism* based
-on the target OS. A program using `std.os.state.read(key)` compiles to SLOAD
+on the target OS. A program using `os.state.read(key)` compiles to SLOAD
 on Ethereum, `account.data` on Solana, `dynamic_field.borrow` on Sui, and
 `divine()` + `merkle_authenticate` on Neptune. Same source, different lowering.
 
-**S2 — `ext.<os>.*`**: OS-native API. Full access to OS-specific features
+**S2 — `<os>.ext.*`**: OS-native API. Full access to OS-specific features
 (PDAs, object ownership, CPI, kernel MAST, IBC). Required when the portable
 layer cannot express what you need.
 
-### `std.os.*` Modules
+### `os.*` Modules
 
 | Module | Intent | Compile error when... |
 |--------|--------|-----------------------|
-| `std.os.neuron` | Identity and authorization | UTXO (no caller for `id()`), Journal (no identity) |
-| `std.os.signal` | Send weighted edges between neurons | Journal + process targets (no value) |
-| `std.os.state` | Read/write persistent state | Journal targets (no state) |
-| `std.os.time` | Current time / block height | -- (all OSes have time) |
-| `std.os.event` | Observable side effects | -- (uses `reveal`/`seal` directly) |
+| `os.neuron` | Identity and authorization | UTXO (no caller for `id()`), Journal (no identity) |
+| `os.signal` | Send weighted edges between neurons | Journal + process targets (no value) |
+| `os.state` | Read/write persistent state | Journal targets (no state) |
+| `os.time` | Current time / block height | -- (all OSes have time) |
+| `os.event` | Observable side effects | -- (uses `reveal`/`seal` directly) |
 
-The compiler emits a clear error when a `std.os.*` function targets an OS
-that doesn't support the concept. For example, `std.os.neuron.id()` on
-Neptune produces: *"UTXO chains have no caller — use `std.os.neuron.auth()`
-or `ext.neptune.*` for hash-preimage identity."*
+The compiler emits a clear error when an `os.*` function targets an OS
+that doesn't support the concept. For example, `os.neuron.id()` on
+Neptune produces: *"UTXO chains have no caller — use `os.neuron.auth()`
+or `neptune.ext.*` for hash-preimage identity."*
 
 ### Choosing a Tier
 
@@ -282,26 +282,26 @@ fn verify(root: Digest, leaf: Digest, index: U32, depth: U32) {
 }
 
 // S1 — portable OS, any blockchain
-use std.os.state
-use std.os.neuron
+use os.state
+use os.neuron
 fn guarded_write(key: Field, value: Field, credential: Digest) {
-    std.os.neuron.auth(credential)
-    std.os.state.write(key, value)
+    os.neuron.auth(credential)
+    os.state.write(key, value)
 }
 
 // S2 — OS-native, Ethereum only
-use ext.ethereum.storage
+use ethereum.ext.storage
 fn read_balance(slot: Field) -> Field {
-    ext.ethereum.storage.read(slot)
+    ethereum.ext.storage.read(slot)
 }
 ```
 
-A program can mix all three tiers. Use `std.*` for portable math, `std.os.*`
-for portable OS interaction, and `ext.<os>.*` when you need OS-specific
-features. The compiler rejects `ext.*` imports when targeting a different OS:
-`use ext.ethereum.storage` is a compile error with `--target solana`.
+A program can mix all three tiers. Use `std.*` for portable math, `os.*`
+for portable OS interaction, and `<os>.ext.*` when you need OS-specific
+features. The compiler rejects `<os>.ext.*` imports when targeting a different OS:
+`use ethereum.ext.storage` is a compile error with `--target solana`.
 
-For full `std.os.*` API specifications and per-OS lowering tables, see
+For full `os.*` API specifications and per-OS lowering tables, see
 [Standard Library Reference](../reference/stdlib.md).
 
 ---

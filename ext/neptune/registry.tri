@@ -1,4 +1,4 @@
-module ext.neptune.registry
+module neptune.ext.registry
 
 use std.io.io
 

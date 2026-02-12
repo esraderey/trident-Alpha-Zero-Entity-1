@@ -23,7 +23,7 @@ Available on all targets. These modules provide the core language runtime.
 
 ---
 
-## Portable OS Layer (`std.os.*`)
+## Portable OS Layer (`os.*`)
 
 ### The Model: Neurons, Signals, Tokens
 
@@ -51,12 +51,12 @@ compiler's job is to map neuron/signal operations down to those internals.
 Available on all blockchain and traditional OSes. The compiler lowers each
 function to the OS-native mechanism based on `--target`.
 
-Programs using only `std.*` + `std.os.*` are portable across all OSes that
+Programs using only `std.*` + `os.*` are portable across all OSes that
 support the required operations. If an OS doesn't support a concept (e.g.,
-`neuron.id()` on UTXO chains, `signal.send()` on journal targets), the
-compiler emits a clear error.
+`os.neuron.id()` on UTXO chains, `os.signal.send()` on journal targets),
+the compiler emits a clear error.
 
-### `std.os.neuron` — Identity and authorization
+### `os.neuron` — Identity and authorization
 
 | Function | Signature | Description |
 |----------|-----------|-------------|
@@ -78,7 +78,7 @@ mechanism that works on every OS with identity.
 **`id()`/`verify()` compile error:** UTXO (no caller — use `auth()`), Journal (no identity).
 **`auth()` compile error:** Journal (no identity).
 
-### `std.os.signal` — Communication between neurons
+### `os.signal` — Communication between neurons
 
 | Function | Signature | Description |
 |----------|-----------|-------------|
@@ -94,7 +94,7 @@ their authorization).
 **Supported:** Account, Stateless, Object, UTXO.
 **Compile error:** Journal (no value), Process (no native value).
 
-### `std.os.state` — Neuron state
+### `os.state` — Neuron state
 
 | Function | Signature | Description |
 |----------|-----------|-------------|
@@ -111,7 +111,7 @@ On UTXO chains, the compiler auto-generates the divine-and-authenticate
 pattern: divine the value, hash it, Merkle-prove against the state root.
 The developer writes `state.read(key)` — the proof machinery is invisible.
 
-### `std.os.time` — Portable clock
+### `os.time` — Portable clock
 
 | Function | Signature | Description |
 |----------|-----------|-------------|
@@ -124,58 +124,58 @@ On blockchain OSes, `now()` returns block/slot timestamp. On traditional
 OSes, it returns wall-clock time. On journal targets, it returns the
 timestamp provided as public input.
 
-### `std.os.event` — Events (already universal)
+### `os.event` — Events (already universal)
 
 `reveal` and `seal` are the event mechanism. They compile to the TIR ops
 `Reveal` and `Seal`, which each backend lowers to its native event
 mechanism (LOG on EVM, sol_log on Solana, announcements on Neptune).
-No additional `std.os.event` module needed — events use language-level
+No additional `os.event` module needed — events use language-level
 `reveal`/`seal` statements directly.
 
 ### The three-tier model
 
 ```
-std.*          S0 — Proof primitives      All 20 VMs, all 25 OSes
-std.os.*       S1 — Portable OS           All blockchain + traditional OSes
-ext.<os>.*     S2 — OS-native             One specific OS
+std.*          Standard library      Pure computation (all 20 VMs, all 25 OSes)
+os.*           OS standard           Universal runtime contract (all OSes)
+<os>.ext.*     OS extensions         OS-native API (one specific OS)
 ```
 
-Programs can mix all three tiers. `std.*` for math and crypto. `std.os.*`
-for portable neuron identity, signals, state, and events. `ext.<os>.*`
+Programs can mix all three tiers. `std.*` for math and crypto. `os.*`
+for portable neuron identity, signals, state, and events. `<os>.ext.*`
 when OS-native features are needed (PDAs, object ownership, L1/L2
 messaging, CPI, etc.).
 
-For per-OS lowering details (what each `std.os.*` function compiles to on
-each specific OS), see [targets.md — `std.os.*` Lowering](targets.md).
+For per-OS lowering details (what each `os.*` function compiles to on
+each specific OS), see [targets.md — `os.*` Lowering](targets.md).
 
 ---
 
-## OS Extensions (`ext.<os>.*`)
+## OS Extensions (`<os>.ext.*`)
 
-Each OS provides its own `ext.<os>.*` modules with runtime-specific
+Each OS provides its own `<os>.ext.*` modules with runtime-specific
 bindings: storage, accounts, syscalls, transaction models. Importing any
-`ext.<os>.*` module binds the program to that OS — the compiler rejects
+`<os>.ext.*` module binds the program to that OS — the compiler rejects
 cross-OS imports.
 
 ### Implemented
 
 | Module | Description | OS doc |
 |--------|-------------|--------|
-| `ext.neptune.kernel` | Transaction kernel MAST authentication | [neptune.md](os/neptune.md) |
-| `ext.neptune.utxo` | UTXO structure authentication | [neptune.md](os/neptune.md) |
-| `ext.neptune.xfield` | Extension field arithmetic intrinsics | [neptune.md](os/neptune.md) |
-| `ext.neptune.proof` | Recursive STARK verification | [neptune.md](os/neptune.md) |
-| `ext.neptune.recursive` | Low-level recursive proof primitives | [neptune.md](os/neptune.md) |
-| `ext.neptune.registry` | On-chain definition registry (5 ops) | [neptune.md](os/neptune.md) |
+| `neptune.ext.kernel` | Transaction kernel MAST authentication | [neptune.md](os/neptune.md) |
+| `neptune.ext.utxo` | UTXO structure authentication | [neptune.md](os/neptune.md) |
+| `neptune.ext.xfield` | Extension field arithmetic intrinsics | [neptune.md](os/neptune.md) |
+| `neptune.ext.proof` | Recursive STARK verification | [neptune.md](os/neptune.md) |
+| `neptune.ext.recursive` | Low-level recursive proof primitives | [neptune.md](os/neptune.md) |
+| `neptune.ext.registry` | On-chain definition registry (5 ops) | [neptune.md](os/neptune.md) |
 
 ### Designed (not yet implemented)
 
 | OS | Modules | OS doc |
 |----|---------|--------|
-| Ethereum | `ext.ethereum.` storage, account, transfer, call, event, block, tx, precompile | [ethereum.md](os/ethereum.md) |
-| Solana | `ext.solana.` account, pda, cpi, transfer, system, log, clock, rent | [solana.md](os/solana.md) |
-| Starknet | `ext.starknet.` storage, account, call, event, messaging, crypto | [starknet.md](os/starknet.md) |
-| Sui | `ext.sui.` object, transfer, dynamic_field, tx, coin, event | [sui.md](os/sui.md) |
+| Ethereum | `ethereum.ext.` storage, account, transfer, call, event, block, tx, precompile | [ethereum.md](os/ethereum.md) |
+| Solana | `solana.ext.` account, pda, cpi, transfer, system, log, clock, rent | [solana.md](os/solana.md) |
+| Starknet | `starknet.ext.` storage, account, call, event, messaging, crypto | [starknet.md](os/starknet.md) |
+| Sui | `sui.ext.` object, transfer, dynamic_field, tx, coin, event | [sui.md](os/sui.md) |
 
 See each OS doc for the full API reference. See [targets.md Part II](targets.md)
 for the complete OS registry (25 OSes).
@@ -189,4 +189,4 @@ for the complete OS registry (25 OSes).
 - [CLI Reference](cli.md) — Compiler commands and flags
 - [Grammar](grammar.md) — EBNF grammar
 - [Patterns](patterns.md) — Common patterns and permanent exclusions
-- [Target Reference](targets.md) — OS registry, `ext.*` bindings
+- [Target Reference](targets.md) — OS registry, `<os>.ext.*` bindings

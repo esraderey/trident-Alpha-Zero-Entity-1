@@ -23,12 +23,12 @@ the runtime binding differs.
 
 | OS | Runtime | Binding | Notes |
 |----|---------|---------|-------|
-| Near Protocol | nearcore | `ext.near.*` | 1 contract per account, promise-based async |
-| Cosmos (100+ chains) | CosmWasm / wasmd | `ext.cosmwasm.*` | IBC cross-chain, typed entry points |
-| Arbitrum | Stylus (ArbOS) | `ext.arbitrum.*` | WASM + EVM coexistence, EVM-compatible gas |
-| Icp | Canister runtime | `ext.icp.*` | Deterministic time slicing, persistent memory |
-| WASI | wasmtime / wasmer | `ext.wasi.*` | Filesystem, clock, random (planned) |
-| Browser | JS runtime | `ext.browser.*` | DOM, fetch, Web APIs (planned) |
+| Near Protocol | nearcore | `near.ext.*` | 1 contract per account, promise-based async |
+| Cosmos (100+ chains) | CosmWasm / wasmd | `cosmwasm.ext.*` | IBC cross-chain, typed entry points |
+| Arbitrum | Stylus (ArbOS) | `arbitrum.ext.*` | WASM + EVM coexistence, EVM-compatible gas |
+| Icp | Canister runtime | `icp.ext.*` | Deterministic time slicing, persistent memory |
+| WASI | wasmtime / wasmer | `wasi.ext.*` | Filesystem, clock, random (planned) |
+| Browser | JS runtime | `browser.ext.*` | DOM, fetch, Web APIs (planned) |
 
 ## Lowering
 
@@ -47,7 +47,7 @@ The WASM bytecode is identical. What differs is:
 - **Metering** — Near and Cosmos use gas, Icp uses cycles, Stylus uses
   EVM-compatible gas, WASI uses wall-clock
 
-The runtime binding (`ext.<os>.*`) handles these differences. The compiler
+The runtime binding (`<os>.ext.*`) handles these differences. The compiler
 produces one WASM module; the linker injects the correct host function
 imports for the target OS.
 

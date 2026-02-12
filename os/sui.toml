@@ -7,7 +7,7 @@ display_name = "Sui"
 vm = "movevm"
 
 [runtime]
-binding_prefix = "ext.sui"
+binding_prefix = "sui.ext"
 account_model = "object-centric"
 storage_model = "object-store"
 transaction_model = "signed"

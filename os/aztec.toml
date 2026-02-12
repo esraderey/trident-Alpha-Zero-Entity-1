@@ -7,7 +7,7 @@ display_name = "Aztec"
 vm = "aztec"
 
 [runtime]
-binding_prefix = "ext.aztec"
+binding_prefix = "aztec.ext"
 account_model = "note+account"
 storage_model = "note-tree+public-state"
 transaction_model = "proof-based+signed"

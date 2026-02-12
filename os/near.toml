@@ -7,7 +7,7 @@ display_name = "Near Protocol"
 vm = "wasm"
 
 [runtime]
-binding_prefix = "ext.near"
+binding_prefix = "near.ext"
 account_model = "account"
 storage_model = "key-value"
 transaction_model = "signed"

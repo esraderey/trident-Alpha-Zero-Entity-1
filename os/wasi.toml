@@ -7,7 +7,7 @@ display_name = "WASI"
 vm = "wasm"
 
 [runtime]
-binding_prefix = "ext.wasi"
+binding_prefix = "wasi.ext"
 account_model = "process"
 storage_model = "filesystem"
 transaction_model = "syscall"

@@ -217,7 +217,7 @@ Only if using the legacy emitter pipeline. New VMs should prefer L3.
 ### L1 — Document
 
 - [ ] Create `docs/reference/os/<os>.md` — include programming model,
-  state model, ext.* API surface, and deployment patterns
+  state model, `<os>.ext.*` API surface, and deployment patterns
 - [ ] Add the OS to the OS Registry table in `targets.md`
 - [ ] Update the OS Integration Matrix in this file
 - [ ] Set `[status] level = 1`
@@ -227,14 +227,14 @@ Only if using the legacy emitter pipeline. New VMs should prefer L3.
 - [ ] Create `ext/<os>/` directory
 - [ ] Write `.tri` binding modules (one per concern: storage, account,
   transfer, events, etc.)
-- [ ] Each file declares `module ext.<os>.<name>`
+- [ ] Each file declares `module <os>.ext.<name>`
 - [ ] Set `[status] level = 2`, `ext_modules = <count>`,
   `notes = "<comma-separated module names>"`
 
 ### L3 — Test
 
 - [ ] Add end-to-end compilation tests targeting this OS
-- [ ] Verify ext.* module resolution works
+- [ ] Verify `<os>.ext.*` module resolution works
 - [ ] Set `[status] level = 3`, `tests = true`
 
 ### Finalize

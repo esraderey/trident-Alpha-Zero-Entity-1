@@ -7,7 +7,7 @@ display_name = "Starknet"
 vm = "cairo"
 
 [runtime]
-binding_prefix = "ext.starknet"
+binding_prefix = "starknet.ext"
 account_model = "account"
 storage_model = "key-value"
 transaction_model = "signed"

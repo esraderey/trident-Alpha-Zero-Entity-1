@@ -7,7 +7,7 @@ display_name = "Nervos CKB"
 vm = "ckb"
 
 [runtime]
-binding_prefix = "ext.nervos"
+binding_prefix = "nervos.ext"
 account_model = "cell"
 storage_model = "cell-based"
 transaction_model = "signed"

@@ -9,13 +9,13 @@
 | Parameter | Value |
 |---|---|
 | VM | Aztec/Noir |
-| Runtime binding | `ext.aztec.*` |
+| Runtime binding | `aztec.ext.*` |
 | Account model | Note (private UTXO) + public storage |
 | Storage model | Note tree + public state |
 | Cost model | Gates (private) + Gas (public) |
 | Cross-chain | Ethereum L2 (rollup, L1/L2 messaging) |
 
-## Runtime Binding (`ext.aztec.*`)
+## Runtime Binding (`aztec.ext.*`)
 
 - **Note management** — private UTXO state creation and consumption
 - **Public storage** — read/write public contract state

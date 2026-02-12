@@ -7,7 +7,7 @@ display_name = "Ethereum"
 vm = "evm"
 
 [runtime]
-binding_prefix = "ext.ethereum"
+binding_prefix = "ethereum.ext"
 account_model = "account"
 storage_model = "key-value"
 transaction_model = "signed"

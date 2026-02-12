@@ -391,25 +391,25 @@ See [targets.md](targets.md) for per-VM hash functions.
 For sponge, Merkle, and extension field builtins (Tier 2-3), see
 [provable.md](provable.md).
 
-### Portable OS (`std.os.*`)
+### Portable OS (`os.*`)
 
-The `std.os.*` modules provide portable OS interaction — neuron identity,
+The `os.*` modules provide portable OS interaction — neuron identity,
 signals, state, and time. They are not builtins (they're standard library
 functions), but they compile to target-specific lowerings just like
 builtins do.
 
 | Module | Key functions | Available when |
 |--------|---------------|----------------|
-| `std.os.neuron` | `id() -> Digest`, `verify(expected: Digest) -> Bool`, `auth(credential: Digest) -> ()` | Target has identity |
-| `std.os.signal` | `send(from: Digest, to: Digest, amount: Field)`, `balance(neuron: Digest) -> Field` | Target has native value |
-| `std.os.state` | `read(key: Field) -> Field`, `write(key, value)`, `exists(key)` | Target has persistent state |
-| `std.os.time` | `now() -> Field`, `block_height() -> Field` | All targets |
+| `os.neuron` | `id() -> Digest`, `verify(expected: Digest) -> Bool`, `auth(credential: Digest) -> ()` | Target has identity |
+| `os.signal` | `send(from: Digest, to: Digest, amount: Field)`, `balance(neuron: Digest) -> Field` | Target has native value |
+| `os.state` | `read(key: Field) -> Field`, `write(key, value)`, `exists(key)` | Target has persistent state |
+| `os.time` | `now() -> Field`, `block_height() -> Field` | All targets |
 
-These sit between `std.*` (pure computation, all targets) and `ext.<os>.*`
-(OS-native, one target). A program using only `std.*` + `std.os.*` compiles
+These sit between `std.*` (pure computation, all targets) and `<os>.ext.*`
+(OS-native, one target). A program using only `std.*` + `os.*` compiles
 to any OS that supports the required concepts. The compiler emits clear
-errors when targeting an OS that lacks a concept (e.g., `std.os.neuron.id()`
-on UTXO chains, `std.os.signal.send()` on journal targets).
+errors when targeting an OS that lacks a concept (e.g., `os.neuron.id()`
+on UTXO chains, `os.signal.send()` on journal targets).
 
 For full API specifications, see [stdlib.md](stdlib.md). For per-OS lowering
 tables, see [targets.md](targets.md).
@@ -550,7 +550,7 @@ written to public output. The verifier sees the commitment, not the data.
 
 - [Agent Briefing](briefing.md) — AI-optimized compact cheat-sheet
 - [Provable Computation](provable.md) — Hash, sponge, Merkle, extension field, proof composition (Tier 2-3)
-- [Standard Library](stdlib.md) — `std.*` modules and OS extensions (`ext.<os>.*`)
+- [Standard Library](stdlib.md) — `std.*` modules and OS extensions (`<os>.ext.*`)
 - [CLI Reference](cli.md) — Compiler commands and flags
 - [Grammar](grammar.md) — EBNF grammar
 - [Patterns and Exclusions](patterns.md) — Common patterns and permanent exclusions

@@ -3,7 +3,7 @@
 [← Target Reference](../targets.md) | VM: [Cairo VM](../vm/cairo.md)
 
 Starknet is the STARK-based Ethereum L2 powered by the Cairo VM. Trident
-compiles to Sierra (`.sierra`) and links against `ext.starknet.*` for
+compiles to Sierra (`.sierra`) and links against `starknet.ext.*` for
 Starknet-specific runtime bindings. Starknet features native account
 abstraction -- every account is a smart contract.
 
@@ -14,7 +14,7 @@ abstraction -- every account is a smart contract.
 | Parameter | Value |
 |---|---|
 | VM | Cairo VM |
-| Runtime binding | `ext.starknet.*` |
+| Runtime binding | `starknet.ext.*` |
 | Account model | Account (native account abstraction) |
 | Storage model | Key-value |
 | Transaction model | Signed (Stark curve) |
@@ -37,29 +37,29 @@ Starknet contracts expose typed entry points categorized by mutability:
 ```
 program my_token
 
-use ext.starknet.storage
-use ext.starknet.account
+use starknet.ext.storage
+use starknet.ext.account
 
 // Constructor
 #[constructor]
 fn init(name: Field, supply: Field) {
-    let deployer: Field = ext.starknet.account.caller()
-    ext.starknet.storage.write(storage_var("total_supply"), supply)
-    ext.starknet.storage.write_map(storage_var("balances"), deployer, supply)
+    let deployer: Field = starknet.ext.account.caller()
+    starknet.ext.storage.write(storage_var("total_supply"), supply)
+    starknet.ext.storage.write_map(storage_var("balances"), deployer, supply)
 }
 
 // External function
 pub fn transfer(to: Field, amount: Field) {
-    let sender: Field = ext.starknet.account.caller()
-    let sender_bal: Field = ext.starknet.storage.read_map(
+    let sender: Field = starknet.ext.account.caller()
+    let sender_bal: Field = starknet.ext.storage.read_map(
         storage_var("balances"), sender
     )
     assert(sender_bal >= amount)
 
-    ext.starknet.storage.write_map(
+    starknet.ext.storage.write_map(
         storage_var("balances"), sender, sub(sender_bal, amount)
     )
-    ext.starknet.storage.write_map(
+    starknet.ext.storage.write_map(
         storage_var("balances"), to, sender_bal + amount
     )
 
@@ -69,13 +69,13 @@ pub fn transfer(to: Field, amount: Field) {
 // View function
 #[view]
 pub fn balance_of(owner: Field) -> Field {
-    ext.starknet.storage.read_map(storage_var("balances"), owner)
+    starknet.ext.storage.read_map(storage_var("balances"), owner)
 }
 
 // L1 handler -- triggered by Ethereum L1 message
 #[l1_handler]
 fn handle_deposit(from_l1: Field, amount: Field) {
-    let recipient: Field = ext.starknet.account.caller()
+    let recipient: Field = starknet.ext.account.caller()
     // ... credit the deposit ...
 }
 ```
@@ -87,23 +87,23 @@ are addressed by a Pedersen hash of the variable name. Mappings use
 `h(h(var_name, key1), key2)` for nested keys.
 
 ```
-use ext.starknet.storage
+use starknet.ext.storage
 
 // Storage variable access
 let var_addr: Field = storage_var("total_supply")
-let supply: Field = ext.starknet.storage.read(var_addr)
-ext.starknet.storage.write(var_addr, new_supply)
+let supply: Field = starknet.ext.storage.read(var_addr)
+starknet.ext.storage.write(var_addr, new_supply)
 
 // Mapping access
-let bal: Field = ext.starknet.storage.read_map(
+let bal: Field = starknet.ext.storage.read_map(
     storage_var("balances"), owner
 )
-ext.starknet.storage.write_map(
+starknet.ext.storage.write_map(
     storage_var("balances"), owner, new_balance
 )
 
 // Nested mapping
-let allowance: Field = ext.starknet.storage.read_map2(
+let allowance: Field = starknet.ext.storage.read_map2(
     storage_var("allowances"), owner, spender
 )
 ```
@@ -118,11 +118,11 @@ contract that validates its own transactions. There is no privileged
 signature scheme.
 
 ```
-use ext.starknet.account
+use starknet.ext.account
 
-let caller: Field = ext.starknet.account.caller()           // get_caller_address
-let contract: Field = ext.starknet.account.self_address()    // get_contract_address
-let tx_info: Field = ext.starknet.account.tx_info()          // transaction info hash
+let caller: Field = starknet.ext.account.caller()           // get_caller_address
+let contract: Field = starknet.ext.account.self_address()    // get_contract_address
+let tx_info: Field = starknet.ext.account.tx_info()          // transaction info hash
 ```
 
 Account contracts implement `__validate__` and `__execute__` entry points.
@@ -135,10 +135,10 @@ Starknet has no native transfer opcode. Token transfers are contract calls
 to the ERC-20 contract:
 
 ```
-use ext.starknet.call
+use starknet.ext.call
 
 // Transfer STRK tokens via ERC-20 contract call
-ext.starknet.call.invoke(
+starknet.ext.call.invoke(
     STRK_CONTRACT_ADDRESS,
     selector("transfer"),
     [recipient, amount_low, amount_high]   // u256 as two felts
@@ -150,24 +150,24 @@ ext.starknet.call.invoke(
 Starknet supports contract calls and library calls:
 
 ```
-use ext.starknet.call
+use starknet.ext.call
 
 // Regular contract call
-let result: [Field; N] = ext.starknet.call.invoke(
+let result: [Field; N] = starknet.ext.call.invoke(
     contract_address,
     selector("function_name"),
     calldata
 )
 
 // Library call (runs code in caller's context, like delegatecall)
-let result: [Field; N] = ext.starknet.call.library_call(
+let result: [Field; N] = starknet.ext.call.library_call(
     class_hash,
     selector("function_name"),
     calldata
 )
 
 // Deploy a new contract
-let deployed_address: Field = ext.starknet.call.deploy(
+let deployed_address: Field = starknet.ext.call.deploy(
     class_hash,
     constructor_calldata,
     salt
@@ -177,10 +177,10 @@ let deployed_address: Field = ext.starknet.call.deploy(
 **L1/L2 messaging** -- send messages to Ethereum L1:
 
 ```
-use ext.starknet.messaging
+use starknet.ext.messaging
 
 // Send message to L1 contract
-ext.starknet.messaging.send_to_l1(l1_address, payload)
+starknet.ext.messaging.send_to_l1(l1_address, payload)
 ```
 
 ### Events
@@ -199,21 +199,21 @@ of the event data as a key.
 
 ---
 
-## Portable Alternative (`std.os.*`)
+## Portable Alternative (`os.*`)
 
-Programs that don't need Starknet-specific features can use `std.os.*`
-instead of `ext.starknet.*` for cross-chain portability:
+Programs that don't need Starknet-specific features can use `os.*`
+instead of `starknet.ext.*` for cross-chain portability:
 
-| `ext.starknet.*` (this OS only) | `std.os.*` (any OS) |
+| `starknet.ext.*` (this OS only) | `os.*` (any OS) |
 |---------------------------------|---------------------|
-| `ext.starknet.storage.read(addr)` | `std.os.state.read(key)` → storage_var read |
-| `ext.starknet.account.caller()` | `std.os.neuron.id()` → get_caller_address |
-| `ext.starknet.call.invoke(addr, sel, args)` | No portable equivalent (cross-contract is OS-specific) |
-| `ext.starknet.messaging.send_to_l1(to, data)` | No portable equivalent (L1/L2 messaging is OS-specific) |
+| `starknet.ext.storage.read(addr)` | `os.state.read(key)` → storage_var read |
+| `starknet.ext.account.caller()` | `os.neuron.id()` → get_caller_address |
+| `starknet.ext.call.invoke(addr, sel, args)` | No portable equivalent (cross-contract is OS-specific) |
+| `starknet.ext.messaging.send_to_l1(to, data)` | No portable equivalent (L1/L2 messaging is OS-specific) |
 
-Use `ext.starknet.*` when you need: L1/L2 messaging, library calls,
+Use `starknet.ext.*` when you need: L1/L2 messaging, library calls,
 Pedersen-addressed storage vars, or other Starknet-specific features. See
-[stdlib.md](../stdlib.md) for the full `std.os.*` API.
+[stdlib.md](../stdlib.md) for the full `os.*` API.
 
 ---
 
@@ -221,30 +221,30 @@ Pedersen-addressed storage vars, or other Starknet-specific features. See
 
 | Cairo/Starknet concept | Trident equivalent |
 |---|---|
-| `#[starknet::contract] mod MyToken` | `program my_token` with `use ext.starknet.*` |
+| `#[starknet::contract] mod MyToken` | `program my_token` with `use starknet.ext.*` |
 | `#[constructor]` | `#[constructor] fn init(...)` |
 | `#[external(v0)]` | `pub fn function_name(...)` |
 | `#[view]` | `#[view] pub fn function_name(...)` |
 | `#[l1_handler]` | `#[l1_handler] fn handle_*(...)` |
-| `get_caller_address()` | `ext.starknet.account.caller()` |
-| `get_contract_address()` | `ext.starknet.account.self_address()` |
-| `get_tx_info()` | `ext.starknet.account.tx_info()` |
-| `get_block_number()` | `ext.starknet.account.block_number()` |
-| `get_block_timestamp()` | `ext.starknet.account.block_timestamp()` |
-| `@storage_var fn balance(addr) -> felt252` | `ext.starknet.storage.read_map(storage_var("balance"), addr)` |
-| `self.balance.read(addr)` | `ext.starknet.storage.read_map(var, addr)` |
-| `self.balance.write(addr, val)` | `ext.starknet.storage.write_map(var, addr, val)` |
-| `IMyContract::transfer(addr, args)` | `ext.starknet.call.invoke(addr, selector, args)` |
-| `library_call(class_hash, ...)` | `ext.starknet.call.library_call(hash, selector, args)` |
-| `deploy_syscall(...)` | `ext.starknet.call.deploy(hash, calldata, salt)` |
-| `send_message_to_l1(to, payload)` | `ext.starknet.messaging.send_to_l1(addr, payload)` |
+| `get_caller_address()` | `starknet.ext.account.caller()` |
+| `get_contract_address()` | `starknet.ext.account.self_address()` |
+| `get_tx_info()` | `starknet.ext.account.tx_info()` |
+| `get_block_number()` | `starknet.ext.account.block_number()` |
+| `get_block_timestamp()` | `starknet.ext.account.block_timestamp()` |
+| `@storage_var fn balance(addr) -> felt252` | `starknet.ext.storage.read_map(storage_var("balance"), addr)` |
+| `self.balance.read(addr)` | `starknet.ext.storage.read_map(var, addr)` |
+| `self.balance.write(addr, val)` | `starknet.ext.storage.write_map(var, addr, val)` |
+| `IMyContract::transfer(addr, args)` | `starknet.ext.call.invoke(addr, selector, args)` |
+| `library_call(class_hash, ...)` | `starknet.ext.call.library_call(hash, selector, args)` |
+| `deploy_syscall(...)` | `starknet.ext.call.deploy(hash, calldata, salt)` |
+| `send_message_to_l1(to, payload)` | `starknet.ext.messaging.send_to_l1(addr, payload)` |
 | `self.emit(Transfer { ... })` | `reveal Transfer { ... }` |
 | `selector!("function_name")` | `selector("function_name")` (sn_keccak) |
 | `assert(condition, 'error')` | `assert(condition)` |
 
 ---
 
-## `ext.starknet.*` API Reference
+## `starknet.ext.*` API Reference
 
 | Module | Function | Signature | Description |
 |--------|----------|-----------|-------------|

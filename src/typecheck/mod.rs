@@ -197,8 +197,9 @@ impl TypeChecker {
     }
 
     pub(crate) fn check_file(mut self, file: &File) -> Result<ModuleExports, Vec<Diagnostic>> {
-        let is_std_module =
-            file.name.node.starts_with("std.") || file.name.node.starts_with("ext.");
+        let is_std_module = file.name.node.starts_with("std.")
+            || file.name.node.starts_with("ext.")
+            || file.name.node.contains(".ext.");
 
         // First pass: register all structs, function signatures, and constants
         for item in &file.items {

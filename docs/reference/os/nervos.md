@@ -9,13 +9,13 @@
 | Parameter | Value |
 |---|---|
 | VM | CKB |
-| Runtime binding | `ext.nervos.*` |
+| Runtime binding | `nervos.ext.*` |
 | Account model | Cell (UTXO-like: lock scripts + type scripts) |
 | Storage model | Cell-based |
 | Cost model | Cycles |
 | Cross-chain | -- |
 
-## Runtime Binding (`ext.nervos.*`)
+## Runtime Binding (`nervos.ext.*`)
 
 - **Cell access** — read and manipulate cells (the fundamental state unit)
 - **Syscalls** — reading transaction data (inputs, outputs, witnesses, headers)

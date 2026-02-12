@@ -9,13 +9,13 @@
 | Parameter | Value |
 |---|---|
 | VM | MOVEVM |
-| Runtime binding | `ext.aptos.*` |
+| Runtime binding | `aptos.ext.*` |
 | Account model | Account-centric (resources) |
 | Storage model | Resource storage |
 | Cost model | Gas |
 | Cross-chain | -- |
 
-## Runtime Binding (`ext.aptos.*`)
+## Runtime Binding (`aptos.ext.*`)
 
 - **Account resources** — read and modify resources stored under accounts
 - **Tables** — scalable key-value storage for large collections

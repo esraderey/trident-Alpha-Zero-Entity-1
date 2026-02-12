@@ -1,6 +1,6 @@
-module ext.neptune.proof
+module neptune.ext.proof
 
-use ext.neptune.recursive
+use neptune.ext.recursive
 
 use std.io.io
 

@@ -7,7 +7,7 @@ display_name = "Boundless"
 vm = "risczero"
 
 [runtime]
-binding_prefix = "ext.boundless"
+binding_prefix = "boundless.ext"
 account_model = "journal"
 storage_model = "none"
 transaction_model = "proof-based"

@@ -7,7 +7,7 @@ display_name = "Succinct"
 vm = "sp1"
 
 [runtime]
-binding_prefix = "ext.succinct"
+binding_prefix = "succinct.ext"
 account_model = "journal"
 storage_model = "none"
 transaction_model = "proof-based"

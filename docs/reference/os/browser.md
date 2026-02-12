@@ -9,13 +9,13 @@
 | Parameter | Value |
 |---|---|
 | VM | WASM |
-| Runtime binding | `ext.browser.*` |
+| Runtime binding | `browser.ext.*` |
 | Process model | Single-threaded event loop (+ Web Workers) |
 | Storage model | IndexedDB, localStorage |
 | Cost model | Wall-clock time, frame budget |
 | Interop | JavaScript, Web APIs |
 
-## Runtime Binding (`ext.browser.*`)
+## Runtime Binding (`browser.ext.*`)
 
 - **DOM** — element creation, query, mutation (planned)
 - **Fetch** — HTTP requests (planned)
@@ -26,7 +26,7 @@
 
 Browser targets web applications via WASM. The compiler produces `.wasm`
 modules that load in any modern browser. Runtime bindings expose Web APIs
-through the `ext.browser.*` module.
+through the `browser.ext.*` module.
 
 The same `.wasm` bytecode runs in browsers and WASI runtimes — only the
 host function imports differ. Browser provides DOM, fetch, and Web APIs

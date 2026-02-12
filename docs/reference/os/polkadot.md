@@ -9,13 +9,13 @@
 | Parameter | Value |
 |---|---|
 | VM | POLKAVM |
-| Runtime binding | `ext.polkadot.*` |
+| Runtime binding | `polkadot.ext.*` |
 | Account model | Account |
 | Storage model | Key-value |
 | Cost model | Weight (ref_time + proof_size) |
 | Cross-chain | XCM (Cross-Consensus Messaging) |
 
-## Runtime Binding (`ext.polkadot.*`)
+## Runtime Binding (`polkadot.ext.*`)
 
 - **Storage access** — key-value read/write to on-chain storage
 - **Cross-contract calls** — invoke other contracts within the same parachain

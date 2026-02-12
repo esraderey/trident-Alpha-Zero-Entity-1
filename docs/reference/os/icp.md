@@ -9,13 +9,13 @@
 | Parameter | Value |
 |---|---|
 | VM | WASM |
-| Runtime binding | `ext.icp.*` |
+| Runtime binding | `icp.ext.*` |
 | Account model | Canister (code + persistent memory) |
 | Storage model | Stable memory (up to 2 TiB per subnet) |
 | Cost model | Cycles (per-instruction + storage + inter-canister calls) |
 | Cross-chain | -- |
 
-## Runtime Binding (`ext.icp.*`)
+## Runtime Binding (`icp.ext.*`)
 
 - **Stable memory** — persistent across upgrades, byte-addressable
 - **Inter-canister calls** — async/await semantics

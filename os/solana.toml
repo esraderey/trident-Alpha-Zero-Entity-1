@@ -7,7 +7,7 @@ display_name = "Solana"
 vm = "sbpf"
 
 [runtime]
-binding_prefix = "ext.solana"
+binding_prefix = "solana.ext"
 account_model = "account"
 storage_model = "account-based"
 transaction_model = "signed"

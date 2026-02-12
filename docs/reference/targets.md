@@ -30,7 +30,7 @@ The compiler does two jobs, just like gcc:
    native instructions. This is the same job gcc does for x86-64 vs ARM64.
 
 2. **Runtime binding** (OS) — link against OS-specific modules
-   (`ext.<os>.*`) that provide transaction models, account structures,
+   (`<os>.ext.*`) that provide transaction models, account structures,
    storage layouts, and syscall conventions. This is the same job libc
    does — it differs between Linux and macOS even on the same CPU.
 
@@ -53,9 +53,9 @@ trident build --target evm         # bare VM → EVM bytecode, no OS
 trident build --target wasm        # bare VM → generic WASM, no OS
 ```
 
-When targeting an OS, `ext.<os>.*` modules are automatically available.
-When targeting a bare VM, using `ext.*` modules is a compile error — there
-is no OS to bind against.
+When targeting an OS, `<os>.ext.*` modules are automatically available.
+When targeting a bare VM, using `<os>.ext.*` modules is a compile error —
+there is no OS to bind against.
 
 ---
 
@@ -299,7 +299,7 @@ report wall-clock time. Each VM doc has per-instruction cost tables.
 
 An OS defines the runtime environment: storage, accounts, syscalls, and
 I/O conventions. The compiler's job is runtime binding — link against
-OS-specific modules (`ext.<os>.*`). Everything in this section is about
+OS-specific modules (`<os>.ext.*`). Everything in this section is about
 the OS, not the instruction set.
 
 ### OS Registry
@@ -309,53 +309,53 @@ the OS, not the instruction set.
 | OS | VM | Runtime binding | Account / process model | Interop | Details |
 |----|-----|----------------|------------------------|---------|---------|
 | **Provable** | | | | | |
-| Neptune | [TRITON](vm/triton.md) | `ext.neptune.*` | UTXO | -- | [neptune.md](os/neptune.md) |
-| Polygon Miden | [MIDEN](vm/miden.md) | `ext.miden.*` | Account | -- | [miden.md](os/miden.md) |
-| Nockchain | [NOCK](vm/nock.md) | `ext.nockchain.*` | UTXO (Notes) | -- | [nockchain.md](os/nockchain.md) |
-| Starknet | [CAIRO](vm/cairo.md) | `ext.starknet.*` | Account | Ethereum L2 | [starknet.md](os/starknet.md) |
-| Boundless | [RISCZERO](vm/risczero.md) | `ext.boundless.*` | -- | Ethereum verification | [boundless.md](os/boundless.md) |
-| Succinct | [SP1](vm/sp1.md) | `ext.succinct.*` | -- | Ethereum verification | [succinct.md](os/succinct.md) |
-| OpenVM Network | [OPENVM](vm/openvm.md) | `ext.openvm.*` | -- | -- | [openvm-network.md](os/openvm-network.md) |
-| Aleo | [AVM](vm/avm.md) | `ext.aleo.*` | Record (UTXO) | -- | [aleo.md](os/aleo.md) |
-| Aztec | [AZTEC](vm/aztec.md) | `ext.aztec.*` | Note (UTXO) + public | Ethereum L2 | [aztec.md](os/aztec.md) |
+| Neptune | [TRITON](vm/triton.md) | `neptune.ext.*` | UTXO | -- | [neptune.md](os/neptune.md) |
+| Polygon Miden | [MIDEN](vm/miden.md) | `miden.ext.*` | Account | -- | [miden.md](os/miden.md) |
+| Nockchain | [NOCK](vm/nock.md) | `nockchain.ext.*` | UTXO (Notes) | -- | [nockchain.md](os/nockchain.md) |
+| Starknet | [CAIRO](vm/cairo.md) | `starknet.ext.*` | Account | Ethereum L2 | [starknet.md](os/starknet.md) |
+| Boundless | [RISCZERO](vm/risczero.md) | `boundless.ext.*` | -- | Ethereum verification | [boundless.md](os/boundless.md) |
+| Succinct | [SP1](vm/sp1.md) | `succinct.ext.*` | -- | Ethereum verification | [succinct.md](os/succinct.md) |
+| OpenVM Network | [OPENVM](vm/openvm.md) | `openvm.ext.*` | -- | -- | [openvm-network.md](os/openvm-network.md) |
+| Aleo | [AVM](vm/avm.md) | `aleo.ext.*` | Record (UTXO) | -- | [aleo.md](os/aleo.md) |
+| Aztec | [AZTEC](vm/aztec.md) | `aztec.ext.*` | Note (UTXO) + public | Ethereum L2 | [aztec.md](os/aztec.md) |
 | **Blockchain** | | | | | |
-| Ethereum | [EVM](vm/evm.md) | `ext.ethereum.*` | Account | -- | [ethereum.md](os/ethereum.md) |
-| Solana | [SBPF](vm/sbpf.md) | `ext.solana.*` | Account (stateless programs) | -- | [solana.md](os/solana.md) |
-| Near Protocol | [WASM](vm/wasm.md) | `ext.near.*` | Account (1 contract each) | -- | [near.md](os/near.md) |
-| Cosmos (100+ chains) | [WASM](vm/wasm.md) | `ext.cosmwasm.*` | Account | IBC | [cosmwasm.md](os/cosmwasm.md) |
-| Arbitrum | [WASM](vm/wasm.md) + [EVM](vm/evm.md) | `ext.arbitrum.*` | Account (EVM-compatible) | Ethereum L2 | [arbitrum.md](os/arbitrum.md) |
-| Internet Computer | [WASM](vm/wasm.md) | `ext.icp.*` | Canister | -- | [icp.md](os/icp.md) |
-| Sui | [MOVEVM](vm/movevm.md) | `ext.sui.*` | Object-centric | -- | [sui.md](os/sui.md) |
-| Aptos | [MOVEVM](vm/movevm.md) | `ext.aptos.*` | Account (resources) | -- | [aptos.md](os/aptos.md) |
-| Ton | [TVM](vm/tvm.md) | `ext.ton.*` | Account (cells) | -- | [ton.md](os/ton.md) |
-| Nervos CKB | [CKB](vm/ckb.md) | `ext.nervos.*` | Cell (UTXO-like) | -- | [nervos.md](os/nervos.md) |
-| Polkadot | [POLKAVM](vm/polkavm.md) | `ext.polkadot.*` | Account | XCM | [polkadot.md](os/polkadot.md) |
+| Ethereum | [EVM](vm/evm.md) | `ethereum.ext.*` | Account | -- | [ethereum.md](os/ethereum.md) |
+| Solana | [SBPF](vm/sbpf.md) | `solana.ext.*` | Account (stateless programs) | -- | [solana.md](os/solana.md) |
+| Near Protocol | [WASM](vm/wasm.md) | `near.ext.*` | Account (1 contract each) | -- | [near.md](os/near.md) |
+| Cosmos (100+ chains) | [WASM](vm/wasm.md) | `cosmwasm.ext.*` | Account | IBC | [cosmwasm.md](os/cosmwasm.md) |
+| Arbitrum | [WASM](vm/wasm.md) + [EVM](vm/evm.md) | `arbitrum.ext.*` | Account (EVM-compatible) | Ethereum L2 | [arbitrum.md](os/arbitrum.md) |
+| Internet Computer | [WASM](vm/wasm.md) | `icp.ext.*` | Canister | -- | [icp.md](os/icp.md) |
+| Sui | [MOVEVM](vm/movevm.md) | `sui.ext.*` | Object-centric | -- | [sui.md](os/sui.md) |
+| Aptos | [MOVEVM](vm/movevm.md) | `aptos.ext.*` | Account (resources) | -- | [aptos.md](os/aptos.md) |
+| Ton | [TVM](vm/tvm.md) | `ton.ext.*` | Account (cells) | -- | [ton.md](os/ton.md) |
+| Nervos CKB | [CKB](vm/ckb.md) | `nervos.ext.*` | Cell (UTXO-like) | -- | [nervos.md](os/nervos.md) |
+| Polkadot | [POLKAVM](vm/polkavm.md) | `polkadot.ext.*` | Account | XCM | [polkadot.md](os/polkadot.md) |
 | **Traditional** | | | | | |
-| Linux | [X86-64](vm/x86-64.md) / [ARM64](vm/arm64.md) / [RISCV](vm/riscv.md) | `ext.linux.*` | Process | POSIX syscalls | [linux.md](os/linux.md) |
-| macOS | [ARM64](vm/arm64.md) / [X86-64](vm/x86-64.md) | `ext.macos.*` | Process | POSIX + Mach | [macos.md](os/macos.md) |
-| Android | [ARM64](vm/arm64.md) / [X86-64](vm/x86-64.md) | `ext.android.*` | Process (sandboxed) | NDK, JNI | [android.md](os/android.md) |
-| WASI | [WASM](vm/wasm.md) | `ext.wasi.*` | Process (capability) | WASI preview 2 | [wasi.md](os/wasi.md) |
-| Browser | [WASM](vm/wasm.md) | `ext.browser.*` | Event loop | JavaScript, Web APIs | [browser.md](os/browser.md) |
+| Linux | [X86-64](vm/x86-64.md) / [ARM64](vm/arm64.md) / [RISCV](vm/riscv.md) | `linux.ext.*` | Process | POSIX syscalls | [linux.md](os/linux.md) |
+| macOS | [ARM64](vm/arm64.md) / [X86-64](vm/x86-64.md) | `macos.ext.*` | Process | POSIX + Mach | [macos.md](os/macos.md) |
+| Android | [ARM64](vm/arm64.md) / [X86-64](vm/x86-64.md) | `android.ext.*` | Process (sandboxed) | NDK, JNI | [android.md](os/android.md) |
+| WASI | [WASM](vm/wasm.md) | `wasi.ext.*` | Process (capability) | WASI preview 2 | [wasi.md](os/wasi.md) |
+| Browser | [WASM](vm/wasm.md) | `browser.ext.*` | Event loop | JavaScript, Web APIs | [browser.md](os/browser.md) |
 
 Key observations:
 
 - **One VM, many OSes.** WASM powers 6+ OSes (Near, Cosmos, ICP, Arbitrum,
   WASI, Browser). x86-64 and ARM64 power Linux, macOS, Android. MOVEVM
-  powers Sui and Aptos. Same bytecode output, different `ext.*` bindings.
+  powers Sui and Aptos. Same bytecode output, different `<os>.ext.*` bindings.
 - **RISC-V lowering is shared** across SP1, OPENVM, RISCZERO, JOLT, CKB,
   POLKAVM, and native RISCV — 7 targets from one `RiscVLowering`.
 - **Arbitrum** supports both WASM (Stylus) and EVM.
 
 ---
 
-### `std.os.*` Lowering by OS Family
+### `os.*` Lowering by OS Family
 
-The portable OS layer (`std.os.*`) maps intent to OS-native mechanism.
+The portable OS layer (`os.*`) maps intent to OS-native mechanism.
 The compiler reads the `[runtime]` section of the target's OS TOML
 (`account_model`, `storage_model`, `transaction_model`) to select the
 correct lowering strategy. See [stdlib.md](stdlib.md) for full API specs.
 
-#### `std.os.state` — Persistent State
+#### `os.state` — Persistent State
 
 | OS family | OSes | `state.read(key)` lowers to |
 |-----------|------|-----------------------------|
@@ -366,7 +366,7 @@ correct lowering strategy. See [stdlib.md](stdlib.md) for full API specs.
 | Process | Linux, macOS, WASI, Browser, Android | File / environment read |
 | Journal | Boundless, Succinct, OpenVM Network | **Compile error** — no persistent state |
 
-#### `std.os.neuron` — Identity and Authorization
+#### `os.neuron` — Identity and Authorization
 
 `neuron.id()` returns the current neuron's identity as a `Digest`.
 `neuron.auth(cred)` is an assertion — succeeds silently or crashes the VM.
@@ -395,7 +395,7 @@ correct lowering strategy. See [stdlib.md](stdlib.md) for full API specs.
 | Process | Linux, macOS, WASI, Android | `assert(getuid() == cred)` |
 | Journal | Boundless, Succinct, OpenVM Network | **Compile error** — no identity |
 
-#### `std.os.signal` — Communication Between Neurons
+#### `os.signal` — Communication Between Neurons
 
 `send(from, to, amount)` — a signal: directed weighted edge from one
 neuron to another. `from` is usually the current neuron but supports
@@ -414,7 +414,7 @@ of another neuron).
 | Process | Linux, macOS, WASI, Browser, Android | **Compile error** — no native value |
 | Journal | Boundless, Succinct, OpenVM Network | **Compile error** — no native value |
 
-#### `std.os.time` — Clock
+#### `os.time` — Clock
 
 | OS family | OSes | `time.now()` lowers to |
 |-----------|------|------------------------|
@@ -433,7 +433,7 @@ of another neuron).
 
 The compiler selects lowering strategy from three fields in `os/*.toml`:
 
-| Field | Values | Effect on `std.os.*` |
+| Field | Values | Effect on `os.*` |
 |-------|--------|---------------------|
 | `account_model` | `account`, `stateless`, `object`, `utxo`, `journal`, `process` | Selects neuron/signal lowering |
 | `storage_model` | `key-value`, `account-data`, `object-store`, `merkle-authenticated`, `filesystem`, `none` | Selects state lowering |
@@ -451,12 +451,12 @@ Quick summary:
 
 - **Adding a VM**: Create `vm/<vm>.toml` -> document -> implement lowering
   -> add cost model -> test. (6 levels, L0--L5.)
-- **Adding an OS**: Create `os/<os>.toml` -> document -> write `ext/<os>/*.tri`
+- **Adding an OS**: Create `os/<os>.toml` -> document -> write `<os>/ext/*.tri`
   bindings -> test. (4 levels, L0--L3.)
 
 No new lowering is needed for an OS — the VM already compiles. Only the
-runtime bindings differ. The `ext/` directory is keyed by **OS name**
-(not VM name): `ext/neptune/`, `ext/solana/`, `ext/linux/`.
+runtime bindings differ. The extensions directory is keyed by **OS name**
+(not VM name): `neptune/ext/`, `solana/ext/`, `linux/ext/`.
 
 See [ir.md Part VI](ir.md) for lowering trait interfaces.
 
@@ -469,7 +469,7 @@ See [ir.md Part VI](ir.md) for lowering trait interfaces.
 - [IR Reference](ir.md) — 54 operations, 4 tiers, lowering paths
 - [CLI Reference](cli.md) — Compiler commands and flags
 - [Error Catalog](errors.md) — All compiler error messages explained
-- [Standard Library](stdlib.md) — `std.*` modules and OS extensions
+- [Standard Library](stdlib.md) — `std.*`, `os.*`, and `<os>.ext.*` modules
 
 ---
 

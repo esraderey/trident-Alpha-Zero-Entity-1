@@ -7,7 +7,7 @@ display_name = "Neptune"
 vm = "triton"
 
 [runtime]
-binding_prefix = "ext.neptune"
+binding_prefix = "neptune.ext"
 account_model = "utxo"
 storage_model = "merkle-authenticated"
 transaction_model = "proof-based"

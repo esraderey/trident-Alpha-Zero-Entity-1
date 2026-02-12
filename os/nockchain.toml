@@ -7,7 +7,7 @@ display_name = "Nockchain"
 vm = "nock"
 
 [runtime]
-binding_prefix = "ext.nockchain"
+binding_prefix = "nockchain.ext"
 account_model = "utxo"
 storage_model = "merkle-authenticated"
 transaction_model = "proof-based"

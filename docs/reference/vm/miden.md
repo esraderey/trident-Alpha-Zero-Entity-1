@@ -22,7 +22,7 @@
 
 Same field as Triton, different hash function and cost model. 4-table model
 with a chiplets table that combines hashing, bitwise, and memory operations.
-No extension field support — programs using `XField` or `ext.neptune.*` cannot
+No extension field support — programs using `XField` or `neptune.ext.*` cannot
 target Miden.
 
 ---

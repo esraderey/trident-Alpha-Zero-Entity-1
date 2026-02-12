@@ -9,14 +9,14 @@
 | Parameter | Value |
 |---|---|
 | VM | WASM |
-| Runtime binding | `ext.cosmwasm.*` |
+| Runtime binding | `cosmwasm.ext.*` |
 | Account model | Account-based (Cosmos SDK) |
 | Storage model | Key-value (Cosmos KV store) |
 | Cost model | Gas (per-WASM-instruction + host function calls) |
 | Cross-chain | IBC (Inter-Blockchain Communication) |
 | Chains | 100+ (Osmosis, Neutron, Injective, Stargaze, ...) |
 
-## Runtime Binding (`ext.cosmwasm.*`)
+## Runtime Binding (`cosmwasm.ext.*`)
 
 - **Storage** — key-value store via Cosmos KV
 - **IBC** — cross-chain messaging and contract calls

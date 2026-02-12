@@ -47,11 +47,11 @@ compiles to multiple STARK VMs:
 | Layer | What It Contains | Example |
 |-------|-----------------|---------|
 | **Universal core** | Types, control flow, I/O, hashing, Merkle proofs | `std.crypto.hash`, `std.crypto.merkle`, `std.io.io` |
-| **Backend extensions** | Target-specific intrinsics | `ext.neptune.xfield`, `ext.neptune.kernel` |
+| **Backend extensions** | Target-specific intrinsics | `neptune.ext.xfield`, `neptune.ext.kernel` |
 
 Programs that use only `std.*` modules are **fully portable** -- they compile
 and generate valid proofs on any supported backend. Programs that import
-`ext.*` modules are backend-specific and will only compile for that target.
+`<os>.ext.*` modules are backend-specific and will only compile for that target.
 
 ```
 // Portable program -- compiles to any backend
@@ -66,10 +66,10 @@ fn verify_membership(root: Digest, leaf: Digest, index: U32, depth: U32) {
 ```
 // Triton-specific program -- uses extension field arithmetic
 use std.crypto.merkle
-use ext.neptune.xfield           // binds to Triton VM backend
+use neptune.ext.xfield           // binds to Triton VM backend
 
 fn verify_with_xfield(root: Digest) {
-    // ext.neptune.xfield provides extension field operations
+    // neptune.ext.xfield provides extension field operations
     // that map directly to Triton VM instructions
 }
 ```
@@ -834,9 +834,9 @@ major ZK system scores on quantum safety.
 - **No ABI.** Public I/O is a sequence of field elements. No encoding/decoding.
 - **No inheritance.** Use modules and `use` imports. Composition over inheritance.
 
-When targeting Ethereum directly, `ext.ethereum.*` provides familiar EVM
-primitives: `ext.ethereum.account.caller()` = msg.sender,
-`ext.ethereum.storage.read(slot)` = SLOAD, etc. See
+When targeting Ethereum directly, `ethereum.ext.*` provides familiar EVM
+primitives: `ethereum.ext.account.caller()` = msg.sender,
+`ethereum.ext.storage.read(slot)` = SLOAD, etc. See
 [Ethereum OS Reference](../reference/os/ethereum.md) for the full API.
 
 Also see: [Starknet](../reference/os/starknet.md) (Cairo VM, native account
@@ -845,24 +845,24 @@ abstraction), [Sui](../reference/os/sui.md) (MoveVM, object-centric model).
 ### Coming from SVM (Anchor / Rust)
 
 - **No accounts model** (on provable targets). State is a Merkle tree, not
-  separate account buffers. On Solana itself, `ext.solana.account.*` provides
+  separate account buffers. On Solana itself, `solana.ext.account.*` provides
   the familiar account-passing model.
 - **No PDAs** (on provable targets). Identity is a hash preimage. On Solana,
-  `ext.solana.pda.find()` works as expected.
+  `solana.ext.pda.find()` works as expected.
 - **No CPI** (on provable targets). Composition happens through recursive proof
-  verification. On Solana, `ext.solana.cpi.invoke()` provides native CPI.
-- **No `Signer` constraint.** Use `ext.solana.account.is_signer(index)` on
+  verification. On Solana, `solana.ext.cpi.invoke()` provides native CPI.
+- **No `Signer` constraint.** Use `solana.ext.account.is_signer(index)` on
   Solana, or `divine` + `hash` + `assert` on provable targets.
 - **Simpler type system.** No lifetimes, no borrows, no `Option<T>`. Every type
   has a fixed width known at compile time.
 
-See [Solana OS Reference](../reference/os/solana.md) for the full `ext.solana.*`
+See [Solana OS Reference](../reference/os/solana.md) for the full `solana.ext.*`
 API and programming model.
 
 ### Coming from CosmWasm
 
 - **No `deps.storage`** (on provable targets). State is a Merkle root. On
-  Cosmos chains, `ext.cosmwasm.*` provides the familiar key-value store.
+  Cosmos chains, `cosmwasm.ext.*` provides the familiar key-value store.
 - **No `info.sender`** (on provable targets). Auth is explicit hash preimage
   verification. On Cosmos, the runtime provides sender identity.
 - **No `Response` with messages.** No inter-contract messages. Programs produce
@@ -875,7 +875,7 @@ See [CosmWasm OS Reference](../reference/os/cosmwasm.md) for the programming mod
 
 - **No runtime pallets.** Each program is self-contained.
 - **No weight system** (on provable targets). Cost is the padded table height.
-  On Polkadot, `ext.polkadot.*` uses the native 2D weight model (ref_time +
+  On Polkadot, `polkadot.ext.*` uses the native 2D weight model (ref_time +
   proof_size).
 - **No on-chain governance hooks.** Admin auth is a hash preimage; governance
   would be a separate proof that composes with the program proof.

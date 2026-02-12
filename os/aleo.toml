@@ -7,7 +7,7 @@ display_name = "Aleo"
 vm = "avm"
 
 [runtime]
-binding_prefix = "ext.aleo"
+binding_prefix = "aleo.ext"
 account_model = "record"
 storage_model = "mapping"
 transaction_model = "proof-based"

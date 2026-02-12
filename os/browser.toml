@@ -7,7 +7,7 @@ display_name = "Browser"
 vm = "wasm"
 
 [runtime]
-binding_prefix = "ext.browser"
+binding_prefix = "browser.ext"
 account_model = "tab"
 storage_model = "indexeddb"
 transaction_model = "event-loop"

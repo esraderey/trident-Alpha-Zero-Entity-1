@@ -7,7 +7,7 @@ display_name = "Aptos"
 vm = "movevm"
 
 [runtime]
-binding_prefix = "ext.aptos"
+binding_prefix = "aptos.ext"
 account_model = "account"
 storage_model = "resource-storage"
 transaction_model = "signed"

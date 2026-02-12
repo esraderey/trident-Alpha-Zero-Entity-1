@@ -7,7 +7,7 @@ display_name = "TON"
 vm = "tvm"
 
 [runtime]
-binding_prefix = "ext.ton"
+binding_prefix = "ton.ext"
 account_model = "account"
 storage_model = "cell-based"
 transaction_model = "signed"

@@ -9,13 +9,13 @@
 | Parameter | Value |
 |---|---|
 | VM | WASM |
-| Runtime binding | `ext.wasi.*` |
+| Runtime binding | `wasi.ext.*` |
 | Process model | Single-process, capability-based |
 | Storage model | Filesystem (capability-scoped) |
 | Cost model | Wall-clock time |
 | Interop | WASI preview 2, component model |
 
-## Runtime Binding (`ext.wasi.*`)
+## Runtime Binding (`wasi.ext.*`)
 
 - **Filesystem** — open, read, write, close (capability-gated) (planned)
 - **Clock** — monotonic clock, wall clock (planned)

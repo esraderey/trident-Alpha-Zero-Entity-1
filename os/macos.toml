@@ -7,7 +7,7 @@ display_name = "macOS"
 vm = "arm64"         # default; also x86-64
 
 [runtime]
-binding_prefix = "ext.macos"
+binding_prefix = "macos.ext"
 account_model = "process"
 storage_model = "filesystem"
 transaction_model = "syscall"

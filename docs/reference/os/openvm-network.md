@@ -9,13 +9,13 @@
 | Parameter | Value |
 |---|---|
 | VM | OPENVM |
-| Runtime binding | `ext.openvm.*` |
+| Runtime binding | `openvm.ext.*` |
 | Account model | Journal I/O |
 | Storage model | No persistent storage |
 | Cost model | Cycles |
 | Cross-chain | -- |
 
-## Runtime Binding (`ext.openvm.*`)
+## Runtime Binding (`openvm.ext.*`)
 
 - **Journal I/O** — read inputs from and write outputs to the execution journal
 - **Guest-host communication** — syscall interface between guest program and host prover

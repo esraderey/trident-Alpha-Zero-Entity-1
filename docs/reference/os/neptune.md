@@ -14,7 +14,7 @@ kernels, and recursive proof composition.
 | Parameter | Value |
 |---|---|
 | VM | TRITON |
-| Runtime binding | `ext.neptune.*` |
+| Runtime binding | `neptune.ext.*` |
 | Account model | UTXO |
 | Storage model | Merkle-authenticated |
 | Transaction model | Proof-based |
@@ -76,7 +76,7 @@ pattern:
 
 ```
 use std.io.io
-use ext.neptune.kernel
+use neptune.ext.kernel
 
 fn main() {
     let kernel_hash: Digest = divine5()
@@ -159,7 +159,7 @@ Programs are isolated -- no external calls. Composition happens through
 proof is valid inside its own execution.
 
 ```
-use ext.neptune.proof
+use neptune.ext.proof
 
 fn main() {
     // Verify an inner proof inside this program's execution
@@ -255,23 +255,23 @@ primary public input for all scripts.
 
 ---
 
-## Portable Alternative (`std.os.*`)
+## Portable Alternative (`os.*`)
 
-Programs that don't need Neptune-specific features can use `std.os.*`
-instead of `ext.neptune.*` for cross-chain portability:
+Programs that don't need Neptune-specific features can use `os.*`
+instead of `neptune.ext.*` for cross-chain portability:
 
-| `ext.neptune.*` (this OS only) | `std.os.*` (any OS) |
+| `neptune.ext.*` (this OS only) | `os.*` (any OS) |
 |--------------------------------|---------------------|
-| `ext.neptune.kernel.authenticate_*` + divine/merkle | `std.os.state.read(key)` → auto-generates divine + merkle_authenticate |
-| Hash preimage via `std.crypto.auth` | `std.os.neuron.auth(cred)` → divine + hash + assert_eq |
-| Manual UTXO output construction | `std.os.signal.send(from, to, amt)` → emit output UTXO |
+| `neptune.ext.kernel.authenticate_*` + divine/merkle | `os.state.read(key)` → auto-generates divine + merkle_authenticate |
+| Hash preimage via `std.crypto.auth` | `os.neuron.auth(cred)` → divine + hash + assert_eq |
+| Manual UTXO output construction | `os.signal.send(from, to, amt)` → emit output UTXO |
 
-**Note:** `std.os.neuron.id()` is a **compile error** on Neptune — UTXO chains
-have no caller concept. Use `std.os.neuron.auth(credential)` for authorization.
+**Note:** `os.neuron.id()` is a **compile error** on Neptune — UTXO chains
+have no caller concept. Use `os.neuron.auth(credential)` for authorization.
 
-Use `ext.neptune.*` when you need: kernel MAST authentication, recursive proof
+Use `neptune.ext.*` when you need: kernel MAST authentication, recursive proof
 verification, UTXO structure access, or other Neptune-specific features. See
-[stdlib.md](../stdlib.md) for the full `std.os.*` API.
+[stdlib.md](../stdlib.md) for the full `os.*` API.
 
 ---
 
@@ -283,42 +283,42 @@ verification, UTXO structure access, or other Neptune-specific features. See
 | Type script | `program` with `fn main()`, public input = 3 Digests |
 | UTXO | Struct of lock_script_hash + coins, authenticated via Merkle |
 | Coin | Struct of type_script_hash + state, validated by type script |
-| Kernel field access | `ext.neptune.kernel.authenticate_*(kernel_hash)` |
+| Kernel field access | `neptune.ext.kernel.authenticate_*(kernel_hash)` |
 | Spending authorization | Hash preimage via `divine5()` + `hash()` + `assert_digest()` |
 | Token balance | NativeCurrency type script, `state[0..4]` = u128 amount |
 | Timelock | TimeLock type script, `state[0]` = release timestamp |
 | Announcements | `reveal` / `seal` events |
 | UTXO notification | Encrypted announcement with key type flag |
-| Proof composition | `ext.neptune.proof.verify_inner_proof()` |
+| Proof composition | `neptune.ext.proof.verify_inner_proof()` |
 | Program identity | Tip5 hash of the compiled program |
 
 ---
 
-## `ext.neptune.*` API Reference
+## `neptune.ext.*` API Reference
 
 | Module | Function | Description |
 |--------|----------|-------------|
-| `ext.neptune.kernel` | `read_lock_script_hash()` | Read kernel MAST hash (lock script entry) |
+| `neptune.ext.kernel` | `read_lock_script_hash()` | Read kernel MAST hash (lock script entry) |
 | | `read_type_script_hashes()` | Read 3 Digests (type script entry) |
 | | `leaf_inputs()` .. `leaf_merge_bit()` | Leaf index constants (0-7) |
 | | `authenticate_field(hash, leaf_idx)` | Merkle-authenticate any kernel field |
 | | `authenticate_fee(hash)` | Authenticate and return fee |
 | | `authenticate_timestamp(hash)` | Authenticate and return timestamp |
-| `ext.neptune.utxo` | `authenticate(divined, expected)` | Verify divined digest matches expected |
-| `ext.neptune.xfield` | `new(a, b, c)` | Construct XField from 3 base fields |
+| `neptune.ext.utxo` | `authenticate(divined, expected)` | Verify divined digest matches expected |
+| `neptune.ext.xfield` | `new(a, b, c)` | Construct XField from 3 base fields |
 | | `inv(a)` | Extension field inverse |
 | | `xx_dot_step(acc, ptr_a, ptr_b)` | XField * XField dot product step |
 | | `xb_dot_step(acc, ptr_a, ptr_b)` | XField * BField dot product step |
-| `ext.neptune.proof` | `parse_claim()` | Read Claim from public input |
+| `neptune.ext.proof` | `parse_claim()` | Read Claim from public input |
 | | `hash_public_io(claim)` | Hash all public I/O into binding digest |
 | | `fri_verify(commitment, seed, rounds)` | Full FRI verification chain |
 | | `verify_inner_proof(num_fri_rounds)` | End-to-end inner proof verification |
 | | `aggregate_proofs(num_proofs, rounds)` | Batch N proofs into 1 outer proof |
-| `ext.neptune.recursive` | `xfe_inner_product(ptr_a, ptr_b, count)` | XField inner product accumulation |
+| `neptune.ext.recursive` | `xfe_inner_product(ptr_a, ptr_b, count)` | XField inner product accumulation |
 | | `xb_inner_product(ptr_a, ptr_b, count)` | XField * BField inner product |
 | | `read_claim()` | Read (program_digest, num_inputs, num_outputs) |
 | | `verify_commitment(expected)` | Authenticate FRI commitment roots |
-| `ext.neptune.registry` | Op 0: `REGISTER` | Add definition to on-chain registry |
+| `neptune.ext.registry` | Op 0: `REGISTER` | Add definition to on-chain registry |
 | | Op 1: `VERIFY` | Prove definition is registered + verified |
 | | Op 2: `UPDATE` | Update verification certificate |
 | | Op 3: `LOOKUP` | Authenticate definition against registry |

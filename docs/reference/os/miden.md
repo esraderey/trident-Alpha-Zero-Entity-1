@@ -9,13 +9,13 @@
 | Parameter | Value |
 |---|---|
 | VM | MIDEN |
-| Runtime binding | `ext.miden.*` |
+| Runtime binding | `miden.ext.*` |
 | Account model | Account |
 | Storage model | Merkle-authenticated |
 | Cost model | Proof-based (table rows) |
 | Cross-chain | Ethereum L2 |
 
-## Runtime Binding (`ext.miden.*`)
+## Runtime Binding (`miden.ext.*`)
 
 - **Account management** — create and manage Miden accounts
 - **Note operations** — send and receive notes between accounts

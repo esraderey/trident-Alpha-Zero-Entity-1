@@ -7,7 +7,7 @@ display_name = "Polygon Miden"
 vm = "miden"
 
 [runtime]
-binding_prefix = "ext.miden"
+binding_prefix = "miden.ext"
 account_model = "account"
 storage_model = "merkle-authenticated"
 transaction_model = "proof-based"

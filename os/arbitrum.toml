@@ -7,7 +7,7 @@ display_name = "Arbitrum (Stylus)"
 vm = "wasm"
 
 [runtime]
-binding_prefix = "ext.arbitrum"
+binding_prefix = "arbitrum.ext"
 account_model = "account"
 storage_model = "key-value"
 transaction_model = "signed"

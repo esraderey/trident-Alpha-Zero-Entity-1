@@ -9,13 +9,13 @@
 | Parameter | Value |
 |---|---|
 | VM | WASM |
-| Runtime binding | `ext.near.*` |
+| Runtime binding | `near.ext.*` |
 | Account model | 1 contract per account |
 | Storage model | Key-value (per-byte cost) |
 | Cost model | Gas (per-WASM-instruction + host function calls) |
 | Cross-chain | -- |
 
-## Runtime Binding (`ext.near.*`)
+## Runtime Binding (`near.ext.*`)
 
 - **Storage** — key-value store with per-byte read/write costs
 - **Promises** — async cross-contract calls (receipt-based)

@@ -127,9 +127,10 @@ pub(crate) fn find_ext_dir() -> Option<PathBuf> {
 }
 
 /// Legacy flat-path fallback map for backward compatibility.
-/// Maps old `std.X` names to their new layered locations.
+/// Maps old module names to their new layered locations.
 fn legacy_stdlib_fallback(name: &str) -> Option<&'static str> {
     match name {
+        // Legacy flat std.* → layered std.*
         "std.assert" => Some("std.core.assert"),
         "std.convert" => Some("std.core.convert"),
         "std.field" => Some("std.core.field"),
@@ -140,16 +141,21 @@ fn legacy_stdlib_fallback(name: &str) -> Option<&'static str> {
         "std.hash" => Some("std.crypto.hash"),
         "std.merkle" => Some("std.crypto.merkle"),
         "std.auth" => Some("std.crypto.auth"),
-        "std.xfield" => Some("ext.neptune.xfield"),
-        "std.kernel" => Some("ext.neptune.kernel"),
-        "std.utxo" => Some("ext.neptune.utxo"),
-        // Backward compatibility: ext.triton.* → ext.neptune.*
-        "ext.triton.xfield" => Some("ext.neptune.xfield"),
-        "ext.triton.kernel" => Some("ext.neptune.kernel"),
-        "ext.triton.utxo" => Some("ext.neptune.utxo"),
-        "ext.triton.proof" => Some("ext.neptune.proof"),
-        "ext.triton.recursive" => Some("ext.neptune.recursive"),
-        "ext.triton.registry" => Some("ext.neptune.registry"),
+        // Legacy std.xfield/kernel/utxo → neptune.ext.*
+        "std.xfield" => Some("neptune.ext.xfield"),
+        "std.kernel" => Some("neptune.ext.kernel"),
+        "std.utxo" => Some("neptune.ext.utxo"),
+        // Backward compatibility: ext.triton.* → neptune.ext.*
+        "ext.triton.xfield" => Some("neptune.ext.xfield"),
+        "ext.triton.kernel" => Some("neptune.ext.kernel"),
+        "ext.triton.utxo" => Some("neptune.ext.utxo"),
+        "ext.triton.proof" => Some("neptune.ext.proof"),
+        "ext.triton.recursive" => Some("neptune.ext.recursive"),
+        "ext.triton.registry" => Some("neptune.ext.registry"),
+        // Backward compatibility: ext.<os>.* → <os>.ext.*
+        _ if name.starts_with("ext.") => {
+            None // handled by resolve_path directly
+        }
         _ => None,
     }
 }
@@ -268,9 +274,12 @@ impl ModuleResolver {
     /// Resolve a dotted module name to a file path.
     /// "std.core.assert" → stdlib_dir/core/assert.tri
     /// "std.crypto.hash" → stdlib_dir/crypto/hash.tri
-    /// "ext.neptune.xfield" → ext_dir/neptune/xfield.tri
+    /// "neptune.ext.xfield" → ext_dir/neptune/xfield.tri
     /// "crypto.sponge" → root_dir/crypto/sponge.tri
     /// "merkle" → root_dir/merkle.tri
+    ///
+    /// Backward compatibility: "ext.neptune.xfield" still resolves to
+    /// ext_dir/neptune/xfield.tri.
     ///
     /// Legacy backward compatibility: "std.hash" tries stdlib_dir/hash.tri
     /// first, then falls back to the layered path (std.crypto.hash).
@@ -288,7 +297,22 @@ impl ModuleResolver {
             }
         }
 
-        // Extension modules resolve from ext_dir
+        // Extension modules: <os>.ext.<module> → ext/<os>/<module>.tri
+        if let Some(ext_pos) = raw_parts.iter().position(|&p| p == "ext") {
+            if ext_pos > 0 && ext_pos + 1 < raw_parts.len() {
+                if let Some(ref ext_dir) = self.ext_dir {
+                    let os_name = &raw_parts[..ext_pos].join("/");
+                    let rest = &raw_parts[ext_pos + 1..];
+                    let mut path = ext_dir.join(os_name);
+                    for part in rest {
+                        path = path.join(part);
+                    }
+                    return path.with_extension("tri");
+                }
+            }
+        }
+
+        // Backward compatibility: ext.<os>.<module> → ext/<os>/<module>.tri
         if let Some(rest) = module_name.strip_prefix("ext.") {
             if let Some(ref ext_dir) = self.ext_dir {
                 let parts: Vec<&str> = rest.split('.').collect();

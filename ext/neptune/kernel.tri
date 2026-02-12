@@ -1,4 +1,4 @@
-module ext.neptune.kernel
+module neptune.ext.kernel
 
 use std.io.io
 

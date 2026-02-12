@@ -2363,12 +2363,12 @@ fn main() {
     #[test]
     fn test_xfield_dot_step_intrinsics() {
         let dir = tempfile::tempdir().unwrap();
-        // Write the entry program that uses xx_dot_step via ext.neptune.xfield
+        // Write the entry program that uses xx_dot_step via neptune.ext.xfield
         let main_path = dir.path().join("main.tri");
         std::fs::write(
             &main_path,
             r#"program test
-use ext.neptune.xfield
+use neptune.ext.xfield
 
 fn main() {
     let ptr_a: Field = divine()
@@ -2405,7 +2405,7 @@ fn main() {
         std::fs::write(
             &main_path,
             r#"program test
-use ext.neptune.xfield
+use neptune.ext.xfield
 
 fn main() {
     let ptr_a: Field = divine()
@@ -2441,7 +2441,7 @@ fn main() {
         std::fs::write(
             &main_path,
             r#"program test
-use ext.neptune.recursive
+use neptune.ext.recursive
 
 fn main() {
     let ptr_a: Field = divine()
@@ -2490,7 +2490,7 @@ fn main() {
         std::fs::write(
             &main_path,
             r#"program test
-use ext.neptune.recursive
+use neptune.ext.recursive
 
 fn main() {
     let ptr_a: Field = divine()
@@ -2535,7 +2535,7 @@ fn main() {
         std::fs::write(
             &main_path,
             r#"program test
-use ext.neptune.proof
+use neptune.ext.proof
 
 fn main() {
     proof.verify_inner_proof(4)
@@ -2577,7 +2577,7 @@ fn main() {
         std::fs::write(
             &main_path,
             r#"program test
-use ext.neptune.proof
+use neptune.ext.proof
 
 fn main() {
     let n: Field = pub_read()

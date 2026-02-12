@@ -3,7 +3,7 @@
 [← Target Reference](../targets.md) | VM: [MOVEVM](../vm/movevm.md)
 
 Sui is the object-centric blockchain powered by MOVEVM. Trident compiles
-to Move bytecode (`.mv`) and links against `ext.sui.*` for Sui-specific
+to Move bytecode (`.mv`) and links against `sui.ext.*` for Sui-specific
 runtime bindings. Sui's unique contribution is the object model -- state
 is organized as objects with explicit ownership, enabling parallel
 execution without global locks.
@@ -15,7 +15,7 @@ execution without global locks.
 | Parameter | Value |
 |---|---|
 | VM | MOVEVM |
-| Runtime binding | `ext.sui.*` |
+| Runtime binding | `sui.ext.*` |
 | Account model | Object-centric (ownership graph) |
 | Storage model | Object store |
 | Transaction model | Signed (Ed25519, Secp256k1, zkLogin) |
@@ -38,27 +38,27 @@ The runtime passes objects based on the transaction's specified inputs.
 ```
 program my_token
 
-use ext.sui.object
-use ext.sui.transfer
-use ext.sui.tx
-use ext.sui.coin
+use sui.ext.object
+use sui.ext.transfer
+use sui.ext.tx
+use sui.ext.coin
 
 // Called once at module publication
 fn init() {
-    let treasury: Field = ext.sui.object.new()
-    ext.sui.transfer.send(treasury, ext.sui.tx.sender())
+    let treasury: Field = sui.ext.object.new()
+    sui.ext.transfer.send(treasury, sui.ext.tx.sender())
 }
 
 // Entry function: mint tokens
 pub fn mint(treasury: Field, amount: Field, recipient: Field) {
     // Verify caller owns the treasury capability
-    let coin: Field = ext.sui.coin.mint(treasury, amount)
-    ext.sui.transfer.public_send(coin, recipient)
+    let coin: Field = sui.ext.coin.mint(treasury, amount)
+    sui.ext.transfer.public_send(coin, recipient)
 }
 
 // Entry function: transfer tokens
 pub fn send(coin: Field, recipient: Field) {
-    ext.sui.transfer.public_send(coin, recipient)
+    sui.ext.transfer.public_send(coin, recipient)
 }
 ```
 
@@ -74,26 +74,26 @@ an owner. Objects come in three flavors:
 | **Immutable** | Read-only, everyone | No consensus needed | Package code, frozen configs |
 
 ```
-use ext.sui.object
-use ext.sui.dynamic_field
+use sui.ext.object
+use sui.ext.dynamic_field
 
 // Create a new object
-let id: Field = ext.sui.object.new()
+let id: Field = sui.ext.object.new()
 
 // Read object fields (by UID)
-let value: Field = ext.sui.object.borrow(id, field_offset)
+let value: Field = sui.ext.object.borrow(id, field_offset)
 
 // Mutate object fields
-ext.sui.object.borrow_mut(id, field_offset, new_value)
+sui.ext.object.borrow_mut(id, field_offset, new_value)
 
 // Delete an object
-ext.sui.object.delete(id)
+sui.ext.object.delete(id)
 
 // Dynamic fields -- attach/read/remove key-value pairs on objects
-ext.sui.dynamic_field.add(parent_id, key, value)
-let val: Field = ext.sui.dynamic_field.borrow(parent_id, key)
-ext.sui.dynamic_field.remove(parent_id, key)
-let exists: Bool = ext.sui.dynamic_field.exists(parent_id, key)
+sui.ext.dynamic_field.add(parent_id, key, value)
+let val: Field = sui.ext.dynamic_field.borrow(parent_id, key)
+sui.ext.dynamic_field.remove(parent_id, key)
+let exists: Bool = sui.ext.dynamic_field.exists(parent_id, key)
 ```
 
 The object model eliminates Ethereum's global state contention. Transactions
@@ -105,11 +105,11 @@ Only shared objects require consensus.
 Transaction sender identity comes from the signing key:
 
 ```
-use ext.sui.tx
+use sui.ext.tx
 
-let sender: Field = ext.sui.tx.sender()
-let epoch: Field = ext.sui.tx.epoch()
-let epoch_timestamp: Field = ext.sui.tx.epoch_timestamp_ms()
+let sender: Field = sui.ext.tx.sender()
+let epoch: Field = sui.ext.tx.epoch()
+let epoch_timestamp: Field = sui.ext.tx.epoch_timestamp_ms()
 ```
 
 Authorization is enforced by **object ownership**: only the owner of an
@@ -120,8 +120,8 @@ are objects that grant specific permissions:
 // Capability pattern: whoever owns the TreasuryCap can mint
 pub fn mint(treasury_cap: Field, amount: Field, recipient: Field) {
     // treasury_cap is an owned object -- only the owner can call this
-    let coin: Field = ext.sui.coin.mint(treasury_cap, amount)
-    ext.sui.transfer.public_send(coin, recipient)
+    let coin: Field = sui.ext.coin.mint(treasury_cap, amount)
+    sui.ext.transfer.public_send(coin, recipient)
 }
 ```
 
@@ -134,23 +134,23 @@ Sui has native `Coin<T>` objects. Value moves by transferring object
 ownership:
 
 ```
-use ext.sui.coin
-use ext.sui.transfer
+use sui.ext.coin
+use sui.ext.transfer
 
 // Split a coin (take amount out of existing coin)
-let split_coin: Field = ext.sui.coin.split(coin, amount)
+let split_coin: Field = sui.ext.coin.split(coin, amount)
 
 // Merge coins (combine into one)
-ext.sui.coin.merge(target_coin, source_coin)
+sui.ext.coin.merge(target_coin, source_coin)
 
 // Get coin value
-let balance: Field = ext.sui.coin.value(coin)
+let balance: Field = sui.ext.coin.value(coin)
 
 // Transfer coin to recipient
-ext.sui.transfer.public_send(coin, recipient)
+sui.ext.transfer.public_send(coin, recipient)
 
 // Create a zero-value coin
-let empty: Field = ext.sui.coin.zero()
+let empty: Field = sui.ext.coin.zero()
 ```
 
 ### Cross-Contract Interaction
@@ -188,21 +188,21 @@ hash as event data.
 
 ---
 
-## Portable Alternative (`std.os.*`)
+## Portable Alternative (`os.*`)
 
-Programs that don't need Sui-specific features can use `std.os.*`
-instead of `ext.sui.*` for cross-chain portability:
+Programs that don't need Sui-specific features can use `os.*`
+instead of `sui.ext.*` for cross-chain portability:
 
-| `ext.sui.*` (this OS only) | `std.os.*` (any OS) |
+| `sui.ext.*` (this OS only) | `os.*` (any OS) |
 |----------------------------|---------------------|
-| `ext.sui.dynamic_field.borrow(id, key)` | `std.os.state.read(key)` → dynamic_field.borrow |
-| `ext.sui.tx.sender()` | `std.os.neuron.id()` → tx_context::sender |
-| `ext.sui.coin.split()` + `ext.sui.transfer.public_send()` | `std.os.signal.send(from, to, amt)` → split + public_transfer |
-| `ext.sui.tx.epoch_timestamp_ms()` | `std.os.time.now()` → epoch_timestamp_ms |
+| `sui.ext.dynamic_field.borrow(id, key)` | `os.state.read(key)` → dynamic_field.borrow |
+| `sui.ext.tx.sender()` | `os.neuron.id()` → tx_context::sender |
+| `sui.ext.coin.split()` + `sui.ext.transfer.public_send()` | `os.signal.send(from, to, amt)` → split + public_transfer |
+| `sui.ext.tx.epoch_timestamp_ms()` | `os.time.now()` → epoch_timestamp_ms |
 
-Use `ext.sui.*` when you need: object ownership (owned/shared/frozen),
+Use `sui.ext.*` when you need: object ownership (owned/shared/frozen),
 dynamic fields, capability pattern, or other Sui-specific features. See
-[stdlib.md](../stdlib.md) for the full `std.os.*` API.
+[stdlib.md](../stdlib.md) for the full `os.*` API.
 
 ---
 
@@ -210,31 +210,31 @@ dynamic fields, capability pattern, or other Sui-specific features. See
 
 | Move/Sui concept | Trident equivalent |
 |---|---|
-| `module my_package::my_token` | `program my_token` with `use ext.sui.*` |
+| `module my_package::my_token` | `program my_token` with `use sui.ext.*` |
 | `fun init(ctx: &mut TxContext)` | `fn init()` |
 | `public entry fun transfer(...)` | `pub fn transfer(...)` |
 | `public fun balance(coin): u64` | `pub fn balance(coin: Field) -> Field` |
-| `tx_context::sender(ctx)` | `ext.sui.tx.sender()` |
-| `tx_context::epoch(ctx)` | `ext.sui.tx.epoch()` |
-| `object::new(ctx)` | `ext.sui.object.new()` |
-| `object::delete(id)` | `ext.sui.object.delete(id)` |
-| `transfer::transfer(obj, recipient)` | `ext.sui.transfer.send(obj, recipient)` |
-| `transfer::public_transfer(obj, recipient)` | `ext.sui.transfer.public_send(obj, recipient)` |
-| `transfer::share_object(obj)` | `ext.sui.transfer.share(obj)` |
-| `transfer::freeze_object(obj)` | `ext.sui.transfer.freeze(obj)` |
-| `dynamic_field::add(parent, key, val)` | `ext.sui.dynamic_field.add(parent, key, val)` |
-| `dynamic_field::borrow(parent, key)` | `ext.sui.dynamic_field.borrow(parent, key)` |
-| `dynamic_field::remove(parent, key)` | `ext.sui.dynamic_field.remove(parent, key)` |
-| `coin::value(coin)` | `ext.sui.coin.value(coin)` |
-| `coin::split(coin, amount, ctx)` | `ext.sui.coin.split(coin, amount)` |
-| `coin::join(target, source)` | `ext.sui.coin.merge(target, source)` |
-| `coin::zero(ctx)` | `ext.sui.coin.zero()` |
+| `tx_context::sender(ctx)` | `sui.ext.tx.sender()` |
+| `tx_context::epoch(ctx)` | `sui.ext.tx.epoch()` |
+| `object::new(ctx)` | `sui.ext.object.new()` |
+| `object::delete(id)` | `sui.ext.object.delete(id)` |
+| `transfer::transfer(obj, recipient)` | `sui.ext.transfer.send(obj, recipient)` |
+| `transfer::public_transfer(obj, recipient)` | `sui.ext.transfer.public_send(obj, recipient)` |
+| `transfer::share_object(obj)` | `sui.ext.transfer.share(obj)` |
+| `transfer::freeze_object(obj)` | `sui.ext.transfer.freeze(obj)` |
+| `dynamic_field::add(parent, key, val)` | `sui.ext.dynamic_field.add(parent, key, val)` |
+| `dynamic_field::borrow(parent, key)` | `sui.ext.dynamic_field.borrow(parent, key)` |
+| `dynamic_field::remove(parent, key)` | `sui.ext.dynamic_field.remove(parent, key)` |
+| `coin::value(coin)` | `sui.ext.coin.value(coin)` |
+| `coin::split(coin, amount, ctx)` | `sui.ext.coin.split(coin, amount)` |
+| `coin::join(target, source)` | `sui.ext.coin.merge(target, source)` |
+| `coin::zero(ctx)` | `sui.ext.coin.zero()` |
 | `event::emit(MyEvent { ... })` | `reveal MyEvent { ... }` |
 | `assert!(condition, ERROR_CODE)` | `assert(condition)` |
 
 ---
 
-## `ext.sui.*` API Reference
+## `sui.ext.*` API Reference
 
 | Module | Function | Signature | Description |
 |--------|----------|-----------|-------------|

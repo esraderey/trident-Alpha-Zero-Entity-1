@@ -9,13 +9,13 @@
 | Parameter | Value |
 |---|---|
 | VM | ARM64 (default), x86-64 |
-| Runtime binding | `ext.android.*` |
+| Runtime binding | `android.ext.*` |
 | Process model | Multi-process, sandboxed |
 | Storage model | Filesystem (app-scoped) |
 | Cost model | Wall-clock time, battery |
 | Interop | Android NDK, JNI |
 
-## Runtime Binding (`ext.android.*`)
+## Runtime Binding (`android.ext.*`)
 
 - **Filesystem** — app-scoped file I/O (planned)
 - **Network** — socket, HTTP (planned)
@@ -26,7 +26,7 @@
 
 Android targets mobile ARM64 devices (and x86-64 emulators). The compiler
 produces shared libraries (.so) loadable via Android NDK. Runtime bindings
-expose Android-specific APIs through the `ext.android.*` module.
+expose Android-specific APIs through the `android.ext.*` module.
 
 Uses the Linux kernel underneath but with a different userspace (Bionic
 libc, app sandbox, permissions model).

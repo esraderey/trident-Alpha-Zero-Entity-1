@@ -8,7 +8,7 @@ program proof_relay
 //
 // This is the building block for cross-chain proof relay:
 // a proof generated on chain A can be verified on chain B.
-use ext.neptune.proof
+use neptune.ext.proof
 
 fn main() {
     proof.verify_inner_proof(4)

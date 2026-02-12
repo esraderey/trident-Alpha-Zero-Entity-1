@@ -9,13 +9,13 @@
 | Parameter | Value |
 |---|---|
 | VM | AVM |
-| Runtime binding | `ext.aleo.*` |
+| Runtime binding | `aleo.ext.*` |
 | Account model | Record (UTXO-like private state) |
 | Storage model | On-chain mapping (public) |
 | Cost model | Constraints (off-chain) / microcredits (on-chain) |
 | Cross-chain | -- |
 
-## Runtime Binding (`ext.aleo.*`)
+## Runtime Binding (`aleo.ext.*`)
 
 - **Record management** — private UTXO state creation and consumption
 - **On-chain mapping storage** — public key-value storage via mappings

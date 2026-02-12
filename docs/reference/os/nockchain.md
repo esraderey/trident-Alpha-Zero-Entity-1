@@ -9,13 +9,13 @@
 | Parameter | Value |
 |---|---|
 | VM | Nock |
-| Runtime binding | `ext.nockchain.*` |
+| Runtime binding | `nockchain.ext.*` |
 | Account model | UTXO (Notes) |
 | Storage model | Merkle-authenticated |
 | Cost model | Proof-based (nock reductions) |
 | Cross-chain | -- |
 
-## Runtime Binding (`ext.nockchain.*`)
+## Runtime Binding (`nockchain.ext.*`)
 
 - **Note management** — create and consume UTXO notes
 - **Kernel operations** — interaction with the Nockchain kernel

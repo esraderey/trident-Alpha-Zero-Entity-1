@@ -4,7 +4,7 @@
 
 Solana is the high-performance blockchain powered by SBPF (Solana Berkeley
 Packet Filter). Trident compiles to SBPF bytecode (`.so`) and links against
-`ext.solana.*` for Solana-specific runtime bindings. Programs are stateless -- all state
+`solana.ext.*` for Solana-specific runtime bindings. Programs are stateless -- all state
 lives in accounts passed into each transaction.
 
 ---
@@ -14,7 +14,7 @@ lives in accounts passed into each transaction.
 | Parameter | Value |
 |---|---|
 | VM | SBPF |
-| Runtime binding | `ext.solana.*` |
+| Runtime binding | `solana.ext.*` |
 | Account model | Stateless programs (state in passed accounts) |
 | Storage model | Account-based |
 | Transaction model | Signed (Ed25519) |
@@ -34,8 +34,8 @@ send. The program receives accounts by index.
 ```
 program my_token
 
-use ext.solana.account
-use ext.solana.log
+use solana.ext.account
+use solana.ext.log
 
 // Single entry point -- dispatch on instruction data
 fn main() {
@@ -60,20 +60,20 @@ Programs are **stateless** -- they own no storage. All state lives in
 account is a byte buffer with an owner, lamport balance, and data.
 
 ```
-use ext.solana.account
+use solana.ext.account
 
 // Accounts are accessed by index (order in the transaction)
-let owner: Field = ext.solana.account.owner(0)        // account 0's owner program
-let lamports: Field = ext.solana.account.lamports(0)   // account 0's balance
-let data: Field = ext.solana.account.data(0, offset)   // read from account 0's data
+let owner: Field = solana.ext.account.owner(0)        // account 0's owner program
+let lamports: Field = solana.ext.account.lamports(0)   // account 0's balance
+let data: Field = solana.ext.account.data(0, offset)   // read from account 0's data
 
 // Write to account data (program must own the account)
-ext.solana.account.write_data(0, offset, value)
+solana.ext.account.write_data(0, offset, value)
 
 // Account properties
-let key: Digest = ext.solana.account.key(0)            // account 0's public key
-let is_writable: Bool = ext.solana.account.is_writable(0)
-let is_signer: Bool = ext.solana.account.is_signer(0)
+let key: Digest = solana.ext.account.key(0)            // account 0's public key
+let is_writable: Bool = solana.ext.account.is_writable(0)
+let is_signer: Bool = solana.ext.account.is_signer(0)
 ```
 
 The account model is fundamentally different from Ethereum:
@@ -86,13 +86,13 @@ Signers are accounts that signed the transaction. The runtime verifies
 Ed25519 signatures before the program runs.
 
 ```
-use ext.solana.account
+use solana.ext.account
 
 // Check if an account signed the transaction
-assert(ext.solana.account.is_signer(0))
+assert(solana.ext.account.is_signer(0))
 
 // The signer's public key is their identity
-let authority: Digest = ext.solana.account.key(0)
+let authority: Digest = solana.ext.account.key(0)
 ```
 
 **Program Derived Addresses (PDAs)** are deterministic addresses derived
@@ -100,20 +100,20 @@ from a program ID and seeds. They allow programs to "sign" for accounts
 they control.
 
 ```
-use ext.solana.pda
+use solana.ext.pda
 
 // Find a PDA for this program
-let (pda, bump): (Digest, Field) = ext.solana.pda.find(
+let (pda, bump): (Digest, Field) = solana.ext.pda.find(
     program_id,
     [seed1, seed2]     // seeds array
 )
 
 // Verify an account matches a PDA
-let expected: Digest = ext.solana.pda.create_address(
+let expected: Digest = solana.ext.pda.create_address(
     program_id,
     [seed1, seed2, bump_seed]
 )
-assert_digest(ext.solana.account.key(2), expected)
+assert_digest(solana.ext.account.key(2), expected)
 ```
 
 ### Value Transfer
@@ -121,11 +121,11 @@ assert_digest(ext.solana.account.key(2), expected)
 SOL transfers move lamports between accounts:
 
 ```
-use ext.solana.transfer
+use solana.ext.transfer
 
 // Transfer lamports from account 0 to account 1
 // Account 0 must be a signer
-ext.solana.transfer.lamports(0, 1, amount)
+solana.ext.transfer.lamports(0, 1, amount)
 ```
 
 SPL token transfers use CPI to the Token Program (see below).
@@ -135,17 +135,17 @@ SPL token transfers use CPI to the Token Program (see below).
 **Cross-Program Invocation (CPI)** lets programs call other programs:
 
 ```
-use ext.solana.cpi
+use solana.ext.cpi
 
 // Invoke another program
-ext.solana.cpi.invoke(
+solana.ext.cpi.invoke(
     program_id,        // target program
     accounts,          // account metas (index, is_signer, is_writable)
     instruction_data   // raw instruction bytes
 )
 
 // Invoke with PDA signer (program signs for its PDA)
-ext.solana.cpi.invoke_signed(
+solana.ext.cpi.invoke_signed(
     program_id,
     accounts,
     instruction_data,
@@ -173,32 +173,32 @@ reveal Transfer { from: sender, to: receiver, amount: value }
 `seal` emits only the commitment hash as log data.
 
 ```
-use ext.solana.log
+use solana.ext.log
 
 // Raw log message
-ext.solana.log.msg("transfer complete")
+solana.ext.log.msg("transfer complete")
 
 // Raw structured data
-ext.solana.log.data(bytes)
+solana.ext.log.data(bytes)
 ```
 
 ---
 
-## Portable Alternative (`std.os.*`)
+## Portable Alternative (`os.*`)
 
-Programs that don't need Solana-specific features can use `std.os.*`
-instead of `ext.solana.*` for cross-chain portability:
+Programs that don't need Solana-specific features can use `os.*`
+instead of `solana.ext.*` for cross-chain portability:
 
-| `ext.solana.*` (this OS only) | `std.os.*` (any OS) |
+| `solana.ext.*` (this OS only) | `os.*` (any OS) |
 |-------------------------------|---------------------|
-| `ext.solana.account.data(idx, off)` | `std.os.state.read(key)` → account data read |
-| `ext.solana.account.key(0)` + `is_signer` | `std.os.neuron.id()` → first signer key |
-| `ext.solana.transfer.lamports(from, to, amt)` | `std.os.signal.send(from, to, amt)` → system transfer |
-| `ext.solana.clock.unix_timestamp()` | `std.os.time.now()` → Clock sysvar |
+| `solana.ext.account.data(idx, off)` | `os.state.read(key)` → account data read |
+| `solana.ext.account.key(0)` + `is_signer` | `os.neuron.id()` → first signer key |
+| `solana.ext.transfer.lamports(from, to, amt)` | `os.signal.send(from, to, amt)` → system transfer |
+| `solana.ext.clock.unix_timestamp()` | `os.time.now()` → Clock sysvar |
 
-Use `ext.solana.*` when you need: PDAs, CPI, specific account indices,
+Use `solana.ext.*` when you need: PDAs, CPI, specific account indices,
 rent exemption checks, or other Solana-specific features. See
-[stdlib.md](../stdlib.md) for the full `std.os.*` API.
+[stdlib.md](../stdlib.md) for the full `os.*` API.
 
 ---
 
@@ -207,29 +207,29 @@ rent exemption checks, or other Solana-specific features. See
 | Solana/Anchor concept | Trident equivalent |
 |---|---|
 | `declare_id!("...")` | Program identified by compiled bytecode hash |
-| `#[program] mod my_program` | `program my_token` with `use ext.solana.*` |
+| `#[program] mod my_program` | `program my_token` with `use solana.ext.*` |
 | `pub fn initialize(ctx: Context<Init>)` | `fn initialize()` with account index access |
-| `ctx.accounts.authority` | `ext.solana.account.key(N)` (account by index) |
-| `#[account] struct MyAccount` | Account data at `ext.solana.account.data(N, offset)` |
-| `Account<'info, Mint>` | `ext.solana.account.data(N, offset)` (manual deserialization) |
-| `Signer<'info>` | `assert(ext.solana.account.is_signer(N))` |
-| `has_one = authority` | `assert(ext.solana.account.key(N) == expected)` |
-| `#[account(mut)]` | `assert(ext.solana.account.is_writable(N))` |
-| `system_program::transfer` | `ext.solana.transfer.lamports(from, to, amount)` |
-| `CpiContext::new(...)` + `invoke` | `ext.solana.cpi.invoke(program, accounts, data)` |
-| `invoke_signed` | `ext.solana.cpi.invoke_signed(program, accounts, data, seeds)` |
-| `Pubkey::find_program_address(seeds)` | `ext.solana.pda.find(program_id, seeds)` |
-| `msg!("log message")` | `ext.solana.log.msg("log message")` |
+| `ctx.accounts.authority` | `solana.ext.account.key(N)` (account by index) |
+| `#[account] struct MyAccount` | Account data at `solana.ext.account.data(N, offset)` |
+| `Account<'info, Mint>` | `solana.ext.account.data(N, offset)` (manual deserialization) |
+| `Signer<'info>` | `assert(solana.ext.account.is_signer(N))` |
+| `has_one = authority` | `assert(solana.ext.account.key(N) == expected)` |
+| `#[account(mut)]` | `assert(solana.ext.account.is_writable(N))` |
+| `system_program::transfer` | `solana.ext.transfer.lamports(from, to, amount)` |
+| `CpiContext::new(...)` + `invoke` | `solana.ext.cpi.invoke(program, accounts, data)` |
+| `invoke_signed` | `solana.ext.cpi.invoke_signed(program, accounts, data, seeds)` |
+| `Pubkey::find_program_address(seeds)` | `solana.ext.pda.find(program_id, seeds)` |
+| `msg!("log message")` | `solana.ext.log.msg("log message")` |
 | `emit!(MyEvent { ... })` | `reveal MyEvent { ... }` |
-| `Clock::get()?.unix_timestamp` | `ext.solana.clock.unix_timestamp()` |
-| `Clock::get()?.slot` | `ext.solana.clock.slot()` |
-| `Clock::get()?.epoch` | `ext.solana.clock.epoch()` |
-| `Rent::get()?.minimum_balance(size)` | `ext.solana.rent.minimum_balance(size)` |
+| `Clock::get()?.unix_timestamp` | `solana.ext.clock.unix_timestamp()` |
+| `Clock::get()?.slot` | `solana.ext.clock.slot()` |
+| `Clock::get()?.epoch` | `solana.ext.clock.epoch()` |
+| `Rent::get()?.minimum_balance(size)` | `solana.ext.rent.minimum_balance(size)` |
 | `require!(condition, ErrorCode)` | `assert(condition)` |
 
 ---
 
-## `ext.solana.*` API Reference
+## `solana.ext.*` API Reference
 
 | Module | Function | Signature | Description |
 |--------|----------|-----------|-------------|

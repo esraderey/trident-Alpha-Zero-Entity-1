@@ -7,7 +7,7 @@ display_name = "Linux"
 vm = "x86-64"       # default; also arm64, riscv
 
 [runtime]
-binding_prefix = "ext.linux"
+binding_prefix = "linux.ext"
 account_model = "process"
 storage_model = "filesystem"
 transaction_model = "syscall"

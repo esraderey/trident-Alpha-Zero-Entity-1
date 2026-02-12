@@ -9,13 +9,13 @@
 | Parameter | Value |
 |---|---|
 | VM | RISCZERO |
-| Runtime binding | `ext.boundless.*` |
+| Runtime binding | `boundless.ext.*` |
 | Account model | Journal I/O |
 | Storage model | No persistent storage |
 | Cost model | Cycles (segments) |
 | Cross-chain | Ethereum verification via Groth16 |
 
-## Runtime Binding (`ext.boundless.*`)
+## Runtime Binding (`boundless.ext.*`)
 
 - **Journal I/O** — public inputs and outputs for proof verification
 - **Guest-host communication** — data exchange between guest program and host

@@ -1,4 +1,4 @@
-module ext.neptune.xfield
+module neptune.ext.xfield
 
 // Construct extension field element from 3 base field elements
 #[intrinsic(xfield)]

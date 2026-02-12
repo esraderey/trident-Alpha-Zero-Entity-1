@@ -7,7 +7,7 @@ display_name = "Android"
 vm = "arm64"         # default; also x86-64
 
 [runtime]
-binding_prefix = "ext.android"
+binding_prefix = "android.ext"
 account_model = "process"
 storage_model = "filesystem"
 transaction_model = "syscall"

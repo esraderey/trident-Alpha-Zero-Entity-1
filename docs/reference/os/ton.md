@@ -9,13 +9,13 @@
 | Parameter | Value |
 |---|---|
 | VM | TVM |
-| Runtime binding | `ext.ton.*` |
+| Runtime binding | `ton.ext.*` |
 | Account model | Account (cell-based state) |
 | Storage model | Cell-based |
 | Cost model | Gas (per-opcode + cell creation/storage) |
 | Cross-chain | -- |
 
-## Runtime Binding (`ext.ton.*`)
+## Runtime Binding (`ton.ext.*`)
 
 - **Cell operations** — construct, parse, and manipulate cells (the fundamental data unit)
 - **Message sending** — internal and external message dispatch between contracts

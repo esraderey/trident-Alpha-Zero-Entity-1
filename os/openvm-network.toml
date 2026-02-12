@@ -7,7 +7,7 @@ display_name = "OpenVM Network"
 vm = "openvm"
 
 [runtime]
-binding_prefix = "ext.openvm-network"
+binding_prefix = "openvm-network.ext"
 account_model = "journal"
 storage_model = "none"
 transaction_model = "proof-based"

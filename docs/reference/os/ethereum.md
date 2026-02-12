@@ -3,7 +3,7 @@
 [← Target Reference](../targets.md) | VM: [EVM](../vm/evm.md)
 
 Ethereum is the canonical EVM chain -- L1 settlement layer. Trident compiles
-to EVM bytecode (`.evm`) and links against `ext.ethereum.*` for Ethereum-
+to EVM bytecode (`.evm`) and links against `ethereum.ext.*` for Ethereum-
 specific runtime bindings. Same bytecode runs on all EVM-compatible chains
 with different `ext.*` bindings.
 
@@ -14,7 +14,7 @@ with different `ext.*` bindings.
 | Parameter | Value |
 |---|---|
 | VM | EVM |
-| Runtime binding | `ext.ethereum.*` |
+| Runtime binding | `ethereum.ext.*` |
 | Account model | Account |
 | Storage model | Key-value (SLOAD/SSTORE) |
 | Transaction model | Signed (ECDSA) |
@@ -37,26 +37,26 @@ functions. A contract has:
 ```
 program my_token
 
-use ext.ethereum.storage
-use ext.ethereum.account
+use ethereum.ext.storage
+use ethereum.ext.account
 
 // Constructor: called once at deployment
 #[constructor]
 fn init(supply: Field) {
-    let deployer: Field = ext.ethereum.account.caller()
-    ext.ethereum.storage.write(0, supply)           // slot 0 = total supply
-    ext.ethereum.storage.write_map(1, deployer, supply)  // slot 1 = balances mapping
+    let deployer: Field = ethereum.ext.account.caller()
+    ethereum.ext.storage.write(0, supply)           // slot 0 = total supply
+    ethereum.ext.storage.write_map(1, deployer, supply)  // slot 1 = balances mapping
 }
 
 // External function: transfer tokens
 pub fn transfer(to: Field, amount: Field) {
-    let sender: Field = ext.ethereum.account.caller()
-    let sender_bal: Field = ext.ethereum.storage.read_map(1, sender)
-    let to_bal: Field = ext.ethereum.storage.read_map(1, to)
+    let sender: Field = ethereum.ext.account.caller()
+    let sender_bal: Field = ethereum.ext.storage.read_map(1, sender)
+    let to_bal: Field = ethereum.ext.storage.read_map(1, to)
 
     assert(sender_bal >= amount)
-    ext.ethereum.storage.write_map(1, sender, sub(sender_bal, amount))
-    ext.ethereum.storage.write_map(1, to, to_bal + amount)
+    ethereum.ext.storage.write_map(1, sender, sub(sender_bal, amount))
+    ethereum.ext.storage.write_map(1, to, to_bal + amount)
 
     reveal Transfer { from: sender, to: to, amount: amount }
 }
@@ -64,7 +64,7 @@ pub fn transfer(to: Field, amount: Field) {
 // View function: read balance
 #[view]
 pub fn balance_of(owner: Field) -> Field {
-    ext.ethereum.storage.read_map(1, owner)
+    ethereum.ext.storage.read_map(1, owner)
 }
 ```
 
@@ -74,19 +74,19 @@ Ethereum contracts have persistent key-value storage. Each contract has
 2^256 storage slots, accessed by SLOAD/SSTORE.
 
 ```
-use ext.ethereum.storage
+use ethereum.ext.storage
 
 // Direct slot access
-let value: Field = ext.ethereum.storage.read(slot)
-ext.ethereum.storage.write(slot, value)
+let value: Field = ethereum.ext.storage.read(slot)
+ethereum.ext.storage.write(slot, value)
 
 // Mapping access (Solidity-style: keccak256(key . slot))
-let bal: Field = ext.ethereum.storage.read_map(slot, key)
-ext.ethereum.storage.write_map(slot, key, value)
+let bal: Field = ethereum.ext.storage.read_map(slot, key)
+ethereum.ext.storage.write_map(slot, key, value)
 
 // Nested mapping (keccak256(key2 . keccak256(key1 . slot)))
-let allowance: Field = ext.ethereum.storage.read_map2(slot, owner, spender)
-ext.ethereum.storage.write_map2(slot, owner, spender, value)
+let allowance: Field = ethereum.ext.storage.read_map2(slot, owner, spender)
+ethereum.ext.storage.write_map2(slot, owner, spender, value)
 ```
 
 Storage layout follows Solidity conventions: slot 0 is the first declared
@@ -99,11 +99,11 @@ Ethereum provides protocol-level identity via transaction signatures.
 The EVM injects the caller's address before the program runs.
 
 ```
-use ext.ethereum.account
+use ethereum.ext.account
 
-let caller: Field = ext.ethereum.account.caller()      // msg.sender
-let origin: Field = ext.ethereum.account.origin()       // tx.origin
-let self_addr: Field = ext.ethereum.account.self_address()  // address(this)
+let caller: Field = ethereum.ext.account.caller()      // msg.sender
+let origin: Field = ethereum.ext.account.origin()       // tx.origin
+let self_addr: Field = ethereum.ext.account.self_address()  // address(this)
 
 // Ownership check
 assert(caller == owner)
@@ -118,11 +118,11 @@ external call to re-enter the current contract mid-execution.
 ETH transfers use the native transfer mechanism:
 
 ```
-use ext.ethereum.transfer
-use ext.ethereum.account
+use ethereum.ext.transfer
+use ethereum.ext.account
 
-let my_balance: Field = ext.ethereum.account.balance(self_addr)
-ext.ethereum.transfer.send(recipient, amount)
+let my_balance: Field = ethereum.ext.account.balance(self_addr)
+ethereum.ext.transfer.send(recipient, amount)
 ```
 
 ERC-20 token operations are implemented as contract calls (see
@@ -133,25 +133,25 @@ Cross-Contract Interaction below).
 The EVM supports several call types:
 
 ```
-use ext.ethereum.call
+use ethereum.ext.call
 
 // Regular call (can transfer ETH + call function)
-let result: [Field; N] = ext.ethereum.call.call(
+let result: [Field; N] = ethereum.ext.call.call(
     target_address, value, calldata
 )
 
 // Static call (read-only, reverts on state change)
-let result: [Field; N] = ext.ethereum.call.static_call(
+let result: [Field; N] = ethereum.ext.call.static_call(
     target_address, calldata
 )
 
 // Delegate call (runs target code in caller's storage context)
-let result: [Field; N] = ext.ethereum.call.delegate_call(
+let result: [Field; N] = ethereum.ext.call.delegate_call(
     target_address, calldata
 )
 
 // Return data from last call
-let data: [Field; N] = ext.ethereum.call.return_data()
+let data: [Field; N] = ethereum.ext.call.return_data()
 ```
 
 ### Events
@@ -171,21 +171,21 @@ the compiler emits only the commitment hash as a LOG topic.
 
 ---
 
-## Portable Alternative (`std.os.*`)
+## Portable Alternative (`os.*`)
 
-Programs that don't need Ethereum-specific features can use `std.os.*`
-instead of `ext.ethereum.*` for cross-chain portability:
+Programs that don't need Ethereum-specific features can use `os.*`
+instead of `ethereum.ext.*` for cross-chain portability:
 
-| `ext.ethereum.*` (this OS only) | `std.os.*` (any OS) |
+| `ethereum.ext.*` (this OS only) | `os.*` (any OS) |
 |---------------------------------|---------------------|
-| `ext.ethereum.storage.read(slot)` | `std.os.state.read(key)` → SLOAD |
-| `ext.ethereum.account.caller()` | `std.os.neuron.id()` → msg.sender (padded to Digest) |
-| `ext.ethereum.transfer.send(to, amt)` | `std.os.signal.send(from, to, amt)` → CALL with value (self) / transferFrom (delegated) |
-| `ext.ethereum.block.timestamp()` | `std.os.time.now()` → block.timestamp |
+| `ethereum.ext.storage.read(slot)` | `os.state.read(key)` → SLOAD |
+| `ethereum.ext.account.caller()` | `os.neuron.id()` → msg.sender (padded to Digest) |
+| `ethereum.ext.transfer.send(to, amt)` | `os.signal.send(from, to, amt)` → CALL with value (self) / transferFrom (delegated) |
+| `ethereum.ext.block.timestamp()` | `os.time.now()` → block.timestamp |
 
-Use `ext.ethereum.*` when you need: precompiles, delegatecall, specific
+Use `ethereum.ext.*` when you need: precompiles, delegatecall, specific
 LOG topics, storage maps, or other EVM-specific features. See
-[stdlib.md](../stdlib.md) for the full `std.os.*` API.
+[stdlib.md](../stdlib.md) for the full `os.*` API.
 
 ---
 
@@ -193,37 +193,37 @@ LOG topics, storage maps, or other EVM-specific features. See
 
 | Solidity concept | Trident equivalent |
 |---|---|
-| `contract MyToken { }` | `program my_token` with `use ext.ethereum.*` |
+| `contract MyToken { }` | `program my_token` with `use ethereum.ext.*` |
 | `constructor(uint supply)` | `#[constructor] fn init(supply: Field)` |
 | `function transfer() external` | `pub fn transfer()` |
 | `function balanceOf() view` | `#[view] pub fn balance_of()` |
-| `msg.sender` | `ext.ethereum.account.caller()` |
-| `tx.origin` | `ext.ethereum.account.origin()` |
-| `address(this)` | `ext.ethereum.account.self_address()` |
-| `address(this).balance` | `ext.ethereum.account.balance(self_addr)` |
-| `mapping(address => uint)` | `ext.ethereum.storage.read_map(slot, key)` |
-| `SLOAD(slot)` | `ext.ethereum.storage.read(slot)` |
-| `SSTORE(slot, val)` | `ext.ethereum.storage.write(slot, value)` |
-| `payable.transfer(amount)` | `ext.ethereum.transfer.send(to, amount)` |
-| `target.call(data)` | `ext.ethereum.call.call(target, value, data)` |
-| `target.staticcall(data)` | `ext.ethereum.call.static_call(target, data)` |
-| `target.delegatecall(data)` | `ext.ethereum.call.delegate_call(target, data)` |
+| `msg.sender` | `ethereum.ext.account.caller()` |
+| `tx.origin` | `ethereum.ext.account.origin()` |
+| `address(this)` | `ethereum.ext.account.self_address()` |
+| `address(this).balance` | `ethereum.ext.account.balance(self_addr)` |
+| `mapping(address => uint)` | `ethereum.ext.storage.read_map(slot, key)` |
+| `SLOAD(slot)` | `ethereum.ext.storage.read(slot)` |
+| `SSTORE(slot, val)` | `ethereum.ext.storage.write(slot, value)` |
+| `payable.transfer(amount)` | `ethereum.ext.transfer.send(to, amount)` |
+| `target.call(data)` | `ethereum.ext.call.call(target, value, data)` |
+| `target.staticcall(data)` | `ethereum.ext.call.static_call(target, data)` |
+| `target.delegatecall(data)` | `ethereum.ext.call.delegate_call(target, data)` |
 | `emit Transfer(from, to, amount)` | `reveal Transfer { from, to, amount }` |
-| `block.number` | `ext.ethereum.block.number()` |
-| `block.timestamp` | `ext.ethereum.block.timestamp()` |
-| `block.coinbase` | `ext.ethereum.block.coinbase()` |
-| `block.basefee` | `ext.ethereum.block.base_fee()` |
-| `block.chainid` | `ext.ethereum.block.chain_id()` |
-| `tx.gasprice` | `ext.ethereum.tx.gas_price()` |
-| `gasleft()` | `ext.ethereum.tx.gas_remaining()` |
+| `block.number` | `ethereum.ext.block.number()` |
+| `block.timestamp` | `ethereum.ext.block.timestamp()` |
+| `block.coinbase` | `ethereum.ext.block.coinbase()` |
+| `block.basefee` | `ethereum.ext.block.base_fee()` |
+| `block.chainid` | `ethereum.ext.block.chain_id()` |
+| `tx.gasprice` | `ethereum.ext.tx.gas_price()` |
+| `gasleft()` | `ethereum.ext.tx.gas_remaining()` |
 | `require(cond, "msg")` | `assert(cond)` (no error messages -- revert or succeed) |
 | `revert("msg")` | `assert(false)` |
-| `ecrecover(hash, v, r, s)` | `ext.ethereum.precompile.ecrecover(hash, v, r, s)` |
+| `ecrecover(hash, v, r, s)` | `ethereum.ext.precompile.ecrecover(hash, v, r, s)` |
 | `keccak256(data)` | `hash(...)` (uses VM-native hash on Triton; Keccak on EVM) |
 
 ---
 
-## `ext.ethereum.*` API Reference
+## `ethereum.ext.*` API Reference
 
 | Module | Function | Signature | Description |
 |--------|----------|-----------|-------------|

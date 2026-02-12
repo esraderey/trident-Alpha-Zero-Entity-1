@@ -9,13 +9,13 @@
 | Parameter | Value |
 |---|---|
 | VM | WASM (Stylus) + EVM (coexisting) |
-| Runtime binding | `ext.arbitrum.*` |
+| Runtime binding | `arbitrum.ext.*` |
 | Account model | Account (EVM-compatible) |
 | Storage model | EVM storage (SLOAD/SSTORE) |
 | Cost model | Gas (EVM-compatible units, lower cost per WASM op) |
 | Cross-chain | Ethereum L2 (rollup) |
 
-## Runtime Binding (`ext.arbitrum.*`)
+## Runtime Binding (`arbitrum.ext.*`)
 
 - **EVM storage** — SLOAD/SSTORE (shared with EVM contracts)
 - **Contract calls** — WASM ↔ EVM cross-calls, Solidity ABI compatible

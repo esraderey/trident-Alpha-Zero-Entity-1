@@ -130,11 +130,11 @@ error: builtin 'xfield' is not available on target 'miden'
 ### Cross-target import **(planned)**
 
 ```
-error: cannot import 'ext.neptune.xfield' when compiling for target 'miden'
-  help: ext.<os>.* modules bind to a specific OS
+error: cannot import 'neptune.ext.xfield' when compiling for target 'miden'
+  help: <os>.ext.* modules bind to a specific OS
 ```
 
-Importing `ext.<os>.*` binds the program to that OS. Compiling for a
+Importing `<os>.ext.*` binds the program to that OS. Compiling for a
 different target is a hard error.
 
 **Spec:** stdlib.md OS Extensions, targets.md (cross-OS imports rejected).

@@ -9,13 +9,13 @@
 | Parameter | Value |
 |---|---|
 | VM | ARM64 (default), x86-64 |
-| Runtime binding | `ext.macos.*` |
+| Runtime binding | `macos.ext.*` |
 | Process model | Multi-process, multi-threaded |
 | Storage model | Filesystem (POSIX + APFS) |
 | Cost model | Wall-clock time |
 | Interop | POSIX syscalls, Mach ports, frameworks |
 
-## Runtime Binding (`ext.macos.*`)
+## Runtime Binding (`macos.ext.*`)
 
 - **Filesystem** — open, read, write, close, stat (planned)
 - **Network** — socket, connect, bind, listen (planned)
@@ -26,10 +26,10 @@
 
 macOS targets Apple Silicon (ARM64) and Intel (x86-64) Macs. The compiler
 produces Mach-O binaries. Runtime bindings expose macOS syscalls through
-the `ext.macos.*` module.
+the `macos.ext.*` module.
 
-Shares the POSIX-compatible API surface with Linux — most `ext.linux.*`
-programs port to `ext.macos.*` with minimal changes.
+Shares the POSIX-compatible API surface with Linux — most `linux.ext.*`
+programs port to `macos.ext.*` with minimal changes.
 
 For VM details, see [arm64.md](../vm/arm64.md) or
 [x86-64.md](../vm/x86-64.md).
