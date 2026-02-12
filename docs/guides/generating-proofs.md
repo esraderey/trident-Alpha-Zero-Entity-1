@@ -95,80 +95,13 @@ Proving time and memory are determined by one number: the **padded height** -- t
 
 ### Measuring Cost with Trident
 
-Trident provides three tools for understanding proving cost before you ever
-generate a proof:
-
-**`--costs`** shows the height of each of the six tables:
-
-```bash
-trident build main.tri --costs
-```
-
-This tells you which table is dominant. If the Hash table is at 1200 rows and
-everything else is under 500, the padded height is 2048 (next power of 2 above
-1200), and your optimization target is the Hash table.
-
-**`--hotspots`** identifies the most expensive functions:
-
-```bash
-trident build main.tri --hotspots
-```
-
-This shows the top 5 functions ranked by cost contribution, so you know where
-to focus.
-
-**`--hints`** suggests specific optimizations:
-
-```bash
-trident build main.tri --hints
-```
-
-The compiler analyzes your code and emits actionable hints (e.g., "batch these
-hash calls," "this loop bound is too loose").
-
-These three commands form a feedback loop: measure, identify, optimize, measure
-again. Use `--save-costs` and `--compare` to track improvements over time.
-
-See [How STARK Proofs Work](../explanation/stark-proofs.md), Section 11, for the exact
-proving cost formula.
+Trident provides `--costs`, `--hotspots`, `--hints`, and `--annotate` flags for understanding proving cost before generating a proof. See [Optimization Guide](optimization.md) for the full workflow.
 
 ---
 
 ## ⚡ 4. Optimizing for Proof Generation
 
-Every optimization in Trident ultimately serves one goal: reducing the padded
-height of the execution trace. The full details are in the
-[Optimization Guide](optimization.md); here is a brief summary of the key
-strategies organized by table:
-
-**Hash Table** -- Often the tallest. Each `tip5` call adds 6 rows regardless
-of how many inputs you use. Batch multiple values into a single call (up to 10
-field elements). For more than 10 elements, use the sponge API
-(`sponge_init` / `sponge_absorb` / `sponge_squeeze`) to stream data without
-repeated hash invocations. Reduce Merkle tree depth where possible -- each
-level costs 6 rows.
-
-**Processor Table** -- Grows with every instruction executed. Loops are the
-primary driver. Move invariant computations outside loop bodies, use the
-tightest possible `bounded` values, and minimize iteration counts.
-
-**U32 Table** -- Grows with range checks and bitwise operations. Use `Field`
-arithmetic instead of `U32` when range checks are not required. Minimize
-`as_u32` conversions.
-
-**Op Stack Table** -- Grows with deep stack access. Keep hot variables shallow,
-minimize struct sizes, and keep live variable counts under 16 field elements to
-avoid spilling to RAM.
-
-**RAM Table** -- Grows with memory read/write operations. Prefer stack-based
-access when feasible. Use `sponge_absorb_mem` to hash data directly from RAM
-without reading each element onto the stack first.
-
-**Jump Stack Table** -- Grows with function calls and branches. Inline small
-functions called in tight loops. Reduce branching inside loops.
-
-The [Optimization Guide](optimization.md) covers each strategy in detail,
-including code examples and cost comparisons.
+Every optimization reduces the padded height. The [Optimization Guide](optimization.md) covers per-table strategies: batch hashing (Hash), tighter bounds (Processor), Field over U32 (U32), shallow stacks (Op Stack), sponge_absorb_mem (RAM), and inlining (Jump Stack).
 
 ---
 

@@ -383,169 +383,9 @@ is no `-` operator).
 
 ## 📝 The Full Program
 
-Here is the complete coin. Three operations dispatched by an opcode, with two
-more (lock and update) described by name but left for you to read in the
-production version.
+The complete program combines the functions above with an entry point that dispatches by opcode:
 
 ```trident
-program coin
-
-// --- Leaf hashing ---
-fn hash_leaf(
-    id: Field,
-    bal: Field,
-    nonce: Field,
-    auth: Field,
-    lock: Field
-) -> Digest {
-    hash(id, bal, nonce, auth, lock, 0, 0, 0, 0, 0)
-}
-
-// --- Authorization: Chapter 1's pattern ---
-fn verify_auth(auth_hash: Field) {
-    let secret: Field = divine()
-    let computed: Digest = hash(secret, 0, 0, 0, 0, 0, 0, 0, 0, 0)
-    let (h0, _, _, _, _) = computed
-    assert_eq(auth_hash, h0)
-}
-
-// --- Events ---
-event Nullifier {
-    account_id: Field,
-    nonce: Field,
-}
-
-event SupplyChange {
-    old_supply: Field,
-    new_supply: Field,
-}
-
-// --- Balance range check ---
-fn assert_non_negative(val: Field) {
-    let checked: U32 = as_u32(val)
-}
-
-// --- Op 0: Pay ---
-fn pay() {
-    let old_root: Digest = pub_read5()
-    let new_root: Digest = pub_read5()
-    let supply: Field = pub_read()
-    let current_time: Field = pub_read()
-    let amount: Field = pub_read()
-
-    let s_id: Field = divine()
-    let s_bal: Field = divine()
-    let s_nonce: Field = divine()
-    let s_auth: Field = divine()
-    let s_lock: Field = divine()
-    let s_leaf: Digest = hash_leaf(s_id, s_bal, s_nonce, s_auth, s_lock)
-    let s_leaf_expected: Digest = divine5()
-    assert_digest(s_leaf, s_leaf_expected)
-
-    verify_auth(s_auth)
-    let time_diff: Field = sub(current_time, s_lock)
-    assert_non_negative(time_diff)
-    let new_s_bal: Field = sub(s_bal, amount)
-    assert_non_negative(new_s_bal)
-
-    let r_id: Field = divine()
-    let r_bal: Field = divine()
-    let r_nonce: Field = divine()
-    let r_auth: Field = divine()
-    let r_lock: Field = divine()
-    let r_leaf: Digest = hash_leaf(r_id, r_bal, r_nonce, r_auth, r_lock)
-    let r_leaf_expected: Digest = divine5()
-    assert_digest(r_leaf, r_leaf_expected)
-
-    let new_s_nonce: Field = s_nonce + 1
-    let new_s_leaf: Digest = hash_leaf(
-        s_id, new_s_bal, new_s_nonce, s_auth, s_lock
-    )
-    let new_r_bal: Field = r_bal + amount
-    let new_r_leaf: Digest = hash_leaf(
-        r_id, new_r_bal, r_nonce, r_auth, r_lock
-    )
-
-    let new_s_expected: Digest = divine5()
-    assert_digest(new_s_leaf, new_s_expected)
-    let new_r_expected: Digest = divine5()
-    assert_digest(new_r_leaf, new_r_expected)
-
-    seal Nullifier { account_id: s_id, nonce: s_nonce }
-    reveal SupplyChange { old_supply: supply, new_supply: supply }
-}
-
-// --- Op 3: Mint ---
-fn mint() {
-    let old_root: Digest = pub_read5()
-    let new_root: Digest = pub_read5()
-    let old_supply: Field = pub_read()
-    let new_supply: Field = pub_read()
-    let amount: Field = pub_read()
-    let mint_auth: Field = pub_read()
-
-    verify_auth(mint_auth)
-    let expected_supply: Field = old_supply + amount
-    assert_eq(new_supply, expected_supply)
-
-    let r_id: Field = divine()
-    let r_bal: Field = divine()
-    let r_nonce: Field = divine()
-    let r_auth: Field = divine()
-    let r_lock: Field = divine()
-    let r_leaf: Digest = hash_leaf(r_id, r_bal, r_nonce, r_auth, r_lock)
-    let r_leaf_expected: Digest = divine5()
-    assert_digest(r_leaf, r_leaf_expected)
-
-    let new_r_bal: Field = r_bal + amount
-    let new_r_leaf: Digest = hash_leaf(
-        r_id, new_r_bal, r_nonce, r_auth, r_lock
-    )
-    let new_r_expected: Digest = divine5()
-    assert_digest(new_r_leaf, new_r_expected)
-
-    reveal SupplyChange { old_supply: old_supply, new_supply: new_supply }
-}
-
-// --- Op 4: Burn ---
-fn burn() {
-    let old_root: Digest = pub_read5()
-    let new_root: Digest = pub_read5()
-    let old_supply: Field = pub_read()
-    let new_supply: Field = pub_read()
-    let current_time: Field = pub_read()
-    let amount: Field = pub_read()
-
-    let a_id: Field = divine()
-    let a_bal: Field = divine()
-    let a_nonce: Field = divine()
-    let a_auth: Field = divine()
-    let a_lock: Field = divine()
-    let a_leaf: Digest = hash_leaf(a_id, a_bal, a_nonce, a_auth, a_lock)
-    let a_leaf_expected: Digest = divine5()
-    assert_digest(a_leaf, a_leaf_expected)
-
-    verify_auth(a_auth)
-    let time_diff: Field = sub(current_time, a_lock)
-    assert_non_negative(time_diff)
-    let new_a_bal: Field = sub(a_bal, amount)
-    assert_non_negative(new_a_bal)
-
-    let expected_supply: Field = sub(old_supply, amount)
-    assert_eq(new_supply, expected_supply)
-
-    let new_a_nonce: Field = a_nonce + 1
-    let new_a_leaf: Digest = hash_leaf(
-        a_id, new_a_bal, new_a_nonce, a_auth, a_lock
-    )
-    let new_a_expected: Digest = divine5()
-    assert_digest(new_a_leaf, new_a_expected)
-
-    seal Nullifier { account_id: a_id, nonce: a_nonce }
-    reveal SupplyChange { old_supply: old_supply, new_supply: new_supply }
-}
-
-// --- Entry point: PLUMB dispatch ---
 fn main() {
     let op: Field = pub_read()
     if op == 0 { pay() }
@@ -554,48 +394,23 @@ fn main() {
 }
 ```
 
-The entry point reads an opcode and dispatches. We kept opcodes 0, 3, and 4 to
-match the production numbering. The two missing operations:
+We kept opcodes 0, 3, and 4 to match the production numbering. The two missing operations:
 
-**Lock (op 1)** -- Time-locks an account's tokens until a future timestamp.
-The owner authorizes, the program checks that the new lock time is at or
-after the old one (locks can only be extended, never shortened), and the
-leaf is updated with the new `lock_until` value.
+**Lock (op 1)** -- Time-locks an account's tokens until a future timestamp. Locks can only be extended, never shortened.
 
-**Update (op 2)** -- Changes the token's configuration (who can mint, who
-can administer). Requires admin authorization. Setting the admin auth to 0
-permanently renounces control -- no secret hashes to 0, so the config
-becomes immutable forever.
+**Update (op 2)** -- Changes the token's configuration. Setting `admin_auth = 0` permanently renounces control -- no secret hashes to 0, so the config becomes immutable forever.
 
 ---
 
 ## ⚡ Build and Test
 
-Compile:
-
 ```bash
 trident build coin.tri --target triton -o coin.tasm
-```
-
-Type-check without emitting assembly:
-
-```bash
-trident check coin.tri
-```
-
-See the proving cost:
-
-```bash
 trident build coin.tri --costs
-```
-
-The pay operation will be the most expensive -- it hashes the most leaves and
-performs the most I/O. Mint and burn are cheaper. The `--hotspots` flag will
-show you exactly where the cost concentrates:
-
-```bash
 trident build coin.tri --hotspots
 ```
+
+The pay operation will be the most expensive -- it hashes the most leaves and performs the most I/O.
 
 ---
 
@@ -606,27 +421,12 @@ trident build coin.tri --hotspots
 is a tree of these leaves, committed to by a single root hash.
 
 **Authorization is Chapter 1.** `verify_auth` divines a secret, hashes it,
-and asserts the hash matches. It is the same four-line pattern from
-`secret.tri`, called inside every operation. If you understood Chapter 1, you
-understand authentication.
-
-**State transitions are old root to new root.** Every operation reads an old
-Merkle root and a new Merkle root as public inputs. The proof demonstrates
-that the transition between them is valid -- the right accounts were debited
-and credited by the right amounts, with the right authorization.
+and asserts the hash matches. The same four-line pattern from `secret.tri`,
+called inside every operation.
 
 **Nullifiers prevent replay.** `seal Nullifier { account_id, nonce }` emits a
 sealed commitment. The verifier tracks these. If a nullifier repeats, the
-transaction is rejected. The nonce increments with every mutation, so each
-proof produces a unique nullifier.
-
-**Range checks enforce non-negativity.** `sub(a, b)` then `as_u32()`. If the
-subtraction wrapped in the prime field, the result is enormous and the U32
-conversion fails. This is how you enforce `balance >= amount` without a `>=`
-operator.
-
-**PLUMB covers every token operation.** Pay, Lock, Update, Mint, Burn. We
-built three of the five. The remaining two follow the same patterns.
+transaction is rejected.
 
 ---
 

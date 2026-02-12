@@ -160,47 +160,16 @@ trident check main.tri
 
 Catches type errors, undefined variables, arity mismatches, and unreachable code without producing a `.tasm` file. This is the fastest feedback loop.
 
-### Cost Analysis
+### Cost and Optimization Analysis
 
 ```bash
-trident build main.tri --costs
+trident build main.tri --costs       # table heights
+trident build main.tri --hotspots    # top cost contributors
+trident build main.tri --annotate    # per-line cost annotations
+trident build main.tri --hints       # optimization suggestions
 ```
 
-Prints a table showing proving cost across all six Triton VM constraint tables. See [Optimization Guide](optimization.md) for the full table model and reduction strategies. The padded height -- the next power of two of the tallest table -- determines actual STARK proving cost.
-
-### Per-Line Annotations
-
-```bash
-trident build main.tri --annotate
-```
-
-Adds cost annotations to every line of the source, showing how many cycles each expression or statement contributes. Useful for identifying which lines are expensive.
-
-### Hotspot Analysis
-
-```bash
-trident build main.tri --hotspots
-```
-
-Ranks functions and expressions by their contribution to the dominant cost table. When you need to reduce proving cost, start here.
-
-### Cost Comparison
-
-```bash
-trident build main.tri --save-costs baseline.json
-# ... make changes ...
-trident build main.tri --compare baseline.json
-```
-
-Saves a cost snapshot and compares against it later. Useful for verifying that optimizations actually reduced cost.
-
-### Optimization Hints
-
-```bash
-trident build main.tri --hints
-```
-
-Suggests specific optimizations based on the program's cost profile. See the [Optimization Guide](optimization.md) for the full set of cost reduction strategies.
+See the [Optimization Guide](optimization.md) for interpretation and strategies.
 
 ### Common Issues
 
@@ -214,54 +183,7 @@ Suggests specific optimizations based on the program's cost profile. See the [Op
 
 ## 📄 Understanding Output
 
-The `.tasm` file produced by `trident build` is human-readable Triton Assembly. Understanding its structure helps when diagnosing issues or verifying that the compiler produced correct code.
-
-### Structure of a .tasm File
-
-A typical compiled output looks like:
-
-```tasm
-call main
-halt
-
-main:
-    read_io 1
-    read_io 1
-    add
-    write_io 1
-    return
-
-helpers_double:
-    dup 0
-    add
-    return
-```
-
-**Entry point.** The file begins with `call main` followed by `halt`. This is the program's top-level control flow.
-
-**Labels.** Each function becomes a label. The naming convention is `modulename_functionname`, so `helpers.double` becomes `helpers_double`. Nested modules use additional underscores.
-
-**Instructions.** Each line is a single TASM instruction. The instruction set is documented in the [Triton VM specification](https://triton-vm.org/spec/). Common ones:
-
-| Instruction | Effect |
-|-------------|--------|
-| `push N` | Push constant onto stack |
-| `dup N` | Duplicate the element at depth N |
-| `swap N` | Swap top with element at depth N |
-| `pop N` | Remove N elements from stack top |
-| `add`, `mul` | Field arithmetic on top two elements |
-| `read_io N` | Read N elements from public input |
-| `write_io N` | Write N elements to public output |
-| `divine N` | Read N elements from secret input |
-| `hash` | Hash top 10 stack elements, produce 5-element digest |
-| `call label` | Call function |
-| `return` | Return from function |
-| `assert` | Pop top element, crash if not 1 |
-| `halt` | End execution |
-
-### Reading the Output
-
-The `.tasm` file is the definitive record of what will execute. If the program's behavior surprises you, reading the assembly is the most direct way to understand what is happening. The mapping from Trident source to TASM is intentionally straightforward -- there is no optimization pass that rearranges code in unexpected ways.
+The `.tasm` file produced by `trident build` is human-readable Triton Assembly. See [Compiling a Program](compiling-a-program.md) for the file structure, label conventions, and instruction reference.
 
 ## 🔗 See Also
 

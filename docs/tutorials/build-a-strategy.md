@@ -316,28 +316,13 @@ because the data the attack requires is never published.
 
 ## ⚡ Build It
 
-Compile the strategy to Triton Assembly:
-
 ```bash
 trident build strategy.tri --target triton -o strategy.tasm
-```
-
-Type-check without emitting assembly:
-
-```bash
-trident check strategy.tri
-```
-
-See the proving cost:
-
-```bash
 trident build strategy.tri --costs
+trident build strategy.tri --hotspots
 ```
 
-The cost is modest. Two hash operations, two assertions, a multiplication,
-an addition, and a subtraction. This is one of the cheapest useful DeFi
-programs you can write -- because the AMM is a constraint, not a computation
-over global state.
+The cost is modest -- two hashes, two assertions, and basic arithmetic. The AMM is a constraint, not a computation over global state.
 
 ---
 
@@ -345,20 +330,10 @@ over global state.
 
 - **TIDE** replaces custodial pools with proof constraints. Swaps are two
   coordinated `pay` operations. No tokens leave user accounts.
-- **Strategy** is a ZK program that enforces a pricing invariant. The maker
-  registers it. The verifier checks it. The strategy program is the AMM.
-- **Constant product** -- `x * y = k` -- proven without revealing `x` or `y`.
-  The reserves are `divine()`. The invariant is `assert_eq()`. Chapter 1's
-  pattern, applied to DeFi.
-- **Privacy** eliminates MEV. Reserves are secret. Bots cannot compute price
-  impact. Front-running and sandwich attacks require data that is never
-  published.
-- **Composition** -- strategy proof + pay proofs = one verified swap. The same
-  composition pattern from Chapters 2 and 3, extended to trading.
+- **Privacy eliminates MEV.** Reserves are `divine()`. Bots cannot compute
+  price impact. Front-running requires data that is never published.
 - **Shared liquidity** -- one balance backs multiple strategies, lending,
   governance, and staking simultaneously. No custody means no exclusivity.
-- **The secret** is your reserve position. `divine`, `hash`, `assert` --
-  Chapter 1 again. The primitive never changes. The context does.
 
 ---
 

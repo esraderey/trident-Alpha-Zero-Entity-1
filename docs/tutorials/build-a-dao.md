@@ -109,7 +109,7 @@ Forty-five lines. A complete private vote.
 
 ---
 
-## 🔍 What the Verifier Sees
+## 🔍 What the Proof Proves
 
 The verifier receives a proof and two public outputs: `yes_weight` and
 `no_weight`. That is all.
@@ -135,47 +135,6 @@ The verifier **does** confirm:
 - The nullifier is correctly derived (no double voting).
 
 One proof. Five guarantees. Zero information about the voter.
-
----
-
-## 🔍 Walking Through the Code
-
-**Public inputs.** Three digests arrive via `pub_read5()`. The proposal
-hash identifies what is being voted on. The coin root is the current state
-of the coin Merkle tree -- the same tree from Chapter 2. The nullifier
-root tracks which voters have already cast ballots.
-
-**Secret inputs.** Five field elements arrive via `divine()`. These are
-the voter's coin leaf: identity, balance, nonce, auth commitment, and
-time-lock. The prover supplies them; the verifier never sees them.
-
-**Leaf reconstruction.** The voter's five fields are hashed into a leaf
-digest. This is the same leaf format from Chapter 2 -- the coin program
-and the vote program share a data structure.
-
-**Merkle verification.** The loop calls `merkle_step` 32 times, walking
-from the leaf to the root. If the final digest matches `coin_root`, the
-leaf genuinely exists in the coin tree. The voter is not fabricating an
-account.
-
-**Auth proof.** The voter divines a secret and hashes it. If the hash
-matches `voter_auth`, the voter controls this account. This is Chapter 1:
-`divine()`, `hash()`, `assert()`. The same three lines.
-
-**Vote direction.** The voter divines 0 or 1. The assertion constrains it
-to exactly those two values -- no other field element is accepted.
-
-**Weight calculation.** `yes_weight` is the balance times the direction.
-`no_weight` is the balance times `(1 - direction)`. Exactly one is
-nonzero. The voter's full balance goes in one direction.
-
-**Nullifier.** A hash of the voter's identity, nonce, and proposal. The
-sealed event commits to these values. If the same voter tries to vote
-again on the same proposal, the nullifier collision is detected. One
-voter, one vote.
-
-**Public output.** Two field elements: the yes weight and the no weight.
-These are the only things that cross the wire.
 
 ---
 

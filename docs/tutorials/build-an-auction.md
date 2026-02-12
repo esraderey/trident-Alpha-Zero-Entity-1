@@ -159,14 +159,9 @@ from changing their bid after seeing the second price.
 the difference. If the bid is at least the second price, this is a
 non-negative value.
 
-**`assert_non_negative(margin)`** -- The range check. `as_u32` will
-fail if `margin` is negative (a large field element, not a valid U32).
-This single line proves the winner condition: my bid is at least as
-high as the second price.
+**`assert_non_negative(margin)`** -- Proves the winner condition: bid >= second price.
 
-**`verify_auth(bidder_auth)`** -- The Chapter 1 pattern. The prover
-demonstrates they know the secret behind the auth hash, proving they
-are the legitimate bidder who made this commitment.
+**`verify_auth(bidder_auth)`** -- Proves the bidder's identity. Both helpers are from Chapter 2.
 
 **`pub_write(second_price)`** -- The output. The winner pays the second
 price, not their actual bid. This is the Vickrey mechanism: the price

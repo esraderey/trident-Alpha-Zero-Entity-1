@@ -165,12 +165,6 @@ Every chapter is this chapter with more context. The primitive does not change.
 - `pub_read5()` loads public data visible to both prover and verifier.
 - `hash()` creates a one-way commitment from field elements. Given the hash,
   nobody can recover the input.
-- `assert_digest()` proves two digests are equal. If the assertion holds, the
-  prover knew the preimage. If it fails, no proof is generated.
-- The verifier confirms the proof without seeing the secret, without re-running
-  the program, and in constant time.
-- This pattern -- divine, hash, assert -- is the foundation of all
-  zero-knowledge programming. Everything that follows builds on it.
 
 ---
 

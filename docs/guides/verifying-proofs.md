@@ -147,23 +147,8 @@ STARK proofs are quantum-safe: security relies on hash collision resistance (Tip
 
 ---
 
-## 🔗 Complete Lifecycle
+## 🔗 See Also
 
-This is the final stage. Here is the complete journey of a Trident program, from source to verified proof:
-
-| Stage | What Happens | Guide |
-|-------|-------------|-------|
-| **1. Writing** | Author a `.tri` program with types, modules, and functions | [Tutorial](../tutorials/tutorial.md) |
-| **2. Compiling** | `trident build` translates `.tri` to TASM assembly | [Compiling a Program](compiling-a-program.md) |
-| **3. Running** | Execute the TASM in Triton VM, producing an execution trace | [Running a Program](running-a-program.md) |
-| **4. Deploying** | Distribute the compiled program for use by provers and verifiers | [Deploying a Program](deploying-a-program.md) |
-| **5. Generating Proofs** | The STARK prover compresses the execution trace into a proof | [Generating Proofs](generating-proofs.md) |
-| **6. Verifying Proofs** | Anyone checks the proof in milliseconds -- this document | *You are here* |
-
-### Deep dives
-
-- [How STARK Proofs Work](../explanation/stark-proofs.md) -- The full proof system: execution traces, arithmetization, FRI, Fiat-Shamir, recursive verification.
-- [Programming Model](../explanation/programming-model.md) -- The Claim/Proof structure, public vs. secret input, and the divine-and-authenticate pattern.
-- [Vision](../explanation/vision.md) -- Why Trident exists: quantum safety, no trusted setup, universal targets, provable programs for everyone.
-- [Language Reference](../reference/language.md) -- Quick lookup for types, instructions, and costs.
-- [Tutorial](../tutorials/tutorial.md) -- Step-by-step walkthrough from hello world to Merkle proofs.
+- [How STARK Proofs Work](../explanation/stark-proofs.md) -- Full proof system details
+- [Programming Model](../explanation/programming-model.md) -- Claim/Proof structure
+- [Language Reference](../reference/language.md) -- Types, instructions, costs

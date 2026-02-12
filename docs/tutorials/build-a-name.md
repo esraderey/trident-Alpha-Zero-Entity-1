@@ -95,22 +95,7 @@ immutable after mint.
 
 ## 🔑 Authorization
 
-Before we build the operations, we need the auth pattern. This is Chapter 1
-in a function:
-
-```trident
-fn verify_auth(auth_hash: Field) {
-    let secret: Field = divine()
-    let computed: Digest = hash(secret, 0, 0, 0, 0, 0, 0, 0, 0, 0)
-    let (h0, _, _, _, _) = computed
-    assert_eq(auth_hash, h0)
-}
-```
-
-The prover supplies a secret. The program hashes it and checks that the first
-element matches `auth_hash`. If it does, the prover owns whatever that
-auth_hash protects. If not, no proof. Same primitive, same three lines, same
-as Chapter 1.
+Authorization uses `verify_auth` from Chapter 2 -- divine a secret, hash it, assert the hash matches.
 
 ---
 
@@ -411,236 +396,16 @@ asset moves as one indivisible unit.
 
 ## 📝 The Full Program
 
-Here is the complete name service. Three operations dispatched by opcode:
-pay (0), update (2), mint (3).
+The complete program combines the functions above with an entry point that dispatches by opcode:
 
 ```trident
-program name
-
-// --- Leaf hashing (10 fields) ---
-fn hash_leaf(
-    asset_id: Field,
-    owner_id: Field,
-    nonce: Field,
-    auth_hash: Field,
-    lock_until: Field,
-    collection_id: Field,
-    metadata_hash: Field,
-    royalty_bps: Field,
-    creator_id: Field,
-    flags: Field
-) -> Digest {
-    hash(
-        asset_id,
-        owner_id,
-        nonce,
-        auth_hash,
-        lock_until,
-        collection_id,
-        metadata_hash,
-        royalty_bps,
-        creator_id,
-        flags
-    )
-}
-
-// --- Authorization: divine, hash, assert (Chapter 1) ---
-fn verify_auth(auth_hash: Field) {
-    let secret: Field = divine()
-    let computed: Digest = hash(secret, 0, 0, 0, 0, 0, 0, 0, 0, 0)
-    let (h0, _, _, _, _) = computed
-    assert_eq(auth_hash, h0)
-}
-
-// --- Events ---
-event NameMint {
-    asset_id: Field,
-    collection_id: Field,
-    metadata_hash: Field,
-}
-
-event NameTransfer {
-    asset_id: Field,
-    from_owner: Field,
-    to_owner: Field,
-}
-
-event ResolverUpdate {
-    asset_id: Field,
-    old_metadata: Field,
-    new_metadata: Field,
-}
-
-event Nullifier {
-    asset_id: Field,
-    nonce: Field,
-}
-
-event SupplyChange {
-    old_count: Field,
-    new_count: Field,
-}
-
-// --- Op 0: PAY -- transfer name ownership ---
-fn pay() {
-    let old_root: Digest = pub_read5()
-    let new_root: Digest = pub_read5()
-    let asset_id: Field = pub_read()
-    let current_time: Field = pub_read()
-    let config: Digest = pub_read5()
-    let cfg_admin: Field = divine()
-    let cfg_pay_auth: Field = divine()
-    let computed_config: Digest = hash(
-        cfg_admin, cfg_pay_auth, 0, 0, 0,
-        0, 0, 0, 0, 0
-    )
-    assert_digest(computed_config, config)
-    let leaf_asset_id: Field = divine()
-    let leaf_owner_id: Field = divine()
-    let leaf_nonce: Field = divine()
-    let leaf_auth_hash: Field = divine()
-    let leaf_lock_until: Field = divine()
-    let leaf_collection_id: Field = divine()
-    let leaf_metadata_hash: Field = divine()
-    let leaf_royalty_bps: Field = divine()
-    let leaf_creator_id: Field = divine()
-    let leaf_flags: Field = divine()
-    let old_leaf: Digest = hash_leaf(
-        leaf_asset_id, leaf_owner_id, leaf_nonce, leaf_auth_hash,
-        leaf_lock_until, leaf_collection_id, leaf_metadata_hash,
-        leaf_royalty_bps, leaf_creator_id, leaf_flags
-    )
-    let old_leaf_expected: Digest = divine5()
-    assert_digest(old_leaf, old_leaf_expected)
-    assert_eq(leaf_asset_id, asset_id)
-    verify_auth(leaf_auth_hash)
-    if cfg_pay_auth == 0 {
-    } else {
-        verify_auth(cfg_pay_auth)
-    }
-    let lock_headroom: Field = sub(current_time, leaf_lock_until)
-    let _: U32 = as_u32(lock_headroom)
-    let new_owner_id: Field = divine()
-    let new_auth_hash: Field = divine()
-    let new_nonce: Field = leaf_nonce + 1
-    let new_leaf: Digest = hash_leaf(
-        leaf_asset_id, new_owner_id, new_nonce, new_auth_hash,
-        leaf_lock_until, leaf_collection_id, leaf_metadata_hash,
-        leaf_royalty_bps, leaf_creator_id, leaf_flags
-    )
-    let new_leaf_expected: Digest = divine5()
-    assert_digest(new_leaf, new_leaf_expected)
-    seal Nullifier { asset_id: leaf_asset_id, nonce: leaf_nonce }
-    reveal NameTransfer {
-        asset_id: leaf_asset_id,
-        from_owner: leaf_owner_id,
-        to_owner: new_owner_id,
-    }
-}
-
-// --- Op 2: UPDATE -- change resolver record ---
-fn update() {
-    let old_root: Digest = pub_read5()
-    let new_root: Digest = pub_read5()
-    let asset_id: Field = pub_read()
-    let new_metadata_hash: Field = pub_read()
-    let config: Digest = pub_read5()
-    let cfg_admin: Field = divine()
-    let computed_config: Digest = hash(
-        cfg_admin, 0, 0, 0, 0,
-        0, 0, 0, 0, 0
-    )
-    assert_digest(computed_config, config)
-    let leaf_asset_id: Field = divine()
-    let leaf_owner_id: Field = divine()
-    let leaf_nonce: Field = divine()
-    let leaf_auth_hash: Field = divine()
-    let leaf_lock_until: Field = divine()
-    let leaf_collection_id: Field = divine()
-    let leaf_metadata_hash: Field = divine()
-    let leaf_royalty_bps: Field = divine()
-    let leaf_creator_id: Field = divine()
-    let leaf_flags: Field = divine()
-    let old_leaf: Digest = hash_leaf(
-        leaf_asset_id, leaf_owner_id, leaf_nonce, leaf_auth_hash,
-        leaf_lock_until, leaf_collection_id, leaf_metadata_hash,
-        leaf_royalty_bps, leaf_creator_id, leaf_flags
-    )
-    let old_leaf_expected: Digest = divine5()
-    assert_digest(old_leaf, old_leaf_expected)
-    assert_eq(leaf_asset_id, asset_id)
-    verify_auth(leaf_auth_hash)
-    let new_nonce: Field = leaf_nonce + 1
-    let new_leaf: Digest = hash_leaf(
-        leaf_asset_id, leaf_owner_id, new_nonce, leaf_auth_hash,
-        leaf_lock_until, leaf_collection_id, new_metadata_hash,
-        leaf_royalty_bps, leaf_creator_id, leaf_flags
-    )
-    let new_leaf_expected: Digest = divine5()
-    assert_digest(new_leaf, new_leaf_expected)
-    reveal ResolverUpdate {
-        asset_id: leaf_asset_id,
-        old_metadata: leaf_metadata_hash,
-        new_metadata: new_metadata_hash,
-    }
-}
-
-// --- Op 3: MINT -- register a new name ---
-fn mint() {
-    let old_root: Digest = pub_read5()
-    let new_root: Digest = pub_read5()
-    let old_count: Field = pub_read()
-    let new_count: Field = pub_read()
-    let asset_id: Field = pub_read()
-    let metadata_hash: Field = pub_read()
-    let collection_id: Field = pub_read()
-    let config: Digest = pub_read5()
-    let cfg_mint_auth: Field = divine()
-    let cfg_other: Field = divine()
-    let computed_config: Digest = hash(
-        cfg_other, 0, 0, cfg_mint_auth, 0,
-        0, 0, 0, 0, 0
-    )
-    assert_digest(computed_config, config)
-    verify_auth(cfg_mint_auth)
-    let expected_count: Field = old_count + 1
-    assert_eq(new_count, expected_count)
-    let owner_id: Field = divine()
-    let auth_hash: Field = divine()
-    let creator_id: Field = divine()
-    let new_leaf: Digest = hash_leaf(
-        asset_id, owner_id, 0, auth_hash, 0,
-        collection_id, metadata_hash, 0, creator_id, 5
-    )
-    let new_leaf_expected: Digest = divine5()
-    assert_digest(new_leaf, new_leaf_expected)
-    reveal NameMint {
-        asset_id: asset_id,
-        collection_id: collection_id,
-        metadata_hash: metadata_hash,
-    }
-    reveal SupplyChange {
-        old_count: old_count,
-        new_count: new_count,
-    }
-}
-
-// --- Entry point ---
 fn main() {
     let op: Field = pub_read()
-    if op == 0 {
-        pay()
-    } else if op == 2 {
-        update()
-    } else if op == 3 {
-        mint()
-    }
+    if op == 0 { pay() }
+    else if op == 2 { update() }
+    else if op == 3 { mint() }
 }
 ```
-
-Three operations, one dispatch. No lock, no burn -- names are permanent and
-always transferable. The flags field (5 = TRANSFERABLE + UPDATABLE) enforces
-this at the protocol level.
 
 ---
 
@@ -648,24 +413,11 @@ this at the protocol level.
 
 ```bash
 trident build name.tri --target triton -o name.tasm
-```
-
-Type-check:
-
-```bash
-trident check name.tri
-```
-
-See the cost:
-
-```bash
 trident build name.tri --costs
+trident build name.tri --hotspots
 ```
 
-The dominant cost will be hashing. Each operation does 2-3 hash calls (leaf
-verification, auth check, new leaf creation). On Triton VM, each Tip5 hash is
-one instruction -- this is among the cheapest hash functions you can use in a
-ZK context.
+The transfer operation is the most expensive -- it verifies two leaves and checks dual authorization.
 
 ---
 
@@ -690,17 +442,10 @@ applied to a different problem.
 - Unique assets (uniqs / TSP-2) use 10-field leaves where every field matters.
   Coins use 5 fields and pad the rest with zeros.
 - A name is a uniq where `asset_id` is the content hash of the name string
-  and `metadata_hash` is the resolver record.
-- The resolver is readable by anyone with a Merkle proof. No ZK program
-  needed for lookups.
-- Updating the resolver requires proving ownership: `divine`, `hash`,
-  `assert_eq` -- the same pattern from Chapter 1.
-- Transferring a name reuses Chapter 2's pay pattern: verify auth, build
-  new leaf with new owner, emit nullifier.
+  and `metadata_hash` is the resolver record. Resolution is a Merkle lookup --
+  no ZK program needed.
 - Flags (TRANSFERABLE + UPDATABLE = 5) are set at mint time and never change.
   They define what operations the asset supports at the protocol level.
-- For the production uniq implementation with all five PLUMB operations,
-  see `examples/uniq/uniq.tri`.
 
 ---
 

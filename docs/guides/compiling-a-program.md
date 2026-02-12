@@ -175,65 +175,18 @@ Trident can estimate proving cost statically -- without executing the program. T
 
 Proving cost depends on six Triton VM execution tables. See [Optimization Guide](optimization.md) for the full table model and reduction strategies.
 
-### Cost Flags
+### Proving Cost Analysis
 
-All cost flags work with both `trident build` and `trident check`.
-
-**`--costs`** prints a summary report showing each function's cost across all six tables and the program's padded height:
+The compiler provides four cost analysis flags:
 
 ```bash
-trident build main.tri --costs
+trident build main.tri --costs      # table heights
+trident build main.tri --hotspots   # top cost contributors  
+trident build main.tri --hints      # optimization suggestions
+trident build main.tri --annotate   # per-line cost annotations
 ```
 
-**`--hotspots`** shows the top cost contributors (functions sorted by their impact on the dominant table):
-
-```bash
-trident build main.tri --hotspots
-```
-
-**`--hints`** prints actionable optimization suggestions (hint codes H0001-H0004). For example, it might suggest batching multiple single-value `tip5` calls into one:
-
-```bash
-trident build main.tri --hints
-```
-
-```text
-Optimization hints:
-  H0001: function 'process' has 3 separate tip5 calls that could be batched
-    note: each tip5 call adds 6 Hash Table rows regardless of input count
-    help: pack up to 10 field elements into a single tip5 call
-```
-
-**`--annotate`** prints every source line with its cost breakdown in brackets:
-
-```bash
-trident build main.tri --annotate
-```
-
-```trident
- 1 | program test
- 2 |
- 3 | fn main() {
- 4 |     let a: Field = pub_read()                  [cc=1]
- 5 |     let b: Field = pub_read()                  [cc=1]
- 6 |     let sum: Field = a + b                     [cc=3, os=2]
- 7 |     pub_write(sum)                             [cc=1]
- 8 | }
-```
-
-### Tracking Costs Over Time
-
-Save a baseline and compare after changes:
-
-```bash
-trident build main.tri --save-costs baseline.json
-# ... make changes ...
-trident build main.tri --compare baseline.json
-```
-
-The comparison shows which functions got cheaper or more expensive, making cost regressions visible in code review.
-
-For strategies on reducing proving cost, see the [Optimization Guide](optimization.md).
+Use `--save-costs` and `--compare` to track improvements. See the [Optimization Guide](optimization.md) for interpretation and reduction strategies.
 
 ## 📦 Multi-Module Compilation
 

@@ -236,31 +236,19 @@ produces no proof at all (the VM crashes on assertion failure).
 
 ```bash
 trident build main.tri --costs
+trident build main.tri --hotspots
 ```
 
-Proving cost depends on six Triton VM execution tables. See [Optimization Guide](optimization.md) for the full table model and reduction strategies. The padded height -- the next power of two of the tallest table -- determines actual STARK proving time and memory. Understand this number before deploying.
-
-```bash
-trident build main.tri --hotspots    # Top cost contributors
-trident build main.tri --annotate    # Per-line cost annotations
-```
+See [Optimization Guide](optimization.md) for the full cost model.
 
 ### 4. Optimize
 
 ```bash
 trident build main.tri --hints
-```
-
-The compiler suggests concrete optimizations: redundant stack operations,
-expensive patterns that have cheaper alternatives, opportunities to reduce
-table heights. Apply what makes sense, then re-check costs.
-
-```bash
 trident build main.tri --costs --compare previous.json
 ```
 
-Use `--save-costs` and `--compare` to track cost changes across iterations.
-See the [Optimization Guide](optimization.md) for strategies.
+See [Optimization Guide](optimization.md) for strategies.
 
 ### 5. Build the Final Artifact
 
