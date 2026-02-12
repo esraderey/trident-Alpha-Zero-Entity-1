@@ -61,16 +61,22 @@ safety, or privacy, or programmability, or permissionless participation.
 
 Four properties. Every existing system sacrifices at least one:
 
-| System | Quantum-Safe | Private | Programmable | Mineable |
-|--------|:---:|:---:|:---:|:---:|
-| StarkWare/Cairo | Yes | Yes | Yes | **No** (PoS L2) |
-| SP1 / RISC Zero | **No** (Groth16 wrap) | No (default) | Yes | **No** |
-| Aleo | **No** (Pasta curves) | Yes | Yes | **Partial** (stake-gated) |
-| Mina | **No** (Pasta curves) | Partial | **Partial** | **No** |
-| Nockchain | **No** (no STARK hash) | **No** | **No** (raw Nock) | Yes |
-| **Neptune/Triton VM** | **Yes** | **Yes** | **Yes** | **Yes** |
+These are OS-level properties — the VM provides the cryptographic
+foundation, but privacy, programmability, and mineability come from the
+OS (the chain, consensus, and economics built on top):
 
-Neptune is the only platform that passes all four tests today. Trident is
+| OS | VM | Quantum-Safe | Private | Programmable | Mineable |
+|----|-----|:---:|:---:|:---:|:---:|
+| StarkNet | Cairo/Stwo | Yes | Yes | Yes | **No** (PoS L2) |
+| Boundless | SP1 | **No** (Groth16 wrap) | No | Yes | **No** |
+| Succinct | SP1 | **No** (Groth16 wrap) | No | Yes | **No** |
+| RISC Zero | RISC Zero | **No** (Groth16 wrap) | Yes | Yes | **No** |
+| Aleo | AVM | **No** (Pasta curves) | Yes | Yes | **Partial** (stake-gated) |
+| Mina | Kimchi | **No** (Pasta curves) | Partial | **Partial** | **No** |
+| Nockchain | Nock | **No** (no STARK hash) | **No** | **No** (raw Nock) | Yes |
+| **Neptune** | **Triton** | **Yes** | **Yes** | **Yes** | **Yes** |
+
+Neptune is the only OS that passes all four tests today. Trident is
 the language that makes it accessible.
 
 Developers should not need a PhD in algebraic geometry to write provable
@@ -596,15 +602,18 @@ extractable. Every blockchain using these schemes loses its security
 guarantees -- not going forward, but *retroactively*, for all historical
 proofs.
 
-| System | Prover Quantum-Safe | Verifier Quantum-Safe | Migration Path |
-|--------|:---:|:---:|---|
-| StarkWare/Stwo | Yes (Circle STARKs) | Yes (native STARK) | None needed |
+Quantum safety is a VM-level property — it depends on the cryptographic
+primitives the proof system uses:
+
+| VM | Prover Quantum-Safe | Verifier Quantum-Safe | Migration Path |
+|----|:---:|:---:|---|
+| Cairo/Stwo | Yes (Circle STARKs) | Yes (native STARK) | None needed |
 | SP1 | Yes (FRI) | **No** (Groth16/BN254) | Fundamental redesign |
 | RISC Zero | Yes (0STARK) | **No** (Groth16/BN254) | Fundamental redesign |
-| Aleo | **No** (Pasta curves) | **No** (Pasta curves) | Complete crypto migration |
-| Mina | **No** (Pasta curves) | **No** (Pasta curves) | Complete crypto migration |
-| Nockchain | **No** (no algebraic hash) | **No** | VM-level redesign |
-| **Triton VM** | **Yes** (FRI + Tip5) | **Yes** (native STARK) | **None needed** |
+| AVM (Aleo) | **No** (Pasta curves) | **No** (Pasta curves) | Complete crypto migration |
+| Kimchi (Mina) | **No** (Pasta curves) | **No** (Pasta curves) | Complete crypto migration |
+| Nock | **No** (no algebraic hash) | **No** | VM-level redesign |
+| **Triton** | **Yes** (FRI + Tip5) | **Yes** (native STARK) | **None needed** |
 
 [Triton VM](https://triton-vm.org/) uses no elliptic curves anywhere. The
 proof system is [FRI](https://eccc.weizmann.ac.il/report/2017/134/) -- a
@@ -613,24 +622,24 @@ proximity test over finite fields. The hash function is
 STARK arithmetic. Security rests entirely on hash collision resistance and
 low-degree testing. No pairings. No groups. No discrete log. No trusted setup.
 
-### The Only System That Passes All Four Tests
+### The Only OS That Passes All Four Tests
 
 The [comparative analysis](provable-computing.md) evaluates every major ZK system
 against four requirements: quantum-safe, private, programmable, and mineable.
 
-| System | Quantum-Safe | Private | Programmable | Mineable | All Four |
-|--------|:---:|:---:|:---:|:---:|:---:|
-| StarkWare/Stwo | Yes | Yes | Yes | No | **No** |
-| SP1 | No (Groth16) | No (default) | Yes | No | **No** |
-| RISC Zero | No (Groth16) | Yes | Yes | No | **No** |
-| Aleo | No (Pasta) | Yes | Yes | Partial | **No** |
-| Mina | No (Pasta) | Partial | Partial | No | **No** |
-| Nockchain | No | No | No (raw Nock) | Yes | **No** |
-| **Triton VM** | **Yes** | **Yes** | **Yes** | **Yes** | **Yes** |
+| OS | VM | Quantum-Safe | Private | Programmable | Mineable | All Four |
+|----|-----|:---:|:---:|:---:|:---:|:---:|
+| StarkNet | Cairo/Stwo | Yes | Yes | Yes | No | **No** |
+| Boundless | SP1 | No (Groth16) | No | Yes | No | **No** |
+| RISC Zero | RISC Zero | No (Groth16) | Yes | Yes | No | **No** |
+| Aleo | AVM | No (Pasta) | Yes | Yes | Partial | **No** |
+| Mina | Kimchi | No (Pasta) | Partial | Partial | No | **No** |
+| Nockchain | Nock | No | No | No (raw Nock) | Yes | **No** |
+| **Neptune** | **Triton** | **Yes** | **Yes** | **Yes** | **Yes** | **Yes** |
 
-Triton VM is the only system that satisfies all four simultaneously, today,
+Neptune is the only OS that satisfies all four simultaneously, today,
 in production. [Neptune Cash](https://neptune.cash/) proves it works.
-Trident makes that system programmable by humans, not just assembly experts.
+Trident makes that platform programmable by humans, not just assembly experts.
 
 ### Formal Verification Is Decidable
 
