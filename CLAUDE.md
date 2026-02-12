@@ -57,6 +57,17 @@ Layout:
 - `std/` — pure Trident library code (no `#[intrinsic]`)
 - Module resolution: `src/tools/resolve.rs`
 
+## Git Workflow
+
+- **Commit by default.** After completing a change, commit it. Don't wait
+  for the user to say "commit". Only stage without committing when the user
+  explicitly asks to stage.
+- **Atomic commits.** Each commit must be a clean, complete feature or fix.
+  Don't commit half-finished work. If unsure whether the change is complete,
+  ask before committing.
+- **Conventional commits.** Use prefixes: `feat:`, `fix:`, `refactor:`,
+  `docs:`, `test:`, `chore:`.
+
 ## Build & Test
 
 ```

@@ -213,56 +213,69 @@ The effect annotation (`-1`) declares the net stack change.
 
 ---
 
-## Standard Library
+## Source Tree
 
-### Universal (`std/`)
+```
+src/          Compiler in Rust            Shrinks as self-hosting progresses
+vm/           VM intrinsics in Trident    Compiler primitives (hash, I/O, field ops)
+std/          Standard library in Trident Real libraries (sha256, bigint, ecdsa)
+os/           OS bindings in Trident      Per-OS config, docs, and extensions
+```
+
+### VM Intrinsics (`vm/`)
 
 | Module | Purpose |
 |--------|---------|
-| `std.core.field` | Field arithmetic |
-| `std.core.u32` | U32 operations (log2, pow, popcount) |
-| `std.core.convert` | Type conversions (as_u32, as_field, split) |
-| `std.core.assert` | Assertions (is_true, eq, digest) |
-| `std.core.mem` | RAM access (read, write, read_block, write_block) |
-| `std.io.io` | Public I/O and witness input |
-| `std.crypto.hash` | Cryptographic hashing (Tip5, sponge) |
-| `std.crypto.merkle` | Merkle tree authentication |
+| `vm.core.field` | Field arithmetic |
+| `vm.core.u32` | U32 operations (log2, pow, popcount) |
+| `vm.core.convert` | Type conversions (as_u32, as_field, split) |
+| `vm.core.assert` | Assertions (is_true, eq, digest) |
+| `vm.io.io` | Public I/O and witness input |
+| `vm.io.mem` | RAM access (read, write, read_block, write_block) |
+| `vm.crypto.hash` | Cryptographic hashing (Tip5, sponge) |
+| `vm.crypto.merkle` | Merkle tree authentication |
+
+### Standard Library (`std/`)
+
+| Module | Purpose |
+|--------|---------|
 | `std.crypto.auth` | Authorization (preimage verification) |
+| `std.crypto.sha256` | SHA-256 hash |
+| `std.crypto.keccak256` | Keccak-256 hash |
+| `std.crypto.ecdsa` | ECDSA signatures |
+| `std.crypto.ed25519` | Ed25519 signatures |
+| `std.crypto.poseidon` | Poseidon hash |
+| `std.crypto.bigint` | Big integer arithmetic |
+| `std.io.storage` | Persistent storage |
 
-### Cryptographic Primitives (`std/crypto/`)
-
-SHA-256, Keccak-256, secp256k1, ed25519, ECDSA, Poseidon, bigint
-arithmetic.
-
-### Backend Extensions (`ext/`)
+### OS Extensions (`os/`)
 
 | Module | Purpose |
 |--------|---------|
-| `neptune.ext.xfield` | Extension field operations |
-| `neptune.ext.storage` | Persistent storage |
-| `neptune.ext.kernel` | Neptune kernel interface |
-| `neptune.ext.utxo` | UTXO verification |
+| `os.neptune.xfield` | Extension field operations |
+| `os.neptune.kernel` | Neptune kernel interface |
+| `os.neptune.utxo` | UTXO verification |
+| `os.neptune.proof` | Recursive STARK verification |
+| `os.neptune.recursive` | Low-level recursive proof primitives |
+| `os.neptune.registry` | On-chain definition registry |
 
 ---
 
 ## The Endgame
 
-Trident is converging on something unprecedented: a compiler that proves
-its own correctness.
+The compiler self-hosts on Triton VM: Trident compiles Trident, producing
+a STARK proof that the compilation was correct. Provable compilation.
 
-The content-addressed registry already stores cryptographic hashes of
-every function. Verification certificates are already machine-checkable
-proof artifacts. The TIR is a clean, well-defined 54-operation IR with
-deterministic lowering to target assembly.
+The source tree reflects this trajectory. `src/` is the Rust bootstrap
+compiler — it shrinks as self-hosting progresses. `vm/`, `std/`, and `os/`
+are Trident source — they grow. The intrinsic `.tri` files in `vm/` are
+already the first pieces written in Trident itself.
 
-The missing piece: write the lowering logic in Trident itself. Then every
-`trident build` produces a proof certificate alongside the assembly — a
-cryptographic guarantee that the compilation was faithful. No trusted
-compiler binary. No trusted build server. You don't trust — you verify.
-
-Source → TIR → assembly, where each arrow is a proven transformation,
-chained into a single certificate: *this assembly correctly implements
-this source program.*
+Every `trident build` will produce a proof certificate alongside the
+assembly — a cryptographic guarantee that the compilation was faithful.
+Source → TIR → assembly, where each arrow is a proven transformation.
+No trusted compiler binary. No trusted build server. You don't trust —
+you verify.
 
 Trustless package distribution. Trustless deployment. Math all the way
 down.
@@ -290,10 +303,12 @@ Organized following the [Diataxis](https://diataxis.fr/) framework:
 
 ### Reference (information-oriented)
 
-- [Language Reference](docs/reference/reference.md) — Types, operators, builtins, grammar
-- [Language Specification](docs/reference/spec.md) — Complete formal specification
+- [Language Reference](docs/reference/language.md) — Types, operators, builtins, grammar
+- [Grammar (EBNF)](docs/reference/grammar.md) — Complete formal specification
 - [Error Catalog](docs/reference/errors.md) — Every error message explained
 - [IR Design](docs/reference/ir.md) — TIR operations, tiers, lowering
+- [Target Reference](docs/reference/targets.md) — OS model, target profiles, cost models
+- [CLI Reference](docs/reference/cli.md) — Command-line interface
 
 ### Explanation (understanding-oriented)
 
@@ -302,8 +317,9 @@ Organized following the [Diataxis](https://diataxis.fr/) framework:
 - [Programming Model](docs/explanation/programming-model.md) — Execution model and stack semantics
 - [How STARK Proofs Work](docs/explanation/stark-proofs.md) — From traces to quantum-safe proofs
 - [Formal Verification](docs/explanation/formal-verification.md) — Symbolic execution, SMT, invariant synthesis
-- [Content-Addressed Code](docs/explanation/content-addressed.md) — Hashing, caching, registry, equivalence
-- [Comparative Analysis](docs/explanation/analysis.md) — Trident vs every other ZK system
+- [Content-Addressed Code](docs/explanation/content-addressing.md) — Hashing, caching, registry, equivalence
+- [Multi-Target Architecture](docs/explanation/universal-design.md) — Compiler design for multiple backends
+- [Comparative Analysis](docs/explanation/provable-computing.md) — Trident vs every other ZK system
 
 ---
 
