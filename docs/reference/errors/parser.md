@@ -11,7 +11,7 @@ error: expected 'program' or 'module' declaration at the start of file
   help: every .tri file must begin with `program <name>` or `module <name>`
 ```
 
-**Fix:**
+#### Fix
 
 ```
 program my_app

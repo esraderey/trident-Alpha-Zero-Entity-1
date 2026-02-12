@@ -1,6 +1,6 @@
 # Trident
 
-**The language that makes zero-knowledge programming practical.**
+*The language that makes zero-knowledge programming practical.*
 
 Trident is a minimal, security-first programming language for provable
 computation. Today it compiles to [Triton VM](https://triton-vm.org/) —

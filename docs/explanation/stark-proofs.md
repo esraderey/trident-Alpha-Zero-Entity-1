@@ -1,6 +1,6 @@
 # How STARK Proofs Work
 
-**From execution traces to quantum-safe cryptographic proofs**
+*From execution traces to quantum-safe cryptographic proofs*
 
 > **Triton VM target.** This document describes the proof system used by the
 > Triton VM backend -- Trident's current default compilation target. Other

@@ -45,7 +45,7 @@ error: cannot assign to immutable variable
   help: declare the variable with `let mut` to make it mutable
 ```
 
-**Fix:**
+#### Fix
 
 ```
 let mut x: Field = 0

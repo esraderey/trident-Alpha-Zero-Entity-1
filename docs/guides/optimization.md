@@ -45,7 +45,7 @@ The comparison shows which functions got cheaper or more expensive.
 
 The Hash table is often the tallest because each `hash` / [`tip5`](https://eprint.iacr.org/2023/107) call adds 6 rows. (Row cost varies by target; 6 rows per hash is Triton VM-specific.)
 
-**Strategies:**
+#### Strategies
 
 - **Batch hashing**: Each `tip5` call costs 6 Hash Table rows regardless of how many of its 10 inputs you actually use. Batching 3 single-value hashes into 1 call saves 12 hash rows. Pack up to 10 field elements into a single `tip5` call:
 
@@ -74,7 +74,7 @@ let d: Digest = sponge_squeeze()
 
 The Processor table grows with every instruction. Loops are the main contributor. (Instruction cost varies by target.)
 
-**Strategies:**
+#### Strategies
 
 - **Minimize loop body size**: Move invariant computations outside the loop:
 
@@ -100,7 +100,7 @@ for i in 0..100 bounded 100 {
 
 U32 operations (range checks, bitwise ops) are relatively expensive. (The U32 table is Triton VM-specific; cost varies by target.)
 
-**Strategies:**
+#### Strategies
 
 - **Stay in Field when possible**: If you don't need range-checked 32-bit arithmetic, use `Field` instead of `U32`. Field operations use the Processor table (cheap) rather than the U32 table.
 
@@ -124,7 +124,7 @@ let sum: Field = a + b
 
 These grow with deep variable access and memory operations. (Op Stack and RAM tables are Triton VM-specific; cost varies by target.)
 
-**Strategies:**
+#### Strategies
 
 - **Keep hot variables shallow**: Variables accessed frequently should be declared close to their use. The compiler uses LRU-based spilling -- frequently accessed variables stay on the stack, infrequent ones spill to RAM.
 
@@ -136,7 +136,7 @@ These grow with deep variable access and memory operations. (Op Stack and RAM ta
 
 Every function call adds 2 rows (call + return) to the Jump Stack table. Every if/else branch also uses calls internally. (Jump Stack is Triton VM-specific; cost varies by target.)
 
-**Strategies:**
+#### Strategies
 
 - **Inline small functions**: If a function is called in a tight loop and has a small body, consider inlining it manually. The compiler does not perform automatic inlining.
 

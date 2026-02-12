@@ -73,7 +73,7 @@ my_project/
 └── trident.toml        // project manifest
 ```
 
-**trident.toml:**
+#### trident.toml
 
 ```toml
 [project]

@@ -50,7 +50,7 @@ and hashes the result with Poseidon2 over the Goldilocks field.
 Before hashing, the AST is normalized so that semantically identical functions produce
 identical byte sequences. The normalization steps are:
 
-**Step 1: Replace variable names with de Bruijn indices.**
+#### Step 1: Replace variable names with de Bruijn indices
 
 ```
 // Before normalization:
@@ -69,7 +69,7 @@ fn (#0: Field, #1: Field) -> Field {
 Variable names are metadata, not identity. The function `transfer(a, b)` and
 `transfer(x, y)` with identical bodies produce identical hashes.
 
-**Step 2: Replace dependency references with their content hashes.**
+#### Step 2: Replace dependency references with their content hashes
 
 ```
 // Before:
@@ -82,7 +82,7 @@ let d = #f8a2b1c3(input)    // #f8a2b1c3 is the content hash of the hash functio
 Dependencies are pinned by hash. If a called function changes, its hash changes,
 and all callers get new hashes too. Propagation is automatic and exact.
 
-**Step 3: Canonicalize struct field ordering.**
+#### Step 3: Canonicalize struct field ordering
 
 ```
 // These produce the same hash:
@@ -90,7 +90,7 @@ let p = Point { x: 1, y: 2 }
 let p = Point { y: 2, x: 1 }     // fields sorted alphabetically before hashing
 ```
 
-**Step 4: Strip metadata.**
+#### Step 4: Strip metadata
 
 Comments, documentation, source location, formatting, and specification annotations
 (`#[requires]`, `#[ensures]`) are all stripped before computing the computational hash.
@@ -475,12 +475,12 @@ Equivalence check: f vs g
 
 The checker uses a layered strategy, from cheapest to most expensive:
 
-**Level 1: Content hash comparison (alpha-equivalence)**
+#### Level 1: Content hash comparison (alpha-equivalence)
 
 If both functions produce the same content hash, they are structurally identical
 (up to variable renaming). This is instant.
 
-**Level 2: Polynomial normalization**
+#### Level 2: Polynomial normalization
 
 For pure field-arithmetic functions (using only `+`, `*`, constants, and variables),
 the checker normalizes both functions to multivariate polynomial normal form over the
@@ -488,7 +488,7 @@ Goldilocks field. If the polynomials match, the functions are equivalent.
 
 This catches cases like `x + x` vs `x * 2`, or `(a + b) * c` vs `a * c + b * c`.
 
-**Level 3: Differential testing**
+#### Level 3: Differential testing
 
 For functions that cannot be reduced to polynomials, the checker builds a synthetic
 "differential test program" that calls both functions with the same inputs and asserts

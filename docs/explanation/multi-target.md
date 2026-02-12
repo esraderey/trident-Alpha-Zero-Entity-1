@@ -1,6 +1,6 @@
 # Multi-Target Compilation
 
-**Write once. Prove anywhere.**
+*Write once. Prove anywhere.*
 
 ---
 

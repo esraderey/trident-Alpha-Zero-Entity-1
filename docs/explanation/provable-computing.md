@@ -1,6 +1,6 @@
 # Provable & Private Computing: A Comparative Analysis of Zero-Knowledge Systems
 
-**February 2026 — Analysis for CORE Verification Layer Selection**
+*February 2026 — Analysis for CORE Verification Layer Selection*
 
 ---
 
@@ -56,7 +56,7 @@ Systems are assessed on technical merit, maturity, ecosystem strength, and align
 
 **Architecture:** Circle STARKs over M31 (31-bit Mersenne prime). The small field is optimized for CPU SIMD operations, enabling 28-39× faster proving than RISC-V zkVMs. Cairo is a mature, well-documented language with an evolving but functional ecosystem.
 
-**Pros:**
+#### Pros
 - Most battle-tested STARK system in production (Starknet live since 2022)
 - Stwo prover is currently the fastest STARK prover available
 - Cairo language has real developer adoption and tooling
@@ -65,7 +65,7 @@ Systems are assessed on technical merit, maturity, ecosystem strength, and align
 - Extensive documentation, tutorials, and community resources
 - Strong funding ensures long-term maintenance
 
-**Cons:**
+#### Cons
 - Cairo is a walled garden — StarkWare controls language, compiler, and prover as a for-profit company optimizing for Starknet, not external projects
 - M31 (31-bit field) requires more rows for equivalent security compared to 64-bit fields — matters for workloads encoding large semantic weights
 - No Proof-of-Work path — Starknet is PoS, and adapting Stwo for mining-based consensus requires entirely new architecture
@@ -84,7 +84,7 @@ Systems are assessed on technical merit, maturity, ecosystem strength, and align
 
 **Architecture:** Standard RISC-V instruction set → algebraic execution trace → FRI proof → **Groth16 wrapping** for on-chain verification. The final step uses BN254 elliptic curve pairings to compress STARK proofs into ~200 bytes verifiable cheaply on Ethereum.
 
-**Pros:**
+#### Pros
 - Write in standard Rust — no new language to learn, access to entire Rust ecosystem
 - Fastest path from idea to working ZK application for developers already using Rust
 - Real-time proving speeds demonstrated in production scenarios
@@ -94,7 +94,7 @@ Systems are assessed on technical merit, maturity, ecosystem strength, and align
 - Paradigm backing provides long-term financial stability
 - Plonky3 foundation is open source and well-maintained
 
-**Cons:**
+#### Cons
 - **Groth16 wrapping breaks quantum safety** — the on-chain verifier uses BN254 elliptic curve pairings, which are vulnerable to quantum attacks. The prover is STARK-based (quantum-safe), but the final verification step is not. This is structural, not fixable without abandoning cheap Ethereum verification.
 - Not zero-knowledge by default — proofs are succinct but not private. ZK mode available but not the primary path.
 - Dependent on Ethereum for verification cost assumptions — the Groth16 wrapping exists solely because raw STARK verification costs millions of gas on Ethereum
@@ -112,7 +112,7 @@ Systems are assessed on technical merit, maturity, ecosystem strength, and align
 
 **Architecture:** RISC-V → 0STARK (custom STARK protocol) → **Groth16 wrapping** for on-chain verification (same pattern as SP1).
 
-**Pros:**
+#### Pros
 - Mature RISC-V implementation with strong GPU acceleration
 - Zero-knowledge supported natively (unlike SP1's default)
 - Demonstrated impressive engineering velocity (Zeth in 2 weeks)
@@ -120,7 +120,7 @@ Systems are assessed on technical merit, maturity, ecosystem strength, and align
 - Bonsai proving service enables serverless proof generation
 - Continuation support for long-running computations
 
-**Cons:**
+#### Cons
 - **Same Groth16 quantum vulnerability as SP1** — on-chain verification is not quantum-safe
 - Heavier prover requirements than SP1 — GPU recommended for practical proving times
 - Smaller developer ecosystem than SP1
@@ -139,7 +139,7 @@ Systems are assessed on technical merit, maturity, ecosystem strength, and align
 
 **Architecture:** SNARK-based (Varuna proving system, an iteration of Marlin with batching). Uses Pasta curves (Pallas and Vesta) for the proof system. Leo programs compile to R1CS-compatible circuits for zkSNARK generation via SnarkVM. The system uses a UTXO model with encrypted "records" — each transaction consumes and generates encrypted records, revealing only serial numbers and commitments plus a zkSNARK proving validity.
 
-**Pros:**
+#### Pros
 - Privacy-by-default architecture — transactions can hide sender, receiver, and amount natively. ~9.6% of transactions are private as of Q2 2025, growing.
 - Hybrid PoS + PoSW consensus — provers generate ZK proofs as their "work," meaning mining is useful computation rather than wasted energy. 150K+ provers participated in testnets. This partially addresses the "minable" requirement.
 - Leo language is well-designed — Rust-inspired, purpose-built for ZK, with real tooling (Leo IDE, compiler, package manager). Lower barrier to entry than TASM or Cairo.
@@ -150,7 +150,7 @@ Systems are assessed on technical merit, maturity, ecosystem strength, and align
 - zkCloud for off-chain scalable computation.
 - Largest MPC ceremony in blockchain history (2,200+ participants) for trusted setup.
 
-**Cons:**
+#### Cons
 - **SNARK-based, not STARK** — relies on elliptic curve cryptography (Pasta curves). Not quantum-safe. Varuna/Marlin proving system requires a structured reference string (SRS) from a trusted setup ceremony. Even with universal/updateable SRS, this is a fundamentally different security model than hash-only STARKs.
 - **Trusted setup required** — the MPC ceremony mitigates but does not eliminate the "toxic waste" problem. If all participants colluded or were compromised, proofs could be forged. STARKs have no equivalent vulnerability.
 - PoSW is not true PoW — provers solve a "Coinbase Puzzle" (a specific ZK proof challenge), but validators still use PoS with 1M+ ALEO staking requirement. Participation as a validator is stake-gated. The prover role is more permissionless, but the dual model adds complexity.
@@ -171,7 +171,7 @@ Systems are assessed on technical merit, maturity, ecosystem strength, and align
 
 **Architecture:** Kimchi is a PLONKish proof system (PLONK-inspired with custom gates and lookup tables) using Pasta curves (Pallas and Vesta — same as Aleo). Pickles is the recursive composition layer enabling infinite recursion — proofs of proofs of proofs. The combination achieves constant-size blockchain state. o1js is a TypeScript library that lets developers write ZK circuits in familiar web development language.
 
-**Pros:**
+#### Pros
 - Constant-size blockchain (~22 KB) — the most elegant solution to blockchain bloat. Any node can verify the entire chain by checking one proof. No need to sync gigabytes of history.
 - o1js (TypeScript) — lowest barrier to entry of any ZK system. Web developers can write zkApps without learning Rust, Cairo, or assembly. Browser-based proving is possible.
 - Infinite recursion via Pickles — can compose arbitrary proofs recursively. Tree recursion enables parallel proof composition (used internally for transaction batching). This is a genuine architectural strength.
@@ -181,7 +181,7 @@ Systems are assessed on technical merit, maturity, ecosystem strength, and align
 - o1VM in development — will bring general-purpose zkVM capabilities to Mina.
 - BN254 KZG proof output supported — enabling verification on Ethereum and other chains.
 
-**Cons:**
+#### Cons
 - **SNARK-based with elliptic curves** — Pasta curves (Pallas/Vesta) are not quantum-safe. While no trusted setup (bulletproof-style commitments), the underlying security still relies on discrete log hardness, which breaks under quantum computing.
 - **Proving is slow** — browser-based proving sounds great but takes 30-60+ seconds for non-trivial circuits. Kimchi + Pickles recursion overhead is significant. Not suitable for real-time applications.
 - **Limited programmability** — o1js circuits are constrained. No general-purpose VM yet (o1VM is "Later" on 2025 roadmap). Writing complex applications requires deep understanding of circuit constraints despite the TypeScript surface.
@@ -203,7 +203,7 @@ Systems are assessed on technical merit, maturity, ecosystem strength, and align
 
 **Architecture:** Stack machine (16-register operational stack + RAM) over Goldilocks field. Multi-table algebraic execution trace (Processor, Hash, U32, Op Stack, RAM, Jump Stack tables). FRI-based STARK proofs with Tip5 algebraic hash. No IR, no wrapping — native STARKs end to end.
 
-**Pros:**
+#### Pros
 - **Only system satisfying all four requirements simultaneously** — quantum-safe, private, programmable, and minable
 - Purpose-built for ZK — hash operations are 1 clock cycle + 6 hash table rows (vs. thousands of cycles in RISC-V VMs). For hash-heavy workloads (Merkle trees, sponge hashing, content addressing), this dominance is decisive.
 - Native recursive STARK verification — `xx_dot_step`/`xb_dot_step` instructions designed specifically for verifying STARK proofs inside STARK proofs. Working recursive verifier exists in Neptune.
@@ -214,7 +214,7 @@ Systems are assessed on technical merit, maturity, ecosystem strength, and align
 - Open source (Apache 2.0), small codebase (~30K lines Rust) — fully auditable and forkable
 - Goldilocks field (64-bit) gives more room per element than M31 — important for encoding large semantic weights in graph operations
 
-**Cons:**
+#### Cons
 - **3-person development team** — existential bus factor risk. If Alan Szepieniec (lead architect) becomes unavailable, development could halt.
 - Neptune had an inflation bug — demonstrates the fragility of a tiny team doing security-critical work
 - Neptune token ($NPT) at ~$0.57 — no meaningful market, no liquidity, no institutional interest
@@ -236,7 +236,7 @@ Systems are assessed on technical merit, maturity, ecosystem strength, and align
 
 **Architecture:** Nock (combinator calculus, 12 rules) → algebraic execution trace → STARK proof. Key innovation: Dyck word fingerprinting — encode tree structure as balanced parentheses, use polynomial evaluation for collision-resistant structural fingerprinting, avoiding expensive hash-consing or Merkle tree operations for memory verification. Claims 10× smaller constraints than RISC-V zkVMs.
 
-**Pros:**
+#### Pros
 - Extraordinary formal minimality — 12 rules fit on a t-shirt, no ambiguity, mathematically elegant
 - Homoiconicity — code IS data, natural metaprogramming, program introspection trivial
 - Dyck fingerprinting is a genuine innovation — sidesteps permutation arguments for memory verification, potentially dramatic constraint reduction
@@ -247,7 +247,7 @@ Systems are assessed on technical merit, maturity, ecosystem strength, and align
 - Zero-knowledge supported
 - Jetting architecture more flexible than fixed coprocessors — add new optimized operations without changing the VM specification
 
-**Cons:**
+#### Cons
 - **NockVM is not yet integrated into the transaction engine** — miners prove a fixed puzzle, not arbitrary computation. The "programmable" claim is aspirational, not delivered.
 - **Efficient memory writes remain an open question** — the June 2025 paper explicitly acknowledges this. Cannot yet efficiently prove programs that modify state. For blockchain (every transaction modifies state), this is a fundamental unsolved problem.
 - No native non-determinism — no equivalent of `divine()`. Must bolt on prover hints, complicating the pure combinator model.
@@ -416,22 +416,22 @@ Triton's recursive proof-of-proof architecture is uniquely powerful here: rather
 
 If selecting Triton VM as the verification layer (the only system meeting all four requirements), the following risk mitigations apply:
 
-**Team fragility:**
+#### Team fragility
 - Fork `triton-vm` crate (Apache 2.0) and maintain independently
 - Codebase is ~30K lines Rust — comprehensible by a competent team
 - Build Trident compiler (~12K lines) to become language-independent from Neptune
 - Neptune's commercial success or failure becomes irrelevant to CORE's verification layer
 
-**Ecosystem absence:**
+#### Ecosystem absence
 - Build the ecosystem yourself — Trident language, gadget libraries (SHA-256, Keccak, secp256k1, BLS12-381), developer documentation
 - Each module (bridge gadgets, crypto primitives) benefits the broader Triton ecosystem, attracting contributors
 
-**Proving performance:**
+#### Proving performance
 - Power-of-2 cliff awareness through Trident's static cost model (unique advantage — no other system offers compile-time proving cost prediction). Note that the cost tables themselves are target-dependent; if additional backends are introduced, each requires its own cost model.
 - Recursive composition for large computations — break expensive proofs into chains of manageable sub-proofs
 - Prover hardware improvements are inevitable as STARK adoption grows
 
-**Minimal viable experiment:**
+#### Minimal viable experiment
 One verifiable cyberlink validation in Trident, proved on Triton VM, verified on-chain. If trace length and proving time are acceptable for a single graph operation, the architecture scales. If not, knowledge transfers to any future STARK system.
 
 ---
@@ -447,7 +447,7 @@ The provable computing landscape in 2026 splits cleanly into two cryptographic f
 - **StarkWare/Stwo** is production-proven but PoS-only and vendor-controlled — a walled garden optimizing for Starknet's commercial needs, not external sovereignty.
 - **Triton VM** and **NockVM** are the only two systems delivering quantum-safe, private, programmable, and minable computation. These are the only viable foundations for a sovereign planetary verification layer.
 
-**Between the two surviving candidates:**
+#### Between the two surviving candidates
 
 NockVM represents the more formally beautiful approach — 12 combinator rules, homoiconic data model, Dyck word fingerprinting as a genuine cryptographic innovation. Its architecture philosophically aligns with "everything is a graph" thinking. But as of February 2026, NockVM has fundamental open problems: efficient memory writes remain unsolved, the VM is not integrated into Nockchain's transaction engine (miners prove a fixed puzzle, not arbitrary programs), and there is no native non-determinism primitive. These are not engineering tasks — they are research problems without guaranteed timelines.
 

@@ -1,6 +1,6 @@
 # Generating Proofs
 
-**From execution trace to cryptographic proof**
+*From execution trace to cryptographic proof*
 
 > **Lifecycle stage 5 of 6.** This document covers what happens after a Trident
 > program has been compiled and executed. The previous stage is Deploying; the

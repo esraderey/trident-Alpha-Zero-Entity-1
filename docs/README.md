@@ -21,7 +21,7 @@ application, from a four-line proof to a sovereign DAO.
 | 5 | [Auction Names with Hidden Bids](tutorials/build-an-auction.md) | A Vickrey auction — sealed bids, honest pricing |
 | 6 | [Upgrade to a DAO](tutorials/build-a-dao.md) | Private coin-weighted voting that governs the name service |
 
-**Foundations**
+### Foundations
 
 | Document | Description |
 |----------|-------------|

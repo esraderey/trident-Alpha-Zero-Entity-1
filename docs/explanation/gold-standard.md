@@ -810,7 +810,7 @@ metadata = hash(name_hash, pair_hash, decimals, heartbeat, deviation_threshold,
 
 A provider submits a new attestation.
 
-**Constraints:**
+#### Constraints
 1. Config verified, `submit_auth` and `submit_hook` extracted
 2. Provider authorization (if `submit_auth ≠ 0`)
 3. `timestamp <= current_time` (no future attestations)
@@ -824,7 +824,7 @@ The `submit_hook` can enforce: provider must have staked tokens (compose with TS
 
 Combine multiple provider attestations into a single canonical value.
 
-**Constraints:**
+#### Constraints
 1. Config verified, `aggregate_auth` and `aggregate_hook` extracted
 2. Read N provider leaves from tree (Merkle inclusion proofs)
 3. `N >= config.min_providers`
@@ -1219,7 +1219,7 @@ Hooks:
   burn_hook: FUND_REDEEM           // releases collateral on burn
 ```
 
-**Supply flow (all four primitives composed):**
+#### Supply flow (all four primitives composed)
 
 ```
 1. Alice does TOKEN_A pay:
@@ -1241,7 +1241,7 @@ Hooks:
      amount = collateral × price × ltv_ratio
 ```
 
-**Redemption flow:**
+#### Redemption flow
 
 ```
 1. Alice does TOKEN_B burn (amount = shares to redeem)
@@ -1258,7 +1258,7 @@ Hooks:
 All composed into single atomic proof.
 ```
 
-**Liquidation flow:**
+#### Liquidation flow
 
 ```
 1. COMPASS proves TOKEN_A price dropped → health_factor < 1
@@ -1274,7 +1274,7 @@ All composed into single atomic proof.
 All composed — liquidator submits single proof.
 ```
 
-**Key properties:**
+#### Key properties
 - Collateral is in `fund_account` with `controller = FUND_PROGRAM` — only the fund program can move it
 - `locked_by` tracks which program locked the collateral and `lock_data` links to the position
 - Fund shares (TOKEN_B) are standard TSP-1 — tradeable via TIDE
@@ -1294,7 +1294,7 @@ Applications are composed from primitives + hooks but have their own state and l
 
 **Application state:** Proposal tree (separate Merkle tree managed by governance program)
 
-**Flow:**
+#### Flow
 1. Create proposal: commit to proposal tree
 2. Snapshot: record current TSP-1 state root at proposal creation
 3. Vote: voter proves balance at snapshot root (Merkle inclusion proof against historical root), casts vote
@@ -1309,7 +1309,7 @@ No governance primitive needed. Balance snapshots are free (every historical Mer
 
 **Application state:** Position tree (collateral, debt, health factors per user)
 
-**Flow:**
+#### Flow
 1. Supply: user pays TSP-1 into lending pool account, receives receipt token (vault pattern)
 2. Borrow: user locks collateral (TSP-1 lock), mints debt token, receives borrowed asset
 3. Interest: receipt token exchange rate appreciates over time
@@ -1321,7 +1321,7 @@ Lending is an application, not a primitive. It composes TSP-1 + COMPASS + TIDE.
 
 **Components used:** TSP-2 (names as unique assets)
 
-**Flow:**
+#### Flow
 1. Register: mint a TSP-2 asset where `asset_id = hash(name)`, `metadata_hash = hash(resolution_record)`
 2. Resolve: Merkle inclusion proof for `hash(name)` in the name collection tree
 3. Transfer: standard TSP-2 pay (ownership transfer)
@@ -1333,7 +1333,7 @@ Name service is just a uniq collection with a specific metadata schema.
 
 **Components used:** TSP-1 (outcome tokens), COMPASS (resolution oracle), TIDE (trading)
 
-**Flow:**
+#### Flow
 1. Create market: deploy N TSP-1 tokens (one per outcome), mint_hook requires equal buy-in
 2. Trade: TIDE strategies for outcome token pairs
 3. Resolve: COMPASS oracle attests outcome, winning token becomes redeemable 1:1
@@ -1343,7 +1343,7 @@ Name service is just a uniq collection with a specific metadata schema.
 
 **Components used:** TSP-2 (option/policy as unique asset), TSP-1 (premium/collateral), COMPASS (price triggers)
 
-**Flow:**
+#### Flow
 1. Writer mints TSP-2 option, locks collateral via TSP-1 lock
 2. Buyer purchases option via TIDE swap
 3. Exercise: at expiry, COMPASS proves price condition, burn-to-redeem releases collateral

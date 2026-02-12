@@ -134,7 +134,7 @@ Twenty lines of logic. That is a complete constant-product AMM.
 
 Walk through each section.
 
-**Public inputs: what the verifier sees.**
+#### Public inputs: what the verifier sees
 
 ```
 let amount_in: Field = pub_read()
@@ -147,7 +147,7 @@ exchanged. The `k_commitment` is a hash of the invariant constant `k`. It is
 public so the verifier can confirm the maker is using a consistent invariant
 across swaps, but it reveals nothing about the reserves themselves.
 
-**Secret inputs: what only the maker knows.**
+#### Secret inputs: what only the maker knows
 
 ```
 let reserve_a: Field = divine()
@@ -158,7 +158,7 @@ The reserves are `divine()` -- conjured by the prover, invisible to the
 verifier. This is the same primitive from Chapter 1. The secret was a
 password then. Now the secret is a liquidity position.
 
-**Commitment verification: binding the invariant.**
+#### Commitment verification: binding the invariant
 
 ```
 let computed_k: Field = reserve_a * reserve_b
@@ -175,7 +175,7 @@ This is Chapter 1's pattern exactly: `divine`, `hash`, `assert`. The secret
 is the reserves. The commitment is `k_commitment`. The constraint is that
 they match.
 
-**Invariant enforcement: the AMM logic.**
+#### Invariant enforcement: the AMM logic
 
 ```
 let new_reserve_a: Field = reserve_a + amount_in
@@ -192,7 +192,7 @@ Assert the product equals the original `k`.
 If the taker asks for too many tokens, `new_k` will not equal `computed_k`.
 The assertion fails. No proof. No swap.
 
-**State transition: preparing for the next swap.**
+#### State transition: preparing for the next swap
 
 ```
 let new_k_digest: Digest = hash(new_k, 0, 0, 0, 0, 0, 0, 0, 0, 0)

@@ -434,7 +434,7 @@ trident build balance_check.tri --target miden --costs
 This is the single most important idea in zero-knowledge programming. Once you
 internalize it, everything else follows.
 
-**The prover does the heavy lifting once. Anyone can verify instantly.**
+*The prover does the heavy lifting once. Anyone can verify instantly.*
 
 In conventional programming, if you want to convince someone a computation is
 correct, they have to re-run it. If the computation takes an hour, verification
