@@ -242,7 +242,7 @@ vm.crypto.hash.sponge_absorb_mem(addr)
 
 Both cost the same 6 Hash Table rows, but `sponge_absorb_mem` saves ~10 processor cycles by avoiding individual `read_mem` instructions.
 
-## Summary
+## 📋 Summary
 
 1. **Identify the dominant table** with `--costs`
 2. **Find the expensive functions** with `--hotspots`

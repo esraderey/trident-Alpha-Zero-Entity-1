@@ -41,7 +41,7 @@ On non-provable targets (EVM, WASM, native), these channels map to the OS's
 native I/O: calldata, return data, storage reads. The privacy guarantee
 disappears, but the program logic is identical.
 
-## Arithmetic
+## 🧮 Arithmetic
 
 All arithmetic operates on `Field` elements. `+` and `*` are field addition
 and multiplication, wrapping modulo the target's prime automatically.
@@ -139,7 +139,7 @@ For full `os.*` API specifications and per-OS lowering tables, see
 
 ---
 
-## Data Flow
+## 🔄 Data Flow
 
 ```text
 PROVER SIDE:                              VERIFIER SIDE:

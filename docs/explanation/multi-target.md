@@ -270,7 +270,7 @@ The `sender_bal - amount` and `assert(new_bal >= 0)` are pure Level 1 logic. The
 
 ---
 
-## TargetConfig
+## ⚙️ TargetConfig
 
 Targets are defined as TOML files in the `vm/` directory. The compiler loads
 a target by name via `--target <name>`, which resolves to `vm/<name>.toml`.
@@ -345,7 +345,7 @@ is rejected.
 
 ---
 
-## Backend Traits
+## 🔧 Backend Traits
 
 ### StackLowering
 
@@ -451,7 +451,7 @@ waste).
 
 ---
 
-## Standard Library Layers
+## 📚 Standard Library Layers
 
 The standard library is organized into three layers that enable code portability
 across targets.
@@ -525,7 +525,7 @@ width adjusts automatically per target.
 
 ---
 
-## Target-Tagged Assembly
+## 🏷️ Target-Tagged Assembly
 
 Inline assembly blocks are tagged with the target they belong to:
 
@@ -577,7 +577,7 @@ fn compute() -> Field {
 
 ---
 
-## Adding a New Target
+## ➕ Adding a New Target
 
 To add support for a new stack-based zkVM:
 
@@ -641,7 +641,7 @@ and instruction encoding.
 
 ## 🛡️ The Economics Argument
 
-The practical value of universal execution is economic, not theoretical.
+The practical value of multi-target compilation is economic, not theoretical.
 
 **One codebase, one audit.** A security audit of Trident Level 1 code covers every deployment target. Today, deploying the same logic on Ethereum, Solana, and Cosmos requires three separate codebases in three languages with three audits. Trident reduces this to one.
 
@@ -738,7 +738,7 @@ No existing language treats field arithmetic, bounded execution, and abstract st
 
 ---
 
-## Design Principles
+## 📐 Design Principles
 
 **Think in business logic, not in chains.** The developer writes what the program does. The compiler decides how to do it on each target. Platform-specific code is generated, not written.
 
@@ -754,7 +754,7 @@ No existing language treats field arithmetic, bounded execution, and abstract st
 
 ---
 
-## Current Targets
+## 🎯 Current Targets
 
 ### Triton VM (Production)
 

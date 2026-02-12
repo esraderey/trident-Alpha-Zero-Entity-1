@@ -336,7 +336,7 @@ Neptune transaction validation orchestrator.
 
 ---
 
-## Next Step
+## 🚀 Next Step
 
 With your program deployed, the next stage is proof generation -- executing the
 program and producing the STARK proof that verifiers will check.

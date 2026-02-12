@@ -93,7 +93,7 @@ document. For backend extension authoring, see the `ext/` directory.
 
 ---
 
-## Where's My State?
+## 📦 Where's My State?
 
 ### EVM / Solidity
 
@@ -185,7 +185,7 @@ fn load_account() -> (Field, Field, Field, Field, Field) {
 
 ---
 
-## Where's My msg.sender?
+## 🔑 Where's My msg.sender?
 
 ### EVM / Solidity
 
@@ -277,7 +277,7 @@ fn update() {
 
 ---
 
-## Where's My Gas?
+## ⛽ Where's My Gas?
 
 ### EVM / Solidity
 
@@ -358,7 +358,7 @@ $ trident build token.tri --costs
 
 ---
 
-## Where's My Revert?
+## 🔙 Where's My Revert?
 
 ### EVM / Solidity
 
@@ -414,7 +414,7 @@ check.
 
 ---
 
-## Where's My Event?
+## 📡 Where's My Event?
 
 ### EVM / Solidity
 
@@ -470,7 +470,7 @@ without learning which account was involved.
 
 ---
 
-## Pattern Translation Table
+## 📋 Pattern Translation Table
 
 ### 1. ERC-20 Transfer --> Token Pay Operation
 
@@ -821,7 +821,7 @@ major ZK system scores on quantum safety.
 
 ---
 
-## Platform-Specific Notes
+## 🌐 Platform-Specific Notes
 
 ### Coming from EVM (Solidity / Vyper)
 

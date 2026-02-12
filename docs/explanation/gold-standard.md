@@ -1,6 +1,6 @@
 # 🥇 Neptune Gold Standard
 
-## ZK-Native Financial Primitives for Triton VM
+## 🏛️ ZK-Native Financial Primitives for Triton VM
 
 **Version:** 0.5  
 **Date:** February 10, 2026  
@@ -231,7 +231,7 @@ For delegated spending: `auth_hash` derived keys + `pay_hook` tracking cumulativ
 
 ---
 
-## 4. Two Standards on PLUMB
+## 📐 4. Two Standards on PLUMB
 
 ### 4.1 Why Two, Not One
 
@@ -648,7 +648,7 @@ Leveling up:
 
 ---
 
-## 7. TIDE — Unified Liquidity Protocol
+## 🌊 7. TIDE — Unified Liquidity Protocol
 
 *Tokens In Direct Exchange*
 
@@ -724,7 +724,7 @@ Pluggable ZK circuits. Reference implementations:
 
 ---
 
-## 8. COMPASS — Oracle Standard
+## 🧭 8. COMPASS — Oracle Standard
 
 *External data attestation with STARK proofs*
 
@@ -867,7 +867,7 @@ Because oracle proofs are STARKs, they can be relayed to other chains. A price a
 
 ---
 
-## 9. Hook Library
+## 🪝 9. Hook Library
 
 Standard, reusable ZK programs that compose with PLUMB operations. These are reference implementations — anyone can write custom hooks, but these cover the most common needs.
 
@@ -1003,7 +1003,7 @@ The token IS the membership. The hook IS the threshold logic.
 
 ---
 
-## 10. Deployment Patterns
+## 🚀 10. Deployment Patterns
 
 Documented configurations combining primitives + hooks.
 
@@ -1284,7 +1284,7 @@ All composed — liquidator submits single proof.
 
 ---
 
-## 11. Application Patterns
+## 🏗️ 11. Application Patterns
 
 Applications are composed from primitives + hooks but have their own state and logic beyond what hooks provide. They are not part of the gold standard — they are built on it.
 
@@ -1350,7 +1350,7 @@ Name service is just a uniq collection with a specific metadata schema.
 
 ---
 
-## 12. Proof Composition Architecture
+## 🧩 12. Proof Composition Architecture
 
 ### 12.1 The Composition Stack
 
@@ -1434,7 +1434,7 @@ Name service is just a uniq collection with a specific metadata schema.
 
 ---
 
-## 14. Naming Convention
+## 🏷️ 14. Naming Convention
 
 | Component | Name | Role |
 |---|---|---|
@@ -1446,7 +1446,7 @@ Name service is just a uniq collection with a specific metadata schema.
 
 ---
 
-## 15. Implementation Roadmap
+## 🗺️ 15. Implementation Roadmap
 
 ### Phase 0 — Genesis
 1. PLUMB framework (auth, config, hook composition)
@@ -1483,7 +1483,7 @@ Name service is just a uniq collection with a specific metadata schema.
 
 ---
 
-## 16. Open Questions
+## ❓ 16. Open Questions
 
 1. **Tree depth:** Depth 20 (~1M leaves). Fixed or variable?
 2. **Allocation tree:** Separate or integrated into token tree?
@@ -1499,7 +1499,7 @@ Name service is just a uniq collection with a specific metadata schema.
 
 ---
 
-## Appendix A: Glossary
+## 📖 Appendix A: Glossary
 
 | Term | Definition |
 |---|---|
@@ -1526,7 +1526,7 @@ Name service is just a uniq collection with a specific metadata schema.
 | State commitment | Block-level hash of all Merkle tree roots |
 | Fund pattern | Collateralized minting: supply TOKEN_A → receive TOKEN_B at oracle price |
 
-## Appendix B: Hook Library Quick Reference
+## 📋 Appendix B: Hook Library Quick Reference
 
 ### Pay Hooks
 | ID | Purpose | Composable with |

@@ -274,6 +274,6 @@ The `.tasm` file is the definitive record of what will execute. If the program's
 - [For Developers](../explanation/for-developers.md) -- Zero-knowledge concepts for general developers
 - [Language Reference](../reference/language.md) -- Types, operators, builtins, grammar
 
-## Next Step
+## 🚀 Next Step
 
 Once you can build and run programs locally, the next stage is packaging them for on-chain use: [Deploying a Program](deploying-a-program.md).

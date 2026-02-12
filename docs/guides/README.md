@@ -7,7 +7,7 @@ workflow in the Trident development lifecycle.
 
 ---
 
-## Development Lifecycle
+## 🔄 Development Lifecycle
 
 | Document | Description |
 |----------|-------------|
@@ -18,7 +18,7 @@ workflow in the Trident development lifecycle.
 | [Generating Proofs](generating-proofs.md) | Execution trace to STARK proof |
 | [Verifying Proofs](verifying-proofs.md) | Proof checking, on-chain verification |
 
-## Optimization and Tools
+## ⚡ Optimization and Tools
 
 | Document | Description |
 |----------|-------------|

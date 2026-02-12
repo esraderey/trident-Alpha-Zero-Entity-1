@@ -4,7 +4,7 @@
 
 ---
 
-## 1. Scope and Methodology
+## 🔬 1. Scope and Methodology
 
 This analysis evaluates existing solutions for provable and private computation, specifically zero-knowledge virtual machines (zkVMs) and their proof systems, as candidates for building a sovereign verification layer for planetary-scale collective intelligence.
 
@@ -19,7 +19,7 @@ Systems are assessed on technical merit, maturity, ecosystem strength, and align
 
 ---
 
-## 2. Systems Evaluated
+## 📊 2. Systems Evaluated
 
 ### Tier 1 — Production Grade
 
@@ -339,7 +339,7 @@ For graph-heavy workloads where every edge involves hashing (content addressing,
 
 ---
 
-## 5. Bridge Feasibility Comparison
+## 🌉 5. Bridge Feasibility Comparison
 
 How each system handles trustless verification of external chain data (Bitcoin, Ethereum). Cost estimates below are target-specific -- they assume each system's native VM and proof pipeline. Porting the same bridge logic to a different target VM would change the absolute cycle counts and dominant cost tables.
 
@@ -367,7 +367,7 @@ Triton's recursive proof-of-proof architecture is uniquely powerful here: rather
 
 ---
 
-## 6. Language Layer Comparison
+## 💬 6. Language Layer Comparison
 
 | Feature | Trident (Triton) | Cairo 1 (StarkWare) | Leo (Aleo) | Noir (Aztec) | o1js (Mina) | Jock (NockVM) |
 |---------|---------|---------|------|------|------|------|
@@ -412,7 +412,7 @@ Triton's recursive proof-of-proof architecture is uniquely powerful here: rather
 
 ---
 
-## 8. Risk Mitigation for Triton VM Selection
+## 🛡️ 8. Risk Mitigation for Triton VM Selection
 
 If selecting Triton VM as the verification layer (the only system meeting all four requirements), the following risk mitigations apply:
 

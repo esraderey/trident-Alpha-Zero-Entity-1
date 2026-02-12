@@ -125,7 +125,7 @@ No heap. No dynamic allocation.
 unbounded iteration. No recursion. If the compiler accepts your program,
 the proving cost is computable before you ever run the prover.
 
-**Modules and imports.** Split your program across files. 26 modules across
+**Modules and imports.** Split your program across files. 25 modules across
 `vm/`, `std/`, and `os/` wrap every target primitive -- hashing, Merkle
 proofs, sponge operations, field arithmetic, memory, I/O, and cryptographic
 algorithms (SHA-256, Keccak, Poseidon2, ECDSA, Ed25519, secp256k1, bigint)
@@ -218,7 +218,7 @@ paths. 26 standard library modules. 53 `.tri` files. 743 tests.
 
 ### Universal Compilation: One Source, Every Target
 
-Trident's compiler is built on a 3-layer universal design:
+Trident's compiler is built on a 3-layer architecture:
 
 ```text
 +-------------------------------------------+

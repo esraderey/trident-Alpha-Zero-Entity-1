@@ -24,7 +24,7 @@ them -- human, machine, or institution. They apply to the software.
 They apply to the reader. They apply to the author. They are
 symmetric because adversarial environments do not respect roles.
 
-## The Phrase
+## 🗣️ The Phrase
 
 "Не верь, не бойся, не проси" comes from the Russian criminal
 underworld -- the vorovskoy zakon (thieves' law) that governed the
@@ -50,7 +50,7 @@ degrees and eight hundred calories a day.
 The phrase endures not because it saved anyone. It endures because it
 articulates something structurally true about adversarial environments.
 
-## The Roots
+## 🌿 The Roots
 
 The same three principles emerged independently across traditions that
 had no contact with each other.
@@ -106,7 +106,7 @@ computation, permissionless verification. The proof speaks for itself.
 You don't ask anyone to believe you -- you hand them a proof and they
 check it themselves.
 
-## Why This License
+## ❓ Why This License
 
 Most open-source licenses are legal defense mechanisms. They protect
 the author from liability, define what users can and cannot do, and
@@ -135,7 +135,7 @@ permissive license possible. Some will dismiss it as posturing. That
 ambiguity is the point. If you need a legal document to tell you what
 you can do with software, you are already begging.
 
-## The Digital GULAG
+## ⛓️ The Digital GULAG
 
 The GULAG was not unique. It was an instance of a pattern.
 
@@ -229,7 +229,7 @@ They are cryptographic primitives, implemented in software, running
 today. The question is not whether the exit is possible. The question
 is whether enough people will take it before the walls finish closing.
 
-## The Scar
+## 🔥 The Scar
 
 It is important not to romanticize the origin. The phrase comes from a
 place of absolute human degradation. The GULAG was not a crucible that

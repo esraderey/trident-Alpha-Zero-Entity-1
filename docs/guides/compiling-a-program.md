@@ -359,7 +359,7 @@ tables = ["cycles", "memory"]
 
 The architecture field (`stack` or `register`) determines how the emitter generates code. Stack architectures (like Triton VM) use direct emission; register architectures would require a lightweight IR. Currently only stack-based targets are supported.
 
-## Formatting
+## 🎨 Formatting
 
 `trident fmt` reformats source files to the canonical Trident style. It parses the file, preserves comments, and re-emits the AST with consistent indentation and spacing:
 
@@ -437,6 +437,6 @@ trident test .
 - [How STARK Proofs Work](../explanation/stark-proofs.md) -- The six tables that determine proving cost
 - [Formal Verification](../explanation/formal-verification.md) -- Verify program properties at compile time
 
-## Next Step
+## 🚀 Next Step
 
 [Running a Program](running-a-program.md) -- execute your compiled TASM in Triton VM.

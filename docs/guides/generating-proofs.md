@@ -277,7 +277,7 @@ is fast, why no trusted setup is needed -- see
 
 ---
 
-## Next Step
+## 🚀 Next Step
 
 Once a proof is generated, it must be verified.
 

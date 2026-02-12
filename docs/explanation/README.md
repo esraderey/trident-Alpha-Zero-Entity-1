@@ -7,7 +7,7 @@ it does, for readers who want the full picture.
 
 ---
 
-## Core Architecture
+## 🏗️ Core Architecture
 
 | Document | Description |
 |----------|-------------|
@@ -16,7 +16,7 @@ it does, for readers who want the full picture.
 | [OS Abstraction](os-abstraction.md) | How Trident abstracts over 25 operating systems |
 | [Programming Model](programming-model.md) | Execution model and stack semantics |
 
-## Provable Computation
+## 🔐 Provable Computation
 
 | Document | Description |
 |----------|-------------|
@@ -24,21 +24,21 @@ it does, for readers who want the full picture.
 | [Provable Computing](provable-computing.md) | Comparative analysis of ZK systems |
 | [Formal Verification](formal-verification.md) | Symbolic execution, SMT, invariant synthesis |
 
-## Ecosystem
+## 🌐 Ecosystem
 
 | Document | Description |
 |----------|-------------|
 | [Content-Addressed Code](content-addressing.md) | Hashing, caching, registry, equivalence |
 | [Neptune Gold Standard](gold-standard.md) | ZK-native financial primitives |
 
-## Onboarding
+## 🎓 Onboarding
 
 | Document | Description |
 |----------|-------------|
 | [For Developers](for-developers.md) | Zero-knowledge from scratch |
 | [For Blockchain Devs](for-blockchain-devs.md) | Mental model migration from Solidity/Anchor/CosmWasm |
 
-## Philosophy
+## ⚖️ Philosophy
 
 | Document | Description |
 |----------|-------------|

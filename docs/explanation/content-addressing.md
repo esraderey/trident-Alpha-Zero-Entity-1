@@ -161,7 +161,7 @@ computation always terminates.
 
 ---
 
-## 3. Using the Codebase Manager (UCM)
+## 📦 3. Using the Codebase Manager (UCM)
 
 The Universal Codebase Manager (`trident ucm`) is a hash-keyed definitions store
 inspired by Unison's codebase model. Every function is stored by its content hash,
@@ -287,7 +287,7 @@ Shows the number of unique definitions, name bindings, and total source bytes.
 
 ---
 
-## 4. Content Hashing
+## 🔐 4. Content Hashing
 
 The `trident hash` command computes content hashes for all functions in a file without
 storing them in the codebase.
@@ -363,7 +363,7 @@ trident hash file_b.tri
 
 ---
 
-## 5. Verification Caching
+## ⚡ 5. Verification Caching
 
 Verification results are cached by content hash. Because a hash uniquely identifies an
 exact computation, and definitions are immutable once hashed, verification results are
@@ -437,7 +437,7 @@ incorrect results.
 
 ---
 
-## 6. Semantic Equivalence
+## 🔍 6. Semantic Equivalence
 
 The `trident equiv` command checks whether two functions are semantically equivalent --
 they produce the same output for all inputs, even if their ASTs differ.

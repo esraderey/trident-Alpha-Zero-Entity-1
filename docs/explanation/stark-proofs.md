@@ -64,7 +64,7 @@ predictable cost (Section 11), and supports recursive proof verification
 
 ---
 
-## 2. Proofs of Computation
+## 🔐 2. Proofs of Computation
 
 When Triton VM runs a program, it does not merely produce an output. It
 records everything: every instruction executed, every stack state, every
@@ -123,7 +123,7 @@ Triton VM execution model, including public vs. secret input.
 
 ---
 
-## 3. Arithmetization: From Traces to Polynomials
+## 🧮 3. Arithmetization: From Traces to Polynomials
 
 This is the central insight of STARKs. Everything that follows depends on it.
 
@@ -228,7 +228,7 @@ Execution Trace  -->  Interpolate columns  -->  Polynomial constraints
 
 ---
 
-## 4. Triton VM's Six Tables
+## 📊 4. Triton VM's Six Tables
 
 The theory above works for any execution trace. Triton VM organizes its trace
 into six specialized tables, each enforcing a different aspect of correct
@@ -293,7 +293,7 @@ Cross-reference: [vm.md](../reference/vm.md) for the full cost model,
 
 ---
 
-## 5. Commitment: Hiding the Trace
+## 🔒 5. Commitment: Hiding the Trace
 
 The prover has an execution trace encoded as polynomials. But sending these
 polynomials to the verifier would reveal everything -- every secret input,
@@ -362,7 +362,7 @@ Merkle tree basics.
 
 ---
 
-## 6. FRI: The Heart of the STARK
+## 💎 6. FRI: The Heart of the STARK
 
 This is the hardest and most important section. Everything above builds
 toward it.
@@ -457,7 +457,7 @@ Reference: [Fast Reed-Solomon IOP (Ben-Sasson et al., ECCC 2017/134)](https://ec
 
 ---
 
-## 7. The Fiat-Shamir Transform
+## 🔄 7. The Fiat-Shamir Transform
 
 The protocol described above is interactive. The verifier sends random
 challenges (the alpha values in FRI, the random evaluation point z for
@@ -506,7 +506,7 @@ software emulations. This is explored further in Section 12.
 
 ---
 
-## 8. Putting It All Together
+## 🧩 8. Putting It All Together
 
 The full pipeline from source code to verified proof:
 
@@ -686,7 +686,7 @@ the full argument and comparison table.
 
 ---
 
-## 11. Performance: What Does Proving Cost?
+## ⚡ 11. Performance: What Does Proving Cost?
 
 Proving time is not mysterious. It follows directly from the trace structure
 described in Sections 3-4. The Trident compiler computes it statically from

@@ -258,7 +258,7 @@ Verdict: UNSAFE -- random testing found violations (high confidence)
 
 ---
 
-## Invariant Synthesis
+## 🔄 Invariant Synthesis
 
 The invariant synthesis engine (`synthesize.rs`, ~1,307 lines) automatically
 infers specifications from code patterns. Run it with `trident verify --synthesize`.
@@ -383,7 +383,7 @@ trident equiv program.tri fn_original fn_optimized --verbose
 
 ---
 
-## LLM-Verified Generation
+## 🤖 LLM-Verified Generation
 
 The `trident generate` command takes a spec file containing function signatures
 with `#[requires]` and `#[ensures]` annotations but empty bodies, and generates
@@ -497,7 +497,7 @@ be verified automatically.
 
 ---
 
-## Known Limitations
+## ⚠️ Known Limitations
 
 The verification system is functional end-to-end, but several components
 have incomplete coverage or known bugs:

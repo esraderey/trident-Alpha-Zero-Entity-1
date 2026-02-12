@@ -10,7 +10,7 @@ any zkVM (Miden, Cairo, SP1/RISC Zero, and others) from a single source.
 
 ---
 
-## 1. What Is a Zero-Knowledge Proof?
+## 🔐 1. What Is a Zero-Knowledge Proof?
 
 A zero-knowledge proof lets you convince someone that a statement is true
 without revealing *why* it is true. The classic analogy: imagine you have a
@@ -30,7 +30,7 @@ be compiled and proved on whichever backend suits your deployment.
 
 ---
 
-## 2. What Is a Field Element?
+## 🧮 2. What Is a Field Element?
 
 In normal programming, integers are 32-bit or 64-bit values that overflow
 silently or throw exceptions. In Trident, the basic numeric type is a **field
@@ -73,7 +73,7 @@ will be fine.
 
 ---
 
-## 3. Why Does Every Loop Need a Bound?
+## 🔄 3. Why Does Every Loop Need a Bound?
 
 In conventional programming, you write `while` loops that run until some
 condition is met. The runtime figures out how many iterations actually happen.
@@ -111,7 +111,7 @@ predictable proving cost.
 
 ---
 
-## 4. Why No Recursion?
+## 🚫 4. Why No Recursion?
 
 Recursion is just an unbounded loop in disguise. A recursive function can call
 itself to arbitrary depth depending on runtime inputs. The compiler cannot
@@ -144,7 +144,7 @@ depth becomes your bound.
 
 ---
 
-## 5. Why No Heap?
+## 📦 5. Why No Heap?
 
 Trident has no `malloc`, no `free`, no garbage collector, no dynamically-sized
 data structures. Every piece of data has a size known at compile time.
@@ -179,7 +179,7 @@ arrays and structs cover nearly all of it.
 
 ---
 
-## 6. What Is "Divine"?
+## ✨ 6. What Is "Divine"?
 
 This is the concept that trips up most newcomers. In a normal program, all
 inputs come from the same place -- the user, a file, a network socket. In
@@ -227,7 +227,7 @@ The divine-and-verify pattern shows up everywhere:
 
 ---
 
-## 7. What Is a Merkle Tree and Why Does It Matter?
+## 🌳 7. What Is a Merkle Tree and Why Does It Matter?
 
 A Merkle tree is a data structure where a single hash (the "root") represents
 an entire collection of data. You can prove that a specific piece of data is in
@@ -327,7 +327,7 @@ see [How STARK Proofs Work](../explanation/stark-proofs.md).
 
 ---
 
-## 9. What Happens When You Build, Prove, and Verify?
+## 🔨 9. What Happens When You Build, Prove, and Verify?
 
 Here is the full lifecycle of a Trident program, step by step.
 
