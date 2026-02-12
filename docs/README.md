@@ -31,7 +31,6 @@ application, from a four-line proof to a sovereign DAO.
 
 | Document | Description |
 |----------|-------------|
-| [Writing a Program](guides/writing-a-program.md) | Source structure, modules, types |
 | [Compiling a Program](guides/compiling-a-program.md) | Build, check, cost analysis |
 | [Running a Program](guides/running-a-program.md) | Execute, test, debug |
 | [Deploying a Program](guides/deploying-a-program.md) | Neptune scripts, multi-target deployment |

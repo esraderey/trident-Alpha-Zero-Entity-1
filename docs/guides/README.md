@@ -11,7 +11,6 @@ workflow in the Trident development lifecycle.
 
 | Document | Description |
 |----------|-------------|
-| [Writing a Program](writing-a-program.md) | Source structure, modules, types |
 | [Compiling a Program](compiling-a-program.md) | Build, check, cost analysis |
 | [Running a Program](running-a-program.md) | Execute, test, debug |
 | [Deploying a Program](deploying-a-program.md) | Neptune scripts, multi-target deployment |
