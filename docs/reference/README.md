@@ -11,7 +11,7 @@ and code disagree, the reference wins.
 
 [language.md](language.md) — the complete language in one file, 16 sections.
 
-**Part I — Universal Language (Tier 0 + Tier 1)**
+**Language**
 
 | # | Section | What it covers |
 |---|---------|----------------|
@@ -28,7 +28,7 @@ and code disagree, the reference wins.
 | 11 | [Type Checking Rules](language.md#11-type-checking-rules) | No implicit conversions, exhaustive match, purity |
 | 12 | [Permanent Exclusions](language.md#12-permanent-exclusions) | What Trident will never add, and why |
 
-**Part II — Provable Computation (Tier 2 + Tier 3)**
+**Provable Computation**
 
 | # | Section | What it covers |
 |---|---------|----------------|
@@ -41,8 +41,8 @@ and code disagree, the reference wins.
 
 | Document | Description |
 |----------|-------------|
-| [Grammar (EBNF)](grammar.md) | Complete formal grammar |
-| [IR Design](ir.md) | TIR operations (54 ops, 4 tiers), lowering paths |
+| [Grammar](grammar.md) | Complete formal grammar (EBNF) |
+| [Intermediate Representation](ir.md) | TIR operations (54 ops, 4 tiers), lowering paths |
 | [Target Reference](targets.md) | OS model, target profiles, cost models |
 
 ## Platform Reference
