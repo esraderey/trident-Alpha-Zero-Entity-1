@@ -38,10 +38,55 @@ trident verify <file> --z3              # Formal verification via Z3
 trident doc <file>                      # Generate documentation
 trident doc <file> -o <docs.md>         # Generate to file
 
+# Package
+trident package <file>                  # Compile + hash + produce .deploy/ artifact
+trident package <file> --target neptune # Package for specific OS/VM target
+trident package <file> -o <dir>         # Output to custom directory
+trident package <file> --verify         # Run verification before packaging
+trident package <file> --dry-run        # Show what would be produced
+
+# Deploy
+trident deploy <file>                   # Compile, package, deploy to registry
+trident deploy <dir>.deploy/            # Deploy pre-packaged artifact
+trident deploy <file> --registry <url>  # Deploy to specific registry
+trident deploy <file> --verify          # Verify before deploying
+trident deploy <file> --dry-run         # Show what would be deployed
+
+# Hash
+trident hash <file>                     # Show function content hashes
+trident hash <file> --full              # Show full 256-bit hashes
+
+# View
+trident view <name>                     # View a function definition
+trident view <name> -i <file>           # From specific file
+
+# Equivalence
+trident equiv <file> <fn_a> <fn_b>      # Check two functions are equivalent
+
+# Benchmarks
+trident bench <dir>                     # Compare .tri vs .baseline.tasm
+
+# UCM (Universal Codebase Manager)
+trident ucm add <file>                  # Add definitions to codebase
+trident ucm list                        # List all definitions
+trident ucm lookup <hash>               # Find definition by hash
+trident ucm diff <file>                 # Show changed definitions
+
+# Registry
+trident registry serve                  # Start local registry server
+trident registry publish                # Publish codebase to registry
+trident registry pull <hash>            # Pull definition by hash
+trident registry search <query>         # Search definitions
+
+# Dependencies
+trident deps list                       # Show declared dependencies
+trident deps lock                       # Lock dependency versions
+trident deps fetch                      # Download locked dependencies
+
 # Project
 trident init <name>                     # Create new program project
 trident init --lib <name>               # Create new library project
-trident hash <file>                     # Show function content hashes
+trident generate <spec.tri>             # Generate scaffold from spec
 trident lsp                             # Start LSP server
 ```
 
