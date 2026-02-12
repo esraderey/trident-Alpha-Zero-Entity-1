@@ -385,7 +385,7 @@ leaf = hash(asset_id, owner_id, nonce, auth_hash, lock_until,
 | `metadata_hash` | Field | Hash of item metadata |
 | `royalty_bps` | Field | Royalty basis points (0-10000) |
 | `creator_id` | Field | Original creator (immutable after mint) |
-| `flags` | Field | Bits: transferable (bit 0), burnable (bit 1), updatable (bit 2) |
+| `flags` | Field | Bits: transferable (0), burnable (1), updatable (2), lockable (3), mintable (4) |
 
 First 5 fields occupy same positions as TSP-1. Last 5 — reserved zeros in
 TSP-1 — carry per-asset state in TSP-2.
@@ -397,10 +397,14 @@ TSP-1 — carry per-asset state in TSP-2.
 | 0 | `TRANSFERABLE` | Pay (transfer) allowed | Pay rejected |
 | 1 | `BURNABLE` | Burn allowed | Burn rejected |
 | 2 | `UPDATABLE` | Metadata update allowed | Metadata frozen forever |
+| 3 | `LOCKABLE` | Lock (time-lock) allowed | Lock rejected |
+| 4 | `MINTABLE` | Re-mint into collection allowed | Collection closed to new mints |
 
 Flags are set at mint time and **cannot be changed** after creation. A
 soulbound credential is minted with `flags = 0` (no transfer, no burn, no
-update). A game item is minted with `flags = 7` (all operations allowed).
+update, no lock, no re-mint). A game item is minted with `flags = 31` (all
+operations allowed). A standard collectible uses `flags = 11`
+(transferable + burnable + lockable, but not updatable or re-mintable).
 
 #### Collection Binding
 
@@ -480,17 +484,18 @@ the standard 10-field PLUMB config (section 3.1) — 5 authorities + 5 hooks.
 2. Asset leaf verified against `old_root`
 3. `hash(secret) == leaf.auth_hash` (owner authorization)
 4. If `lock_auth ≠ 0`: `hash(lock_secret) == lock_auth` (dual auth)
-5. `lock_until_time >= leaf.lock_until` (extend only — locks can be
+5. `leaf.flags & LOCKABLE` (flag check — reject if not lockable)
+6. `lock_until_time >= leaf.lock_until` (extend only — locks can be
    extended but never shortened)
-6. `leaf.owner_id` unchanged
-7. `leaf.collection_id` unchanged
-8. `leaf.creator_id` unchanged
-9. `leaf.metadata_hash` unchanged
-10. `leaf.royalty_bps` unchanged
-11. `leaf.flags` unchanged
-12. Leaf: `lock_until = lock_until_time`, `nonce += 1`
-13. New leaf → `new_root`
-14. `asset_count` unchanged
+7. `leaf.owner_id` unchanged
+8. `leaf.collection_id` unchanged
+9. `leaf.creator_id` unchanged
+10. `leaf.metadata_hash` unchanged
+11. `leaf.royalty_bps` unchanged
+12. `leaf.flags` unchanged
+13. Leaf: `lock_until = lock_until_time`, `nonce += 1`
+14. New leaf → `new_root`
+15. `asset_count` unchanged
 
 Lock prevents Pay and Burn until `current_time >= lock_until`. The owner
 retains ownership but cannot transfer or destroy the asset.
@@ -543,15 +548,16 @@ certificates).
 4. `asset_id` not in tree (non-membership proof — proves the asset is new)
 5. `creator_id = minter_id` (set at mint, immutable forever after)
 6. `collection_id` set (binds asset to collection, immutable forever after)
-7. `flags` set (transferable, burnable, updatable bits, immutable after)
-8. `royalty_bps` set (royalty rate, immutable after mint)
-9. `nonce = 0` (initial nonce)
-10. `lock_until = 0` (initially unlocked)
-11. New leaf → `new_root` (Merkle insert)
-12. `new_asset_count == old_asset_count + 1`
-13. If `max_supply ≠ 0` (from collection metadata):
+7. `flags` set (all 5 bits, immutable after mint)
+8. `flags & MINTABLE` (flag check — reject if collection closed to mints)
+9. `royalty_bps` set (royalty rate, immutable after mint)
+10. `nonce = 0` (initial nonce)
+11. `lock_until = 0` (initially unlocked)
+12. New leaf → `new_root` (Merkle insert)
+13. `new_asset_count == old_asset_count + 1`
+14. If `max_supply ≠ 0` (from collection metadata):
     `new_asset_count <= max_supply` (cap enforcement)
-14. If `mint_hook ≠ 0`: hook proof composed (e.g. MINT_UNIQUE for extra
+15. If `mint_hook ≠ 0`: hook proof composed (e.g. MINT_UNIQUE for extra
     uniqueness checks, MINT_ALLOWLIST for approved minters)
 
 The non-membership proof (step 4) is the key difference from TSP-1 minting.
