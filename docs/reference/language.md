@@ -403,7 +403,7 @@ just like builtins do.
 | `std.os.state` | `read(key: Field) -> Field`, `write(key, value)`, `exists(key)` | Target has persistent state |
 | `std.os.caller` | `id() -> Digest`, `verify(expected: Digest) -> Bool` | Target has caller concept |
 | `std.os.auth` | `verify(credential: Digest) -> ()` (assertion) | Target has identity |
-| `std.os.transfer` | `send(to: Digest, amount: Field)`, `balance(account: Digest) -> Field` | Target has native value |
+| `std.os.transfer` | `send(from: Digest, to: Digest, amount: Field)`, `balance(account: Digest) -> Field` | Target has native value |
 | `std.os.time` | `now() -> Field`, `block_height() -> Field` | All targets |
 
 These sit between `std.*` (pure computation, all targets) and `ext.<os>.*`

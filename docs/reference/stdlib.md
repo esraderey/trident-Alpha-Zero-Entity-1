@@ -83,8 +83,14 @@ works on every OS with identity.
 
 | Function | Signature | Description |
 |----------|-----------|-------------|
-| `send(to, amount)` | `(to: Digest, amount: Field) -> ()` | Transfer native value |
+| `send(from, to, amount)` | `(from: Digest, to: Digest, amount: Field) -> ()` | Transfer native value from one actor to another |
 | `balance(account)` | `(account: Digest) -> Field` | Query account balance |
+
+The three-argument `send(from, to, amount)` is the universal primitive:
+a directed weighted edge from one actor to another. In most cases `from`
+is the caller, but delegation/proxy/allowance patterns pass a different
+`from` (e.g., ERC-20 `transferFrom`, spending another actor's UTXO with
+their authorization).
 
 **Supported:** Account, Stateless, Object, UTXO.
 **Compile error:** Journal (no value), Process (no native value).

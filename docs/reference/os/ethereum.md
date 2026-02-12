@@ -180,7 +180,7 @@ instead of `ext.ethereum.*` for cross-chain portability:
 |---------------------------------|---------------------|
 | `ext.ethereum.storage.read(slot)` | `std.os.state.read(key)` → SLOAD |
 | `ext.ethereum.account.caller()` | `std.os.caller.id()` → msg.sender (padded to Digest) |
-| `ext.ethereum.transfer.send(to, amt)` | `std.os.transfer.send(to, amt)` → CALL with value |
+| `ext.ethereum.transfer.send(to, amt)` | `std.os.transfer.send(from, to, amt)` → CALL with value (self) / transferFrom (delegated) |
 | `ext.ethereum.block.timestamp()` | `std.os.time.now()` → block.timestamp |
 
 Use `ext.ethereum.*` when you need: precompiles, delegatecall, specific

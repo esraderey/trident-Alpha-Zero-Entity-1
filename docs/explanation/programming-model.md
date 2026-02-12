@@ -109,7 +109,7 @@ mechanism differs.
 | OS family | Transfer mechanism | Trident pattern |
 |-----------|-------------------|-----------------|
 | UTXO | Create new UTXOs, destroy old ones | Kernel outputs (new UTXOs) in transaction |
-| Account (EVM) | Transfer opcode | `ext.ethereum.transfer.send(to, amount)` |
+| Account (EVM) | Transfer opcode | `ext.ethereum.transfer.send(from, to, amount)` |
 | Stateless (Solana) | Lamport transfer via system program | `ext.solana.transfer.lamports(from, to, amount)` |
 | Object (Sui) | Object transfer (ownership change) | `ext.sui.coin.split()`, `ext.sui.transfer.send()` |
 | Journal | No value (off-chain computation) | N/A |
@@ -264,7 +264,7 @@ layer cannot express what you need.
 | `std.os.state` | Read/write persistent state | Journal targets (no state) |
 | `std.os.caller` | Who initiated this call | UTXO targets (no caller concept) |
 | `std.os.auth` | Is this operation authorized | Journal targets (no identity) |
-| `std.os.transfer` | Move value between accounts | Journal + process targets (no value) |
+| `std.os.transfer` | Move value between actors | Journal + process targets (no value) |
 | `std.os.time` | Current time / block height | -- (all OSes have time) |
 | `std.os.event` | Observable side effects | -- (uses `reveal`/`seal` directly) |
 

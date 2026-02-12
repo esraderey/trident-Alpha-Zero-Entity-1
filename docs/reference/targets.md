@@ -398,15 +398,19 @@ correct lowering strategy. See [stdlib.md](stdlib.md) for full API specs.
 
 #### `std.os.transfer` — Value Movement
 
-| OS family | OSes | `transfer.send(to, amount)` lowers to |
-|-----------|------|---------------------------------------|
-| Account (EVM) | Ethereum | `CALL(to, amount, "")` |
-| Account (Cairo) | Starknet | `transfer(to, amount)` syscall |
+`send(from, to, amount)` — directed weighted edge from one actor to
+another. `from` is usually the caller but supports delegation/proxy
+patterns (ERC-20 `transferFrom`, UTXO spend on behalf of another actor).
+
+| OS family | OSes | `transfer.send(from, to, amount)` lowers to |
+|-----------|------|----------------------------------------------|
+| Account (EVM) | Ethereum | `CALL(to, amount, "")` (self) / `transferFrom(from, to, amount)` (delegated) |
+| Account (Cairo) | Starknet | `transfer(from, to, amount)` syscall |
 | Account (WASM) | Near, Cosmos | `Promise::transfer` / `BankMsg::Send` |
 | Account (other) | Ton, Polkadot | OS-native transfer message |
-| Stateless | Solana | `system_program::transfer(signer, to, amount)` |
+| Stateless | Solana | `system_program::transfer(from, to, amount)` |
 | Object | Sui, Aptos | `coin::split` + `transfer::public_transfer` |
-| UTXO | Neptune, Nockchain, Nervos, Aleo, Aztec | Emit output UTXO/note (amount in coin state) |
+| UTXO | Neptune, Nockchain, Nervos, Aleo, Aztec | Emit output UTXO/note (from = consumed input, to = recipient) |
 | Process | Linux, macOS, WASI, Browser, Android | **Compile error** — no native value |
 | Journal | Boundless, Succinct, OpenVM network | **Compile error** — no native value |
 
