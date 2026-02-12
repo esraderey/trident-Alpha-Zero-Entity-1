@@ -578,9 +578,9 @@ can prove properties of data without exposing the data itself.
 **Quantum safety.** STARK proofs are based on hash functions, not elliptic
 curves. When quantum computers arrive, your proofs remain secure.
 
-**Multi-target deployment.** The same Trident source compiles to multiple zkVMs
-via `--target`. Write your program once, then deploy to Triton VM, Miden VM,
-Cairo, or other backends without rewriting. The universal core of the language
+**Multi-target deployment.** The same Trident source is designed to compile to
+multiple zkVMs via `--target`. Write your program once, then deploy to Triton
+VM, Miden VM, Cairo, or other backends without rewriting. The universal core of the language
 is portable across all targets; backend extensions let you access
 target-specific capabilities when needed.
 

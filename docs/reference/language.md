@@ -3,8 +3,8 @@
 [IR Reference](ir.md) | [Target Reference](targets.md) | [Error Catalog](errors.md) | [Agent Briefing](briefing.md)
 
 Trident is a programming language for provable computation. One source
-file compiles to 20 virtual machines — from zero-knowledge proof systems
-to EVM, WASM, and native x86-64. Write once. Prove anywhere.
+file is designed to compile to 20 virtual machines — from zero-knowledge
+proof systems to EVM, WASM, and native x86-64. Write once. Prove anywhere.
 
 **Version 0.5** | File extension: `.tri` | Compiler: `trident`
 

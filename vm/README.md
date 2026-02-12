@@ -2,7 +2,7 @@
 
 [← Target Reference](../docs/reference/targets.md)
 
-20 VMs. The VM is the CPU — the instruction set architecture.
+Designed for 20 VMs. The VM is the CPU — the instruction set architecture.
 
 ## Provable
 

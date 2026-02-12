@@ -335,7 +335,7 @@ No additional `os.event` module needed — events use language-level
 
 ## OS Registry
 
-25 OSes across provable, blockchain, and traditional runtimes:
+Designed for 25 OSes across provable, blockchain, and traditional runtimes (today: Neptune):
 
 | OS | VM | Runtime binding | Account / process model | Interop | Details |
 |----|-----|----------------|------------------------|---------|---------|

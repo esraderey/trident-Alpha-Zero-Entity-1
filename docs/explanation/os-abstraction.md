@@ -1,7 +1,7 @@
 # OS Abstraction
 
-Trident compiles to 25 operating systems — blockchains, zkVMs, and
-traditional runtimes. Each OS has a different programming model, but
+Trident is designed to compile to 25 operating systems — blockchains,
+zkVMs, and traditional runtimes. Each OS has a different programming model, but
 they all share the same six concerns. The compiler's job is **runtime
 binding** — translating these concerns to OS-native primitives.
 
@@ -189,9 +189,9 @@ For programming models:
 Level 3 connects business logic to the runtime environment. It has two
 tiers:
 
-**`os.*`** — the portable runtime. Available on all 25 OSes. Programs
-using only Level 1 + `os.*` are portable across every OS that supports
-the required operations.
+**`os.*`** — the portable runtime. Designed for all 25 OSes. Programs
+using only Level 1 + `os.*` are designed to be portable across every OS
+that supports the required operations.
 
 | Module | Purpose | Lowers to |
 |--------|---------|-----------|

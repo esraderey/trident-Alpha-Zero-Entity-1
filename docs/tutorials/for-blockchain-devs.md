@@ -5,10 +5,10 @@ fundamentally differently. This guide maps your existing mental model -- whether
 it comes from Solidity, Vyper, Anchor, CosmWasm, or Substrate -- to the
 zero-knowledge paradigm.
 
-Trident compiles to multiple STARK-based zero-knowledge virtual machines.
-The primary target is [Triton VM](https://triton-vm.org/) via
-[TASM](https://triton-vm.org/spec/), but the same source code can target other
-backends without modification. The result is not a contract deployed on-chain.
+Trident is designed to compile to multiple STARK-based zero-knowledge virtual
+machines. The primary target today is [Triton VM](https://triton-vm.org/) via
+[TASM](https://triton-vm.org/spec/), but the same source code is designed to
+target other backends without modification. The result is not a contract deployed on-chain.
 It is a program that runs locally, produces a cryptographic proof, and lets
 anyone verify that proof in milliseconds without re-executing anything.
 
@@ -26,7 +26,7 @@ anyone verify that proof in milliseconds without re-executing anything.
 | Verifier re-executes the transaction | Verifier checks a STARK proof (milliseconds, constant cost) |
 | Deployed bytecode lives on-chain | Program is identified by its Tip5 hash |
 | Upgradeable via proxy patterns | Config commitments with admin auth; code hash is identity |
-| Locked to one VM (EVM, SVM, CairoVM) | Multi-target: same source compiles to Triton VM, Miden VM, etc. |
+| Locked to one VM (EVM, SVM, CairoVM) | Multi-target: same source designed to compile to Triton VM, Miden VM, etc. |
 | Security from elliptic curves (secp256k1, ed25519) | Security from hash functions only (quantum-safe) |
 
 The deepest shift: a smart contract is *imperative middleware* that mutates
@@ -42,7 +42,7 @@ A CosmWasm contract runs on Cosmos chains. If you want to target a different
 chain, you rewrite the program from scratch in a different language.
 
 Trident separates the **program** from the **proving backend**. The same source
-compiles to multiple STARK VMs:
+is designed to compile to multiple STARK VMs:
 
 | Layer | What It Contains | Example |
 |-------|-----------------|---------|
@@ -54,7 +54,7 @@ and generate valid proofs on any supported backend. Programs that import
 `os.<os>.*` modules are backend-specific and will only compile for that target.
 
 ```
-// Portable program -- compiles to any backend
+// Portable program -- designed to compile to any backend
 use std.crypto.merkle
 use vm.io.io
 

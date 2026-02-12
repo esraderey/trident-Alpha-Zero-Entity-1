@@ -58,19 +58,19 @@ These properties emerged from ZK requirements. The discovery is that they define
 └─────────────────────────────────────────────────────────┘
 ```
 
-A `.tri` file that uses only Level 1 constructs compiles to **every** target. Level 2 imports restrict to ZK targets. Level 3 imports lock to a specific platform. The compiler enforces this statically — no runtime check, no silent failure.
+A `.tri` file that uses only Level 1 constructs is designed to compile to **every** target. Level 2 imports restrict to ZK targets. Level 3 imports lock to a specific platform. The compiler enforces this statically — no runtime check, no silent failure.
 
 ### What each level means in practice
 
-**Level 1** is the business logic. The math, the state transitions, the validation rules. This is where developers spend their time and where bugs live. It compiles everywhere.
+**Level 1** is the business logic. The math, the state transitions, the validation rules. This is where developers spend their time and where bugs live. It is designed to compile everywhere.
 
 **Level 2** adds cryptographic provability. Secret witness inputs, public I/O, sealed events, Merkle authentication. The same Level 1 logic now produces STARK proofs. Only available on ZK targets.
 
 **Level 3** is the OS layer. Two tiers: `os.*` is the portable runtime
-(neuron identity, signals, tokens, state, time — available on all 25
+(neuron identity, signals, tokens, state, time — designed for all 25
 OSes), and `os.<os>.*` provides OS-specific extensions (PDAs on Solana,
-UTXO authentication on Neptune, CPI on Sui). The compiler lowers `os.*`
-calls to OS-native mechanisms based on `--target`. Importing `os.<os>.*`
+UTXO authentication on Neptune, CPI on Sui). The compiler is designed to
+lower `os.*` calls to OS-native mechanisms based on `--target`. Importing `os.<os>.*`
 locks the program to that OS.
 
 The key insight: `os.*` is thin. The entire blockchain design space reduces
@@ -143,15 +143,15 @@ event Withdrawal { vault_id: Field, amount: Field }
 ```
 
 This program uses `os.state` and `os.neuron` — the portable OS API. It
-compiles to EVM bytecode, WASM for CosmWasm, BPF for Solana, TASM for
-Triton VM, and MASM for Miden. The developer writes it once. One audit
-covers all deployments.
+is designed to compile to EVM bytecode, WASM for CosmWasm, BPF for Solana,
+TASM for Triton VM, and MASM for Miden. The developer writes it once. One
+audit covers all deployments.
 
-The compiler lowers `os.state.read()` to `SLOAD` on EVM, `deps.storage`
-on CosmWasm, account data on Solana, RAM with Merkle authentication on
-Triton VM. `os.neuron.id()` becomes `msg.sender` on EVM,
-`predecessor_account_id` on Near, `tx_context::sender` on Sui. Same
-source, target-optimal execution. No adapters to write.
+The compiler is designed to lower `os.state.read()` to `SLOAD` on EVM,
+`deps.storage` on CosmWasm, account data on Solana, RAM with Merkle
+authentication on Triton VM. `os.neuron.id()` becomes `msg.sender` on EVM,
+`predecessor_account_id` on Near, `tx_context::sender` on Sui. Same source,
+target-optimal execution. No adapters to write.
 
 ---
 
@@ -200,11 +200,11 @@ Level 1 provides abstract interfaces. The compiler maps them to target-native im
 | CosmWasm  | `Response::add_event`                            |
 | SVM       | `msg!()` / program logs                          |
 
-The developer writes `hash(data)`. The compiler emits `KECCAK256` on EVM, `hash` on Triton, `SHA-256` on SVM. Same program, target-optimal execution.
+The developer writes `hash(data)`. The compiler is designed to emit `KECCAK256` on EVM, `hash` on Triton, `SHA-256` on SVM. Same program, target-optimal execution.
 
 ### Control flow
 
-All Level 1 control flow compiles to every target:
+All Level 1 control flow is designed to compile to every target:
 
 ```
 if condition { ... } else { ... }     // Structural: if.true/else/end on Miden,
@@ -266,7 +266,7 @@ fn main() {
 }
 ```
 
-The `sender_bal - amount` and `assert(new_bal >= 0)` are pure Level 1 logic. The `divine()`, `pub_read5()`, `merkle.verify()`, and `seal` are Level 2. If you remove the ZK parts, the business logic still compiles to every target.
+The `sender_bal - amount` and `assert(new_bal >= 0)` are pure Level 1 logic. The `divine()`, `pub_read5()`, `merkle.verify()`, and `seal` are Level 2. If you remove the ZK parts, the business logic is designed to compile to every target.
 
 ---
 

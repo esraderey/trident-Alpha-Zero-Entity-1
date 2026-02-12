@@ -2,7 +2,7 @@
 
 [← Target Reference](../docs/reference/targets.md)
 
-25 OSes. The OS is the runtime — storage, accounts, syscalls, billing.
+Designed for 25 OSes. The OS is the runtime — storage, accounts, syscalls, billing.
 
 ## Provable
 

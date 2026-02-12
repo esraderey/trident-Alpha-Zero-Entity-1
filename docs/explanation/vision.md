@@ -168,8 +168,8 @@ for automated verification. Because Trident programs are bounded,
 first-order, and heap-free, the compiler can symbolically verify correctness
 for all possible inputs. See [Formal Verification](formal-verification.md).
 
-**Content-addressed code (designed).** Every function compiles to a
-deterministic constraint system with a unique cryptographic identity. Audit
+**Content-addressed code (designed).** Every function is designed to compile
+to a deterministic constraint system with a unique cryptographic identity. Audit
 certificates and verification results are portable across projects and time.
 See [Content-Addressed Code](content-addressing.md).
 
@@ -520,8 +520,9 @@ migrate.
 ### Write Once, Prove Anywhere -- Including the Incomplete Platforms
 
 Neptune/Triton VM is the only platform that satisfies all four requirements
-today. But Trident also compiles to the incomplete platforms -- Cairo, SP1,
-Miden, EVM, Nock -- when their tradeoffs are acceptable for your use case.
+today. But Trident is designed to also compile to the incomplete platforms --
+Cairo, SP1, Miden, EVM, Nock -- when their tradeoffs are acceptable for
+your use case.
 
 You deploy to Neptune for quantum safety, privacy, programmability, and
 permissionless mining. You deploy the same source to Ethereum for liquidity
@@ -603,8 +604,9 @@ foundation. Raw TASM is the wrong interface. Cairo proved this for StarkWare.
 Leo proved this for Aleo. Trident proves this for the only OS that gets all
 four properties right.
 
-**No program should be stranded on one VM.** The universal core compiles to
-any target. Backend extensions add power without limiting portability. The
+**No program should be stranded on one VM.** The universal core is designed
+to compile to any target. Backend extensions add power without limiting
+portability. The
 architecture ensures that choosing Trident is not choosing a single
 ecosystem -- it is choosing all of them.
 
@@ -612,7 +614,7 @@ The token example is 535 lines. The uniq example follows the same PLUMB
 framework with 5 operations, 10-field leaves, and 5-bit flags. The compiler
 is ~43K lines of Rust. The test suite has 743 tests. 53 `.tri` files span
 `vm/`, `std/`, `os/`, and `examples/`. 54 TIR operations lower through 4
-paths to 20 VMs and 25 OSes. The cost model tracks 6 tables. Two token
+paths designed for 20 VMs and 25 OSes. The cost model tracks 6 tables. Two token
 standards (TSP-1, TSP-2) share the PLUMB framework.
 
 The numbers are growing. The foundation is solid. The rest is building.

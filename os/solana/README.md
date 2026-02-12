@@ -3,7 +3,7 @@
 [← Target Reference](../../docs/reference/targets.md) | VM: [SBPF](../../vm/sbpf/README.md)
 
 Solana is the high-performance blockchain powered by SBPF (Solana Berkeley
-Packet Filter). Trident compiles to SBPF bytecode (`.so`) and links against
+Packet Filter). Trident is designed to compile to SBPF bytecode (`.so`) and link against
 `os.solana.*` for Solana-specific runtime bindings. Programs are stateless -- all state
 lives in accounts passed into each transaction.
 

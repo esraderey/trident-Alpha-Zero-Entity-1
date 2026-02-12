@@ -72,7 +72,7 @@ See [ir.md](ir.md) for the full IR architecture and lowering paths.
 Each VM is defined by a `.toml` configuration file in `vm/` specifying
 CPU parameters. `TargetConfig` is the compiler's hardware abstraction layer.
 
-20 VMs across three categories:
+Designed for 20 VMs across three categories (today: Triton VM):
 
 | VM | Arch | Word | Hash | Tier | Output | Details |
 |----|------|------|------|------|--------|---------|
@@ -116,7 +116,7 @@ computation). Higher tiers require specific VM capabilities:
 | 2 — Provable | Witness, Sponge, MerkleStep | TRITON, MIDEN, NOCK + partial: RISCZERO (SHA-256), AVM (Poseidon), AZTEC (Poseidon2) |
 | 3 — Recursion | ProofBlock, FriVerify, recursive composition | TRITON, NOCK |
 
-Programs using only Tier 0-1 compile to any VM. Programs using Tier 2+
+Programs using only Tier 0-1 are designed to compile to any VM. Programs using Tier 2+
 require a VM with native coprocessor support for the relevant operations.
 
 ---

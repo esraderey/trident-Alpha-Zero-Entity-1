@@ -1,8 +1,8 @@
 # Trident Programming Model
 
-How programs interact with the outside world. Trident compiles to 20 VMs
-and 25 OSes -- each OS has a different programming model, but they all
-share the same universal foundation.
+How programs interact with the outside world. Trident is designed to
+compile to 20 VMs and 25 OSes -- each OS has a different programming
+model, but they all share the same universal foundation.
 
 ## The Universal Primitive: `Field`
 
@@ -81,9 +81,10 @@ channels. Works everywhere but cannot touch state, identity, or money.
 
 **S1 — `os.*`**: Portable OS abstraction. Names the *intent* (identify
 neuron, send signal, read state) — the compiler picks the *mechanism* based
-on the target OS. A program using `os.state.read(key)` compiles to SLOAD
-on Ethereum, `account.data` on Solana, `dynamic_field.borrow` on Sui, and
-`divine()` + `merkle_authenticate` on Neptune. Same source, different lowering.
+on the target OS. A program using `os.state.read(key)` is designed to lower
+to SLOAD on Ethereum, `account.data` on Solana, `dynamic_field.borrow` on
+Sui, and `divine()` + `merkle_authenticate` on Neptune. Same source,
+different lowering.
 
 **S2 — `os.<os>.*`**: OS-native API. Full access to OS-specific features
 (PDAs, object ownership, CPI, kernel MAST, IBC). Required when the portable
