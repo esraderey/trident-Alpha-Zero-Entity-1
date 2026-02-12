@@ -162,48 +162,73 @@ The developer writes `state.read(key)` — the proof machinery is invisible.
 | Process | Linux, macOS, WASI, Browser, Android | File / environment read |
 | Journal | Boundless, Succinct, OpenVM Network | **Compile error** — no persistent state |
 
-### `os.token` — Token Operations
+### `os.token` — Token Operations (PLUMB)
 
 Tokens are neurons viewed as assets. `os.signal.send()` moves native
-currency between neurons. `os.token` provides the full token lifecycle:
-creation, destruction, querying, and ownership — for both coins and
-uniqs.
+currency between neurons. `os.token` provides the full PLUMB lifecycle —
+**P**ay, **L**ock, **U**pdate, **M**int, **B**urn — plus read queries,
+for both coins and uniqs.
 
-#### Coins
+See the [Gold Standard](../explanation/gold-standard.md) for the full
+PLUMB specification, leaf formats, config model, and hook system.
+
+#### PLUMB Operations — Coins
 
 | Function | Signature | Description |
 |----------|-----------|-------------|
+| `pay(to, amount)` | `(to: Digest, amount: Field) -> ()` | Transfer value to recipient |
+| `lock(until)` | `(until: Field) -> ()` | Time-lock caller's account |
+| `update(new_config)` | `(new_config: Digest) -> ()` | Update token config (admin only) |
 | `mint(to, amount)` | `(to: Digest, amount: Field) -> ()` | Create new tokens for recipient |
-| `burn(from, amount)` | `(from: Digest, amount: Field) -> ()` | Destroy tokens from holder |
+| `burn(amount)` | `(amount: Field) -> ()` | Destroy tokens from caller |
+
+#### Read Queries — Coins
+
+| Function | Signature | Description |
+|----------|-----------|-------------|
 | `balance(account)` | `(account: Digest) -> Field` | Query token balance |
 | `supply()` | `() -> Field` | Query total supply |
 
-`mint` and `burn` require authorization — the compiler enforces this via
-the OS-native mechanism. On UTXO chains, minting creates a new output;
-burning consumes an input without creating an output. On account chains,
-minting credits a balance; burning debits it. The conservation law
-(`sum(mints) - sum(burns) == supply_change`) is enforced by every OS,
-just differently.
-
-#### Uniqs
+#### PLUMB Operations — Uniqs
 
 | Function | Signature | Description |
 |----------|-----------|-------------|
-| `owner(asset_id)` | `(asset_id: Digest) -> Digest` | Query current owner of unique asset |
-| `transfer(asset_id, to)` | `(asset_id: Digest, to: Digest) -> ()` | Transfer ownership of unique asset |
-| `metadata(asset_id)` | `(asset_id: Digest) -> Digest` | Query metadata commitment of asset |
+| `pay(asset_id, to)` | `(asset_id: Digest, to: Digest) -> ()` | Transfer ownership of unique asset |
+| `lock(asset_id, until)` | `(asset_id: Digest, until: Field) -> ()` | Time-lock asset |
+| `update(new_config)` | `(new_config: Digest) -> ()` | Update token config (admin only) |
+| `mint(asset_id, to, metadata)` | `(asset_id: Digest, to: Digest, metadata: Digest) -> ()` | Create unique asset |
+| `burn(asset_id)` | `(asset_id: Digest) -> ()` | Destroy unique asset |
+
+#### Read Queries — Uniqs
+
+| Function | Signature | Description |
+|----------|-----------|-------------|
+| `owner(asset_id)` | `(asset_id: Digest) -> Digest` | Query current owner |
+| `metadata(asset_id)` | `(asset_id: Digest) -> Digest` | Query metadata commitment |
 | `exists(asset_id)` | `(asset_id: Digest) -> Bool` | Check if asset exists in tree |
 
-Uniq operations work on individual assets identified by `asset_id`
-(a unique `Digest`). Ownership is one-of-one: exactly one neuron owns each
-asset. `transfer` changes the owner; `metadata` returns the committed
-metadata hash. `exists` is a membership proof — on UTXO chains, a Merkle
-inclusion proof; on account chains, a storage lookup.
+All 5 PLUMB operations require authorization — the compiler enforces this
+via the OS-native mechanism. `pay` and `burn` require account auth (plus
+config-level dual auth if configured). `mint` requires config-level mint
+authority. `update` requires admin authority. `lock` extends the time-lock
+on an account or asset (extend only — cannot shorten).
 
 **Supported:** Account, Stateless, Object, UTXO.
 **Compile error:** Journal (no persistent state), Process (no native token concept).
 
 #### Per-OS Lowering — Coins
+
+| OS family | OSes | `token.pay(to, amount)` lowers to |
+|-----------|------|------------------------------------|
+| Account (EVM) | Ethereum | `transfer(to, amount)` (ERC-20) |
+| Account (Cairo) | Starknet | `transfer(to, amount)` |
+| Account (WASM) | Near, Cosmos | `ft_transfer` / `SendMsg` |
+| Stateless | Solana | `spl_token::transfer(from, to, amount)` |
+| Object | Sui, Aptos | `coin::split` + `transfer::public_transfer` |
+| UTXO | Neptune | Consume sender leaf, emit two leaves: sender (balance - amount), receiver (balance + amount) (TSP-1 Pay op) |
+| UTXO | Nervos, Aleo, Aztec | Consume cell/record/note, emit with updated balances |
+| Process | Linux, macOS, WASI, Browser, Android | **Compile error** — no native token |
+| Journal | Boundless, Succinct, OpenVM Network | **Compile error** — no persistent state |
 
 | OS family | OSes | `token.mint(to, amount)` lowers to |
 |-----------|------|------------------------------------|
@@ -231,7 +256,7 @@ inclusion proof; on account chains, a storage lookup.
 
 #### Per-OS Lowering — Uniqs
 
-| OS family | OSes | `token.transfer(asset_id, to)` lowers to |
+| OS family | OSes | `token.pay(asset_id, to)` lowers to |
 |-----------|------|------------------------------------------|
 | Account (EVM) | Ethereum | `transferFrom(owner, to, tokenId)` (ERC-721) |
 | Account (Cairo) | Starknet | `transfer_from(owner, to, token_id)` |

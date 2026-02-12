@@ -198,7 +198,7 @@ The `os.*` tier provides five modules that abstract over every supported OS:
 |--------|---------|---------------|
 | `os.neuron` | Identity and authorization | `id()`, `auth()`, `verify()` |
 | `os.signal` | Value transfer | `send()`, `receive()` |
-| `os.token` | Token operations | `mint()`, `burn()`, `balance()`, `transfer()` |
+| `os.token` | Token operations (PLUMB) | `pay()`, `lock()`, `update()`, `mint()`, `burn()` |
 | `os.state` | Persistent storage | `read()`, `write()`, `root()` |
 | `os.time` | Clock and timestamps | `now()`, `slot()` |
 

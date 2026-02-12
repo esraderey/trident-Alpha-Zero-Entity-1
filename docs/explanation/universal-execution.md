@@ -52,7 +52,7 @@ These properties emerged from ZK requirements. The discovery is that they define
 │  ─────────────────────────────────────────────────────── │
 │  os.neuron: identity, authorization                      │
 │  os.signal: value transfer between neurons               │
-│  os.token: mint, burn, balance, ownership                │
+│  os.token: pay, lock, update, mint, burn (PLUMB)         │
 │  os.state: persistent storage                            │
 │  os.<os>.*: OS-specific extensions                       │
 └─────────────────────────────────────────────────────────┘
@@ -283,7 +283,7 @@ the required operations.
 |--------|---------|-----------|
 | `os.neuron` | Identity, authorization | `msg.sender` (EVM), `predecessor_account_id` (Near), `divine()+hash()` (Neptune) |
 | `os.signal` | Value transfer | `CALL(to, amount)` (EVM), `system_program::transfer` (Solana), emit UTXO (Neptune) |
-| `os.token` | Token lifecycle | ERC-20/721 (EVM), SPL (Solana), TSP-1/2 (Neptune) |
+| `os.token` | Token operations (PLUMB) | ERC-20/721 (EVM), SPL (Solana), TSP-1/2 (Neptune) |
 | `os.state` | Persistent storage | `SLOAD/SSTORE` (EVM), account data (Solana), Merkle-authenticated RAM (Neptune) |
 | `os.time` | Clock | `block.timestamp` (EVM), `Clock::unix_timestamp` (Solana), kernel timestamp (Neptune) |
 
