@@ -1,8 +1,8 @@
-# Optimization Guide
+# ⚡ Optimization Guide
 
 Strategies for reducing the proving cost of Trident programs. The cost model, table structure, and specific cycle counts described here are **target-dependent**; this guide focuses on the [Triton VM](https://triton-vm.org/) target. Other backends may have different cost profiles.
 
-## Understanding Cost
+## 📊 Understanding Cost
 
 [Triton VM](https://triton-vm.org/) proves computation correctness using [six execution tables](../explanation/stark-proofs.md#4-triton-vms-six-tables). The **proving cost** is determined by the **tallest table**, padded to the next power of two. Reducing the tallest table has the most impact; reducing a table that is already shorter than the tallest has no effect on proving cost. See [How STARK Proofs Work](../explanation/stark-proofs.md) Section 11 for the exact proving time formula.
 
@@ -39,7 +39,7 @@ trident build main.tri --compare before.json
 
 The comparison shows which functions got cheaper or more expensive.
 
-## Optimization Strategies
+## ⚡ Optimization Strategies
 
 ### 1. Reduce Hash Table Cost (Triton VM Target)
 
@@ -153,7 +153,7 @@ for i in 0..100 bounded 100 {
 }
 ```
 
-## Compiler Hints
+## 💡 Compiler Hints
 
 The compiler provides optimization hints with `--hints`:
 
@@ -164,7 +164,7 @@ The compiler provides optimization hints with `--hints`:
 | **H0003** | Deep function call chain | Inline hot functions |
 | **H0004** | Stack boundary warning | Reduce live variables or struct sizes |
 
-## Per-Line Cost Annotations
+## 📝 Per-Line Cost Annotations
 
 Use `--annotate` to see which lines contribute most:
 
@@ -174,7 +174,7 @@ trident build main.tri --annotate
 
 Each line shows its cost contribution in compact form: `cc` (clock cycles), `hash`, `u32`. Lines with no cost are unmarked. Focus on the lines with the highest numbers. (Annotation labels reflect the Triton VM target; cost varies by target.)
 
-## Hotspot Analysis
+## 🔥 Hotspot Analysis
 
 Use `--hotspots` to see the top 5 most expensive functions:
 
@@ -184,7 +184,7 @@ trident build main.tri --hotspots
 
 This immediately shows where to focus optimization efforts.
 
-## Common Patterns
+## 📋 Common Patterns
 
 ### [Merkle](https://en.wikipedia.org/wiki/Merkle_tree) Proof Verification
 
@@ -252,7 +252,7 @@ Both cost the same 6 Hash Table rows, but `sponge_absorb_mem` saves ~10 processo
 
 The goal is not to minimize every table, but to bring the tallest table down. Once two tables are similar height, optimize the one that is now tallest.
 
-## See Also
+## 🔗 See Also
 
 - [Tutorial](../tutorials/tutorial.md) -- Step-by-step guide to writing Trident programs
 - [Language Reference](../reference/language.md) -- Types, operators, builtins (Part I universal, Part II provable)

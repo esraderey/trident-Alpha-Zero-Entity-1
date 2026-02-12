@@ -1,4 +1,4 @@
-# Trident
+# 🔱 Trident
 
 *The language that makes zero-knowledge programming practical.*
 
@@ -36,7 +36,7 @@ exists and what it's building toward.
 
 ---
 
-## Why Trident
+## 🧬 Why Trident
 
 Every other ZK system trades away at least one of: quantum safety, privacy,
 programmability, or permissionless participation.
@@ -72,7 +72,7 @@ kernels (CUDA, Metal). 20 VM targets, 25 OS targets are
 
 ---
 
-## What You Can Build Today
+## 🏗️ What You Can Build Today
 
 **[Coins](examples/coin/coin.tri)** — A 535-line ZK-native fungible token
 (TSP-1) with 5 [PLUMB](docs/explanation/gold-standard.md) operations (Pay,
@@ -96,7 +96,7 @@ financial primitives specification: PLUMB framework, TSP-1, TSP-2, TIDE
 
 ---
 
-## Quick Start
+## ⚡ Quick Start
 
 ```bash
 cargo build --release            # build from source
@@ -109,7 +109,7 @@ trident verify main.tri          # formal verification
 
 ---
 
-## Language at a Glance
+## 🗡️ Language at a Glance
 
 ### Types
 
@@ -200,7 +200,7 @@ Target-tagged `asm` blocks for direct VM access. The effect annotation
 
 ---
 
-## The Four-Tier Namespace
+## 🏛️ The Four-Tier Namespace
 
 Programs use four tiers of imports, each adding capability and narrowing
 portability:
@@ -258,7 +258,7 @@ lowering tables.
 
 ---
 
-## Source Tree
+## 🌳 Source Tree
 
 ```text
 src/          Compiler in Rust            ~43K lines, 5 runtime dependencies
@@ -270,7 +270,7 @@ examples/     Example programs            coin (TSP-1), uniq (TSP-2), and more
 
 ---
 
-## The Endgame
+## 🎯 The Endgame
 
 The compiler self-hosts on Triton VM: Trident compiles Trident, producing
 a STARK proof that the compilation was correct. Provable compilation.
@@ -287,7 +287,7 @@ you verify.
 
 ---
 
-## Documentation
+## 📚 Documentation
 
 Organized following the [Diataxis](https://diataxis.fr/) framework.
 Full index: [docs/README.md](docs/README.md)
@@ -331,7 +331,7 @@ Full index: [docs/README.md](docs/README.md)
 
 ---
 
-## Design Principles
+## 🧭 Design Principles
 
 1. **Field elements all the way down.** The core numeric type is a finite field element.
 2. **Bounded execution.** All loops require explicit bounds. No recursion. No halting problem.
@@ -342,7 +342,7 @@ Full index: [docs/README.md](docs/README.md)
 
 ---
 
-## Editor Support
+## ✏️ Editor Support
 
 | Editor | Setup |
 |--------|-------|
@@ -352,6 +352,6 @@ Full index: [docs/README.md](docs/README.md)
 
 ---
 
-## License
+## ⚖️ License
 
 [Cyber License](docs/explanation/cyber-license.md): Don't trust. Don't fear. Don't beg.

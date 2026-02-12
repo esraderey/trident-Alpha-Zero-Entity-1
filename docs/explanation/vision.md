@@ -1,10 +1,10 @@
-# Trident: Provable Programs for Everyone
+# 🔭 Trident: Provable Programs for Everyone
 
 *The language that makes zero-knowledge programming practical.*
 
 ---
 
-## The Problem
+## 🔭 The Problem
 
 Zero-knowledge proofs are the most important cryptographic primitive of this
 century. They let you prove that a computation happened correctly without
@@ -86,7 +86,7 @@ That is why Trident exists.
 
 ---
 
-## The Solution
+## 🧬 The Solution
 
 Trident is a minimal, security-first language with a universal compilation
 architecture. Source code compiles through a 54-operation intermediate
@@ -214,7 +214,7 @@ paths. 26 standard library modules. 53 `.tri` files. 743 tests.
 
 ---
 
-## Architecture
+## 🏗️ Architecture
 
 ### Universal Compilation: One Source, Every Target
 
@@ -384,7 +384,7 @@ inversely with complexity.
 
 ---
 
-## What You Can Build
+## 🧩 What You Can Build
 
 ### Coins (TSP-1, PLUMB)
 
@@ -487,7 +487,7 @@ the original computation's complexity.
 
 ---
 
-## Why Trident
+## 🛡️ Why Trident
 
 ### Quantum Safety Is Not Optional
 
@@ -573,7 +573,7 @@ this position stronger.
 
 ---
 
-## The Vision
+## 🔮 The Vision
 
 **Sovereign, private, provable computation should be accessible to every
 developer, not just the three people who can write TASM by hand -- and it
@@ -621,7 +621,7 @@ The numbers are growing. The foundation is solid. The rest is building.
 
 ---
 
-## Further Reading
+## 🔗 Further Reading
 
 ### Trident Documentation
 

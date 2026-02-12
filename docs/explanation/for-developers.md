@@ -1,4 +1,4 @@
-# Trident for Developers
+# 🔑 Trident for Developers
 
 A guide to Trident and zero-knowledge programming for developers coming from
 Rust, Python, Go, JavaScript, C++, or any conventional language. No prior
@@ -286,7 +286,7 @@ remain hidden.
 
 ---
 
-## 8. What Is a STARK?
+## ⚡ 8. What Is a STARK?
 
 STARK stands for **Scalable Transparent ARgument of Knowledge**. It is the
 proof system that Triton VM uses. Here is what each word means in practical
@@ -429,7 +429,7 @@ trident build balance_check.tri --target miden --costs
 
 ---
 
-## 10. The Mental Model: Compute Expensive, Verify Cheap
+## 🔑 10. The Mental Model: Compute Expensive, Verify Cheap
 
 This is the single most important idea in zero-knowledge programming. Once you
 internalize it, everything else follows.
@@ -461,7 +461,7 @@ correct. The proof captures that the checks passed.
 
 ---
 
-## 11. Your First Trident Program
+## 🔑 11. Your First Trident Program
 
 Let us build a complete program from scratch, explaining every line.
 
@@ -547,7 +547,7 @@ computation is rejected.
 
 ---
 
-## 12. What Makes Trident Different?
+## 🌐 12. What Makes Trident Different?
 
 If you are coming from Rust, Python, Go, JavaScript, or C++, Trident will feel
 restrictive. Here is an honest accounting of what you give up and what you get.
@@ -614,7 +614,7 @@ target that supports the same feature set.
 
 ---
 
-## 13. Further Reading
+## 🔗 13. Further Reading
 
 ### Trident documentation
 

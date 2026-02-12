@@ -1,4 +1,4 @@
-# How STARK Proofs Work
+# ⚡ How STARK Proofs Work
 
 *From execution traces to quantum-safe cryptographic proofs*
 
@@ -21,7 +21,7 @@ in the developer guide.
 
 ---
 
-## 1. The Promise
+## ⚡ 1. The Promise
 
 What if you could prove any computation correct without revealing how you
 computed it?
@@ -579,7 +579,7 @@ CLI walkthrough of build, prove, and verify.
 
 ---
 
-## 9. Why No Trusted Setup?
+## 🛡️ 9. Why No Trusted Setup?
 
 Many SNARK systems -- Groth16, PLONK with KZG commitments, Marlin -- require
 a **trusted setup ceremony** before they can be used:
@@ -630,7 +630,7 @@ ZK proof systems and their setup requirements.
 
 ---
 
-## 10. Why Quantum-Safe?
+## 🛡️ 10. Why Quantum-Safe?
 
 [Shor's algorithm](https://en.wikipedia.org/wiki/Shor%27s_algorithm) solves
 the discrete logarithm problem in polynomial time on a quantum computer. A
@@ -792,7 +792,7 @@ Cross-reference: [vm.md](../reference/vm.md) for the complete cost model,
 
 ---
 
-## 12. Recursive Verification
+## 🧩 12. Recursive Verification
 
 A STARK proof can verify another STARK proof inside its own execution. The
 inner proof's verification becomes part of the outer proof's execution trace,
@@ -873,7 +873,7 @@ Cross-reference: [vision.md](vision.md) "Recursive STARK Verification",
 
 ---
 
-## 13. Further Reading
+## 🔗 13. Further Reading
 
 ### Academic papers
 

@@ -1,6 +1,6 @@
-# Cyber License: Don't Trust. Don't Fear. Don't Beg.
+# ⚖️ Cyber License: Don't Trust. Don't Fear. Don't Beg.
 
-## The License
+## ⚖️ The License
 
 ```text
 Cyber License
@@ -75,7 +75,7 @@ arrived at the same three rules. That convergence is not cultural. It is
 structural. It is what any rational agent converges on when operating in
 an adversarial environment without enforceable contracts.
 
-## The Connection
+## 🔗 The Connection
 
 A blockchain is an adversarial environment without enforceable contracts.
 
@@ -195,7 +195,7 @@ The people inside the GULAG were told the camps were building socialism.
 The structure does not care what it is called. It cares only that you
 trust, fear, and beg.
 
-## The Exit
+## 🛡️ The Exit
 
 Cryptography is the exit.
 

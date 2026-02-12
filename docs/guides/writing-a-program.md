@@ -1,4 +1,4 @@
-# Writing a Program
+# ✏️ Writing a Program
 
 This page has been merged into the [Tutorial](../tutorials/tutorial.md), which covers the complete first stage of the Trident program lifecycle.
 

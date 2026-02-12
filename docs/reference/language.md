@@ -1,4 +1,4 @@
-# Trident Language Reference
+# 🗡️ Trident Language Reference
 
 [IR Reference](ir.md) | [Target Reference](targets.md) | [Grammar](grammar.md) | [Error Catalog](errors.md) | [Agent Briefing](briefing.md)
 
@@ -682,7 +682,7 @@ cannot compile for any other target.
 
 ---
 
-## See Also
+## 🔗 See Also
 
 - [Agent Briefing](briefing.md) — AI-optimized compact cheat-sheet
 - [Standard Library](stdlib.md) — `std.*` modules

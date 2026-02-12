@@ -1,4 +1,4 @@
-# Provable & Private Computing: A Comparative Analysis of Zero-Knowledge Systems
+# 🗺️ Provable & Private Computing: A Comparative Analysis of Zero-Knowledge Systems
 
 *February 2026 — Analysis for CORE Verification Layer Selection*
 
@@ -48,7 +48,7 @@ Systems are assessed on technical merit, maturity, ecosystem strength, and align
 
 ---
 
-## 3. Detailed System Profiles
+## 🔍 3. Detailed System Profiles
 
 ### 3.1 StarkWare / Stwo
 
@@ -264,7 +264,7 @@ Systems are assessed on technical merit, maturity, ecosystem strength, and align
 
 ---
 
-## 4. Critical Comparison Tables
+## 🗺️ 4. Critical Comparison Tables
 
 ### 4.1 The Four-Property Test
 
@@ -387,7 +387,7 @@ Triton's recursive proof-of-proof architecture is uniquely powerful here: rather
 
 ---
 
-## 7. Decision Framework
+## 🔑 7. Decision Framework
 
 ### 7.1 If You Need: Best Developer Experience Today
 → **SP1** — Write Rust, get proofs. Largest ecosystem, best tooling, fastest onboarding. Accept quantum risk for now.
@@ -436,7 +436,7 @@ One verifiable cyberlink validation in Trident, proved on Triton VM, verified on
 
 ---
 
-## 9. Conclusion
+## 🔮 9. Conclusion
 
 The provable computing landscape in 2026 splits cleanly into two cryptographic families, and this split determines everything.
 
@@ -466,7 +466,7 @@ The risk is real: a 3-person team, a $0.57 token, an inflation bug in history, a
 
 ---
 
-## See Also
+## 🔗 See Also
 
 - [How STARK Proofs Work](stark-proofs.md) -- The proof system Triton VM uses, explained from first principles
 - [Vision](vision.md) -- Why Trident exists: quantum safety, cost transparency, recursive verification

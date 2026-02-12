@@ -1,4 +1,4 @@
-# Operating Systems
+# 🖥️ Operating Systems
 
 [← Target Reference](../docs/reference/targets.md)
 

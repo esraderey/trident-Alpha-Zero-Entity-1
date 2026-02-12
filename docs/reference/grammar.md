@@ -1,4 +1,4 @@
-# Grammar (EBNF)
+# 📐 Grammar (EBNF)
 
 [← Language Reference](language.md)
 
@@ -95,7 +95,7 @@ comment       = "//" .* NEWLINE ;
 
 ---
 
-## See Also
+## 🔗 See Also
 
 - [Language Reference](language.md) — Core language (types, operators, statements)
 - [Language Reference](language.md) — Types, operators, builtins, sponge, Merkle, proof composition

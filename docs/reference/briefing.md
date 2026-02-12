@@ -1,4 +1,4 @@
-# Agent Briefing
+# 🤖 Agent Briefing
 
 Machine-optimized compact format for AI code generation.
 
@@ -177,7 +177,7 @@ WRONG: recursive calls  ->  not allowed; call graph must be acyclic
 
 ---
 
-## See Also
+## 🔗 See Also
 
 - [Language Reference](language.md) — Full language specification (types, operators, statements)
 - [Language Reference](language.md) — Types, operators, builtins, sponge, Merkle, proof composition

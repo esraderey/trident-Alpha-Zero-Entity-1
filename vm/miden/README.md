@@ -1,4 +1,4 @@
-# MIDEN
+# 🏔️ MIDEN
 
 [← Target Reference](../../docs/reference/targets.md)
 

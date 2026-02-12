@@ -1,4 +1,4 @@
-# Chapter 5: Auction Names with Hidden Bids
+# 🔨 Chapter 5: Auction Names with Hidden Bids
 
 *The Builder's Journey -- Chapter 5 of 6*
 
@@ -19,7 +19,7 @@ price.
 
 ---
 
-## Why Vickrey
+## 🧠 Why Vickrey
 
 A Vickrey auction is sealed-bid, second-price. Every bidder submits one
 bid in a sealed envelope. The highest bidder wins but pays the
@@ -47,7 +47,7 @@ that was abandoned on transparent chains becomes perfect here.
 
 ---
 
-## The Three Phases
+## 🔍 The Three Phases
 
 A Vickrey auction runs in three phases:
 
@@ -60,7 +60,7 @@ A Vickrey auction runs in three phases:
 
 ---
 
-## Phase 1: Commit
+## 🔑 Phase 1: Commit
 
 Each bidder commits to their bid by publishing a hash. The bid amount
 and salt are secret. Nobody -- not even the auctioneer -- knows what
@@ -103,7 +103,7 @@ during the reveal phase.
 
 ---
 
-## Phase 2: Reveal (Winner Only)
+## 🔍 Phase 2: Reveal (Winner Only)
 
 This is where ZK earns its keep. On a transparent chain, every bidder
 must reveal their bid in the reveal phase. All bids become public. The
@@ -202,7 +202,7 @@ by the prover's machine and they vanish when the machine halts.
 
 ---
 
-## Phase 3: Settle
+## 🧩 Phase 3: Settle
 
 Settlement composes three proofs, each from a previous chapter:
 
@@ -254,7 +254,7 @@ name changed hands. No intermediary. No escrow. No trust.
 
 ---
 
-## What Makes This Impossible Without ZK
+## 💡 What Makes This Impossible Without ZK
 
 On Ethereum, ENS tried Vickrey auctions and abandoned them. The problems
 are fundamental to transparent execution:
@@ -305,7 +305,7 @@ time in an adversarial, permissionless environment.
 
 ---
 
-## Build It
+## ⚡ Build It
 
 ```bash
 trident build auction_commit.tri --target triton -o auction_commit.tasm
@@ -328,7 +328,7 @@ efficiency.
 
 ---
 
-## What You Learned
+## ✅ What You Learned
 
 - **Vickrey auctions** are sealed-bid, second-price, and
   incentive-compatible. Your dominant strategy is to bid your true value.
@@ -347,7 +347,7 @@ efficiency.
 
 ---
 
-## Next
+## 🔮 Next
 
 [Chapter 6: Upgrade to a DAO](build-a-dao.md) -- Your coin has holders,
 your names have owners, your liquidity is flowing, your auctions are fair.

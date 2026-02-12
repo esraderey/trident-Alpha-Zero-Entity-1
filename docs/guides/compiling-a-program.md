@@ -1,8 +1,8 @@
-# Compiling a Program
+# 🔧 Compiling a Program
 
 This guide covers everything about the Trident compilation process: how source code becomes Triton Assembly, how to invoke the compiler, how to read errors, and how to analyze proving cost before you ever run a program. It is the second stage of the Trident lifecycle (Writing -> **Compiling** -> Running -> Deploying -> Generating Proofs -> Verifying Proofs).
 
-## The Compilation Pipeline
+## 🔧 The Compilation Pipeline
 
 Trident compiles `.tri` source files directly to [TASM](https://triton-vm.org/spec/) (Triton Assembly) with no intermediate representation. The pipeline has six stages:
 
@@ -32,7 +32,7 @@ There is no optimization pass and no IR. Every language construct maps to a know
 
 This design is deliberate. In provable computation, predictability matters more than cleverness. If you can read the source, you can reason about the proof.
 
-## Building with `trident build`
+## 🔧 Building with `trident build`
 
 ### Basic Usage
 
@@ -100,7 +100,7 @@ my_app__main:
     return
 ```
 
-## Type Checking with `trident check`
+## ✅ Type Checking with `trident check`
 
 To validate a program without producing any output file, use `trident check`:
 
@@ -127,7 +127,7 @@ The `check` command resolves modules the same way `build` does -- it type-checks
 trident check main.tri --costs
 ```
 
-## Understanding Errors
+## ⚠️ Understanding Errors
 
 Trident uses [ariadne](https://crates.io/crates/ariadne) to render diagnostics with source spans, color-coded severity, and contextual help. A typical error looks like:
 
@@ -167,7 +167,7 @@ error: recursive function call detected: main -> foo -> main
 
 For the complete list of every error message with explanations and fixes, see the [Error Catalog](../reference/errors.md).
 
-## Cost Analysis at Compile Time
+## ⚡ Cost Analysis at Compile Time
 
 Trident can estimate proving cost statically -- without executing the program. This is possible because all loop bounds are known at compile time and there is no recursion.
 
@@ -244,7 +244,7 @@ The comparison shows which functions got cheaper or more expensive, making cost 
 
 For strategies on reducing proving cost, see the [Optimization Guide](optimization.md).
 
-## Multi-Module Compilation
+## 📦 Multi-Module Compilation
 
 ### Module Resolution
 
@@ -308,7 +308,7 @@ Profile-specific flags enable conditional compilation with `cfg` attributes. Use
 trident build . --profile release
 ```
 
-## Targeting VMs
+## 🎯 Targeting VMs
 
 Trident's compiler is parameterized by a `TargetConfig` that defines every target-specific constant: stack depth, digest width, hash rate, field prime, cost tables, and output extension. The default target is Triton VM.
 
@@ -388,7 +388,7 @@ would reformat: helpers.tri
 
 Hidden directories and `target/` are automatically skipped during recursive formatting.
 
-## Testing
+## ✅ Testing
 
 Annotate test functions with `#[test]`. Test functions take no arguments and return no value:
 
@@ -426,7 +426,7 @@ The test runner compiles each test function and reports pass/fail along with cos
 trident test .
 ```
 
-## See Also
+## 🔗 See Also
 
 - [Tutorial](../tutorials/tutorial.md) -- Step-by-step guide: types, functions, modules, inline asm
 - [Error Catalog](../reference/errors.md) -- Every error message explained with fixes

@@ -1,4 +1,4 @@
-# Neptune
+# 🔱 Neptune
 
 [← Target Reference](../../docs/reference/targets.md) | VM: [TRITON](../../vm/triton/README.md)
 

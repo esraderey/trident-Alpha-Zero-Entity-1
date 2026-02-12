@@ -1,4 +1,4 @@
-# Trident IR: Architecture & Design
+# ⚙️ Trident IR: Architecture & Design
 
 [← Language Reference](language.md) | [Target Reference](targets.md)
 
@@ -380,7 +380,7 @@ src/legacy/                        ← old emitter (deprecated, comparison tests
 
 ---
 
-## See Also
+## 🔗 See Also
 
 - [Language Reference](language.md) — Types, operators, builtins, grammar
 - [Target Reference](targets.md) — OS model, integration tracking, how-to-add checklists

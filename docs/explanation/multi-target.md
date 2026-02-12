@@ -1,10 +1,10 @@
-# Multi-Target Compilation
+# 🌐 Multi-Target Compilation
 
 *Write once. Prove anywhere.*
 
 ---
 
-## The Problem
+## 🔭 The Problem
 
 The blockchain industry forces developers to choose: pick a chain, learn its language, rewrite everything when you need another chain. Solidity locks you to EVM. Rust+Anchor locks you to Solana. Rust+cosmwasm-std locks you to Cosmos. Cairo locks you to StarkNet. Move locks you to Aptos/Sui.
 
@@ -12,7 +12,7 @@ The business logic of blockchain programs — arithmetic, state transitions, acc
 
 No existing language solves this because every existing blockchain language was designed for one VM and then (sometimes) awkwardly extended to another.
 
-## Why Trident
+## 🌐 Why Trident
 
 Trident was designed for provable computation on zero-knowledge virtual machines. This forced a set of language constraints that turned out to be exactly what universal blockchain deployment requires:
 
@@ -30,7 +30,7 @@ These properties emerged from ZK requirements. The discovery is that they define
 
 ---
 
-## Architecture: Three Levels
+## 🏗️ Architecture: Three Levels
 
 ```text
 ┌─────────────────────────────────────────────────────────┐
@@ -80,7 +80,7 @@ to audit, and expensive to get wrong — lives entirely in Level 1.
 
 ---
 
-## How It Works
+## 🔍 How It Works
 
 ### Direct bytecode generation
 
@@ -155,7 +155,7 @@ target-optimal execution. No adapters to write.
 
 ---
 
-## Level 1: Execute Anywhere
+## 🌐 Level 1: Execute Anywhere
 
 ### Core types
 
@@ -223,7 +223,7 @@ Bounded loops guarantee termination on every target. No gas-limit runaways, no s
 
 ---
 
-## Level 2: Prove Anywhere
+## ⚡ Level 2: Prove Anywhere
 
 Level 2 adds zero-knowledge capabilities. Programs compile only to ZK virtual machines but gain the ability to produce cryptographic proofs of correct execution.
 
@@ -639,7 +639,7 @@ and instruction encoding.
 
 ---
 
-## The Economics Argument
+## 🛡️ The Economics Argument
 
 The practical value of universal execution is economic, not theoretical.
 
@@ -653,7 +653,7 @@ The practical value of universal execution is economic, not theoretical.
 
 ---
 
-## Cross-Chain Proof Verification
+## 🌐 Cross-Chain Proof Verification
 
 The three-level architecture enables a natural bridge pattern:
 
@@ -687,7 +687,7 @@ This creates a spectrum of trust: deploy the same logic directly (transparent, a
 
 ---
 
-## Implementation Status and Roadmap
+## 🔮 Implementation Status and Roadmap
 
 ### What exists today
 
@@ -722,7 +722,7 @@ This creates a spectrum of trust: deploy the same logic directly (transparent, a
 
 ---
 
-## Why Not An Existing Language?
+## 🗺️ Why Not An Existing Language?
 
 **Solidity** is EVM-only. Solang attempts EVM→SVM compilation but is experimental and not production-grade. Solidity's entire semantic model (storage slots, msg.sender, reentrancy patterns) is EVM-specific.
 
@@ -788,7 +788,7 @@ end-to-end proving and verification.
 
 ---
 
-## Links
+## 🔗 Links
 
 - [Tutorial](../tutorials/tutorial.md) — Getting started, including `asm(triton)` blocks
 - [Language Reference](../reference/language.md) — Complete syntax and semantics

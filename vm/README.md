@@ -1,4 +1,4 @@
-# Virtual Machines
+# 💻 Virtual Machines
 
 [← Target Reference](../docs/reference/targets.md)
 

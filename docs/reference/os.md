@@ -1,4 +1,4 @@
-# Operating System Reference
+# 🖥️ Operating System Reference
 
 [← Target Reference](targets.md) | [Standard Library](stdlib.md)
 
@@ -422,7 +422,7 @@ See each OS doc for the full API reference.
 
 ---
 
-## See Also
+## 🔗 See Also
 
 - [Target Reference](targets.md) — OS model, integration tracking, how-to-add checklists
 - [VM Reference](vm.md) — VM registry, lowering paths, tier/type/builtin tables, cost models

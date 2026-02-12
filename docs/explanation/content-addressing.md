@@ -1,11 +1,11 @@
-# Content-Addressed Code
+# 🔗 Content-Addressed Code
 
 *Every Trident function is identified by a cryptographic hash of what it computes,
 not what it is called. Names are metadata. The hash is the identity.*
 
 ---
 
-## 1. What Is Content-Addressed Code
+## 🔗 1. What Is Content-Addressed Code
 
 In a traditional programming environment, code is identified by its file path, module
 name, or package version. These are all mutable, ambiguous, and external to the code
@@ -40,7 +40,7 @@ verified proofs:
 
 ---
 
-## 2. How It Works
+## 🏗️ 2. How It Works
 
 Trident's content hashing pipeline normalizes the AST, serializes it deterministically,
 and hashes the result with Poseidon2 over the Goldilocks field.
@@ -513,7 +513,7 @@ If signatures do not match, the checker reports `UNKNOWN` with a diagnostic mess
 
 ---
 
-## 7. On-Chain Registry
+## 🌐 7. On-Chain Registry
 
 The file `os/neptune/registry.tri` implements an on-chain registry as a Merkle tree
 of content-addressed definitions, written in Trident itself. It runs as a Triton VM
@@ -571,7 +571,7 @@ itself.
 
 ---
 
-## 8. Links
+## 🔗 8. Links
 
 - [Tutorial](../tutorials/tutorial.md) -- Getting started with Trident, including first use of `trident hash` and `trident ucm`
 - [Formal Verification](formal-verification.md) -- How verification works, including how results are cached by content hash

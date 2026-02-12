@@ -1,4 +1,4 @@
-# Trident Documentation
+# 🔱 Trident Documentation
 
 [← Project Root](../README.md)
 
@@ -7,7 +7,7 @@ tutorials, how-to guides, reference, and explanation.
 
 ---
 
-## Tutorials: learning-oriented
+## 🎓 Tutorials: learning-oriented
 
 **The Builder's Journey** — six chapters that build one complete private
 application, from a four-line proof to a sovereign DAO.
@@ -27,7 +27,7 @@ application, from a four-line proof to a sovereign DAO.
 |----------|-------------|
 | [Tutorial](tutorials/tutorial.md) | Language walkthrough — types, functions, modules, inline asm |
 
-## Guides: task-oriented
+## 🔧 Guides: task-oriented
 
 | Document | Description |
 |----------|-------------|
@@ -40,7 +40,7 @@ application, from a four-line proof to a sovereign DAO.
 | [Optimization](guides/optimization.md) | Cost reduction strategies |
 | [Prompt Templates](guides/prompts.md) | AI-assisted development prompts |
 
-## Reference: information-oriented
+## 📖 Reference: information-oriented
 
 | Document | Description |
 |----------|-------------|
@@ -59,7 +59,7 @@ Per-target documentation lives alongside its config:
 - [OS Registry](../os/README.md) — all 25 operating systems
 - [VM Registry](../vm/README.md) — all 20 virtual machines
 
-## Explanation: understanding-oriented
+## 💡 Explanation: understanding-oriented
 
 | Document | Description |
 |----------|-------------|
@@ -76,7 +76,7 @@ Per-target documentation lives alongside its config:
 | [For Blockchain Devs](explanation/for-blockchain-devs.md) | Mental model migration from Solidity/Anchor/CosmWasm |
 | [Cyber License](explanation/cyber-license.md) | Don't trust. Don't fear. Don't beg. |
 
-## Project
+## 🗺️ Project
 
 | Document | Description |
 |----------|-------------|

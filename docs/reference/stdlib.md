@@ -1,4 +1,4 @@
-# Standard Library Reference
+# 📚 Standard Library Reference
 
 [← Language Reference](language.md) | [OS Reference](os.md)
 
@@ -199,7 +199,7 @@ fn process(sender: Digest, receiver: Digest, value: Field) {
 
 ---
 
-## See Also
+## 🔗 See Also
 
 - [OS Reference](os.md) — `os.*` portable layer, neuron/signal/token model, extensions
 - [Language Reference](language.md) — Core language (types, operators, statements)

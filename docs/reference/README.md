@@ -1,4 +1,4 @@
-# Trident Reference
+# 📖 Trident Reference
 
 [← Documentation Index](../README.md)
 

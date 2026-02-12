@@ -1,4 +1,4 @@
-# Trident Tutorial
+# 🎓 Trident Tutorial
 
 This is the first stage of the Trident program lifecycle: **Writing** > [Compiling](../guides/compiling-a-program.md) > [Running](../guides/running-a-program.md) > [Deploying](../guides/deploying-a-program.md) > [Generating Proofs](../guides/generating-proofs.md) > [Verifying Proofs](../guides/verifying-proofs.md).
 
@@ -6,7 +6,7 @@ This tutorial covers everything you need to write a valid Trident program -- fil
 
 ---
 
-## Prerequisites
+## ⚡ Prerequisites
 
 Build the compiler from source:
 
@@ -19,7 +19,7 @@ The binary is at `target/release/trident`. Add it to your PATH or use it directl
 
 ---
 
-## 1. Your First Program
+## 🏗️ 1. Your First Program
 
 Create a file `hello.tri`:
 
@@ -51,7 +51,7 @@ trident check hello.tri
 
 ---
 
-## 2. Program Structure
+## 🔍 2. Program Structure
 
 Every `.tri` file starts with either a `program` or a `module` declaration.
 
@@ -89,7 +89,7 @@ my_project/
 
 ---
 
-## 3. Types
+## 🧠 3. Types
 
 All types have compile-time known widths measured in field elements. There are no dynamically sized types. See the [Reference](../reference/language.md) for the complete type table, operators, and cost per instruction.
 
@@ -173,7 +173,7 @@ let last: Field = d.4
 
 ---
 
-## 4. Structs
+## 🧠 4. Structs
 
 Define named data types with `struct`:
 
@@ -237,7 +237,7 @@ match p {
 
 ---
 
-## 5. Arrays
+## 🧠 5. Arrays
 
 Fixed-size arrays with compile-time known lengths:
 
@@ -263,7 +263,7 @@ let val: Field = arr[idx]
 
 ---
 
-## 6. Variables, Constants, and Operators
+## 🧠 6. Variables, Constants, and Operators
 
 ### Let Bindings
 
@@ -321,7 +321,7 @@ There are no `!=`, `>`, `<=`, or `>=` operators. Compose them from `==`, `<`, an
 
 ---
 
-## 7. Control Flow
+## 🔍 7. Control Flow
 
 ### If / Else
 
@@ -424,7 +424,7 @@ There is no `while`, `loop`, `break`, or `continue`.
 
 ---
 
-## 8. Functions
+## 🔍 8. Functions
 
 ### Declaration
 
@@ -529,7 +529,7 @@ The compiler enforces the constraint: calling any I/O function inside a `#[pure]
 
 ---
 
-## 9. Modules and Imports
+## 📦 9. Modules and Imports
 
 ### Use Declarations
 
@@ -579,7 +579,7 @@ See the [Reference](../reference/language.md) for a complete list of standard li
 
 ---
 
-## 10. I/O and Secret Input
+## 🔑 10. I/O and Secret Input
 
 ### Public I/O
 
@@ -613,7 +613,7 @@ vm.core.assert.digest(claimed_root, actual_root)
 
 ---
 
-## 11. Hashing and Merkle Proofs
+## 🔑 11. Hashing and Merkle Proofs
 
 [Tip5](https://eprint.iacr.org/2023/107) is Triton VM's native algebraic hash function (see [How STARK Proofs Work](../explanation/stark-proofs.md) Section 5 for why this hash matters for proofs). It always takes exactly 10 field elements as input and produces a 5-element Digest. Pad unused inputs with zeros:
 
@@ -640,7 +640,7 @@ Merkle proofs are built from Tip5 hashes. See `std.crypto.merkle` in the [Refere
 
 ---
 
-## 12. Events
+## 📝 12. Events
 
 Events record structured data in the proof trace. Declare the event, then `reveal` or `seal` it.
 
@@ -686,7 +686,7 @@ Use `reveal` for public audit trails. Use `seal` when field values must remain p
 
 ---
 
-## 13. Testing
+## 🧪 13. Testing
 
 Add `#[test]` attributes to test functions:
 
@@ -712,7 +712,7 @@ Test functions are excluded from production builds. See the [Error Catalog](../r
 
 ---
 
-## 14. Cost Analysis
+## 🔍 14. Cost Analysis
 
 Every operation in [Triton VM](https://triton-vm.org/) has a measurable proving cost. Use the build flags to analyze:
 
@@ -744,7 +744,7 @@ See the [Optimization Guide](../guides/optimization.md) for strategies to reduce
 
 ---
 
-## 15. Conditional Compilation
+## 🏗️ 15. Conditional Compilation
 
 Use `#[cfg(...)]` to include items only for specific targets:
 
@@ -780,7 +780,7 @@ flags = ["testnet", "debug"]
 
 ---
 
-## 16. Inline Assembly
+## 🏗️ 16. Inline Assembly
 
 For operations not covered by the language, embed raw [TASM](https://triton-vm.org/spec/) instructions in `asm` blocks. See the [Reference](../reference/language.md) for the full TASM instruction set mapping.
 
@@ -824,7 +824,7 @@ Named variables in scope are spilled to RAM before the block executes and restor
 
 ---
 
-## 17. Key Differences from Conventional Languages
+## 💡 17. Key Differences from Conventional Languages
 
 These are not limitations -- they are properties required for provable computation. For a deeper explanation, see the [Programming Model](../explanation/programming-model.md). For zero-knowledge concepts explained from first principles, see [ZK Concepts for Developers](for-developers.md). For migration from smart-contract languages, see [For Blockchain Devs](for-blockchain-devs.md).
 
@@ -844,7 +844,7 @@ These constraints make every Trident program a fixed, bounded computation -- exa
 
 ---
 
-## Next Steps
+## 🔮 Next Steps
 
 - [Language Reference](../reference/language.md) -- Quick lookup for types, operators, builtins, and grammar
 - [Target Reference](../reference/targets.md) -- OS model, integration tracking, how-to-add checklists

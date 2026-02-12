@@ -1,4 +1,4 @@
-# Neptune Gold Standard
+# 🥇 Neptune Gold Standard
 
 ## ZK-Native Financial Primitives for Triton VM
 
@@ -24,7 +24,7 @@ See the [Tutorial](../tutorials/tutorial.md) for language basics, [Programming M
 
 ---
 
-## 1. Philosophy
+## 🔭 1. Philosophy
 
 Neptune's financial layer is not a port of Ethereum's ERC standards. It is designed from first principles for a STARK-provable virtual machine where every state transition produces a cryptographic proof.
 
@@ -38,7 +38,7 @@ Three axioms drive every decision:
 
 ---
 
-## 2. The Gold Standard — Architecture Overview
+## 🏗️ 2. The Gold Standard — Architecture Overview
 
 Neptune's gold standard consists of four primitives, a hook library, and documented patterns for building everything else.
 
@@ -88,7 +88,7 @@ Everything else is either a **hook program** (reusable constraint logic), a **de
 
 ---
 
-## 3. PLUMB — The Token Framework
+## 🧩 3. PLUMB — The Token Framework
 
 **P**ay, **L**ock, **U**pdate, **M**int, **B**urn
 
@@ -251,7 +251,7 @@ The expensive resource is the circuit (AIR constraints). The cheap resource is l
 
 ---
 
-## 5. TSP-1 — Coin Standard
+## 🥇 5. TSP-1 — Coin Standard
 
 *PLUMB implementation for divisible assets*
 
@@ -347,7 +347,7 @@ metadata = hash(name_hash, ticker_hash, teaser_hash, site_hash, custom_hash,
 
 ---
 
-## 6. TSP-2 — Uniq Standard
+## 🥇 6. TSP-2 — Uniq Standard
 
 *PLUMB implementation for unique assets*
 
@@ -1392,7 +1392,7 @@ Name service is just a uniq collection with a specific metadata schema.
 
 ---
 
-## 13. What Neptune Fixes
+## 🛡️ 13. What Neptune Fixes
 
 ### vs. ERC-20
 

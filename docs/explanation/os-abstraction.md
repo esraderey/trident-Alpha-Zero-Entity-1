@@ -1,4 +1,4 @@
-# OS Abstraction
+# 🖥️ OS Abstraction
 
 Trident is designed to compile to 25 operating systems — blockchains,
 zkVMs, and traditional runtimes. Each OS has a different programming model, but
@@ -11,7 +11,7 @@ target-native code, see [Multi-Target Compilation](multi-target.md).
 
 ---
 
-## The Six Concerns of OS Programming
+## 🖥️ The Six Concerns of OS Programming
 
 Every OS, regardless of model, must address six concerns. The compiler's
 job is **runtime binding** -- translating these concerns to OS-native
@@ -103,7 +103,7 @@ only the commitment digest is visible. On OSes without native privacy support,
 
 ---
 
-## OS Families
+## 🌐 OS Families
 
 ### UTXO Model (Neptune, Nockchain, Nervos, Aleo)
 
@@ -184,7 +184,7 @@ For programming models:
 
 ---
 
-## The Portable OS API
+## 🧩 The Portable OS API
 
 Level 3 connects business logic to the runtime environment. It has two
 tiers:
@@ -218,7 +218,7 @@ Trident programs have thick Level 1 and thin `os.<os>.*`.
 
 ---
 
-## See Also
+## 🔗 See Also
 
 - [OS Reference](../reference/os.md) — Full os.* API specifications and per-OS lowering tables
 - [Programming Model](programming-model.md) — Field arithmetic, I/O model, data flow

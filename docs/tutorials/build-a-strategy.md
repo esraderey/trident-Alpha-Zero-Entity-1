@@ -1,4 +1,4 @@
-# Chapter 4: Build a Liquidity Strategy
+# 🌊 Chapter 4: Build a Liquidity Strategy
 
 *The Builder's Journey -- Chapter 4 of 6*
 
@@ -11,7 +11,7 @@ confirms the math without seeing the reserves.
 
 ---
 
-## The Problem with Pools
+## 💡 The Problem with Pools
 
 Every AMM you have used -- Uniswap, Curve, Balancer -- works the same way.
 You deposit tokens into a contract. The contract holds them. Your capital sits
@@ -30,7 +30,7 @@ Neptune does not need custody to enforce invariants. It has proofs.
 
 ---
 
-## How TIDE Works
+## 🔍 How TIDE Works
 
 TIDE -- Tokens In Direct Exchange -- replaces custodial pools with proof
 constraints. Your tokens never leave your account. The AMM is a ZK program
@@ -59,7 +59,7 @@ they all require proofs.
 
 ---
 
-## The Constant-Product Invariant
+## 🧠 The Constant-Product Invariant
 
 The simplest AMM curve. Two reserves, one invariant:
 
@@ -92,7 +92,7 @@ invariant. The verifier checks the proof. Nobody sees `reserve_a` or
 
 ---
 
-## The Strategy Program
+## 📝 The Strategy Program
 
 Create a file called `strategy.tri`:
 
@@ -130,7 +130,7 @@ Twenty lines of logic. That is a complete constant-product AMM.
 
 ---
 
-## What Just Happened
+## 🔍 What Just Happened
 
 Walk through each section.
 
@@ -207,7 +207,7 @@ seeing the reserves.
 
 ---
 
-## Composing with Pay
+## 🧩 Composing with Pay
 
 The strategy program proves the pricing is correct. But the actual token
 movement happens through `pay` -- the same operation from Chapter 2.
@@ -236,7 +236,7 @@ composition. The primitive does not change.
 
 ---
 
-## Strategy Registration
+## 🏷️ Strategy Registration
 
 A strategy is identified by its commitment:
 
@@ -254,7 +254,7 @@ re-register. This keeps the on-chain state simple and the proofs clean.
 
 ---
 
-## Shared Liquidity
+## 🌊 Shared Liquidity
 
 Here is what makes TIDE different from every AMM before it.
 
@@ -284,7 +284,7 @@ One balance. Five uses. No custody anywhere.
 
 ---
 
-## The Power of Privacy
+## 🔑 The Power of Privacy
 
 In Uniswap, the reserves are public. They are storage variables in a
 Solidity contract. Anyone can call `getReserves()` and see exactly how much
@@ -314,7 +314,7 @@ because the data the attack requires is never published.
 
 ---
 
-## Build It
+## ⚡ Build It
 
 Compile the strategy to Triton Assembly:
 
@@ -341,7 +341,7 @@ over global state.
 
 ---
 
-## What You Learned
+## ✅ What You Learned
 
 - **TIDE** replaces custodial pools with proof constraints. Swaps are two
   coordinated `pay` operations. No tokens leave user accounts.
@@ -362,7 +362,7 @@ over global state.
 
 ---
 
-## Next
+## 🔮 Next
 
 [Chapter 5: Auction Names with Hidden Bids](build-an-auction.md) -- Your name
 service needs a fair way to sell names. Vickrey auctions let bidders bid their

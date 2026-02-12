@@ -1,4 +1,4 @@
-# Chapter 2: Build a Coin
+# 🪙 Chapter 2: Build a Coin
 
 *The Builder's Journey -- Chapter 2 of 6*
 
@@ -17,7 +17,7 @@ implementation.
 
 ---
 
-## The Account
+## 🔍 The Account
 
 A coin needs accounts. Each account is a leaf in a Merkle tree, represented as
 a hash of five fields:
@@ -61,7 +61,7 @@ reconstruct and verify account leaves.
 
 ---
 
-## Authorization
+## 🔑 Authorization
 
 Here is the authorization function:
 
@@ -87,7 +87,7 @@ each operation.
 
 ---
 
-## Events
+## 📝 Events
 
 Before we write operations, we need two event types. Events record structured
 data in the proof trace. The verifier can check that events were emitted
@@ -116,7 +116,7 @@ confirm the numbers.
 
 ---
 
-## A Balance Check
+## 💡 A Balance Check
 
 One more helper before the operations. When we subtract tokens from an account,
 we need to ensure the result is non-negative. In a prime field, `sub(5, 10)`
@@ -136,7 +136,7 @@ prime field: subtract, then range-check the result.
 
 ---
 
-## Operation 1: Pay
+## ⚡ Operation 1: Pay
 
 Pay transfers tokens from one account to another. It is the most important
 operation -- the one that makes a coin useful.
@@ -252,7 +252,7 @@ so the verifier can confirm it.
 
 ---
 
-## Operation 2: Mint
+## ⚡ Operation 2: Mint
 
 Mint creates new tokens. It is simpler than pay -- there is no sender to
 debit, only a recipient to credit. But it requires a different kind of
@@ -313,7 +313,7 @@ hold, no proof.
 
 ---
 
-## Operation 3: Burn
+## ⚡ Operation 3: Burn
 
 Burn destroys tokens. It is the mirror of pay, but instead of crediting a
 receiver, the tokens vanish and the supply decreases.
@@ -381,7 +381,7 @@ is no `-` operator).
 
 ---
 
-## The Full Program
+## 📝 The Full Program
 
 Here is the complete coin. Three operations dispatched by an opcode, with two
 more (lock and update) described by name but left for you to read in the
@@ -569,7 +569,7 @@ becomes immutable forever.
 
 ---
 
-## Build and Test
+## ⚡ Build and Test
 
 Compile:
 
@@ -599,7 +599,7 @@ trident build coin.tri --hotspots
 
 ---
 
-## What You Learned
+## ✅ What You Learned
 
 **Accounts are Merkle leaves.** `hash(id, balance, nonce, auth, lock, 0, 0,
 0, 0, 0)` -- five meaningful fields, five zeros, one digest. The entire ledger
@@ -630,7 +630,7 @@ built three of the five. The remaining two follow the same patterns.
 
 ---
 
-## The Production Version
+## 🏗️ The Production Version
 
 This tutorial built a simplified coin to show the core patterns. The
 production implementation adds:
@@ -650,7 +650,7 @@ specification at `examples/coin/SPEC.md`.
 
 ---
 
-## Next
+## 🔮 Next
 
 [Chapter 3: Build a Name Service](build-a-name.md) -- The coin gives you
 money. Now you need identity. You will mint unique names that resolve to

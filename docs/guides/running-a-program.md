@@ -1,10 +1,10 @@
-# Running a Program
+# ▶️ Running a Program
 
 Trident is a compiler, not a runtime. After `trident build` produces a `.tasm` file, execution happens inside [Triton VM](https://triton-vm.org/) -- a STARK-based zero-knowledge virtual machine. Trident's job ends at code generation; the VM takes it from there.
 
 This guide covers how compiled Trident programs execute, how to feed them input, and how to test and debug them using the tools available today.
 
-## From TASM to Execution
+## ▶️ From TASM to Execution
 
 The `trident build` command translates a `.tri` source file into TASM (Triton Assembly):
 
@@ -17,7 +17,7 @@ The resulting `.tasm` file is a complete, self-contained program in Triton VM's 
 
 The separation is deliberate. Triton VM execution produces an algebraic execution trace, which is what makes STARK proof generation possible. A Trident-side interpreter would bypass the trace machinery entirely, making it useless for proving.
 
-## The I/O Model
+## 📡 The I/O Model
 
 Triton VM programs have exactly two input channels and one output channel. There is no filesystem, no network, no environment variables.
 
@@ -57,7 +57,7 @@ pub_write(result)
 
 There is nothing else. No stdin/stdout in the conventional sense, no logging, no side effects. A Trident program consumes public input and secret input, computes, and produces public output. Everything in between is hidden by the zero-knowledge property. See the [Programming Model](../explanation/programming-model.md) for the full I/O table and the divine-and-authenticate pattern.
 
-## The Execution Model
+## ⚙️ The Execution Model
 
 Triton VM is a stack machine. Understanding the execution model helps when reading `.tasm` output or diagnosing cost issues.
 
@@ -71,7 +71,7 @@ Triton VM is a stack machine. Understanding the execution model helps when readi
 
 For the full execution model, including the six constraint tables that govern proving cost, see the [Programming Model](../explanation/programming-model.md).
 
-## Running with Triton VM
+## ▶️ Running with Triton VM
 
 To execute a compiled `.tasm` program, you use Triton VM directly. The primary interface is the [`triton-vm`](https://crates.io/crates/triton-vm) Rust crate.
 
@@ -105,7 +105,7 @@ Key points:
 
 The [`tasm-lang`](https://crates.io/crates/tasm-lang) ecosystem provides higher-level utilities for constructing programs and managing I/O, and is the foundation that Trident's standard library maps onto.
 
-## Testing Programs
+## ✅ Testing Programs
 
 Trident supports `#[test]` annotations on functions. The `trident test` command compiles and verifies these:
 
@@ -148,7 +148,7 @@ Tests do not have access to `pub_read()` or `divine()` -- they are self-containe
 
 For integration testing that exercises I/O, you need to use Triton VM directly (see the previous section) with prepared input streams.
 
-## Debugging
+## 🔍 Debugging
 
 Trident has no debugger. There is no step-through execution, no breakpoints, no variable inspection at runtime. This is an inherent limitation of the architecture: Trident is a compiler, and execution happens inside a VM that produces cryptographic traces, not interactive debugging sessions.
 
@@ -214,7 +214,7 @@ Suggests specific optimizations based on the program's cost profile. See the [Op
 | High Op Stack table cost | Too many values on the stack simultaneously; refactor to use RAM for intermediate storage |
 | High Hash table cost | Many hash operations; consider batching or restructuring Merkle proofs |
 
-## Understanding Output
+## 📄 Understanding Output
 
 The `.tasm` file produced by `trident build` is human-readable Triton Assembly. Understanding its structure helps when diagnosing issues or verifying that the compiler produced correct code.
 
@@ -265,7 +265,7 @@ helpers_double:
 
 The `.tasm` file is the definitive record of what will execute. If the program's behavior surprises you, reading the assembly is the most direct way to understand what is happening. The mapping from Trident source to TASM is intentionally straightforward -- there is no optimization pass that rearranges code in unexpected ways.
 
-## See Also
+## 🔗 See Also
 
 - [Tutorial](../tutorials/tutorial.md) -- Step-by-step guide: types, functions, modules, testing
 - [Compiling a Program](compiling-a-program.md) -- The prior stage: build pipeline and cost analysis

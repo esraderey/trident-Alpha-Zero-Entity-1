@@ -1,4 +1,4 @@
-# Chapter 6: Upgrade to a DAO
+# 🏛️ Chapter 6: Upgrade to a DAO
 
 *The Builder's Journey -- Chapter 6 of 6*
 
@@ -12,7 +12,7 @@ balance, your identity, and your vote -- all hidden, all proven.
 
 ---
 
-## The Governance Problem
+## 💡 The Governance Problem
 
 Every DAO on a transparent chain has the same flaw: everyone sees
 everything. Who voted. How much weight they carry. Which direction
@@ -38,7 +38,7 @@ once -- without revealing anything about who cast it.
 
 ---
 
-## What We Are Governing
+## 🎯 What We Are Governing
 
 The name service from Chapter 3. Specifically: coin holders from Chapter 2
 vote on whether to change a name's resolver. A proposal says "change the
@@ -50,7 +50,7 @@ If you hold PLUMB coins, you can vote. Your weight equals your balance.
 
 ---
 
-## The Vote Program
+## 📝 The Vote Program
 
 Create a file called `vote.tri`:
 
@@ -129,7 +129,7 @@ Forty-five lines. A complete private vote.
 
 ---
 
-## What the Verifier Sees
+## 🔍 What the Verifier Sees
 
 The verifier receives a proof and two public outputs: `yes_weight` and
 `no_weight`. That is all.
@@ -158,7 +158,7 @@ One proof. Five guarantees. Zero information about the voter.
 
 ---
 
-## Walking Through the Code
+## 🔍 Walking Through the Code
 
 **Public inputs.** Three digests arrive via `pub_read5()`. The proposal
 hash identifies what is being voted on. The coin root is the current state
@@ -199,7 +199,7 @@ These are the only things that cross the wire.
 
 ---
 
-## The Tally
+## 📝 The Tally
 
 After all votes are submitted, the tallier sums the results:
 
@@ -240,7 +240,7 @@ feed a collective result.
 
 ---
 
-## Executing the Proposal
+## ⚡ Executing the Proposal
 
 If the vote passes, the name resolver must update. This is where the
 chapters compose.
@@ -269,7 +269,7 @@ update.
 
 ---
 
-## The Full Circle
+## 🧩 The Full Circle
 
 You started Chapter 1 with four lines:
 
@@ -308,7 +308,7 @@ The secret changes. The context grows. The primitive never does.
 
 ---
 
-## What You Built (Complete Application)
+## ✅ What You Built (Complete Application)
 
 | Chapter | Program | Secret | What Is Proven |
 |---------|---------|--------|----------------|
@@ -334,7 +334,7 @@ Same primitive. Same three lines.
 
 ---
 
-## What Is Next
+## 🔮 What Is Next
 
 You have built a complete private web3 application. To go further:
 

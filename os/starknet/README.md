@@ -1,4 +1,4 @@
-# Starknet
+# ⭐ Starknet
 
 [← Target Reference](../../docs/reference/targets.md) | VM: [Cairo VM](../../vm/cairo/README.md)
 

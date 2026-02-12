@@ -1,4 +1,4 @@
-# TRITON
+# 🔱 TRITON
 
 [← Target Reference](../../docs/reference/targets.md)
 

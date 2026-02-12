@@ -1,4 +1,4 @@
-# Chapter 3: Build a Name Service
+# 🏷️ Chapter 3: Build a Name Service
 
 *The Builder's Journey -- Chapter 3 of 6*
 
@@ -13,7 +13,7 @@ its auth hash. Chapter 1 again.
 
 ---
 
-## Names as Unique Assets
+## 💡 Names as Unique Assets
 
 A coin (TSP-1) is fungible. One coin of the same denomination is identical to
 another. A name is not. The name "cyber" is distinct from the name "neptune" --
@@ -42,7 +42,7 @@ ownership and swap in a new metadata hash.
 
 ---
 
-## The Name Leaf
+## 🔍 The Name Leaf
 
 Every name is a leaf in a Merkle tree. The leaf is the hash of all 10 fields:
 
@@ -93,7 +93,7 @@ immutable after mint.
 
 ---
 
-## Authorization
+## 🔑 Authorization
 
 Before we build the operations, we need the auth pattern. This is Chapter 1
 in a function:
@@ -114,7 +114,7 @@ as Chapter 1.
 
 ---
 
-## Minting a Name
+## ⚡ Minting a Name
 
 Registration is minting. You create a new unique asset in the tree.
 
@@ -187,7 +187,7 @@ inserted.
 
 ---
 
-## Resolving a Name
+## 🔍 Resolving a Name
 
 Resolution is read-only. It does not require a ZK program.
 
@@ -206,7 +206,7 @@ section.
 
 ---
 
-## Updating the Resolver
+## ⚡ Updating the Resolver
 
 The owner wants "cyber" to point to a new public key. This requires proving
 ownership -- then swapping the metadata hash.
@@ -296,7 +296,7 @@ The proof guarantees the owner authorized the change.
 
 ---
 
-## Transferring a Name
+## ⚡ Transferring a Name
 
 Transfer is Chapter 2's pay pattern applied to a unique asset. Instead of
 moving a balance from one account to another, you move ownership of a name
@@ -409,7 +409,7 @@ asset moves as one indivisible unit.
 
 ---
 
-## The Full Program
+## 📝 The Full Program
 
 Here is the complete name service. Three operations dispatched by opcode:
 pay (0), update (2), mint (3).
@@ -644,7 +644,7 @@ this at the protocol level.
 
 ---
 
-## Build It
+## ⚡ Build It
 
 ```bash
 trident build name.tri --target triton -o name.tasm
@@ -669,7 +669,7 @@ ZK context.
 
 ---
 
-## The Connection
+## 🧩 The Connection
 
 The name you just built will be auctioned in Chapter 5 using a Vickrey auction
 with sealed bids. Nobody sees anyone else's bid until the auction closes. The
@@ -685,7 +685,7 @@ applied to a different problem.
 
 ---
 
-## What You Learned
+## ✅ What You Learned
 
 - Unique assets (uniqs / TSP-2) use 10-field leaves where every field matters.
   Coins use 5 fields and pad the rest with zeros.
@@ -704,7 +704,7 @@ applied to a different problem.
 
 ---
 
-## Next
+## 🔮 Next
 
 [Chapter 4: Build a Liquidity Strategy](build-a-strategy.md) -- Your coin has
 value. Your name has identity. Now you will make the coin tradeable -- a

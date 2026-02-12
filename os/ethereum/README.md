@@ -1,4 +1,4 @@
-# Ethereum
+# 💎 Ethereum
 
 [← Target Reference](../../docs/reference/targets.md) | VM: [EVM](../../vm/evm/README.md)
 

@@ -1,4 +1,4 @@
-# Trident Target Reference
+# 🎯 Trident Target Reference
 
 [← Language Reference](language.md) | [VM Reference](vm.md) | [OS Reference](os.md)
 
@@ -305,7 +305,7 @@ Only if using the legacy emitter pipeline. New VMs should prefer L3.
 
 ---
 
-## See Also
+## 🔗 See Also
 
 - [VM Reference](vm.md) — VM registry, lowering paths, tier/type/builtin tables, cost models
 - [OS Reference](os.md) — OS concepts, `os.*` gold standard, extensions

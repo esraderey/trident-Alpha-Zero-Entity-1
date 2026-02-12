@@ -1,4 +1,4 @@
-# Solana
+# ☀️ Solana
 
 [← Target Reference](../../docs/reference/targets.md) | VM: [SBPF](../../vm/sbpf/README.md)
 

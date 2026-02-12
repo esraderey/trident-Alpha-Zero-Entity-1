@@ -1,4 +1,4 @@
-# Deploying a Program
+# 📦 Deploying a Program
 
 This is the fourth stage of the Trident program lifecycle:
 **Writing** -> **Compiling** -> **Running** -> **Deploying** -> **Generating Proofs** -> **Verifying Proofs**.
@@ -9,7 +9,7 @@ real system.
 
 ---
 
-## What "Deployment" Means for ZK Programs
+## 📦 What "Deployment" Means for ZK Programs
 
 If you are coming from smart contract development, "deploy" means sending
 bytecode to a chain and receiving an address. ZK programs work differently.
@@ -34,7 +34,7 @@ For background on the execution model, see [Programming Model](../explanation/pr
 
 ---
 
-## Deployment to Neptune Cash
+## 🚀 Deployment to Neptune Cash
 
 [Neptune Cash](https://neptune.cash/) is the reference blockchain built on
 Triton VM. It is the primary deployment target for Trident programs today.
@@ -112,7 +112,7 @@ For the blockchain developer mental model, see
 
 ---
 
-## Multi-Target Deployment
+## 🎯 Multi-Target Deployment
 
 Trident's three-layer architecture -- universal core, abstraction layer, backend
 extensions -- is designed so the same source can compile to different zkVMs.
@@ -169,7 +169,7 @@ For the full multi-target design, see [Vision](../explanation/vision.md) and
 
 ---
 
-## Project Configuration
+## ⚙️ Project Configuration
 
 ### `trident.toml`
 
@@ -210,7 +210,7 @@ extension.
 
 ---
 
-## Deployment Checklist
+## ✅ Deployment Checklist
 
 Before deploying a Trident program to production (whether as a Neptune lock
 script, a standalone verifiable computation, or any other use case), follow
@@ -291,7 +291,7 @@ identity -- the `program_digest` that verifiers will check proofs against.
 
 ---
 
-## Deployment Tooling
+## 🔧 Deployment Tooling
 
 ### Content-Addressed Code
 

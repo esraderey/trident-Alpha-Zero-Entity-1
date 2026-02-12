@@ -1,4 +1,4 @@
-# CLI Reference
+# ⌨️ CLI Reference
 
 [← Language Reference](language.md)
 
@@ -57,7 +57,7 @@ See [targets.md](targets.md) for the full target registry.
 
 ---
 
-## See Also
+## 🔗 See Also
 
 - [Language Reference](language.md) — Core language (types, operators, statements)
 - [Language Reference](language.md) — Types, operators, builtins, sponge, Merkle, proof composition

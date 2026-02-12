@@ -1,4 +1,4 @@
-# Formal Verification
+# 🔬 Formal Verification
 
 Trident includes a built-in formal verification pipeline that can prove
 properties of programs for all possible inputs -- not by testing, but by
@@ -27,7 +27,7 @@ and `trident generate` commands.
 
 ---
 
-## Specification Annotations
+## 🔬 Specification Annotations
 
 Trident supports four specification annotations on functions. These annotations
 are checked at compile time and have zero runtime cost -- they do not appear in
@@ -136,7 +136,7 @@ fn safe_transfer(sender_balance: Field, amount: Field, receiver_balance: Field) 
 
 ---
 
-## Verification Engine
+## 🏗️ Verification Engine
 
 The `trident verify` command runs the full verification pipeline. It processes
 a Trident source file through three stages.
@@ -331,7 +331,7 @@ Synthesized 4 specification(s):
 
 ---
 
-## Semantic Equivalence
+## 🔬 Semantic Equivalence
 
 The `trident equiv` command checks whether two functions in the same file
 produce identical outputs for all inputs. This is useful for validating
@@ -448,7 +448,7 @@ trident generate spec.tri -o implementation.tri
 
 ---
 
-## Decidable Properties
+## 🛡️ Decidable Properties
 
 Trident's verification is tractable because the language eliminates the
 standard sources of undecidability:
@@ -540,7 +540,7 @@ checking currently requires manual unrolling or relies on the synthesizer.
 
 ---
 
-## Links
+## 🔗 Links
 
 - [Tutorial](../tutorials/tutorial.md) -- getting started with Trident programs
 - [Language Reference](../reference/language.md) -- complete syntax and type reference, including `#[pure]` and specification annotations

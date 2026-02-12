@@ -1,4 +1,4 @@
-# Verifying Proofs
+# ✅ Verifying Proofs
 
 This is the final stage of the Trident program lifecycle: Writing > Compiling > Running > Deploying > Generating Proofs > **Verifying Proofs**. Everything before this point was about producing a STARK proof. This stage is about checking one.
 
@@ -8,7 +8,7 @@ For how proofs are generated, see [Generating Proofs](generating-proofs.md). For
 
 ---
 
-## 1. What Is Proof Verification?
+## ✅ 1. What Is Proof Verification?
 
 A STARK proof is a short cryptographic certificate that a specific program, given specific public inputs, produced specific public outputs. Verification is the act of checking that certificate.
 
@@ -30,7 +30,7 @@ The fundamental asymmetry: proving is expensive (seconds to minutes), verificati
 
 ---
 
-## 2. Verification Properties
+## 🛡️ 2. Verification Properties
 
 STARK verification provides three guarantees:
 
@@ -56,7 +56,7 @@ See [How STARK Proofs Work](../explanation/stark-proofs.md), Sections 6 and 9, f
 
 ---
 
-## 3. Verifying Triton VM Proofs
+## ✅ 3. Verifying Triton VM Proofs
 
 Triton VM proofs are verified using the `triton-vm` Rust crate. The verification API requires three inputs:
 
@@ -100,7 +100,7 @@ Verification performs four categories of checks, as described in [How STARK Proo
 
 ---
 
-## 4. On-Chain Verification
+## ⛓️ 4. On-Chain Verification
 
 In [Neptune Cash](https://neptune.cash), every transaction carries a STARK proof of its validity. Miners verify these proofs as part of block validation. The consensus rule is simple: if the proof verifies against the claimed program and public inputs, the transaction is valid.
 
@@ -120,7 +120,7 @@ The proof also serves as a permanent certificate. Any node joining the network l
 
 ---
 
-## 5. Recursive Verification
+## 🔄 5. Recursive Verification
 
 Triton VM can verify STARK proofs inside the VM itself. A Trident program can read a proof from secret input, verify it, and output only the verdict. The verification of *that* program produces another STARK proof -- a proof about a proof.
 
@@ -144,7 +144,7 @@ See [How STARK Proofs Work](../explanation/stark-proofs.md), Section 12, for the
 
 ---
 
-## 6. Cross-Target Verification
+## 🎯 6. Cross-Target Verification
 
 Trident's architecture is designed for multiple compilation targets. The same Trident program compiled to different targets produces different assembly, different execution traces, and different proofs. But the semantic guarantee is the same: the computation was correct.
 
@@ -161,7 +161,7 @@ See [Vision](../explanation/vision.md) for the universal compilation architectur
 
 ---
 
-## 7. Quantum Safety
+## 🛡️ 7. Quantum Safety
 
 STARK proofs are secure against quantum computers. This is not a future migration plan -- it is a property of the current system.
 
@@ -195,7 +195,7 @@ See [How STARK Proofs Work](../explanation/stark-proofs.md), Section 10, for the
 
 ---
 
-## Complete Lifecycle
+## 🔗 Complete Lifecycle
 
 This is the final stage. Here is the complete journey of a Trident program, from source to verified proof:
 

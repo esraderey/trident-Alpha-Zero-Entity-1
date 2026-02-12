@@ -1,11 +1,11 @@
-# Trident Prompt Templates
+# 🤖 Trident Prompt Templates
 
 Structured prompts for LLM-assisted Trident development. Use these templates
 with `trident generate` or directly with AI assistants.
 
 ---
 
-## Template 1: Contract from Description
+## 🤖 Template 1: Contract from Description
 
 ```trident
 Write a Trident program that implements: {DESCRIPTION}
@@ -22,7 +22,7 @@ Requirements:
 Target: Triton VM (Goldilocks field, p = 2^64 - 2^32 + 1)
 ```
 
-## Template 2: Spec-Driven Implementation
+## 🤖 Template 2: Spec-Driven Implementation
 
 ```trident
 Given this Trident specification:
@@ -40,7 +40,7 @@ Generate a complete implementation where:
 Run `trident verify` to check correctness after implementation.
 ```
 
-## Template 3: Optimize for Cost
+## ⚡ Template 3: Optimize for Cost
 
 ```trident
 This Trident function has high proving cost. The dominant table is {TABLE_NAME}
@@ -60,7 +60,7 @@ Optimize to reduce the dominant table height. Strategies:
 - Eliminate redundant assertions (marked by trident verify --json)
 ```
 
-## Template 4: Fix Verification Failure
+## 🔧 Template 4: Fix Verification Failure
 
 ```trident
 This Trident program failed verification:
@@ -80,7 +80,7 @@ Fix the program so that:
 3. The fix is minimal (don't restructure working code)
 ```
 
-## Template 5: Migrate from Solidity
+## 🔄 Template 5: Migrate from Solidity
 
 ```trident
 Convert this Solidity function to Trident:
@@ -99,7 +99,7 @@ Key differences:
 - No reentrancy (single execution, no external calls)
 ```
 
-## Template 6: Write Test Functions
+## ✅ Template 6: Write Test Functions
 
 ```trident
 Write #[test] functions for this Trident code:
@@ -120,7 +120,7 @@ fn test_add_zero() {
 }
 ```
 
-## Template 7: Neptune Transaction Validation
+## 🔐 Template 7: Neptune Transaction Validation
 
 ```trident
 Write a Neptune-style UTXO validation program in Trident.
@@ -143,7 +143,7 @@ Events: emit for public data, seal for private commitments
 
 ---
 
-## JSON Report Fields for LLM Consumption
+## 📄 JSON Report Fields for LLM Consumption
 
 When using `trident verify --json`, the output contains:
 

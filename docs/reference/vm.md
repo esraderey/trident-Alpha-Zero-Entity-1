@@ -1,4 +1,4 @@
-# Virtual Machine Reference
+# 💻 Virtual Machine Reference
 
 [← Target Reference](targets.md) | [IR Reference](ir.md)
 
@@ -242,7 +242,7 @@ report wall-clock time. Each VM doc has per-instruction cost tables.
 
 ---
 
-## See Also
+## 🔗 See Also
 
 - [Target Reference](targets.md) — OS model, integration tracking, how-to-add checklists
 - [OS Reference](os.md) — OS concepts, `os.*` gold standard, extensions

@@ -1,10 +1,10 @@
-# Trident Programming Model
+# 🧬 Trident Programming Model
 
 How programs interact with the outside world. Trident is designed to
 compile to 20 VMs and 25 OSes -- each OS has a different programming
 model, but they all share the same universal foundation.
 
-## The Universal Primitive: `Field`
+## 🧬 The Universal Primitive: `Field`
 
 Every zkVM computes over a finite field. `Field` is the **universal primitive
 type** of provable computation -- the specific prime is an implementation detail
@@ -22,7 +22,7 @@ traffic in `Field`. This is true regardless of the compilation target.
 > should never depend on the specific modulus -- see
 > [Multi-Target Compilation](multi-target.md) for the multi-target story.
 
-## Universal I/O Model
+## 🌐 Universal I/O Model
 
 Regardless of the target, every Trident program communicates through
 the same three channels:
@@ -60,7 +60,7 @@ cross-contract interaction, and events, see [OS Abstraction](os-abstraction.md).
 
 ---
 
-## The Portable OS Layer: `std.*` → `os.*` → `os.<os>.*`
+## 🖥️ The Portable OS Layer: `std.*` → `os.*` → `os.<os>.*`
 
 The stdlib has three tiers. Each trades portability for OS access:
 
@@ -170,7 +170,7 @@ uses the same I/O channels -- `pub_read` becomes calldata or stdin,
 
 ---
 
-## See Also
+## 🔗 See Also
 
 - [For Blockchain Devs](for-blockchain-devs.md) -- Mental model migration from Solidity, Anchor, CosmWasm, Substrate
 - [Multi-Target Compilation](multi-target.md) -- Compiler architecture and backend traits

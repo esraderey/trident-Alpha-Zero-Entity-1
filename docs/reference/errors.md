@@ -1,4 +1,4 @@
-# Error Catalog
+# 🚨 Error Catalog
 
 [← Language Reference](language.md) | [IR Reference](ir.md) | [Target Reference](targets.md)
 
@@ -73,7 +73,7 @@ catalog.
 
 ---
 
-## See Also
+## 🔗 See Also
 
 - [Language Reference](language.md) — Types, operators, builtins, grammar
 - [Target Reference](targets.md) — OS model, integration tracking, how-to-add checklists

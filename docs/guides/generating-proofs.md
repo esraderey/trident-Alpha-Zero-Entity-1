@@ -1,4 +1,4 @@
-# Generating Proofs
+# 🔐 Generating Proofs
 
 *From execution trace to cryptographic proof*
 
@@ -13,7 +13,7 @@ generation process: what it does, what it costs, and how to control that cost.
 
 ---
 
-## 1. What Is Proof Generation?
+## 🔐 1. What Is Proof Generation?
 
 When Triton VM executes a compiled Trident program, it does more than produce
 output. It records a complete **execution trace** -- every instruction
@@ -39,7 +39,7 @@ construction, from trace polynomials through FRI and Fiat-Shamir.
 
 ---
 
-## 2. The Proof Pipeline
+## 🔧 2. The Proof Pipeline
 
 The end-to-end pipeline from source code to proof:
 
@@ -89,7 +89,7 @@ for the full execution model.
 
 ---
 
-## 3. Understanding Proving Cost
+## ⚡ 3. Understanding Proving Cost
 
 Proving time and memory are determined by one number: the **padded height**.
 
@@ -145,7 +145,7 @@ proving cost formula.
 
 ---
 
-## 4. Optimizing for Proof Generation
+## ⚡ 4. Optimizing for Proof Generation
 
 Every optimization in Trident ultimately serves one goal: reducing the padded
 height of the execution trace. The full details are in the
@@ -183,7 +183,7 @@ including code examples and cost comparisons.
 
 ---
 
-## 5. Proving with Triton VM
+## ▶️ 5. Proving with Triton VM
 
 Once you have a compiled `.tasm` program, proof generation is handled by the
 `triton-vm` Rust crate. The basic flow:
@@ -224,7 +224,7 @@ performance tuning.
 
 ---
 
-## 6. Recursive Proofs
+## 🔄 6. Recursive Proofs
 
 Triton VM supports **recursive STARK verification**: you can verify a STARK
 proof *inside* the VM itself. This means a Trident program can take a proof as
@@ -248,7 +248,7 @@ capability is real and functional today.
 
 ---
 
-## 7. Proof Size and Performance
+## 📊 7. Proof Size and Performance
 
 **Proof size.** STARK proofs are approximately 100 KB. This is larger than
 SNARK proofs (which are typically under 1 KB) but comes with two important

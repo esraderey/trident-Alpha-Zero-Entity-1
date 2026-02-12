@@ -1,4 +1,4 @@
-# Chapter 1: Prove a Secret
+# 🔑 Chapter 1: Prove a Secret
 
 *The Builder's Journey -- Chapter 1 of 6*
 
@@ -10,7 +10,7 @@ how a verifier can confirm you know a password -- without ever seeing it.
 
 ---
 
-## The Program
+## 📝 The Program
 
 Create a file called `secret.tri`:
 
@@ -31,7 +31,7 @@ without ever learning what the value is.
 
 ---
 
-## What Just Happened
+## 🔍 What Just Happened
 
 Let us walk through each line.
 
@@ -71,7 +71,7 @@ of a valid proof is the output -- it means the prover knew the secret.
 
 ---
 
-## Build It
+## ⚡ Build It
 
 Compile to Triton Assembly:
 
@@ -96,7 +96,7 @@ the cheapest useful programs you can write.
 
 ---
 
-## The Mental Model
+## 🧠 The Mental Model
 
 There are two roles: the **prover** and the **verifier**. They have radically
 different views of the same program.
@@ -129,7 +129,7 @@ verify instantly.
 
 ---
 
-## Why This Matters
+## 💡 Why This Matters
 
 This four-line program is the atom of zero-knowledge programming. Every
 interesting application is a variation of the same pattern.
@@ -158,7 +158,7 @@ Every chapter is this chapter with more context. The primitive does not change.
 
 ---
 
-## What You Learned
+## ✅ What You Learned
 
 - `divine()` loads secret data that only the prover knows. The verifier never
   sees it.
@@ -174,7 +174,7 @@ Every chapter is this chapter with more context. The primitive does not change.
 
 ---
 
-## Next
+## 🔮 Next
 
 [Chapter 2: Build a Coin](build-a-coin.md) -- You will use this same pattern
 to build a private token with pay, lock, mint, and burn operations. The

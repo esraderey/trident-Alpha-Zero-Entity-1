@@ -1,4 +1,4 @@
-# From Smart Contracts to Zero-Knowledge Programs
+# 🌉 From Smart Contracts to Zero-Knowledge Programs
 
 You know how to write smart contracts. Trident programs look similar but work
 fundamentally differently. This guide maps your existing mental model -- whether
@@ -14,7 +14,7 @@ anyone verify that proof in milliseconds without re-executing anything.
 
 ---
 
-## The Paradigm Shift
+## 🌉 The Paradigm Shift
 
 | Smart Contract (EVM, SVM, CosmWasm) | ZK Program (Trident / Triton VM) |
 |--------------------------------------|----------------------------------|
@@ -35,7 +35,7 @@ program on these inputs and got these outputs, and here is the proof."
 
 ---
 
-## Write Once, Prove Anywhere
+## 🌐 Write Once, Prove Anywhere
 
 Smart contracts are locked to a single VM. A Solidity contract runs on the EVM.
 A CosmWasm contract runs on Cosmos chains. If you want to target a different
@@ -710,7 +710,7 @@ fn mint() {
 
 ---
 
-## What's New (No EVM Equivalent)
+## 🧬 What's New (No EVM Equivalent)
 
 These concepts have no direct parallel in smart contract development:
 
@@ -797,7 +797,7 @@ major ZK system scores on quantum safety.
 
 ---
 
-## Mental Model Cheat Sheet
+## 🌉 Mental Model Cheat Sheet
 
 | You're used to... | In Trident, think... |
 |---|---|
@@ -885,7 +885,7 @@ See [Polkadot OS Reference](../../os/polkadot/README.md) for the programming mod
 
 ---
 
-## Quick Start for Solidity Devs
+## 🔑 Quick Start for Solidity Devs
 
 ### 1. Install Trident
 
@@ -933,7 +933,7 @@ types, functions, modules, I/O, hashing, events, testing, and cost analysis.
 
 ---
 
-## Further Reading
+## 🔗 Further Reading
 
 ### Trident documentation
 
