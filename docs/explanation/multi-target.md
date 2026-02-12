@@ -465,30 +465,6 @@ This creates a spectrum of trust: deploy the same logic directly (transparent, a
 - **TIR pipeline:** Operational. `TIRBuilder` produces `Vec<TIROp>` from AST. `TritonLowering` and `MidenLowering` produce assembly from TIR. Adding new lowerings is mechanical.
 - **20 VM + 25 OS configurations:** TOML configs with field parameters, stack depth, cost tables. Each lives in `vm/{name}/target.toml` and `os/{name}/target.toml`.
 
-### Near-term (next to build)
-
-**Level checking.** Compile-time pass that determines minimum level from imports and rejects Level 2/3 constructs when targeting conventional chains. Half-implemented via `#[cfg(target)]`. Formalizing it is weeks of work.
-
-**CosmWasm lowering.** Generate WASM bytecode or Rust with cosmwasm-std. Closest match to Trident's state model (key-value storage, message-based dispatch). Rust output is pragmatic for the first conventional backend.
-
-**EVM lowering.** Generate EVM bytecode directly. The instruction set is small (~140 opcodes). Goldilocks arithmetic is `PUSH8 p; ADDMOD` / `MULMOD`. Storage layout is `KECCAK256(key)` for slot derivation. Event encoding is `LOG` with ABI-encoded topics. This is not a Solidity compiler — it's a small bytecode emitter for a restricted language.
-
-### Medium-term
-
-**SVM lowering.** Generate BPF bytecode or Anchor Rust. Solana's account model is the most foreign to Trident's storage abstraction, but for standard patterns (token vaults, registries, AMMs) the mapping is well-defined.
-
-**Cairo lowering.** SSA register representation. Cairo's `felt252` is a different field (Stark-252), requiring field adaptation or a Goldilocks-over-Stark252 emulation layer.
-
-**Cross-chain proof verification.** Tip5/Poseidon2 library contracts on EVM and CosmWasm. FRI verifier contracts. End-to-end: prove on Triton VM, verify on Ethereum.
-
-### Long-term
-
-**SP1/OpenVM lowering.** RISC-V ELF output. These are general-purpose zkVMs — the lowering is essentially a RISC-V compiler backend, which is substantial.
-
-**Optimization passes on TIR.** Dead code elimination, constant folding, common subexpression elimination. The TIR is well-structured for standard compiler optimizations.
-
-**Formal verification across targets.** Prove that the same Trident source produces semantically equivalent behavior on different targets. The TIR makes this tractable — verify the TIRBuilder once, then verify each lowering independently.
-
 ---
 
 ## 🗺️ Why Not An Existing Language?

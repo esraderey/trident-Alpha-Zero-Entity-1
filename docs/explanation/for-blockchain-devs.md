@@ -37,59 +37,7 @@ program on these inputs and got these outputs, and here is the proof."
 
 ## 🌐 Write Once, Prove Anywhere
 
-Smart contracts are locked to a single VM. A Solidity contract runs on the EVM.
-A CosmWasm contract runs on Cosmos chains. If you want to target a different
-chain, you rewrite the program from scratch in a different language.
-
-Trident separates the **program** from the **proving backend**. The same source
-is designed to compile to multiple STARK VMs:
-
-| Layer | What It Contains | Example |
-|-------|-----------------|---------|
-| **Universal core** | Types, control flow, I/O, hashing, Merkle proofs | `vm.crypto.hash`, `std.crypto.merkle`, `vm.io.io` |
-| **Backend extensions** | Target-specific intrinsics | `os.neptune.xfield`, `os.neptune.kernel` |
-
-Programs that use only `std.*` modules are **fully portable** -- they compile
-and generate valid proofs on any supported backend. Programs that import
-`os.<os>.*` modules are backend-specific and will only compile for that target.
-
-```trident
-// Portable program -- designed to compile to any backend
-use std.crypto.merkle
-use vm.io.io
-
-fn verify_membership(root: Digest, leaf: Digest, index: U32, depth: U32) {
-    std.crypto.merkle.verify(root, leaf, index, depth)
-}
-```
-
-```trident
-// Triton-specific program -- uses extension field arithmetic
-use std.crypto.merkle
-use os.neptune.xfield           // binds to Triton VM backend
-
-fn verify_with_xfield(root: Digest) {
-    // os.neptune.xfield provides extension field operations
-    // that map directly to Triton VM instructions
-}
-```
-
-```bash
-# Compile for the default target (Triton VM)
-trident build program.tri -o program.tasm
-
-# Compile for a different target
-trident build program.tri --target miden -o program.masm
-```
-
-**Why this matters for blockchain developers**: You write your proof logic once.
-If you later need to generate proofs on a different VM (because of cost,
-performance, or ecosystem requirements), you recompile -- you do not rewrite.
-The cryptographic guarantees are identical across targets because the same
-source code defines the same computation.
-
-For the full architecture, see the [Multi-Target Compilation](../explanation/multi-target.md)
-document. For backend extension authoring, see the `ext/` directory.
+Trident compiles the same source to multiple STARK VMs via the `--target` flag. Programs using only `std.*` are fully portable. See [Multi-Target Compilation](multi-target.md) for the architecture.
 
 ---
 
@@ -716,19 +664,7 @@ These concepts have no direct parallel in smart contract development:
 
 ### `divine()` -- Secret Witness Input
 
-The prover can input arbitrary data that the verifier never sees. This is how
-you feed private data into a proof. The program must verify any divined value
-is legitimate (via hashing, Merkle proofs, or range checks).
-
-```trident
-use vm.io.io
-
-let secret: Field = vm.io.io.divine()       // one field element, invisible to verifier
-let preimage: Digest = vm.io.io.divine5()   // five field elements (a Digest)
-```
-
-In EVM, all calldata is public. In Trident, `divine` is the default way to
-input data, and `pub_read` is the exception for data the verifier must see.
+The prover inputs data the verifier never sees, then authenticates it (via hashing, Merkle proofs, or range checks). In EVM all calldata is public; in Trident, `divine` is the default input method. See [For Developers](for-developers.md) for the full divine-and-authenticate pattern.
 
 ### `seal` -- Privacy-Preserving Events
 
@@ -742,19 +678,7 @@ seal Nullifier { account_id: s_id, nonce: s_nonce }
 
 ### Bounded Loops
 
-All iteration in Trident must have a compile-time upper bound. There is no
-`while(true)`, no unbounded recursion, no dynamic dispatch. This guarantees
-the execution trace has a known maximum size, which is what makes compile-time
-cost analysis possible.
-
-```trident
-for i in 0..n bounded 100 {
-    // Runs at most 100 iterations.
-    // The compiler costs this as exactly 100 iterations,
-    // even if n < 100 at runtime.
-    process(i)
-}
-```
+All iteration must have a compile-time upper bound (`for i in 0..n bounded 100`). No unbounded recursion, no dynamic dispatch. This is what makes compile-time cost analysis possible. See [For Developers](for-developers.md) for loop syntax and costing rules.
 
 ### Cost Annotations
 
@@ -774,114 +698,11 @@ is a pure function of the source code.
 
 ### Recursive Proof Verification
 
-A Trident program can verify that another STARK proof is valid *inside* its
-own execution. This enables proof composition: prove that transaction A is valid
-and transaction B is valid in a single combined proof. Triton VM's native hash
-instructions make this practical -- verifying a STARK proof costs ~600K cycles,
-compared to millions in RISC-V based zkVMs.
+A Trident program can verify another STARK proof inside its own execution, enabling proof composition. See [For Developers](for-developers.md) for how recursive verification works and its cost profile.
 
 ### Quantum Safety
 
-All cryptographic security in Triton VM comes from
-[Tip5](https://eprint.iacr.org/2023/107) hash functions and
-[FRI](https://eccc.weizmann.ac.il/report/2017/134/) commitments.
-No elliptic curves anywhere. No secp256k1, no BN254, no BLS12-381. This
-means proofs are resistant to quantum attacks without any migration needed.
-See [How STARK Proofs Work](../explanation/stark-proofs.md) Section 10 for the full
-quantum safety argument.
-
-In contrast, every EVM chain's security (transaction signatures, precompiles,
-validator keys) depends on elliptic curves that a sufficiently powerful quantum
-computer could break. See [Comparative Analysis](../explanation/provable-computing.md) for how every
-major ZK system scores on quantum safety.
-
----
-
-## 🌉 Mental Model Cheat Sheet
-
-| You're used to... | In Trident, think... |
-|---|---|
-| "Deploy a contract" | "Publish the program hash" |
-| "Call a function" | "Generate a proof" |
-| "Read storage" | "Divine a value and prove it's in the Merkle tree" |
-| "msg.sender" | "Divine a secret, hash it, assert it matches" |
-| "Gas limit" | "Padded table height (power of 2)" |
-| "Revert" | "Assertion failure -- no proof exists" |
-| "Event log" | "`reveal` (public) or `seal` (private)" |
-| "Block.timestamp" | "`pub_read()` -- verifier provides it" |
-| "Contract storage" | "Merkle root commitment (one Digest)" |
-| "Function visibility" | "`pub` keyword on module functions" |
-| "Target one chain" | "Write once, compile to any STARK backend" |
-| "ABI encoding" | "Field elements (everything is field elements)" |
-| "uint256" | "`Field` (mod 2^64 - 2^32 + 1) or `U32` (range-checked)" |
-| "bytes32" | "`Digest` (5 field elements, 320 bits)" |
-| "Proxy upgrade" | "Config update with admin auth hash" |
-| "Constructor args" | "Public inputs or config commitments" |
-| "View function" | "`pub_write()` outputs in the proof claim" |
-
----
-
-## 🌐 Platform-Specific Notes
-
-### Coming from EVM (Solidity / Vyper)
-
-- **No reentrancy.** There are no external calls. Programs are isolated.
-- **No overflow/underflow.** Arithmetic wraps in the prime field. Use
-  `vm.core.convert.as_u32()` for explicit range checks when you need bounded
-  integers.
-- **No `address` type.** Identity is a `Digest` (hash of an auth secret) or
-  a `Field` (single element of a hash). There are no 20-byte addresses.
-- **No ABI.** Public I/O is a sequence of field elements. No encoding/decoding.
-- **No inheritance.** Use modules and `use` imports. Composition over inheritance.
-
-When targeting Ethereum directly, `os.ethereum.*` provides familiar EVM
-primitives: `os.ethereum.account.caller()` = msg.sender,
-`os.ethereum.storage.read(slot)` = SLOAD, etc. See
-[Ethereum OS Reference](../../os/ethereum/README.md) for the full API.
-
-Also see: [Starknet](../../os/starknet/README.md) (Cairo VM, native account
-abstraction), [Sui](../../os/sui/README.md) (MoveVM, object-centric model).
-
-### Coming from SVM (Anchor / Rust)
-
-- **No accounts model** (on provable targets). State is a Merkle tree, not
-  separate account buffers. On Solana itself, `os.solana.account.*` provides
-  the familiar account-passing model.
-- **No PDAs** (on provable targets). Identity is a hash preimage. On Solana,
-  `os.solana.pda.find()` works as expected.
-- **No CPI** (on provable targets). Composition happens through recursive proof
-  verification. On Solana, `os.solana.cpi.invoke()` provides native CPI.
-- **No `Signer` constraint.** Use `os.solana.account.is_signer(index)` on
-  Solana, or `divine` + `hash` + `assert` on provable targets.
-- **Simpler type system.** No lifetimes, no borrows, no `Option<T>`. Every type
-  has a fixed width known at compile time.
-
-See [Solana OS Reference](../../os/solana/README.md) for the full `os.solana.*`
-API and programming model.
-
-### Coming from CosmWasm
-
-- **No `deps.storage`** (on provable targets). State is a Merkle root. On
-  Cosmos chains, `os.cosmwasm.*` provides the familiar key-value store.
-- **No `info.sender`** (on provable targets). Auth is explicit hash preimage
-  verification. On Cosmos, the runtime provides sender identity.
-- **No `Response` with messages.** No inter-contract messages. Programs produce
-  proofs, not responses.
-- **No JSON schema.** I/O is field elements, not JSON.
-
-See [CosmWasm OS Reference](../../os/cosmwasm/README.md) for the programming model.
-
-### Coming from Substrate
-
-- **No runtime pallets.** Each program is self-contained.
-- **No weight system** (on provable targets). Cost is the padded table height.
-  On Polkadot, `os.polkadot.*` uses the native 2D weight model (ref_time +
-  proof_size).
-- **No on-chain governance hooks.** Admin auth is a hash preimage; governance
-  would be a separate proof that composes with the program proof.
-- **No storage tries.** State is a Merkle tree you manage explicitly.
-
-See [Polkadot OS Reference](../../os/polkadot/README.md) for the programming model.
+All cryptographic security comes from hash functions (Tip5) and FRI commitments -- no elliptic curves. Proofs are quantum-resistant without migration. See [How STARK Proofs Work](../explanation/stark-proofs.md) Section 10 for the full argument.
 
 ---
 
@@ -935,26 +756,11 @@ types, functions, modules, I/O, hashing, events, testing, and cost analysis.
 
 ## 🔗 See Also
 
-### Trident documentation
-
 - [Tutorial](../tutorials/tutorial.md) -- Step-by-step Trident developer guide
 - [Language Reference](../reference/language.md) -- Quick lookup: types, operators, builtins, grammar
-- [Target Reference](../reference/targets.md) -- OS model, integration tracking, how-to-add checklists
-- [Deploying a Program](../guides/deploying-a-program.md) -- Neptune UTXO scripts, lock/type scripts, multi-target deployment
-- [Gold Standard Libraries](../explanation/gold-standard.md) -- Token standards (TSP-1/TSP-2) and capability library
 - [Programming Model](../explanation/programming-model.md) -- How programs run in Triton VM
 - [Optimization Guide](../guides/optimization.md) -- Cost reduction strategies
-- [Multi-Target Compilation](../explanation/multi-target.md) -- Multi-target architecture: universal core, backend extensions
-- [Formal Verification](../explanation/formal-verification.md) -- Prove properties of your contracts, find bugs before deployment
+- [Gold Standard Libraries](../explanation/gold-standard.md) -- Token standards (TSP-1/TSP-2) and capability library
 - [How STARK Proofs Work](../explanation/stark-proofs.md) -- From execution traces to quantum-safe proofs
+- [Multi-Target Compilation](../explanation/multi-target.md) -- Multi-target architecture: universal core, backend extensions
 - [For Developers](for-developers.md) -- Zero-knowledge from scratch (if you also need the ZK primer)
-- [Error Catalog](../reference/errors.md) -- All compiler error messages explained
-- [Vision](../explanation/vision.md) -- Why Trident exists and what you can build
-- [Comparative Analysis](../explanation/provable-computing.md) -- Triton VM vs. every other ZK system
-
-### External resources
-
-- [Triton VM](https://triton-vm.org/) -- The target zero-knowledge virtual machine
-- [Triton VM Specification](https://triton-vm.org/spec/) -- TASM instruction set
-- [Neptune Cash](https://neptune.cash/) -- Production blockchain built on Triton VM
-- [Tip5 Hash Function](https://eprint.iacr.org/2023/107) -- The algebraic hash used everywhere

@@ -117,10 +117,6 @@ extensions -- is designed so the same source can compile to different zkVMs.
 **Today**: Triton VM is the only supported backend. The `--target triton` flag
 is the default and currently the only option that produces output.
 
-**Planned**: Miden VM, Cairo VM (StarkWare), and SP1/RISC Zero backends are on
-the roadmap. The architecture is in place but the backends are not yet
-implemented.
-
 ### How Portability Works
 
 Programs that use only `std.*` modules are fully portable. They contain no
@@ -146,19 +142,11 @@ fn efficient_hash(a: Field, b: Field) -> Field {
 }
 ```
 
-The `asm(triton, -1)` block compiles only when targeting Triton VM. A future
-Miden backend would skip this block entirely. To write a function that works
-across targets, you would provide multiple `asm` blocks or use only `std.*`
-functions that the abstraction layer maps to each backend's native instructions.
-
 ### The `--target` Flag
 
 ```bash
 # Current (only supported target)
 trident build program.tri --target triton -o program.tasm
-
-# Future targets (architecture supports it, not yet implemented)
-trident build program.tri --target miden -o program.masm
 ```
 
 For the full multi-target design, see [Vision](../explanation/vision.md) and
@@ -168,42 +156,7 @@ For the full multi-target design, see [Vision](../explanation/vision.md) and
 
 ## ⚙️ Project Configuration
 
-### `trident.toml`
-
-The project manifest declares the entry point and target configuration:
-
-```toml
-[project]
-name = "my_lock_script"
-version = "0.1.0"
-entry = "main.tri"
-
-[targets.triton]
-backend = "triton"
-```
-
-### Directory Structure
-
-A typical project ready for deployment:
-
-```text
-my_project/
-  trident.toml          # Project configuration
-  main.tri              # Entry point (program declaration)
-  lock.tri              # Lock script logic
-  types.tri             # Type script logic
-  helpers.tri           # Shared library module
-  std/                  # Universal standard library (auto-discovered)
-    core/
-    io/
-    crypto/
-  ext/                  # Backend extensions
-    triton/             #   Triton VM-specific modules
-```
-
-Build artifacts (`.tasm` files) are written to the location specified by the
-`-o` flag, or default to the same directory as the source file with a `.tasm`
-extension.
+See [Compiling a Program](compiling-a-program.md) for project configuration (`trident.toml`), directory structure, and build profiles.
 
 ---
 
@@ -213,44 +166,11 @@ Before deploying a Trident program to production (whether as a Neptune lock
 script, a standalone verifiable computation, or any other use case), follow
 these steps in order:
 
-### 1. Type-Check
+### 1. Compile, Test, and Optimize
 
-```bash
-trident check main.tri
-```
+Complete the build pipeline: `trident check`, `trident test`, `trident build --costs`. See [Compiling a Program](compiling-a-program.md) and [Optimization Guide](optimization.md).
 
-Catches type errors, width mismatches, unresolved imports, and bounded-loop
-violations without emitting any TASM. Fix all diagnostics before proceeding.
-
-### 2. Test
-
-```bash
-trident test main.tri
-```
-
-Run all `#[test]` functions. Every code path that matters should be covered.
-In ZK programs, a missed edge case does not just produce a wrong answer -- it
-produces no proof at all (the VM crashes on assertion failure).
-
-### 3. Analyze Proving Cost
-
-```bash
-trident build main.tri --costs
-trident build main.tri --hotspots
-```
-
-See [Optimization Guide](optimization.md) for the full cost model.
-
-### 4. Optimize
-
-```bash
-trident build main.tri --hints
-trident build main.tri --costs --compare previous.json
-```
-
-See [Optimization Guide](optimization.md) for strategies.
-
-### 5. Build the Final Artifact
+### 2. Build the Final Artifact
 
 ```bash
 trident build main.tri -o main.tasm
@@ -259,7 +179,7 @@ trident build main.tri -o main.tasm
 This is the artifact you deploy. The Tip5 hash of this TASM program is its
 identity -- the `program_digest` that verifiers will check proofs against.
 
-### 6. Integrate
+### 3. Integrate
 
 - **Neptune Cash**: Embed the `lock_script_hash` (Tip5 hash of the compiled
   TASM) in the UTXO you create. Provide the full TASM as witness data when
@@ -308,13 +228,6 @@ the inner program's hash becomes part of the outer program's public input.
 See `examples/neptune/proof_aggregator.tri` for a transaction batching
 example and `examples/neptune/transaction_validation.tri` for the full
 Neptune transaction validation orchestrator.
-
-### Not Yet Available
-
-- **Web playground**: An in-browser Trident compiler (via WASM) for
-  experimenting without installing the toolchain.
-- **Browser extension integration**: A library for web applications to
-  construct transactions and trigger proof generation.
 
 ---
 

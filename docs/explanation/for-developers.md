@@ -109,38 +109,11 @@ room for 100 iterations. The unused rows are padded. This is a deliberate
 trade-off: you pay for the worst case in exchange for deterministic,
 predictable proving cost.
 
----
-
-## 🚫 4. Why No Recursion?
-
-Recursion is just an unbounded loop in disguise. A recursive function can call
-itself to arbitrary depth depending on runtime inputs. The compiler cannot
-predict the trace length, so it cannot set up the proof system.
-
-```trident
-// This is NOT allowed in Trident:
-fn factorial(n: Field) -> Field {
-    if n == 0 { return 1 }
-    n * factorial(n - 1)    // ERROR: recursion detected
-}
-```
-
-The fix is always a bounded loop:
-
-```trident
-fn factorial(n: Field) -> Field {
-    let mut result: Field = 1
-    for i in 1..n bounded 20 {
-        result = result * i
-    }
-    result
-}
-```
-
-This is a hard constraint of the proof system, not a limitation of the
-compiler. Bounded loops are the universal replacement. If you find yourself
+Recursion is disallowed for the same reason: it is an unbounded loop in
+disguise. A recursive function can call itself to arbitrary depth depending on
+runtime inputs, making the trace length unpredictable. If you find yourself
 wanting recursion, ask: "What is the maximum depth this could reach?" That
-depth becomes your bound.
+depth becomes your loop bound.
 
 ---
 
@@ -227,62 +200,9 @@ The divine-and-verify pattern shows up everywhere:
 
 ---
 
-## 🌳 7. What Is a Merkle Tree and Why Does It Matter?
+## What Is a Merkle Tree?
 
-A Merkle tree is a data structure where a single hash (the "root") represents
-an entire collection of data. You can prove that a specific piece of data is in
-the collection by providing a short path of hashes, without revealing anything
-else in the collection.
-
-Here is what it looks like:
-
-```text
-                    Root
-                   /    \
-                  /      \
-               H(AB)    H(CD)
-               /  \      /  \
-              /    \    /    \
-             A      B  C      D
-```
-
-Each leaf (A, B, C, D) is a piece of data. Each internal node is the hash of
-its two children: `H(AB) = hash(A, B)`, and so on up to the root. The root is
-a single hash that uniquely represents the entire tree.
-
-To prove that leaf B is in the tree, you provide:
-
-1. B itself
-2. A (the sibling)
-3. H(CD) (the uncle)
-
-The verifier computes: `hash(A, B) -> H(AB)`, then `hash(H(AB), H(CD)) ->
-Root`, and checks that the result matches the known root. This is called a
-**Merkle proof** or **authentication path**.
-
-Why does this matter for Trident?
-
-In zero-knowledge systems, you often need to prove things about large datasets
-(account balances, UTXO sets, transaction histories) without revealing the
-entire dataset. A Merkle tree lets you commit to the whole dataset with one
-hash (the root), then selectively prove individual entries.
-
-Triton VM has native instructions for Merkle tree operations (`merkle_step`),
-making them extremely efficient -- one hash instruction per tree level. In
-Trident:
-
-```trident
-use std.crypto.merkle
-
-fn verify_membership(root: Digest, leaf: Digest, index: U32, depth: U32) {
-    std.crypto.merkle.verify(root, leaf, index, depth)
-}
-```
-
-Under the hood, this divines the sibling hashes from secret input and walks up
-the tree level by level, checking each hash. The verifier only sees the root
-(public input) and the proof. The leaf, the siblings, and the rest of the tree
-remain hidden.
+A binary tree where each leaf is a hash of data and each internal node is the hash of its children. The root commits to all leaves. Changing any leaf changes the root. A Merkle proof (the path from leaf to root) proves a leaf's membership in O(log n) hashes. This is how Trident programs authenticate state -- divine the data, verify the Merkle path. See the [Tutorial](../tutorials/tutorial.md) for implementation examples.
 
 ---
 
@@ -327,105 +247,9 @@ see [How STARK Proofs Work](../explanation/stark-proofs.md).
 
 ---
 
-## 🔨 9. What Happens When You Build, Prove, and Verify?
+## The Lifecycle: Build, Prove, Verify
 
-Here is the full lifecycle of a Trident program, step by step.
-
-### Step 1: Write your program
-
-```trident
-program balance_check
-
-fn main() {
-    let declared_balance: Field = pub_read()
-    let secret_a: Field = divine()
-    let secret_b: Field = divine()
-    assert(secret_a + secret_b == declared_balance)
-    pub_write(1)
-}
-```
-
-This program proves: "I know two secret values that add up to the declared
-balance."
-
-### Step 2: Compile to TASM
-
-```bash
-trident build balance_check.tri -o balance_check.tasm
-trident build balance_check.tri -o balance_check.tasm --target triton   # Explicit target (default)
-```
-
-The `--target` flag selects which backend the compiler emits code for. The
-default is `triton`. When targeting Triton VM, the compiler translates your
-Trident source directly into TASM (Triton Assembly) -- the instruction set of
-Triton VM. There is no intermediate representation. Each Trident construct maps
-predictably to specific TASM instructions. The output file is human-readable
-assembly. Other targets (e.g., `--target miden`) emit the corresponding VM's
-assembly from the same source.
-
-### Step 3: The prover executes the program
-
-The prover runs the TASM program inside Triton VM with:
-
-- **Public input**: the declared balance (say, `100`)
-- **Secret input**: the two secret values (say, `37` and `63`)
-
-The VM executes every instruction and records the full **execution trace** --
-every stack state, every memory access, every hash operation. This trace is a
-large table (potentially millions of rows).
-
-### Step 4: The STARK prover compresses the trace into a proof
-
-The prover takes the execution trace and uses the STARK protocol (polynomial
-commitments, FRI folding, Fiat-Shamir hashing) to compress it into a compact
-proof. This is the most computationally expensive step -- it can take seconds
-to minutes depending on the trace size.
-
-The proof contains:
-
-- Commitments to the trace polynomials
-- Query responses at random evaluation points
-- FRI proximity proofs
-
-The proof does NOT contain the secret inputs, the execution trace, or any
-intermediate values.
-
-### Step 5: Anyone verifies the proof
-
-The verifier receives:
-
-- The **Claim**: program hash, public input (`100`), public output (`1`)
-- The **Proof**: the STARK proof from step 4
-
-The verifier runs a fast algorithm that checks the proof against the claim. It
-does not re-execute the program. It checks mathematical relationships between
-the commitments and queries. This takes milliseconds.
-
-If the check passes: the verifier is convinced that some prover ran the program
-correctly with inputs that produced the claimed output -- without knowing what
-the secret inputs were.
-
-If the check fails: the proof is rejected. Either the prover made an error, or
-the program's assertions failed.
-
-### The CLI commands in sequence
-
-```bash
-# 1. Compile (default target: triton)
-trident build balance_check.tri -o balance_check.tasm
-
-# 1b. Compile for a different target
-trident build balance_check.tri --target miden -o balance_check.masm
-
-# 2. See what it will cost to prove
-trident build balance_check.tri --costs
-trident build balance_check.tri --target miden --costs
-
-# 3. The proving and verification steps happen in the target VM's runtime,
-#    outside of the Trident compiler. Trident's job ends at producing
-#    the assembly file. The VM toolchain (e.g., Triton VM Rust library)
-#    handles execution, proof generation, and verification.
-```
+Every Trident program follows three phases: compile to target assembly (`trident build`), execute and generate a STARK proof (via the target VM), verify the proof (milliseconds, by anyone). The [Tutorial](../tutorials/tutorial.md) walks through each phase. The [Guides](../guides/compiling-a-program.md) cover each step in depth.
 
 ---
 
@@ -461,89 +285,9 @@ correct. The proof captures that the checks passed.
 
 ---
 
-## 🔑 11. Your First Trident Program
+## Your First Trident Program
 
-Let us build a complete program from scratch, explaining every line.
-
-```trident
-program my_first
-
-fn main() {
-    let a: Field = pub_read()
-    let b: Field = pub_read()
-    let sum: Field = a + b
-    let product: Field = a * b
-    pub_write(sum)
-    pub_write(product)
-}
-```
-
-Line by line:
-
-**`program my_first`** -- Every Trident file starts with either `program`
-(executable, has a `main` function) or `module` (library, no `main`). The name
-`my_first` is the program identifier.
-
-**`fn main() {`** -- The entry point. Every program must have exactly one
-`main` function. It takes no arguments and returns nothing. All I/O happens
-through `pub_read`, `pub_write`, and `divine`.
-
-**`let a: Field = pub_read()`** -- Read one field element from public input.
-The verifier will see this value as part of the claim. `Field` is the base
-numeric type -- an integer mod `p = 2^64 - 2^32 + 1`.
-
-**`let b: Field = pub_read()`** -- Read a second public input. Public inputs
-are consumed sequentially -- the first `pub_read` gets the first value, the
-second gets the second, and so on.
-
-**`let sum: Field = a + b`** -- Field addition. This compiles to a single TASM
-`add` instruction. If the result exceeds `p`, it wraps around (mod `p`).
-
-**`let product: Field = a * b`** -- Field multiplication. Single TASM `mul`
-instruction. Same wrapping behavior.
-
-**`pub_write(sum)`** -- Write the sum to public output. The verifier sees this
-value.
-
-**`pub_write(product)`** -- Write the product to public output.
-
-Build it:
-
-```bash
-trident build my_first.tri -o my_first.tasm
-```
-
-See the cost:
-
-```bash
-trident build my_first.tri --costs
-```
-
-This program is trivial -- a handful of instructions, negligible proving cost.
-But it demonstrates the complete pattern: read public inputs, compute, write
-public outputs. The prover runs this with concrete values (say, `a=3, b=7`),
-the trace records every step, the STARK prover compresses the trace, and any
-verifier can confirm the outputs (10 and 21) are correct for those inputs.
-
-Now let us add secret input:
-
-```trident
-program secret_sum
-
-fn main() {
-    let target: Field = pub_read()
-    let s1: Field = divine()
-    let s2: Field = divine()
-    assert(s1 + s2 == target)
-    pub_write(1)
-}
-```
-
-This program proves: "I know two secret numbers that add up to the public
-target." The verifier sees the target and the output (`1` = success) but never
-learns `s1` or `s2`. The `assert` is the constraint -- if the prover provides
-wrong secret values, the assertion fails, no proof is generated, and the
-computation is rejected.
+See the [Tutorial](../tutorials/tutorial.md) for a step-by-step walkthrough, or start with [Chapter 1: Prove a Secret](../tutorials/hello-proof.md) to build a working program in four lines.
 
 ---
 
@@ -614,51 +358,20 @@ target that supports the same feature set.
 
 ---
 
-## 🔗 13. See Also
-
-### Trident documentation
+## See Also
 
 - [Tutorial](../tutorials/tutorial.md) -- Step-by-step guide: types, functions, modules,
   I/O, hashing, events, testing, cost analysis
 - [Language Reference](../reference/language.md) -- Quick lookup: types, operators,
   builtins, grammar, CLI flags
-- [Target Reference](../reference/targets.md) -- OS model, integration tracking, how-to-add checklists
-  constructs, the type system, module system, grammar, and cost model
 - [Programming Model](../explanation/programming-model.md) -- How programs run inside Triton
   VM, the Neptune blockchain model, script types, and data flow
-- [Optimization Guide](../guides/optimization.md) -- Strategies for reducing proving
-  cost across all six Triton VM tables
-- [Error Catalog](../reference/errors.md) -- Every compiler error message explained with
-  fixes
-- [For Blockchain Devs](for-blockchain-devs.md) -- If you come from Solidity,
-  Anchor, or CosmWasm, start here instead
-- [Compiling a Program](../guides/compiling-a-program.md) -- Build pipeline, cost
-  analysis, and error handling
-- [Formal Verification](../explanation/formal-verification.md) -- Prove program properties
-  for all inputs via symbolic execution and SMT
-- [Content-Addressed Code](../explanation/content-addressing.md) -- Poseidon2 hashing, UCM
-  codebase manager, verification caching
-- [Multi-Target Compilation](../explanation/multi-target.md) -- Multi-target architecture,
-  backend extensions, and the universal core
-- [Vision](../explanation/vision.md) -- Why Trident exists and what you can build with it
-- [Comparative Analysis](../explanation/provable-computing.md) -- Triton VM vs. every other ZK system
-
-### External resources
-
-- [Triton VM](https://triton-vm.org/) -- The default target virtual machine
-- [Triton VM specification](https://triton-vm.org/spec/) -- The TASM
-  instruction set
-- [Neptune Cash](https://neptune.cash/) -- Production blockchain built on
-  Triton VM
-- [tasm-lib](https://github.com/TritonVM/tasm-lib) -- Reusable TASM snippets
-  used by the standard library
-- [Tip5 hash function](https://eprint.iacr.org/2023/107) -- The algebraic hash
-  function native to Triton VM
-- [FRI protocol](https://eccc.weizmann.ac.il/report/2017/134/) -- The
-  proximity proof at the heart of STARKs
-- [Goldilocks prime](https://xn--2-umb.com/22/goldilocks/) -- Why
-  `2^64 - 2^32 + 1`
 - [How STARK Proofs Work](../explanation/stark-proofs.md) -- Deep dive into the proof
   system underlying Triton VM
-- [Vyper](https://docs.vyperlang.org/) -- The language philosophy that inspired
-  Trident's "deliberate limitation" approach
+- [Optimization Guide](../guides/optimization.md) -- Strategies for reducing proving
+  cost across all six Triton VM tables
+- [Multi-Target Compilation](../explanation/multi-target.md) -- Multi-target architecture,
+  backend extensions, and the universal core
+- [For Blockchain Devs](for-blockchain-devs.md) -- If you come from Solidity,
+  Anchor, or CosmWasm, start here instead
+- [Comparative Analysis](../explanation/provable-computing.md) -- Triton VM vs. every other ZK system
