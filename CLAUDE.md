@@ -35,8 +35,24 @@ os.*              Portable runtime          os.signal, os.neuron, os.state, os.t
 os.<os>.*         OS-specific APIs          os.neptune.xfield, os.solana.pda
 ```
 
+Source tree:
+
+```
+src/          Compiler in Rust            Shrinks as self-hosting progresses
+vm/           VM intrinsics in Trident    vm/core/, vm/io/, vm/crypto/ — source code
+std/          Standard library in Trident sha256, bigint, ecdsa — source code
+os/           OS bindings in Trident      Per-OS config, docs, and extensions
+```
+
+The endgame is provable compilation: the compiler self-hosts on Triton VM,
+compiling Trident code and producing a STARK proof that compilation was correct.
+As self-hosting progresses, `src/` (Rust) shrinks and the `.tri` tree grows.
+`vm/`, `std/`, and `os/` are the Trident source directories.
+
+Layout:
+
 - `vm/{name}/` — per-VM directory: `target.toml` (config) + `README.md` (docs)
-- `vm/core/`, `vm/io/`, `vm/crypto/` — shared VM intrinsic `.tri` files
+- `vm/core/`, `vm/io/`, `vm/crypto/` — shared VM intrinsic `.tri` source
 - `os/{name}/` — per-OS directory: `target.toml` (config) + `README.md` (docs) + `.tri` extensions
 - `std/` — pure Trident library code (no `#[intrinsic]`)
 - Module resolution: `src/tools/resolve.rs`
