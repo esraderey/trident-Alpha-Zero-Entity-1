@@ -27,6 +27,7 @@ The alternative ecosystems each sacrifice at least one essential property:
 | StarkNet | Cairo/Stwo | Yes | Yes | Yes | No (PoS L2) |
 | Boundless | SP1 | No (Groth16 wrap) | No | Yes | No |
 | RISC Zero | RISC Zero | No (Groth16 wrap) | Yes | Yes | No |
+| Jolt (a16z) | Jolt | No (BN254 curves) | No | Yes | No |
 | Aleo | AVM | No (Pasta curves) | Yes | Yes | Partial (stake-gated) |
 | Mina | Kimchi | No (Pasta curves) | Partial | Partial | No |
 | Nockchain | Nock | No (no STARK hash) | No | Partial (Jock alpha) | Yes |

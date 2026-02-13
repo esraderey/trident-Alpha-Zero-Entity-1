@@ -29,6 +29,7 @@ Systems are assessed on technical merit, maturity, ecosystem strength, and align
 | SP1 | Succinct Labs | Paradigm-backed | Goldilocks (via Plonky3) | FRI → Groth16 wrapping |
 | RISC Zero | RISC Zero Inc. | Well-funded | Custom | 0STARK → Groth16 wrapping |
 | Aleo | Aleo Network Foundation | $228M+ (a16z, SoftBank) | Pasta curves (Pallas/Vesta) | Varuna (Marlin-derived) zkSNARK |
+| Jolt | a16z crypto | a16z | BN254 (Binius planned) | Sum-check + Lasso lookups (SNARK, not STARK) |
 | Mina Protocol | o1Labs | $92M+ | Pasta curves (Pallas/Vesta) | Kimchi (PLONK-derived) + Pickles recursion |
 
 ### Tier 2 — Working but Niche
@@ -42,7 +43,6 @@ Systems are assessed on technical merit, maturity, ecosystem strength, and align
 
 | System | Notes |
 |--------|-------|
-| Jolt (a16z) | Sum-check with Lasso lookups. SNARK-based, not STARK. Still alpha, explicitly "not suitable for production." |
 | Valida | Effectively absorbed into OpenVM/Plonky3 ecosystem. No longer independent. |
 | Polygon Miden | STARK-based with custom VM. Focused on Polygon's L2 needs. |
 
