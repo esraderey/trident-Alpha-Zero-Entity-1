@@ -11,7 +11,7 @@ Date: February 12, 2026
 |-----------|--------|--------------|
 | PLUMB framework | Implemented | `os/neptune/kernel.tri`, `os/neptune/utxo.tri` |
 | TSP-1 (Coin) | Implemented | `examples/neptune/type_custom_token.tri` |
-| TSP-2 (Uniq) | Implemented | `examples/uniq/uniq.tri` |
+| TSP-2 (Card) | Implemented | `examples/uniq/uniq.tri` |
 | Native currency | Implemented | `examples/neptune/type_native_currency.tri` |
 | Lock scripts | Implemented | `examples/neptune/lock_*.tri` (4 variants) |
 | Transaction validation | Implemented | `examples/neptune/transaction_validation.tri` |
@@ -45,7 +45,7 @@ Neptune has exactly two token standards. Both are built on PLUMB.
 | Standard | Name | What it defines | Conservation law |
 |----------|------|-----------------|------------------|
 | TSP-1 | Coin | Divisible value transfer | `Σ balances = supply` |
-| TSP-2 | Uniq | Unique asset ownership | `owner_count(id) = 1` |
+| TSP-2 | Card | Unique asset ownership | `owner_count(id) = 1` |
 
 A standard earns its place by defining a conservation law — an invariant that the circuit enforces on every operation. Divisible supply and unique ownership are incompatible conservation laws, so they require separate circuits. Everything else is a skill.
 
@@ -58,7 +58,7 @@ A skill is something a token can learn. It is a composable package:
 - Config it requires (which authorities and hooks must be set)
 - Composes with other skills it works alongside
 
-Skills are how tokens learn to do things beyond basic transfers. A coin that can provide liquidity has the Liquidity skill. A coin that enforces KYC has the Compliance skill. A uniq that pays creator royalties has the Royalties skill.
+Skills are how tokens learn to do things beyond basic transfers. A coin that can provide liquidity has the Liquidity skill. A coin that enforces KYC has the Compliance skill. A card that pays creator royalties has the Royalties skill.
 
 The hook system makes this possible. Every PLUMB operation has a hook slot. A skill installs hooks into those slots. Multiple skills can coexist on the same token — their hook proofs compose independently.
 
@@ -66,7 +66,7 @@ The hook system makes this possible. Every PLUMB operation has a hook slot. A sk
 
 Two conservation laws exist in token systems. Divisible supply: `Σ balances = supply`. Unique ownership: `owner_count(id) = 1`. These are mathematically incompatible — you cannot enforce both in one circuit without branching that inflates every proof. So there are exactly two standards: TSP-1 and TSP-2.
 
-Everything else a token does — liquidity, oracle pricing, governance, lending, compliance, royalties — is a behavior, not a conservation law. Behaviors compose. Conservation laws don't. A coin that provides liquidity is still a coin. A uniq that enforces royalties is still a uniq. The standard defines what the token *is*. Skills define what the token *does*.
+Everything else a token does — liquidity, oracle pricing, governance, lending, compliance, royalties — is a behavior, not a conservation law. Behaviors compose. Conservation laws don't. A coin that provides liquidity is still a coin. A card that enforces royalties is still a card. The standard defines what the token *is*. Skills define what the token *does*.
 
 This is why two standards plus a skill library covers the entire design space:
 
@@ -147,7 +147,7 @@ All proven prices are denominated in the base blockchain currency (NPT for Neptu
 │  Each = hooks + optional state tree + config              │
 ├──────────────────────────────────────────────────────────┤
 │  STANDARDS                                                │
-│  TSP-1 (Coin)              │  TSP-2 (Uniq)               │
+│  TSP-1 (Coin)              │  TSP-2 (Card)               │
 ├──────────────────────────────────────────────────────────┤
 │  PLUMB FRAMEWORK                                          │
 │  Leaf format, Config, Hooks, Auth, 5 Operations           │
@@ -299,9 +299,9 @@ For delegated spending: `auth_hash` derived keys + Delegation skill tracking cum
 
 ### 4.1 Why Two, Not One
 
-Coins and uniqs have incompatible conservation laws. Forcing both into one circuit creates branching that inflates the Algebraic Execution Table for every proof.
+Coins and cards have incompatible conservation laws. Forcing both into one circuit creates branching that inflates the Algebraic Execution Table for every proof.
 
-A coin with `balance ∈ {0,1}` is not a uniq — it lacks uniqueness proofs, metadata binding, royalty enforcement. A uniq with `supply > 1` is not a coin — it lacks divisible arithmetic and range checks.
+A coin with `balance ∈ {0,1}` is not a card — it lacks uniqueness proofs, metadata binding, royalty enforcement. A card with `supply > 1` is not a coin — it lacks divisible arithmetic and range checks.
 
 Two lean circuits always outperform one bloated circuit with conditional branches.
 
@@ -407,7 +407,7 @@ metadata = hash(name_hash, ticker_hash, teaser_hash, site_hash, custom_hash,
 
 ---
 
-## 🥇 6. TSP-2 — Uniq Standard
+## 🥇 6. TSP-2 — Card Standard
 
 *PLUMB implementation for unique assets*
 
@@ -982,7 +982,7 @@ The hook produces a receipt proof that composes with a mint operation on another
 Burn(TSP-2 item) → receipt proof ⊗ Mint(TSP-1 reward token)
 ```
 
-Use cases: burn uniq to claim physical goods, burn ticket for event access, burn old token for upgraded version, crafting (burn materials → mint result).
+Use cases: burn card to claim physical goods, burn ticket for event access, burn old token for upgraded version, crafting (burn materials → mint result).
 
 ### 11.4 Governance
 
@@ -1131,13 +1131,13 @@ Redeem: TOKEN_B burn, Oracle price proof, TOKEN_A released from fund_account
 Liquidation: health_factor < 1 proven, liquidator covers debt, receives collateral
 ```
 
-### 12.14 Uniq Marketplace
+### 12.14 Card Marketplace
 
 ```text
 Standard: TSP-2 + TSP-1
 Skills: Royalties, Oracle Pricing, Liquidity
 
-Seller transfers uniq to buyer:
+Seller transfers card to buyer:
   TSP-2 Pay (asset transfer) + TSP-1 Pay (payment) + TSP-1 Pay (royalty)
   Composed proof: TSP-2 ⊗ TSP-1(payment) ⊗ TSP-1(royalty) → single verification
 ```
@@ -1256,7 +1256,7 @@ Update: TSP-2 metadata update (if flags.updatable=1)
 |---|---|---|
 | Framework | PLUMB | Pay, Lock, Update, Mint, Burn |
 | Standard | TSP-1 (Coin) | PLUMB implementation for divisible assets |
-| Standard | TSP-2 (Uniq) | PLUMB implementation for unique assets |
+| Standard | TSP-2 (Card) | PLUMB implementation for unique assets |
 | Skill | Liquidity (TIDE) | Tokens In Direct Exchange — swaps without custody |
 | Skill | Oracle Pricing (COMPASS) | External data attestation with STARK proofs |
 | Skill | *[23 total]* | See Skill Library (sections 8-11) |
@@ -1320,7 +1320,7 @@ Update: TSP-2 metadata update (if flags.updatable=1)
 |---|---|
 | PLUMB | Pay, Lock, Update, Mint, Burn — the token framework |
 | TSP-1 | Coin standard (PLUMB implementation for divisible assets) |
-| TSP-2 | Uniq standard (PLUMB implementation for unique assets) |
+| TSP-2 | Card standard (PLUMB implementation for unique assets) |
 | Skill | A composable package of hooks + optional state tree + config that teaches a token a new behavior |
 | Recipe | A documented configuration combining a standard + skills to build a specific token type |
 | TIDE | Codename for the Liquidity skill — Tokens In Direct Exchange |
