@@ -1,6 +1,6 @@
 # 🔧 Compiling a Program
 
-This guide covers everything about the Trident compilation process: how source code becomes Triton Assembly, how to invoke the compiler, how to read errors, and how to analyze proving cost before you ever run a program. It is the second stage of the Trident lifecycle (Writing -> **Compiling** -> Running -> Deploying -> Generating Proofs -> Verifying Proofs).
+This guide covers everything about the Trident compilation process: how source code becomes Triton Assembly, how to invoke the compiler, how to read errors, and how to analyze proving cost before you ever run a program. It is the second stage of the Trident lifecycle (Writing -> Compiling -> Running -> Deploying -> Generating Proofs -> Verifying Proofs).
 
 ## 🔧 The Compilation Pipeline
 
@@ -143,22 +143,22 @@ error: binary operator '+' requires matching types, got Field and Bool
 
 ### Error Categories
 
-**Lexer errors** catch invalid characters and missing syntax before parsing begins. For example, using `-` instead of `sub(a, b)` or `/` instead of `/%`:
+Lexer errors catch invalid characters and missing syntax before parsing begins. For example, using `-` instead of `sub(a, b)` or `/` instead of `/%`:
 
 ```text
 error: unexpected '-'; Trident has no subtraction operator
   help: use the `sub(a, b)` function instead of `a - b`
 ```
 
-**Parser errors** report structural problems: missing declarations, unmatched braces, exceeded nesting depth.
+Parser errors report structural problems: missing declarations, unmatched braces, exceeded nesting depth.
 
-**Type errors** are the most common. They include type mismatches in operations, assignments, and return types; undefined variables and functions; arity mismatches; and immutability violations.
+Type errors are the most common. They include type mismatches in operations, assignments, and return types; undefined variables and functions; arity mismatches; and immutability violations.
 
-**Control flow errors** catch missing `bounded` annotations on for loops, non-exhaustive `match` statements, and unreachable code after `return`.
+Control flow errors catch missing `bounded` annotations on for loops, non-exhaustive `match` statements, and unreachable code after `return`.
 
-**Module errors** report missing module files, circular dependencies, and duplicate definitions.
+Module errors report missing module files, circular dependencies, and duplicate definitions.
 
-**Recursion detection** is a dedicated pass. Trident prohibits all recursion (direct and indirect) because Triton VM requires deterministic trace lengths:
+Recursion detection is a dedicated pass. Trident prohibits all recursion (direct and indirect) because Triton VM requires deterministic trace lengths:
 
 ```text
 error: recursive function call detected: main -> foo -> main

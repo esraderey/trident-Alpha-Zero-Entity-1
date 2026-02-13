@@ -17,9 +17,9 @@
 
 ## Runtime Binding (`polkadot.ext.*`)
 
-- **Storage access** — key-value read/write to on-chain storage
-- **Cross-contract calls** — invoke other contracts within the same parachain
-- **XCM dispatch** — send cross-consensus messages to other parachains and relay chain
+- Storage access — key-value read/write to on-chain storage
+- Cross-contract calls — invoke other contracts within the same parachain
+- XCM dispatch — send cross-consensus messages to other parachains and relay chain
 
 ## Notes
 

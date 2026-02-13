@@ -11,8 +11,8 @@ Write once. Run anywhere.
 An OS is a runtime that loads programs, manages I/O, enforces billing, and
 provides storage. A blockchain is one kind of OS. Linux is another.
 
-The **VM is the CPU** — the instruction set architecture. The **OS is the
-runtime** — storage, accounts, syscalls, billing. One VM can power multiple
+The VM is the CPU — the instruction set architecture. The OS is the
+runtime — storage, accounts, syscalls, billing. One VM can power multiple
 OSes, just as one CPU architecture runs multiple operating systems.
 
 | Concept | Range |
@@ -26,17 +26,17 @@ OSes, just as one CPU architecture runs multiple operating systems.
 
 The compiler does two jobs, just like gcc:
 
-1. **Instruction selection** (VM/CPU) — translate IR ops to the target VM's
+1. Instruction selection (VM/CPU) — translate IR ops to the target VM's
    native instructions. This is the same job gcc does for x86-64 vs ARM64.
 
-2. **Runtime binding** (OS) — link against OS-specific modules
+2. Runtime binding (OS) — link against OS-specific modules
    (`os.<os>.*`) that provide transaction models, account structures,
    storage layouts, and syscall conventions. This is the same job libc
    does — it differs between Linux and macOS even on the same CPU.
 
 ### Target Resolution
 
-A **target** is either a VM or an OS. The compiler resolves `--target <name>`
+A target is either a VM or an OS. The compiler resolves `--target <name>`
 by checking OS configs first, then VM configs:
 
 1. Is `<name>` an OS? → load `os/<name>.toml`, derive VM from `vm` field
@@ -118,11 +118,11 @@ describe what artifacts exist.
 
 | Path | Pipeline | VMs | Status |
 |------|----------|-----|--------|
-| **tir** (StackLowering) | TIR -> stack instructions | triton, miden | Production |
-| **tree** (TreeLowering) | TIR -> Noun combinators | nock | Partial (jets stubbed) |
-| **lir** (RegisterLowering) | TIR -> LIR -> register instructions | x86-64, arm64, riscv | Scaffold (todo!() bodies) |
-| **legacy** (StackBackend) | Legacy emitter pipeline | sp1, openvm, cairo | Functional but deprecated |
-| **none** | Not started | 11 VMs | -- |
+| tir (StackLowering) | TIR -> stack instructions | triton, miden | Production |
+| tree (TreeLowering) | TIR -> Noun combinators | nock | Partial (jets stubbed) |
+| lir (RegisterLowering) | TIR -> LIR -> register instructions | x86-64, arm64, riscv | Scaffold (todo!() bodies) |
+| legacy (StackBackend) | Legacy emitter pipeline | sp1, openvm, cairo | Functional but deprecated |
+| none | Not started | 11 VMs | -- |
 
 Planned specialized lowering traits (not yet implemented):
 EvmLowering, WasmLowering, BpfLowering, MoveLowering, AcirLowering,

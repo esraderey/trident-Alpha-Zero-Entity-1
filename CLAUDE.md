@@ -5,21 +5,21 @@
 `docs/reference/` is the canonical reference for all Trident design decisions.
 Each file owns a specific domain:
 
-- **`language.md`** — syntax, types, operators, builtins, attributes,
+- `language.md` — syntax, types, operators, builtins, attributes,
   memory model, type checking rules, permanent exclusions, sponge, Merkle,
   extension field, proof composition (Tier 2-3)
-- **`ir.md`** — TIROp variant names, counts, tier assignments, lowering paths,
+- `ir.md` — TIROp variant names, counts, tier assignments, lowering paths,
   naming conventions, architecture diagrams, pipeline
-- **`targets.md`** — OS model, integration tracking, how-to-add checklists
-- **`vm.md`** — VM registry, lowering paths, tier/type/builtin tables,
+- `targets.md` — OS model, integration tracking, how-to-add checklists
+- `vm.md` — VM registry, lowering paths, tier/type/builtin tables,
   cost models
-- **`os.md`** — OS concepts (neuron/signal/token), `os.*` portable APIs,
+- `os.md` — OS concepts (neuron/signal/token), `os.*` portable APIs,
   `os.<os>.*` OS-specific extensions, OS registry
-- **`stdlib.md`** — `std.*` library modules, common patterns
-- **`errors.md`** — error codes and diagnostic messages
-- **`grammar.md`** — EBNF grammar
-- **`cli.md`** — compiler commands and flags
-- **`briefing.md`** — AI-optimized compact cheat-sheet
+- `stdlib.md` — `std.*` library modules, common patterns
+- `errors.md` — error codes and diagnostic messages
+- `grammar.md` — EBNF grammar
+- `cli.md` — compiler commands and flags
+- `briefing.md` — AI-optimized compact cheat-sheet
 
 Any change to the IR, language, or target model MUST update the corresponding
 reference doc first, then propagate to code. If docs/reference/ and code
@@ -58,15 +58,15 @@ Layout:
 
 ## Git Workflow
 
-- **Commit by default.** After completing a change, commit it. Don't wait
+- Commit by default. After completing a change, commit it. Don't wait
   for the user to say "commit". Only stage without committing when the user
   explicitly asks to stage.
-- **Atomic commits.** One logical change per commit. Never combine two
+- Atomic commits. One logical change per commit. Never combine two
   independent features, fixes, or refactors in a single commit. If you
   made two separate changes, make two separate commits. Don't commit
   half-finished work either — if unsure whether the change is complete,
   ask before committing.
-- **Conventional commits.** Use prefixes: `feat:`, `fix:`, `refactor:`,
+- Conventional commits. Use prefixes: `feat:`, `fix:`, `refactor:`,
   `docs:`, `test:`, `chore:`.
 
 ## Build & Test

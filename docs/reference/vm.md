@@ -100,13 +100,13 @@ Designed for 20 VMs across three categories (today: Triton VM):
 | ARM64 | Register | u64 | Software | 0-1 | ELF | [arm64.md](../../vm/arm64/README.md) |
 | RISCV | Register | u64 | Software | 0-1 | ELF | [riscv.md](../../vm/riscv/README.md) |
 
-**Planned**: CUDA, Metal, Vulkan (GPU — `KernelLowering`).
+Planned: CUDA, Metal, Vulkan (GPU — `KernelLowering`).
 
 ---
 
 ## Tier Compatibility
 
-All VMs support **Tier 0** (program structure) and **Tier 1** (universal
+All VMs support Tier 0 (program structure) and Tier 1 (universal
 computation). Higher tiers require specific VM capabilities:
 
 | Tier | What it adds | VMs |

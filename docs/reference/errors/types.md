@@ -72,14 +72,14 @@ error: undefined function 'foo'
 
 ---
 
-### Undefined constant **(planned)**
+### Undefined constant (planned)
 
 ```text
 error: undefined constant 'MAX_SIZE'
   help: declare with `const MAX_SIZE: U32 = ...` or import the defining module
 ```
 
-**Spec:** language.md Section 3 (constants).
+Spec: language.md Section 3 (constants).
 
 ---
 
@@ -107,7 +107,7 @@ error: function 'foo' declared return type Field, but body returns Bool
 
 ---
 
-### No implicit conversion **(planned)**
+### No implicit conversion (planned)
 
 ```text
 error: cannot implicitly convert U32 to Field
@@ -116,7 +116,7 @@ error: cannot implicitly convert U32 to Field
 
 No automatic coercion between types. All conversions must be explicit.
 
-**Spec:** language.md Section 2, Section 10 (no implicit conversions).
+Spec: language.md Section 2, Section 10 (no implicit conversions).
 
 ---
 
@@ -169,29 +169,29 @@ error: field access on non-struct type Field
 error: field 'secret' of struct 'Account' is private
 ```
 
-**Fix:** Mark the field `pub` or provide a public accessor function.
+Fix: Mark the field `pub` or provide a public accessor function.
 
 ---
 
-### Private function access **(planned)**
+### Private function access (planned)
 
 ```text
 error: function 'helper' of module 'wallet' is private
   help: mark the function `pub` to make it accessible from other modules
 ```
 
-**Spec:** language.md Section 1 (visibility: pub or default private).
+Spec: language.md Section 1 (visibility: pub or default private).
 
 ---
 
-### Private struct access **(planned)**
+### Private struct access (planned)
 
 ```text
 error: struct 'Internal' of module 'wallet' is private
   help: mark the struct `pub` to make it accessible from other modules
 ```
 
-**Spec:** language.md Section 1 (visibility).
+Spec: language.md Section 1 (visibility).
 
 ---
 
@@ -203,17 +203,17 @@ error: index access on non-array type Field
 
 ---
 
-### Array index type mismatch **(planned)**
+### Array index type mismatch (planned)
 
 ```text
 error: array index must be U32 or compile-time integer, got Bool
 ```
 
-**Spec:** language.md Section 4 (array indexing).
+Spec: language.md Section 4 (array indexing).
 
 ---
 
-### Array index out of bounds **(planned)**
+### Array index out of bounds (planned)
 
 ```text
 error: array index 5 is out of bounds for array of size 3
@@ -221,7 +221,7 @@ error: array index 5 is out of bounds for array of size 3
 
 Compile-time constant indices are bounds-checked statically.
 
-**Spec:** language.md Section 4 (array indexing with compile-time sizes).
+Spec: language.md Section 4 (array indexing with compile-time sizes).
 
 ---
 
@@ -235,24 +235,24 @@ All elements of an array literal must have the same type.
 
 ---
 
-### Tuple element count limit **(planned)**
+### Tuple element count limit (planned)
 
 ```text
 error: tuple has 20 elements, maximum is 16
 ```
 
-**Spec:** language.md Section 2 (max 16 tuple elements).
+Spec: language.md Section 2 (max 16 tuple elements).
 
 ---
 
-### Parameter count limit **(planned)**
+### Parameter count limit (planned)
 
 ```text
 error: function 'foo' has 20 parameters, maximum is 16
   help: group related parameters into a struct
 ```
 
-**Spec:** language.md Section 3 (maximum 16 parameters).
+Spec: language.md Section 3 (maximum 16 parameters).
 
 ---
 
@@ -333,62 +333,62 @@ error: unreachable code after return statement
 
 ---
 
-### Unreachable code after halt **(planned)**
+### Unreachable code after halt (planned)
 
 ```text
 error: unreachable code after unconditional halt
   help: code after `assert(false)` or `halt` can never execute
 ```
 
-**Spec:** language.md Section 10 (dead code after halt/assert rejected).
+Spec: language.md Section 10 (dead code after halt/assert rejected).
 
 ---
 
-### No function overloading **(planned)**
+### No function overloading (planned)
 
 ```text
 error: function 'foo' is already defined
   help: Trident does not support function overloading; use distinct names
 ```
 
-**Spec:** language.md Section 3 (no function overloading).
+Spec: language.md Section 3 (no function overloading).
 
 ---
 
-### No type generics **(planned)**
+### No type generics (planned)
 
 ```text
 error: type-level generics are not supported
   help: only size parameters (integers) are allowed: `fn foo<N>(...)`
 ```
 
-**Spec:** language.md Section 3, Section 12 (only integer size parameters).
+Spec: language.md Section 3, Section 12 (only integer size parameters).
 
 ---
 
-### No default arguments **(planned)**
+### No default arguments (planned)
 
 ```text
 error: default parameter values are not supported
   help: define separate functions for different argument combinations
 ```
 
-**Spec:** language.md Section 3 (no default arguments).
+Spec: language.md Section 3 (no default arguments).
 
 ---
 
-### No variadic arguments **(planned)**
+### No variadic arguments (planned)
 
 ```text
 error: variadic arguments are not supported
   help: use a fixed-size array parameter instead
 ```
 
-**Spec:** language.md Section 3 (no variadic arguments).
+Spec: language.md Section 3 (no variadic arguments).
 
 ---
 
-### Transitive import access **(planned)**
+### Transitive import access (planned)
 
 ```text
 error: cannot access 'B.foo' through module 'A'
@@ -397,26 +397,26 @@ error: cannot access 'B.foo' through module 'A'
 
 If A imports B, C cannot reach B's items through A. No re-exports.
 
-**Spec:** language.md Section 1 (no re-exports).
+Spec: language.md Section 1 (no re-exports).
 
 ---
 
-### No floats **(planned)**
+### No floats (planned)
 
 ```text
 error: floating-point types are not supported
   help: use Field for arithmetic — all computation is over finite fields
 ```
 
-**Spec:** language.md Section 2, Section 12.
+Spec: language.md Section 2, Section 12.
 
 ---
 
-### No Option or Result **(planned)**
+### No Option or Result (planned)
 
 ```text
 error: 'Option' and 'Result' types are not supported
   help: use assert for validation; failure = no proof
 ```
 
-**Spec:** language.md Section 2 (no Option, no Result).
+Spec: language.md Section 2 (no Option, no Result).

@@ -28,12 +28,12 @@ execution without global locks.
 
 ### Entry Points
 
-Sui programs expose **entry functions** that receive objects as arguments.
+Sui programs expose entry functions that receive objects as arguments.
 The runtime passes objects based on the transaction's specified inputs.
 
-- **`init`** -- called once when the module is published
-- **entry functions** -- callable by transactions
-- **public functions** -- callable by other modules
+- `init` -- called once when the module is published
+- entry functions -- callable by transactions
+- public functions -- callable by other modules
 
 ```
 program my_token
@@ -64,14 +64,14 @@ pub fn send(coin: Field, recipient: Field) {
 
 ### State Access
 
-Sui state is organized as **objects** -- uniquely identified entities with
+Sui state is organized as objects -- uniquely identified entities with
 an owner. Objects come in three flavors:
 
 | Object type | Access | Consensus | Use for |
 |-------------|--------|-----------|---------|
-| **Owned** | Single writer (owner) | No consensus needed | Tokens, capabilities, user data |
-| **Shared** | Multiple writers | Consensus-ordered | AMM pools, auctions, registries |
-| **Immutable** | Read-only, everyone | No consensus needed | Package code, frozen configs |
+| Owned | Single writer (owner) | No consensus needed | Tokens, capabilities, user data |
+| Shared | Multiple writers | Consensus-ordered | AMM pools, auctions, registries |
+| Immutable | Read-only, everyone | No consensus needed | Package code, frozen configs |
 
 ```
 use sui.ext.object
@@ -112,8 +112,8 @@ let epoch: Field = sui.ext.tx.epoch()
 let epoch_timestamp: Field = sui.ext.tx.epoch_timestamp_ms()
 ```
 
-Authorization is enforced by **object ownership**: only the owner of an
-object can pass it to a transaction as a mutable reference. **Capabilities**
+Authorization is enforced by object ownership: only the owner of an
+object can pass it to a transaction as a mutable reference. Capabilities
 are objects that grant specific permissions:
 
 ```
@@ -238,30 +238,30 @@ dynamic fields, capability pattern, or other Sui-specific features. See
 
 | Module | Function | Signature | Description |
 |--------|----------|-----------|-------------|
-| **object** | `new()` | `-> Field` | Create new object UID |
+| object | `new()` | `-> Field` | Create new object UID |
 | | `delete(id)` | `Field -> ()` | Delete object |
 | | `borrow(id, offset)` | `(Field, U32) -> Field` | Read object field |
 | | `borrow_mut(id, offset, val)` | `(Field, U32, Field) -> ()` | Write object field |
 | | `id(obj)` | `Field -> Digest` | Get object ID |
-| **transfer** | `send(obj, recipient)` | `(Field, Field) -> ()` | Transfer owned object |
+| transfer | `send(obj, recipient)` | `(Field, Field) -> ()` | Transfer owned object |
 | | `public_send(obj, recipient)` | `(Field, Field) -> ()` | Transfer with store ability |
 | | `share(obj)` | `Field -> ()` | Make object shared |
 | | `freeze(obj)` | `Field -> ()` | Make object immutable |
-| **dynamic_field** | `add(parent, key, val)` | `(Field, Field, Field) -> ()` | Add dynamic field |
+| dynamic_field | `add(parent, key, val)` | `(Field, Field, Field) -> ()` | Add dynamic field |
 | | `borrow(parent, key)` | `(Field, Field) -> Field` | Read dynamic field |
 | | `borrow_mut(parent, key, val)` | `(Field, Field, Field) -> ()` | Write dynamic field |
 | | `remove(parent, key)` | `(Field, Field) -> Field` | Remove dynamic field |
 | | `exists(parent, key)` | `(Field, Field) -> Bool` | Check field existence |
-| **tx** | `sender()` | `-> Field` | Transaction sender |
+| tx | `sender()` | `-> Field` | Transaction sender |
 | | `epoch()` | `-> Field` | Current epoch |
 | | `epoch_timestamp_ms()` | `-> Field` | Epoch timestamp (ms) |
-| **coin** | `value(coin)` | `Field -> Field` | Coin balance |
+| coin | `value(coin)` | `Field -> Field` | Coin balance |
 | | `split(coin, amount)` | `(Field, Field) -> Field` | Split coin |
 | | `merge(target, source)` | `(Field, Field) -> ()` | Merge coins |
 | | `zero()` | `-> Field` | Zero-value coin |
 | | `mint(cap, amount)` | `(Field, Field) -> Field` | Mint new coins |
 | | `burn(cap, coin)` | `(Field, Field) -> ()` | Burn coins |
-| **event** | `emit(type, data)` | `(Field, [Field]) -> ()` | Emit typed event |
+| event | `emit(type, data)` | `(Field, [Field]) -> ()` | Emit typed event |
 
 ---
 

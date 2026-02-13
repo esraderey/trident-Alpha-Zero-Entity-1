@@ -36,11 +36,11 @@ Single metric: CPU cycles. Same cost model as SP1 — both use
 |---|---:|
 | `a + b`, `a * b`, `a == b` | 1 |
 | `a < b`, `a & b`, `a ^ b`, `a /% b` | 1 |
-| `hash(...)` | **400** |
-| `sponge_init()` | **200** |
-| `sponge_absorb(...)` | **200** |
-| `sponge_squeeze()` | **200** |
-| `merkle_step(...)` | **500** |
+| `hash(...)` | 400 |
+| `sponge_init()` | 200 |
+| `sponge_absorb(...)` | 200 |
+| `sponge_squeeze()` | 200 |
+| `merkle_step(...)` | 500 |
 | `split(a)` | 2 |
 | All other builtins | 1 |
 | fn call+return | 4 |

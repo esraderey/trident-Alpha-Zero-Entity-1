@@ -20,8 +20,8 @@ RISC-V register machine designed for the JAM (Join-Accumulate Machine)
 protocol. Programs compile through RISC-V ELF to PVM blob format. Supports
 both interpretation and JIT compilation, achieving near-native performance.
 
-Cost model is multi-dimensional: **ref_time** measures computation time,
-**proof_size** measures state proof overhead for validators. Both dimensions
+Cost model is multi-dimensional: ref_time measures computation time,
+proof_size measures state proof overhead for validators. Both dimensions
 are metered independently.
 
 System precompiles: Blake2b hashing, sr25519 signature verification,
@@ -34,7 +34,7 @@ See [os/polkadot.md](../../os/polkadot/README.md) for the Polkadot OS runtime.
 
 ## Cost Model (Weight)
 
-Two-dimensional metering: **ref_time** (computation) and **proof_size**
+Two-dimensional metering: ref_time (computation) and proof_size
 (state proof overhead).
 
 | Operation class | ref_time | proof_size | Notes |

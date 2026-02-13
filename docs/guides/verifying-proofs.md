@@ -1,6 +1,6 @@
 # ✅ Verifying Proofs
 
-This is the final stage of the Trident program lifecycle: Writing > Compiling > Running > Deploying > Generating Proofs > **Verifying Proofs**. Everything before this point was about producing a STARK proof. This stage is about checking one.
+This is the final stage of the Trident program lifecycle: Writing > Compiling > Running > Deploying > Generating Proofs > Verifying Proofs. Everything before this point was about producing a STARK proof. This stage is about checking one.
 
 Given a proof and the public inputs, anyone can verify that a computation was performed correctly -- in milliseconds, without re-executing the program, and without seeing the secret inputs. The original computation may have taken minutes. Verification takes the same time regardless.
 
@@ -14,9 +14,9 @@ A STARK proof is a short cryptographic certificate that a specific program, give
 
 The verifier receives two things:
 
-1. **The Claim** -- a public statement: which program was executed (identified by its Tip5 digest), what public inputs it consumed, and what public outputs it produced.
+1. The Claim -- a public statement: which program was executed (identified by its Tip5 digest), what public inputs it consumed, and what public outputs it produced.
 
-2. **The Proof** -- Merkle roots, FRI commitments, authentication paths, and queried evaluations. Typically 100-200 KB.
+2. The Proof -- Merkle roots, FRI commitments, authentication paths, and queried evaluations. Typically 100-200 KB.
 
 The verifier does NOT receive:
 
@@ -62,21 +62,21 @@ assert!(verdict);
 
 Verification performs four categories of checks, as described in [How STARK Proofs Work](../explanation/stark-proofs.md), Section 8:
 
-1. **Merkle root integrity.** Every authentication path in the proof hashes correctly to the committed Merkle roots.
+1. Merkle root integrity. Every authentication path in the proof hashes correctly to the committed Merkle roots.
 
-2. **AIR satisfaction.** At every queried evaluation point, the constraint polynomials -- divided by the zerofier -- evaluate to values consistent with a low-degree quotient. This confirms the execution trace satisfies all transition, boundary, and consistency constraints.
+2. AIR satisfaction. At every queried evaluation point, the constraint polynomials -- divided by the zerofier -- evaluate to values consistent with a low-degree quotient. This confirms the execution trace satisfies all transition, boundary, and consistency constraints.
 
-3. **FRI consistency.** Across all folding rounds, the committed polynomial evaluations are consistent with the folding relation. This confirms the quotient polynomial is actually low-degree, not arbitrary data.
+3. FRI consistency. Across all folding rounds, the committed polynomial evaluations are consistent with the folding relation. This confirms the quotient polynomial is actually low-degree, not arbitrary data.
 
-4. **Claim binding.** The public inputs and outputs in the Claim match the boundary constraints in the trace. The program digest matches the attested program hash. The Fiat-Shamir challenges are correctly derived from the transcript.
+4. Claim binding. The public inputs and outputs in the Claim match the boundary constraints in the trace. The program digest matches the attested program hash. The Fiat-Shamir challenges are correctly derived from the transcript.
 
 ### What the verifier does NOT need
 
-- **Secret inputs.** The verifier never sees values passed via `sec_read()` / `divine()`. They are consumed during execution and hidden by the proof's zero-knowledge property.
+- Secret inputs. The verifier never sees values passed via `sec_read()` / `divine()`. They are consumed during execution and hidden by the proof's zero-knowledge property.
 
-- **Source code.** The verifier works with the program digest, not the source. Two different Trident programs that compile to the same TASM produce the same digest. The verifier does not care about the source language.
+- Source code. The verifier works with the program digest, not the source. Two different Trident programs that compile to the same TASM produce the same digest. The verifier does not care about the source language.
 
-- **The execution trace.** The entire purpose of the STARK is to replace the trace (potentially millions of rows) with a compact proof (hundreds of kilobytes).
+- The execution trace. The entire purpose of the STARK is to replace the trace (potentially millions of rows) with a compact proof (hundreds of kilobytes).
 
 ---
 
@@ -106,13 +106,13 @@ Triton VM can verify STARK proofs inside the VM itself. A Trident program can re
 
 ### Why this matters
 
-- **Proof aggregation.** Batch N individual proofs into one. Instead of verifying N proofs separately, verify one aggregate proof. The aggregate proof is the same size regardless of N.
+- Proof aggregation. Batch N individual proofs into one. Instead of verifying N proofs separately, verify one aggregate proof. The aggregate proof is the same size regardless of N.
 
-- **Rollup compression.** Prove a batch of state transitions in a single proof. Thousands of transactions become one constant-size certificate.
+- Rollup compression. Prove a batch of state transitions in a single proof. Thousands of transactions become one constant-size certificate.
 
-- **Incrementally verifiable computation.** Chain proofs for long-running computations. Each step proves "I verified the previous step's proof AND computed the next increment." The chain grows indefinitely; proof size stays constant.
+- Incrementally verifiable computation. Chain proofs for long-running computations. Each step proves "I verified the previous step's proof AND computed the next increment." The chain grows indefinitely; proof size stays constant.
 
-- **Cross-chain bridges.** Verify another chain's proof without replaying its history. Read the external proof, verify it inside Triton VM, output the result.
+- Cross-chain bridges. Verify another chain's proof without replaying its history. Read the external proof, verify it inside Triton VM, output the result.
 
 ### Performance
 

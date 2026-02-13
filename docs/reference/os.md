@@ -13,19 +13,19 @@ the OS, not the instruction set. For VMs, see [vm.md](vm.md).
 
 The entire blockchain design space reduces to three primitives:
 
-- **Neuron** — an actor. Accounts, UTXOs, objects, cells, notes, resources,
+- Neuron — an actor. Accounts, UTXOs, objects, cells, notes, resources,
   contracts, wallets — all are neurons. A neuron has identity, can hold
   state, and can send signals.
-- **Signal** — a transaction. A bundle of directed weighted edges (cyberlinks)
+- Signal — a transaction. A bundle of directed weighted edges (cyberlinks)
   from neuron to neuron. The weight is the amount. The signal is the act of
   communication itself.
-- **Token** — a neuron viewed as an asset. Neurons ARE tokens. A fungible
+- Token — a neuron viewed as an asset. Neurons ARE tokens. A fungible
   token (ETH, SOL, CKByte) is a fungible neuron — many identical
   interchangeable units, like shares of a company. A uniq
   (unique asset, smart contract, unique UTXO) is a non-fungible neuron — unique
   identity, one-of-one, like a person.
 
-The model: **neurons send signals carrying tokens to other neurons.**
+The model: neurons send signals carrying tokens to other neurons.
 Neurons are the tokens. Everything else — accounts, UTXOs, objects,
 cells — is how a specific OS represents neurons internally. The
 compiler's job is to map neuron/signal operations down to those internals.
@@ -74,9 +74,9 @@ it checks a hash preimage (divine the secret, hash it, assert the digest
 matches). Same source code, different mechanism. This is the only auth
 mechanism that works on every OS with identity.
 
-**Supported:** Account, Stateless, Object, Process.
-**`id()`/`verify()` compile error:** UTXO (no caller — use `auth()`), Journal (no identity).
-**`auth()` compile error:** Journal (no identity).
+Supported: Account, Stateless, Object, Process.
+`id()`/`verify()` compile error: UTXO (no caller — use `auth()`), Journal (no identity).
+`auth()` compile error: Journal (no identity).
 
 #### Per-OS Lowering
 
@@ -89,8 +89,8 @@ mechanism that works on every OS with identity.
 | Stateless | Solana | `account.key(0)` (first signer) |
 | Object | Sui, Aptos | `tx_context::sender` |
 | Process | Linux, macOS, WASI, Android | `getuid()` (padded to Digest) |
-| UTXO | Neptune, Nockchain, Nervos, Aleo, Aztec | **Compile error** — no caller; use `neuron.auth()` |
-| Journal | Boundless, Succinct, OpenVM Network | **Compile error** — no identity |
+| UTXO | Neptune, Nockchain, Nervos, Aleo, Aztec | Compile error — no caller; use `neuron.auth()` |
+| Journal | Boundless, Succinct, OpenVM Network | Compile error — no identity |
 
 | OS family | OSes | `neuron.auth(cred)` lowers to |
 |-----------|------|-------------------------------|
@@ -102,7 +102,7 @@ mechanism that works on every OS with identity.
 | Object | Sui, Aptos | `assert(tx.sender() == cred)` |
 | UTXO | Neptune, Nockchain, Nervos, Aleo, Aztec | `divine()` + `hash()` + `assert_eq(hash, cred)` |
 | Process | Linux, macOS, WASI, Android | `assert(getuid() == cred)` |
-| Journal | Boundless, Succinct, OpenVM Network | **Compile error** — no identity |
+| Journal | Boundless, Succinct, OpenVM Network | Compile error — no identity |
 
 ### `os.signal` — Communication Between Neurons
 
@@ -117,8 +117,8 @@ current neuron, but delegation/proxy/allowance patterns pass a different
 `from` (e.g., ERC-20 `transferFrom`, spending another neuron's UTXO with
 their authorization).
 
-**Supported:** Account, Stateless, Object, UTXO.
-**Compile error:** Journal (no value), Process (no native value).
+Supported: Account, Stateless, Object, UTXO.
+Compile error: Journal (no value), Process (no native value).
 
 #### Per-OS Lowering
 
@@ -131,8 +131,8 @@ their authorization).
 | Stateless | Solana | `system_program::transfer(from, to, amount)` |
 | Object | Sui, Aptos | `coin::split` + `transfer::public_transfer` |
 | UTXO | Neptune, Nockchain, Nervos, Aleo, Aztec | Emit output UTXO/note (from = consumed input, to = recipient) |
-| Process | Linux, macOS, WASI, Browser, Android | **Compile error** — no native value |
-| Journal | Boundless, Succinct, OpenVM Network | **Compile error** — no native value |
+| Process | Linux, macOS, WASI, Browser, Android | Compile error — no native value |
+| Journal | Boundless, Succinct, OpenVM Network | Compile error — no native value |
 
 ### `os.state` — Persistent State
 
@@ -144,8 +144,8 @@ their authorization).
 | `write_n(key, values)` | `(key: Field, values: [Field; N]) -> ()` | Write N elements starting at key |
 | `exists(key)` | `(key: Field) -> Bool` | Check if key has been written |
 
-**Supported:** Account, Stateless, Object, UTXO, Process.
-**Compile error:** Journal (no persistent state).
+Supported: Account, Stateless, Object, UTXO, Process.
+Compile error: Journal (no persistent state).
 
 On UTXO chains, the compiler auto-generates the divine-and-authenticate
 pattern: divine the value, hash it, Merkle-prove against the state root.
@@ -160,13 +160,13 @@ The developer writes `state.read(key)` — the proof machinery is invisible.
 | Object | Sui, Aptos | `dynamic_field.borrow(context_object, key)` |
 | UTXO | Neptune, Nockchain, Nervos, Aleo, Aztec | `divine()` + `merkle_authenticate(key, root)` |
 | Process | Linux, macOS, WASI, Browser, Android | File / environment read |
-| Journal | Boundless, Succinct, OpenVM Network | **Compile error** — no persistent state |
+| Journal | Boundless, Succinct, OpenVM Network | Compile error — no persistent state |
 
 ### `os.token` — Token Operations (PLUMB)
 
 Tokens are neurons viewed as assets. `os.signal.send()` moves native
 currency between neurons. `os.token` provides the full PLUMB lifecycle —
-**P**ay, **L**ock, **U**pdate, **M**int, **B**urn — plus read queries,
+Pay, Lock, Update, Mint, Burn — plus read queries,
 for both coins and uniqs.
 
 See the [Gold Standard](../explanation/gold-standard.md) for the full
@@ -213,8 +213,8 @@ config-level dual auth if configured). `mint` requires config-level mint
 authority. `update` requires admin authority. `lock` extends the time-lock
 on an account or asset (extend only — cannot shorten).
 
-**Supported:** Account, Stateless, Object, UTXO.
-**Compile error:** Journal (no persistent state), Process (no native token concept).
+Supported: Account, Stateless, Object, UTXO.
+Compile error: Journal (no persistent state), Process (no native token concept).
 
 #### Per-OS Lowering — Coins
 
@@ -227,8 +227,8 @@ on an account or asset (extend only — cannot shorten).
 | Object | Sui, Aptos | `coin::split` + `transfer::public_transfer` |
 | UTXO | Neptune | Consume sender leaf, emit two leaves: sender (balance - amount), receiver (balance + amount) (TSP-1 Pay op) |
 | UTXO | Nervos, Aleo, Aztec | Consume cell/record/note, emit with updated balances |
-| Process | Linux, macOS, WASI, Browser, Android | **Compile error** — no native token |
-| Journal | Boundless, Succinct, OpenVM Network | **Compile error** — no persistent state |
+| Process | Linux, macOS, WASI, Browser, Android | Compile error — no native token |
+| Journal | Boundless, Succinct, OpenVM Network | Compile error — no persistent state |
 
 | OS family | OSes | `token.mint(to, amount)` lowers to |
 |-----------|------|------------------------------------|
@@ -239,8 +239,8 @@ on an account or asset (extend only — cannot shorten).
 | Object | Sui, Aptos | `coin::mint(treasury, amount)` + `transfer` |
 | UTXO | Neptune | Emit output UTXO with amount (TSP-1 Mint op) |
 | UTXO | Nervos, Aleo, Aztec | Emit output cell/record/note with amount |
-| Process | Linux, macOS, WASI, Browser, Android | **Compile error** — no native token |
-| Journal | Boundless, Succinct, OpenVM Network | **Compile error** — no persistent state |
+| Process | Linux, macOS, WASI, Browser, Android | Compile error — no native token |
+| Journal | Boundless, Succinct, OpenVM Network | Compile error — no persistent state |
 
 | OS family | OSes | `token.balance(account)` lowers to |
 |-----------|------|------------------------------------|
@@ -251,8 +251,8 @@ on an account or asset (extend only — cannot shorten).
 | Object | Sui, Aptos | `coin::balance(account)` |
 | UTXO | Neptune | Sum UTXO values for account (Merkle-authenticated) |
 | UTXO | Nervos, Aleo, Aztec | Sum cell/record/note values |
-| Process | Linux, macOS, WASI, Browser, Android | **Compile error** — no native token |
-| Journal | Boundless, Succinct, OpenVM Network | **Compile error** — no persistent state |
+| Process | Linux, macOS, WASI, Browser, Android | Compile error — no native token |
+| Journal | Boundless, Succinct, OpenVM Network | Compile error — no persistent state |
 
 #### Per-OS Lowering — Uniqs
 
@@ -265,8 +265,8 @@ on an account or asset (extend only — cannot shorten).
 | Object | Sui, Aptos | `transfer::public_transfer(object, to)` |
 | UTXO | Neptune | Consume owner's asset leaf, emit new leaf with `owner_id = to` (TSP-2 Pay op) |
 | UTXO | Nervos, Aleo, Aztec | Consume cell/record/note, emit with new owner |
-| Process | Linux, macOS, WASI, Browser, Android | **Compile error** — no native token |
-| Journal | Boundless, Succinct, OpenVM Network | **Compile error** — no persistent state |
+| Process | Linux, macOS, WASI, Browser, Android | Compile error — no native token |
+| Journal | Boundless, Succinct, OpenVM Network | Compile error — no persistent state |
 
 | OS family | OSes | `token.owner(asset_id)` lowers to |
 |-----------|------|-----------------------------------|
@@ -277,8 +277,8 @@ on an account or asset (extend only — cannot shorten).
 | Object | Sui, Aptos | `object::owner(object_id)` |
 | UTXO | Neptune | Merkle inclusion proof for asset leaf, read `owner_id` |
 | UTXO | Nervos, Aleo, Aztec | Merkle inclusion proof, read owner field |
-| Process | Linux, macOS, WASI, Browser, Android | **Compile error** — no native token |
-| Journal | Boundless, Succinct, OpenVM Network | **Compile error** — no persistent state |
+| Process | Linux, macOS, WASI, Browser, Android | Compile error — no native token |
+| Journal | Boundless, Succinct, OpenVM Network | Compile error — no persistent state |
 
 ### `os.time` — Clock
 
@@ -287,7 +287,7 @@ on an account or asset (extend only — cannot shorten).
 | `now()` | `() -> Field` | Current timestamp |
 | `step()` | `() -> Field` | Current step number (block height, slot, epoch, etc.) |
 
-**Supported:** All OS families.
+Supported: All OS families.
 
 On blockchain OSes, `now()` returns block/slot timestamp. On traditional
 OSes, it returns wall-clock time. On journal targets, it returns the
@@ -370,12 +370,12 @@ Designed for 25 OSes across provable, blockchain, and traditional runtimes (toda
 
 Key observations:
 
-- **One VM, many OSes.** WASM powers 6+ OSes (Near, Cosmos, ICP, Arbitrum,
+- One VM, many OSes. WASM powers 6+ OSes (Near, Cosmos, ICP, Arbitrum,
   WASI, Browser). x86-64 and ARM64 power Linux, macOS, Android. MOVEVM
   powers Sui and Aptos. Same bytecode output, different `os.<os>.*` bindings.
-- **RISC-V lowering is shared** across SP1, OPENVM, RISCZERO, JOLT, CKB,
+- RISC-V lowering is shared across SP1, OPENVM, RISCZERO, JOLT, CKB,
   POLKAVM, and native RISCV — 7 targets from one `RiscVLowering`.
-- **Arbitrum** supports both WASM (Stylus) and EVM.
+- Arbitrum supports both WASM (Stylus) and EVM.
 
 ---
 

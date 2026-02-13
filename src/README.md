@@ -70,25 +70,25 @@ Parallel to the main pipeline, several modules provide analysis, tooling, and pa
 
 ## Compilation Pipeline in Detail
 
-**Frontend** ([`frontend/`](frontend/)). The [lexer](frontend/lexer.rs) tokenizes source into the token types defined in [`lexeme.rs`](frontend/lexeme.rs). The [parser](frontend/parser.rs) produces a typed AST ([`ast.rs`](ast.rs)). The [formatter](frontend/format.rs) can pretty-print any AST back to canonical source.
+Frontend ([`frontend/`](frontend/)). The [lexer](frontend/lexer.rs) tokenizes source into the token types defined in [`lexeme.rs`](frontend/lexeme.rs). The [parser](frontend/parser.rs) produces a typed AST ([`ast.rs`](ast.rs)). The [formatter](frontend/format.rs) can pretty-print any AST back to canonical source.
 
-**Type Checking** ([`typecheck/`](typecheck/)). The [type checker](typecheck/mod.rs) validates types, resolves generics via monomorphization, performs borrow/move analysis, and registers builtin function signatures ([`builtins.rs`](typecheck/builtins.rs)). Diagnostics are emitted for type mismatches, undefined variables, unused bindings, and borrow violations.
+Type Checking ([`typecheck/`](typecheck/)). The [type checker](typecheck/mod.rs) validates types, resolves generics via monomorphization, performs borrow/move analysis, and registers builtin function signatures ([`builtins.rs`](typecheck/builtins.rs)). Diagnostics are emitted for type mismatches, undefined variables, unused bindings, and borrow violations.
 
-**Legacy Code Generation** ([`legacy/`](legacy/)). The old [emitter](legacy/emitter/) walks the typed AST and produces target assembly by calling methods on a [`StackBackend`](legacy/backend/mod.rs) trait. Each target ([Triton](legacy/backend/triton.rs), [Miden](legacy/backend/miden.rs), [OpenVM](legacy/backend/openvm.rs), [SP1](legacy/backend/sp1.rs), [Cairo](legacy/backend/cairo.rs)) implements this trait in its own file. Deprecated — kept only for comparison tests against the new TIR pipeline. The [stack manager](stack.rs) tracks operand positions with automatic RAM spill/reload. The [linker](linker.rs) resolves cross-module calls.
+Legacy Code Generation ([`legacy/`](legacy/)). The old [emitter](legacy/emitter/) walks the typed AST and produces target assembly by calling methods on a [`StackBackend`](legacy/backend/mod.rs) trait. Each target ([Triton](legacy/backend/triton.rs), [Miden](legacy/backend/miden.rs), [OpenVM](legacy/backend/openvm.rs), [SP1](legacy/backend/sp1.rs), [Cairo](legacy/backend/cairo.rs)) implements this trait in its own file. Deprecated — kept only for comparison tests against the new TIR pipeline. The [stack manager](stack.rs) tracks operand positions with automatic RAM spill/reload. The [linker](linker.rs) resolves cross-module calls.
 
-**Cost Analysis** ([`cost/`](cost/)). The [analyzer](cost/analyzer.rs) walks the AST and sums per-instruction costs using a target-specific [`CostModel`](cost/model/mod.rs). The [report module](cost/report.rs) formats results, generates optimization hints, and provides JSON serialization for `--compare` workflows.
+Cost Analysis ([`cost/`](cost/)). The [analyzer](cost/analyzer.rs) walks the AST and sums per-instruction costs using a target-specific [`CostModel`](cost/model/mod.rs). The [report module](cost/report.rs) formats results, generates optimization hints, and provides JSON serialization for `--compare` workflows.
 
-**Formal Verification** ([`verify/`](verify/)). The [symbolic executor](verify/sym.rs) builds path constraints over the AST. The [solver](verify/solve.rs) uses Schwartz-Zippel randomized testing and bounded model checking. The [SMT module](verify/smt.rs) encodes constraints in SMT-LIB2 for external solvers. The [equivalence checker](verify/equiv.rs) proves two functions compute the same result. The [synthesizer](verify/synthesize.rs) infers loop invariants automatically.
+Formal Verification ([`verify/`](verify/)). The [symbolic executor](verify/sym.rs) builds path constraints over the AST. The [solver](verify/solve.rs) uses Schwartz-Zippel randomized testing and bounded model checking. The [SMT module](verify/smt.rs) encodes constraints in SMT-LIB2 for external solvers. The [equivalence checker](verify/equiv.rs) proves two functions compute the same result. The [synthesizer](verify/synthesize.rs) infers loop invariants automatically.
 
-**Package Management** ([`pkgmgmt/`](pkgmgmt/)). Content-addressed storage using BLAKE3 [hashing](pkgmgmt/hash.rs) with [Poseidon2](pkgmgmt/poseidon2.rs) for in-proof verification. The [UCM](pkgmgmt/ucm.rs) manages a local codebase of named, versioned definitions. The [registry](pkgmgmt/registry.rs) provides an HTTP server and client for publishing and pulling definitions. The [on-chain module](pkgmgmt/onchain.rs) implements a Merkle-tree registry for blockchain-anchored code.
+Package Management ([`pkgmgmt/`](pkgmgmt/)). Content-addressed storage using BLAKE3 [hashing](pkgmgmt/hash.rs) with [Poseidon2](pkgmgmt/poseidon2.rs) for in-proof verification. The [UCM](pkgmgmt/ucm.rs) manages a local codebase of named, versioned definitions. The [registry](pkgmgmt/registry.rs) provides an HTTP server and client for publishing and pulling definitions. The [on-chain module](pkgmgmt/onchain.rs) implements a Merkle-tree registry for blockchain-anchored code.
 
 ## Design Principles
 
-**Direct mapping**. Every language construct maps to a known instruction pattern. The compiler is a thin translation layer, not an optimization engine. This makes proving costs predictable and the compiler auditable.
+Direct mapping. Every language construct maps to a known instruction pattern. The compiler is a thin translation layer, not an optimization engine. This makes proving costs predictable and the compiler auditable.
 
-**Target abstraction**. The [`StackLowering`](tir/lower/mod.rs) trait and [`CostModel`](cost/model/mod.rs) trait isolate all target-specific knowledge. Adding a new backend means implementing these two traits -- the rest of the compiler is shared.
+Target abstraction. The [`StackLowering`](tir/lower/mod.rs) trait and [`CostModel`](cost/model/mod.rs) trait isolate all target-specific knowledge. Adding a new backend means implementing these two traits -- the rest of the compiler is shared.
 
-**Re-exports for stability**. [`lib.rs`](lib.rs) re-exports every module at the crate root (`crate::parser`, `crate::emit`, etc.) so that internal reorganization does not break downstream code or the binary crate.
+Re-exports for stability. [`lib.rs`](lib.rs) re-exports every module at the crate root (`crate::parser`, `crate::emit`, etc.) so that internal reorganization does not break downstream code or the binary crate.
 
 ## Test Coverage
 

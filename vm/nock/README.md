@@ -97,13 +97,13 @@ of interpreting the Nock tree.
 
 ## OS — Nockchain
 
-- **Consensus**: Bitcoin-style PoW with STARK proofs (2016-block epochs)
-- **Block model**: Pages (blocks) containing transactions
-- **Transaction model**: UTXO with Notes (inputs consumed, outputs created)
-- **Signatures**: Schnorr over Cheetah curve (F6lt)
-- **Mining**: STARK Proof-of-Work — mining IS proving
-- **Transaction versions**: V0 (legacy), V1 (with zero-knowledge)
-- **Framework**: NockApp (kernel + IO drivers, poke/peek/effect)
+- Consensus: Bitcoin-style PoW with STARK proofs (2016-block epochs)
+- Block model: Pages (blocks) containing transactions
+- Transaction model: UTXO with Notes (inputs consumed, outputs created)
+- Signatures: Schnorr over Cheetah curve (F6lt)
+- Mining: STARK Proof-of-Work — mining IS proving
+- Transaction versions: V0 (legacy), V1 (with zero-knowledge)
+- Framework: NockApp (kernel + IO drivers, poke/peek/effect)
 
 ## Lowering Path
 

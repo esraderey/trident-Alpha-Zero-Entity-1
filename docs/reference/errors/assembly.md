@@ -4,7 +4,7 @@
 
 ---
 
-### Asm effect mismatch **(planned)**
+### Asm effect mismatch (planned)
 
 ```text
 error: asm block declared effect '+1' but actual stack effect differs
@@ -14,11 +14,11 @@ error: asm block declared effect '+1' but actual stack effect differs
 The compiler trusts the declared effect but may detect mismatches when the
 surrounding code's stack doesn't balance.
 
-**Spec:** language.md Section 9 (effect annotation is the contract).
+Spec: language.md Section 9 (effect annotation is the contract).
 
 ---
 
-### Asm in pure function **(planned)**
+### Asm in pure function (planned)
 
 ```text
 error: asm block not allowed in #[pure] function
@@ -28,4 +28,4 @@ error: asm block not allowed in #[pure] function
 Since the compiler cannot verify what inline assembly does, it's incompatible
 with the `#[pure]` guarantee.
 
-**Spec:** language.md Section 7 (pure = no I/O), Section 9.
+Spec: language.md Section 7 (pure = no I/O), Section 9.

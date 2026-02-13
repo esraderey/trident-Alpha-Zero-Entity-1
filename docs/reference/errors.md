@@ -7,7 +7,7 @@ Derived from the language specification ([language.md](language.md)), target
 constraints ([targets.md](targets.md)), and IR tier rules ([ir.md](ir.md)).
 
 This catalog is the source of truth for diagnostics. If a rule in the reference
-can be violated, the error must exist here. Entries marked **(planned)** are
+can be violated, the error must exist here. Entries marked (planned) are
 specification-required but not yet implemented in the compiler.
 
 ---
@@ -20,25 +20,25 @@ at least one diagnostic entry.
 
 ### The 5-step process
 
-1. **Extract** — Scan language.md, targets.md, and ir.md for prohibition
+1. Extract — Scan language.md, targets.md, and ir.md for prohibition
    keywords: "must", "cannot", "only", "requires", "forbidden", "not
    supported", "rejected", "maximum", "minimum".
 
-2. **Classify** — Is the constraint user-violable? Internal compiler
+2. Classify — Is the constraint user-violable? Internal compiler
    invariants don't need user-facing errors. Only rules that a programmer
    could break in source code qualify.
 
-3. **Map** — Each violable constraint maps to at least one catalog entry.
+3. Map — Each violable constraint maps to at least one catalog entry.
    Some constraints produce multiple errors (e.g., "no subtraction"
    catches `-`, `--`, `-=`).
 
-4. **Audit** — Gaps cluster in predictable categories:
+4. Audit — Gaps cluster in predictable categories:
    - Excluded-feature diagnostics (every Rust/C keyword users try)
    - Tier-gating for compound features (seal uses sponge internally)
    - Semantic domain errors (inv(0), hash rate mismatches)
    - Attribute argument validation
 
-5. **Maintain** — When adding a language feature, add its violation modes
+5. Maintain — When adding a language feature, add its violation modes
    to the catalog simultaneously. The spec change and the error entry
    ship together.
 

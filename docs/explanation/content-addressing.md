@@ -20,7 +20,7 @@ A renamed function keeps its hash. A changed function gets a new hash automatica
 
 This model was pioneered by [Unison](https://www.unison-lang.org/). Trident applies it
 to a domain where content addressing is not merely convenient but cryptographically
-essential: **provable computation**.
+essential: provable computation.
 
 ### Why It Matters for Provable Computation
 
@@ -29,13 +29,13 @@ hash at the verification layer. Content addressing pushes this identity up to th
 source level, creating a single identity that spans from writing code to deploying
 verified proofs:
 
-- **Verification certificates** prove properties of a specific computation, identified
+- Verification certificates prove properties of a specific computation, identified
   by hash. Change the code, get a new hash; the old certificate no longer applies.
-- **Proving cost** is deterministic for a given computation. The hash indexes into the
+- Proving cost is deterministic for a given computation. The hash indexes into the
   cost cache -- same hash, same cost, always.
-- **Cross-chain equivalence** reduces to hash comparison. If two deployments share a
+- Cross-chain equivalence reduces to hash comparison. If two deployments share a
   source hash, they run the same computation.
-- **Audit results** attach to hashes, not names. An audit of `#a7f3b2c1` is an audit
+- Audit results attach to hashes, not names. An audit of `#a7f3b2c1` is an audit
   of that exact computation forever.
 
 ---
@@ -111,7 +111,7 @@ The full tag table is defined in `src/hash.rs`.
 
 ### 2.3 Poseidon2 Hashing
 
-The serialized bytes are hashed with **Poseidon2** over the Goldilocks field
+The serialized bytes are hashed with Poseidon2 over the Goldilocks field
 (p = 2^64 - 2^32 + 1). This is a SNARK-friendly algebraic hash:
 
 - State width 8, rate 4, capacity 4
@@ -366,9 +366,9 @@ Verification Cache Entry:
 
 ### 5.3 Cache Semantics
 
-- **Append-only**: once written, a cache entry is never modified. First write wins.
-- **Keyed by content hash**: same computation always maps to the same result.
-- **Shared across projects**: any function with the same hash reuses the same cached
+- Append-only: once written, a cache entry is never modified. First write wins.
+- Keyed by content hash: same computation always maps to the same result.
+- Shared across projects: any function with the same hash reuses the same cached
   result, regardless of which project or file it came from.
 
 ### 5.4 Compilation Caching
@@ -415,11 +415,11 @@ The registry dispatches on an operation code:
 
 Each leaf in the registry Merkle tree is a Tip5 hash of:
 
-- **Content hash** -- the Poseidon2 content hash of the definition
-- **Type signature hash** -- hash of the function's type signature
-- **Dependencies hash** -- hash of the dependency list
-- **Certificate hash** -- hash of the verification certificate (0 if unverified)
-- **Metadata hash** -- hash of tags, publisher, timestamp, bound name
+- Content hash -- the Poseidon2 content hash of the definition
+- Type signature hash -- hash of the function's type signature
+- Dependencies hash -- hash of the dependency list
+- Certificate hash -- hash of the verification certificate (0 if unverified)
+- Metadata hash -- hash of tags, publisher, timestamp, bound name
 
 ### 7.3 CLI Integration
 

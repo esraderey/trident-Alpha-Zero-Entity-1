@@ -10,7 +10,7 @@
 warning: unused import 'vm.crypto.hash'
 ```
 
-**Fix:** Remove the unused `use` statement.
+Fix: Remove the unused `use` statement.
 
 ---
 
@@ -37,41 +37,41 @@ change could double proving cost.
 
 ---
 
-### Unused variable **(planned)**
+### Unused variable (planned)
 
 ```text
 warning: unused variable 'x'
   help: prefix with `_` to suppress: `let _x: Field = ...`
 ```
 
-**Spec:** general compiler quality.
+Spec: general compiler quality.
 
 ---
 
-### Unused function **(planned)**
+### Unused function (planned)
 
 ```text
 warning: unused function 'helper'
 ```
 
-**Spec:** general compiler quality.
+Spec: general compiler quality.
 
 ---
 
-### Unused constant **(planned)**
+### Unused constant (planned)
 
 ```text
 warning: unused constant 'MAX'
 ```
 
-**Spec:** general compiler quality.
+Spec: general compiler quality.
 
 ---
 
-### Shadowed variable **(planned)**
+### Shadowed variable (planned)
 
 ```text
 warning: variable 'x' shadows previous declaration
 ```
 
-**Spec:** general compiler quality.
+Spec: general compiler quality.

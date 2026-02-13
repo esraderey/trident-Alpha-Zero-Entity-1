@@ -17,9 +17,9 @@
 
 ## Runtime Binding (`aleo.ext.*`)
 
-- **Record management** — private UTXO state creation and consumption
-- **On-chain mapping storage** — public key-value storage via mappings
-- **Async/await** — cross-program calls via async execution model
+- Record management — private UTXO state creation and consumption
+- On-chain mapping storage — public key-value storage via mappings
+- Async/await — cross-program calls via async execution model
 
 ## Notes
 

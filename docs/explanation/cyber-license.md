@@ -55,17 +55,17 @@ articulates something structurally true about adversarial environments.
 The same three principles emerged independently across traditions that
 had no contact with each other.
 
-**Stoicism.** Marcus Aurelius wrote about the unreliability of others'
+Stoicism. Marcus Aurelius wrote about the unreliability of others'
 intentions -- don't trust. Seneca's project was the conquest of fear
 through reason -- don't fear. Epictetus, a literal slave, taught that
 freedom is refusing to want what others control -- don't beg.
 
-**Russian Orthodox monasticism.** The ascetic tradition of otrechenie
+Russian Orthodox monasticism. The ascetic tradition of otrechenie
 (renunciation). The startsy (elders) taught detachment from worldly
 dependencies. Don't trust the material world. Don't fear death. Don't
 beg from men. The criminal code is a dark mirror of the monastic code.
 
-**Game theory.** In a zero-trust, iterated prisoner's dilemma with
+Game theory. In a zero-trust, iterated prisoner's dilemma with
 unreliable counterparties: don't trust (assume defection), don't fear
 (don't let threats change your strategy), don't beg (don't signal
 weakness -- it invites exploitation).
@@ -86,21 +86,21 @@ verification is mathematical, not social.
 
 The three imperatives map directly:
 
-**Don't trust.** Verify. This is the founding principle of
+Don't trust. Verify. This is the founding principle of
 cryptographic proof systems. You do not trust the prover, the chain,
 the validator, or the counterparty. You verify the proof. A STARK
 proof is a mathematical object -- it either verifies or it doesn't.
 No reputation, no track record, no authority makes a false proof
 verify.
 
-**Don't fear.** Publish. Open-source the compiler. Open-source the
+Don't fear. Publish. Open-source the compiler. Open-source the
 programs. Put your code where anyone can read it, audit it, prove it
 wrong. If your system requires secrecy to work, it doesn't work.
 Provably correct programs have nothing to hide -- their correctness
 is a publicly verifiable fact. Fear is the instinct to hide your
 logic. Proofs make hiding unnecessary.
 
-**Don't beg.** No permission needed. No gatekeepers. No token
+Don't beg. No permission needed. No gatekeepers. No token
 listings. No governance votes to approve your contract. Permissionless
 computation, permissionless verification. The proof speaks for itself.
 You don't ask anyone to believe you -- you hand them a proof and they
@@ -146,7 +146,7 @@ population that must trust, fear, and beg to survive within it.
 The digital version is already here. It does not use barbed wire and
 guard towers. It uses platforms, APIs, and terms of service.
 
-**Trust is mandatory.** You must trust that the cloud provider will not
+Trust is mandatory. You must trust that the cloud provider will not
 read your data. You must trust that the social platform will not alter
 your feed. You must trust that the payment processor will not freeze
 your account. You must trust that the government will not demand your
@@ -154,7 +154,7 @@ private keys. You have no way to verify any of these things. You are
 told to trust, and you comply, because there is no alternative within
 the system.
 
-**Fear is the mechanism.** Deplatforming. Account suspension. Social
+Fear is the mechanism. Deplatforming. Account suspension. Social
 credit scores. Financial exclusion. Sanctions lists. The modern state
 does not need to arrest you. It needs only to remove you from the
 systems that everyone depends on. Your bank account, your app store
@@ -165,7 +165,7 @@ access is the fear that keeps people compliant. It is not minus forty
 degrees. It is the quiet terror of a frozen account and a support
 ticket that will never be answered.
 
-**Begging is the interface.** Apply for a developer account. Submit
+Begging is the interface. Apply for a developer account. Submit
 your app for review. Request permission to list your token. Appeal
 your account suspension. Fill out the KYC form. Explain why you need
 access to your own money. The entire interaction model between

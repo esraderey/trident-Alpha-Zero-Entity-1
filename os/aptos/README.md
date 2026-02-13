@@ -17,10 +17,10 @@
 
 ## Runtime Binding (`aptos.ext.*`)
 
-- **Account resources** — read and modify resources stored under accounts
-- **Tables** — scalable key-value storage for large collections
-- **Coin operations** — mint, burn, transfer via the coin module
-- **Multi-agent transactions** — transactions signed by multiple accounts
+- Account resources — read and modify resources stored under accounts
+- Tables — scalable key-value storage for large collections
+- Coin operations — mint, burn, transfer via the coin module
+- Multi-agent transactions — transactions signed by multiple accounts
 
 ## Notes
 

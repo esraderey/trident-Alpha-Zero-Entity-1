@@ -10,7 +10,7 @@
 error: function 'foo' is not generic but called with size arguments
 ```
 
-**Fix:** Remove the angle bracket arguments.
+Fix: Remove the angle bracket arguments.
 
 ---
 
@@ -28,7 +28,7 @@ error: function 'foo' expects 2 size parameters, got 1
 error: cannot infer size parameter 'N'; provide explicit size argument
 ```
 
-**Fix:** Provide the size argument explicitly:
+Fix: Provide the size argument explicitly:
 
 ```trident
 let result: Field = sum<5>(arr)
@@ -46,21 +46,21 @@ A size parameter could not be resolved to a concrete integer.
 
 ---
 
-### Array size not compile-time known **(planned)**
+### Array size not compile-time known (planned)
 
 ```text
 error: array size must be a compile-time known integer
   help: use a literal, const, or size parameter expression
 ```
 
-**Spec:** language.md Section 2 (array sizes must be compile-time known).
+Spec: language.md Section 2 (array sizes must be compile-time known).
 
 ---
 
-### Zero or negative array size **(planned)**
+### Zero or negative array size (planned)
 
 ```text
 error: array size must be a positive integer, got 0
 ```
 
-**Spec:** language.md Section 2 (fixed-size arrays, meaningful sizes).
+Spec: language.md Section 2 (fixed-size arrays, meaningful sizes).

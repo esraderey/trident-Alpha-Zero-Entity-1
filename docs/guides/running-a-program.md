@@ -1,7 +1,7 @@
 # ▶️ Running a Program
 
 This is the third stage of the Trident program lifecycle:
-**Writing** -> **Compiling** -> **Running** -> **Deploying** -> **Generating Proofs** -> **Verifying Proofs**.
+Writing -> Compiling -> Running -> Deploying -> Generating Proofs -> Verifying Proofs.
 
 Trident is a compiler, not a runtime. After `trident build` produces a `.tasm` file, execution happens inside [Triton VM](https://triton-vm.org/) -- a STARK-based zero-knowledge virtual machine. Trident's job ends at code generation; the VM takes it from there.
 
@@ -62,13 +62,13 @@ There is nothing else. No stdin/stdout in the conventional sense, no logging, no
 
 Triton VM is a stack machine. Understanding the execution model helps when reading `.tasm` output or diagnosing cost issues.
 
-**Operand stack.** The primary workspace. It holds up to 16 elements before spilling to an overflow area (tracked by the Op Stack table). Most instructions operate on the top few stack elements.
+Operand stack. The primary workspace. It holds up to 16 elements before spilling to an overflow area (tracked by the Op Stack table). Most instructions operate on the top few stack elements.
 
-**RAM.** Random-access memory addressed by field elements. Accessed via `read_mem` and `write_mem`. Used for data structures that exceed the stack's capacity.
+RAM. Random-access memory addressed by field elements. Accessed via `read_mem` and `write_mem`. Used for data structures that exceed the stack's capacity.
 
-**Jump stack.** Tracks function call/return addresses. Every `call` pushes a return address; every `return` pops one. This is internal bookkeeping -- you do not interact with it directly from Trident source code.
+Jump stack. Tracks function call/return addresses. Every `call` pushes a return address; every `return` pops one. This is internal bookkeeping -- you do not interact with it directly from Trident source code.
 
-**No heap allocator.** RAM exists, but there is no `malloc`. The compiler manages RAM layout statically. Arrays and structs are placed at known addresses determined at compile time.
+No heap allocator. RAM exists, but there is no `malloc`. The compiler manages RAM layout statically. Arrays and structs are placed at known addresses determined at compile time.
 
 For the full execution model, including the six constraint tables that govern proving cost, see the [Programming Model](../explanation/programming-model.md).
 
@@ -99,9 +99,9 @@ println!("Output: {:?}", output);
 
 Key points:
 
-- **`PublicInput`** corresponds to values consumed by `pub_read()` / `read_io`. Order matters -- the program reads them in FIFO order.
-- **`NonDeterminism`** corresponds to values consumed by `divine()` / `divine`. It has three parts: `individual_tokens` (field elements), `digests` (for `merkle_step`), and `ram` (pre-initialized memory).
-- **`trace_execution`** runs the program and returns both the output and the algebraic execution trace needed for proof generation.
+- `PublicInput` corresponds to values consumed by `pub_read()` / `read_io`. Order matters -- the program reads them in FIFO order.
+- `NonDeterminism` corresponds to values consumed by `divine()` / `divine`. It has three parts: `individual_tokens` (field elements), `digests` (for `merkle_step`), and `ram` (pre-initialized memory).
+- `trace_execution` runs the program and returns both the output and the algebraic execution trace needed for proof generation.
 - If you only need the output and not the trace, `VM::run` is lighter weight.
 
 The [`tasm-lang`](https://crates.io/crates/tasm-lang) ecosystem provides higher-level utilities for constructing programs and managing I/O, and is the foundation that Trident's standard library maps onto.

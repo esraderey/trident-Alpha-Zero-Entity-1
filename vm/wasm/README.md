@@ -39,12 +39,12 @@ TIR → WasmLowering → WASM module (.wasm)
 ```
 
 The WASM bytecode is identical. What differs is:
-- **Host functions** — each OS provides different imports (storage,
+- Host functions — each OS provides different imports (storage,
   messaging, crypto, filesystem)
-- **Entry points** — Near uses `#[near]` attributes, CosmWasm uses
+- Entry points — Near uses `#[near]` attributes, CosmWasm uses
   `instantiate`/`execute`/`query`, Stylus uses Solidity ABI, Icp uses
   `#[update]`/`#[query]`, WASI uses `_start`
-- **Metering** — Near and Cosmos use gas, Icp uses cycles, Stylus uses
+- Metering — Near and Cosmos use gas, Icp uses cycles, Stylus uses
   EVM-compatible gas, WASI uses wall-clock
 
 The runtime binding (`os.<os>.*`) handles these differences. The compiler

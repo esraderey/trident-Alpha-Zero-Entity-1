@@ -17,9 +17,9 @@
 
 ## Runtime Binding (`boundless.ext.*`)
 
-- **Journal I/O** — public inputs and outputs for proof verification
-- **Guest-host communication** — data exchange between guest program and host
-- **Assumption/composition** — recursive proof composition and assumption verification
+- Journal I/O — public inputs and outputs for proof verification
+- Guest-host communication — data exchange between guest program and host
+- Assumption/composition — recursive proof composition and assumption verification
 
 ## Notes
 

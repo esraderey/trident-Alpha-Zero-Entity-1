@@ -328,11 +328,11 @@ The cost is modest -- two hashes, two assertions, and basic arithmetic. The AMM 
 
 ## ✅ What You Learned
 
-- **TIDE** replaces custodial pools with proof constraints. Swaps are two
+- TIDE replaces custodial pools with proof constraints. Swaps are two
   coordinated `pay` operations. No tokens leave user accounts.
-- **Privacy eliminates MEV.** Reserves are `divine()`. Bots cannot compute
+- Privacy eliminates MEV. Reserves are `divine()`. Bots cannot compute
   price impact. Front-running requires data that is never published.
-- **Shared liquidity** -- one balance backs multiple strategies, lending,
+- Shared liquidity -- one balance backs multiple strategies, lending,
   governance, and staking simultaneously. No custody means no exclusivity.
 
 ---

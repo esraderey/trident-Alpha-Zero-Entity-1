@@ -7,13 +7,13 @@ are the remaining roadmap.
 
 ## Milestone 1: Neptune Production Readiness
 
-- [x] **Complete** — Neptune TX validation rewrite, benchmark suite, gadget library (SHA-256, Keccak), recursive STARK verifier, language spec v0.5
+- [x] Complete — Neptune TX validation rewrite, benchmark suite, gadget library (SHA-256, Keccak), recursive STARK verifier, language spec v0.5
 
 ## Milestone 2: Formal Verification (Embedded)
 
-- [x] **Phase 1 Complete** — Symbolic execution, algebraic solver (Schwartz-Zippel), bounded model checker, `trident verify`, redundant assertion elimination, counterexample generation
-- [x] **Phase 2 Complete** — `#[requires]`/`#[ensures]`/`#[invariant]` annotations, Z3/CVC5 SMT backend, Goldilocks field theory, witness checking, Hoare logic, verification certificates
-- [x] **Phase 4 Complete** — Template-based invariant synthesis (CEGIS), specification inference
+- [x] Phase 1 Complete — Symbolic execution, algebraic solver (Schwartz-Zippel), bounded model checker, `trident verify`, redundant assertion elimination, counterexample generation
+- [x] Phase 2 Complete — `#[requires]`/`#[ensures]`/`#[invariant]` annotations, Z3/CVC5 SMT backend, Goldilocks field theory, witness checking, Hoare logic, verification certificates
+- [x] Phase 4 Complete — Template-based invariant synthesis (CEGIS), specification inference
 
 ### Phase 3: LLM Integration Framework
 - [x] Machine-readable verification output, `trident generate`, structured counterexamples, LLM-optimized reference
@@ -21,7 +21,7 @@ are the remaining roadmap.
 
 ## Milestone 3: Content-Addressed Codebase
 
-- [x] **Complete** — AST normalization, content hashing, UCM (add/list/view/rename/stats/history/deps), compilation caching, global registry (HTTP API, publish/pull, search, certificate sharing), semantic equivalence checking, on-chain Merkle registry with proof generation
+- [x] Complete — AST normalization, content hashing, UCM (add/list/view/rename/stats/history/deps), compilation caching, global registry (HTTP API, publish/pull, search, certificate sharing), semantic equivalence checking, on-chain Merkle registry with proof generation
 
 ## Milestone 4: Multi-Target Backends
 

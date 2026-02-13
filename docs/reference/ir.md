@@ -48,10 +48,10 @@ Every program, every target. Just computation.
 
 | Group | Variants | Notes |
 |-------|----------|-------|
-| **Control flow — flat** (3) | `Call(String)` `Return` `Halt` | |
-| **Control flow — structural** (3) | `IfElse { then, else }` `IfOnly { then }` `Loop { label, body }` | Nested bodies, not flat jumps |
-| **Program structure** (3) | `FnStart(String)` `FnEnd` `Entry(String)` | `Entry` = program entry point (main function label) |
-| **Passthrough** (2) | `Comment(String)` `Asm { lines, effect }` | `Asm` = inline assembly escape hatch |
+| Control flow — flat (3) | `Call(String)` `Return` `Halt` | |
+| Control flow — structural (3) | `IfElse { then, else }` `IfOnly { then }` `Loop { label, body }` | Nested bodies, not flat jumps |
+| Program structure (3) | `FnStart(String)` `FnEnd` `Entry(String)` | `Entry` = program entry point (main function label) |
+| Passthrough (2) | `Comment(String)` `Asm { lines, effect }` | `Asm` = inline assembly escape hatch |
 
 The IR expresses intent, not formatting. Lowering handles labels, entry
 boilerplate, and blank lines.
@@ -59,21 +59,21 @@ boilerplate, and blank lines.
 ### Tier 1 — Universal (31)
 
 Every target — provable or non-provable. All values are field elements.
-Arithmetic groups are named by **interpretation**: how the value is treated.
+Arithmetic groups are named by interpretation: how the value is treated.
 
 | Group | Variants | Interpretation |
 |-------|----------|----------------|
-| **Stack** (4) | `Push(u64)` `Pop(u32)` `Dup(u32)` `Swap(u32)` | Stack manipulation |
-| **Modular** (5) | `Add` `Sub` `Mul` `Neg` `Invert` | Modular field arithmetic (wraps at prime) |
-| **Comparison** (2) | `Eq` `Lt` | Boolean (0 or 1) result |
-| **Bitwise** (5) | `And` `Or` `Xor` `PopCount` `Split` | Bit pattern. `Split` → 2 u32 limbs |
-| **Unsigned** (5) | `DivMod` `Shl` `Shr` `Log2` `Pow` | Unsigned integer. `DivMod` → 2 values |
-| **I/O** (2) | `ReadIo(u32)` `WriteIo(u32)` | Public input/output channels |
-| **Memory** (2) | `ReadMem(u32)` `WriteMem(u32)` | Address on stack, popped after access |
-| **Assertions** (1) | `Assert(u32)` | Assert N elements are nonzero |
-| **Hash** (1) | `Hash { width: u32 }` | Hash N elements into a digest |
-| **Events** (2) | `Reveal { name, tag, field_count }` `Seal { name, tag, field_count }` | `Reveal` = fields in the clear; `Seal` = hashed, only digest visible. `Seal` is a Tier 1 op but emits Tier 2 sponge ops internally — programs using `seal` require a Tier 2 target |
-| **Storage** (2) | `ReadStorage { width }` `WriteStorage { width }` | Persistent state access |
+| Stack (4) | `Push(u64)` `Pop(u32)` `Dup(u32)` `Swap(u32)` | Stack manipulation |
+| Modular (5) | `Add` `Sub` `Mul` `Neg` `Invert` | Modular field arithmetic (wraps at prime) |
+| Comparison (2) | `Eq` `Lt` | Boolean (0 or 1) result |
+| Bitwise (5) | `And` `Or` `Xor` `PopCount` `Split` | Bit pattern. `Split` → 2 u32 limbs |
+| Unsigned (5) | `DivMod` `Shl` `Shr` `Log2` `Pow` | Unsigned integer. `DivMod` → 2 values |
+| I/O (2) | `ReadIo(u32)` `WriteIo(u32)` | Public input/output channels |
+| Memory (2) | `ReadMem(u32)` `WriteMem(u32)` | Address on stack, popped after access |
+| Assertions (1) | `Assert(u32)` | Assert N elements are nonzero |
+| Hash (1) | `Hash { width: u32 }` | Hash N elements into a digest |
+| Events (2) | `Reveal { name, tag, field_count }` `Seal { name, tag, field_count }` | `Reveal` = fields in the clear; `Seal` = hashed, only digest visible. `Seal` is a Tier 1 op but emits Tier 2 sponge ops internally — programs using `seal` require a Tier 2 target |
+| Storage (2) | `ReadStorage { width }` `WriteStorage { width }` | Persistent state access |
 
 ### Tier 2 — Provable (7)
 
@@ -81,9 +81,9 @@ Proof-capable targets only. No meaningful equivalent on non-provable targets.
 
 | Group | Variants | Intent |
 |-------|----------|--------|
-| **Witness** (1) | `Hint(u32)` | Non-deterministic input from the prover |
-| **Sponge** (4) | `SpongeInit` `SpongeAbsorb` `SpongeSqueeze` `SpongeLoad` | Incremental algebraic hashing |
-| **Merkle** (2) | `MerkleStep` `MerkleLoad` | Merkle tree authentication |
+| Witness (1) | `Hint(u32)` | Non-deterministic input from the prover |
+| Sponge (4) | `SpongeInit` `SpongeAbsorb` `SpongeSqueeze` `SpongeLoad` | Incremental algebraic hashing |
+| Merkle (2) | `MerkleStep` `MerkleLoad` | Merkle tree authentication |
 
 ### Tier 3 — Recursion (5)
 
@@ -91,9 +91,9 @@ Recursive verification only. STARK-in-STARK primitives.
 
 | Group | Variants | Intent |
 |-------|----------|--------|
-| **Extension** (2) | `ExtMul` `ExtInvert` | Extension field arithmetic |
-| **Folding** (2) | `FoldExt` `FoldBase` | FRI folding (extension / base field) |
-| **Verification** (1) | `ProofBlock { program_hash, body }` | Recursive proof verification block. Body contains verification circuit |
+| Extension (2) | `ExtMul` `ExtInvert` | Extension field arithmetic |
+| Folding (2) | `FoldExt` `FoldBase` | FRI folding (extension / base field) |
+| Verification (1) | `ProofBlock { program_hash, body }` | Recursive proof verification block. Body contains verification circuit |
 
 ### Totals
 
@@ -221,9 +221,9 @@ This resolves every design tension:
 
 A program is a pure sequential computation — read, compute, write.
 The runtime decides how many copies run and how they connect:
-- **GPU**: runtime dispatches N threads, each runs one program
-- **Blockchain**: runtime dispatches transactions, each runs one program
-- **Agent**: runtime dispatches particles, each runs one program
+- GPU: runtime dispatches N threads, each runs one program
+- Blockchain: runtime dispatches transactions, each runs one program
+- Agent: runtime dispatches particles, each runs one program
 
 Concurrency lives in the runtime. The IR describes one computation.
 
@@ -254,11 +254,11 @@ semantics, it doesn't belong in the IR.
 
 ### Naming conventions
 
-- **Verb-first**: `ReadIo`, `WriteIo`, `ReadStorage`, `WriteStorage`
-- **Max two words**: every variant is 1-2 words, no exceptions
-- **Arithmetic groups named by interpretation**: Modular (field),
+- Verb-first: `ReadIo`, `WriteIo`, `ReadStorage`, `WriteStorage`
+- Max two words: every variant is 1-2 words, no exceptions
+- Arithmetic groups named by interpretation: Modular (field),
   Bitwise (bits), Unsigned (integer), Comparison (boolean)
-- **Symmetric pairs**: `Reveal`/`Seal`, `Read`/`Write`, `FnStart`/`FnEnd`
+- Symmetric pairs: `Reveal`/`Seal`, `Read`/`Write`, `FnStart`/`FnEnd`
 
 ---
 

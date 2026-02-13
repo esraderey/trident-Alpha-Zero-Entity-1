@@ -17,10 +17,10 @@
 
 ## Runtime Binding (`aztec.ext.*`)
 
-- **Note management** — private UTXO state creation and consumption
-- **Public storage** — read/write public contract state
-- **Cross-contract calls** — invoke other contracts (private and public)
-- **L1/L2 messaging** — send and receive messages between Ethereum L1 and Aztec L2
+- Note management — private UTXO state creation and consumption
+- Public storage — read/write public contract state
+- Cross-contract calls — invoke other contracts (private and public)
+- L1/L2 messaging — send and receive messages between Ethereum L1 and Aztec L2
 
 ## Notes
 

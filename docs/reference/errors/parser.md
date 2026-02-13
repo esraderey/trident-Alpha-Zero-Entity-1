@@ -41,7 +41,7 @@ error: expected item (fn, struct, event, or const)
 
 A top-level construct is not a valid item.
 
-**Fix:** Only `fn`, `struct`, `event`, and `const` are valid at module scope.
+Fix: Only `fn`, `struct`, `event`, and `const` are valid at module scope.
 
 ---
 
@@ -101,135 +101,135 @@ Attributes are only valid on function definitions.
 
 ---
 
-### No wildcard import **(planned)**
+### No wildcard import (planned)
 
 ```text
 error: wildcard import 'use merkle.*' is forbidden
   help: import the module name directly: `use merkle`
 ```
 
-**Spec:** language.md Section 1 (no wildcard imports).
+Spec: language.md Section 1 (no wildcard imports).
 
 ---
 
-### No import renaming **(planned)**
+### No import renaming (planned)
 
 ```text
 error: import renaming 'use merkle as m' is forbidden
   help: use the original module name: `use merkle`
 ```
 
-**Spec:** language.md Section 1 (no renaming).
+Spec: language.md Section 1 (no renaming).
 
 ---
 
-### No else-if **(planned)**
+### No else-if (planned)
 
 ```text
 error: 'else if' is not supported
   help: nest 'if' inside 'else': `else { if cond { ... } }`
 ```
 
-**Spec:** language.md Section 5 (if/else, no else-if).
+Spec: language.md Section 5 (if/else, no else-if).
 
 ---
 
-### No while loop **(planned)**
+### No while loop (planned)
 
 ```text
 error: 'while' is not supported
   help: use `for i in 0..n bounded N { }` with a declared bound
 ```
 
-**Spec:** language.md Section 5, Section 12.
+Spec: language.md Section 5, Section 12.
 
 ---
 
-### No loop keyword **(planned)**
+### No loop keyword (planned)
 
 ```text
 error: 'loop' is not supported
   help: use `for` with a bounded range
 ```
 
-**Spec:** language.md Section 5, Section 12.
+Spec: language.md Section 5, Section 12.
 
 ---
 
-### No break statement **(planned)**
+### No break statement (planned)
 
 ```text
 error: 'break' is not supported in Trident
   help: all loops run for their full declared bound
 ```
 
-**Spec:** language.md Section 5, Section 12.
+Spec: language.md Section 5, Section 12.
 
 ---
 
-### No continue statement **(planned)**
+### No continue statement (planned)
 
 ```text
 error: 'continue' is not supported in Trident
 ```
 
-**Spec:** language.md Section 5, Section 12.
+Spec: language.md Section 5, Section 12.
 
 ---
 
-### No enum declaration **(planned)**
+### No enum declaration (planned)
 
 ```text
 error: 'enum' is not supported; Trident has no sum types
   help: use struct + integer tag for variant patterns
 ```
 
-**Spec:** language.md Section 2, Section 12 (no enums, no sum types).
+Spec: language.md Section 2, Section 12 (no enums, no sum types).
 
 ---
 
-### No trait declaration **(planned)**
+### No trait declaration (planned)
 
 ```text
 error: 'trait' is not supported in Trident
 ```
 
-**Spec:** language.md Section 12.
+Spec: language.md Section 12.
 
 ---
 
-### No impl block **(planned)**
+### No impl block (planned)
 
 ```text
 error: 'impl' is not supported; use free functions
 ```
 
-**Spec:** language.md Section 12.
+Spec: language.md Section 12.
 
 ---
 
-### No macro declaration **(planned)**
+### No macro declaration (planned)
 
 ```text
 error: macros are not supported in Trident
 ```
 
-**Spec:** language.md Section 12.
+Spec: language.md Section 12.
 
 ---
 
-### No closure syntax **(planned)**
+### No closure syntax (planned)
 
 ```text
 error: closures are not supported in Trident
   help: use named functions instead
 ```
 
-**Spec:** language.md Section 3, Section 12 (no closures).
+Spec: language.md Section 3, Section 12 (no closures).
 
 ---
 
-### No method syntax **(planned)**
+### No method syntax (planned)
 
 ```text
 error: method syntax 'x.foo()' is not supported
@@ -238,77 +238,77 @@ error: method syntax 'x.foo()' is not supported
 
 Field access is `x.field`. Function calls must be free-standing.
 
-**Spec:** language.md Section 3 (no method syntax).
+Spec: language.md Section 3 (no method syntax).
 
 ---
 
-### Missing type annotation on let **(planned)**
+### Missing type annotation on let (planned)
 
 ```text
 error: let binding requires a type annotation
   help: write `let x: Field = ...` not `let x = ...`
 ```
 
-**Spec:** language.md Section 5, grammar.md (let_stmt grammar includes type).
+Spec: language.md Section 5, grammar.md (let_stmt grammar includes type).
 
 ---
 
-### I/O declaration in module **(planned)**
+### I/O declaration in module (planned)
 
 ```text
 error: I/O declarations ('pub input', 'sec input') are only allowed in program files
   help: move I/O declarations to a `program` file, not a `module`
 ```
 
-**Spec:** language.md Section 3 (I/O declarations: program modules only).
+Spec: language.md Section 3 (I/O declarations: program modules only).
 
 ---
 
-### No re-export **(planned)**
+### No re-export (planned)
 
 ```text
 error: re-exports are not supported
   help: if A uses B, C cannot access B through A; import B directly
 ```
 
-**Spec:** language.md Section 1 (no re-exports).
+Spec: language.md Section 1 (no re-exports).
 
 ---
 
-### No exceptions **(planned)**
+### No exceptions (planned)
 
 ```text
 error: 'try'/'catch'/'throw' are not supported
   help: use `assert` for failure — proof generation becomes impossible on assert failure
 ```
 
-**Spec:** language.md Section 12.
+Spec: language.md Section 12.
 
 ---
 
-### No concurrency keywords **(planned)**
+### No concurrency keywords (planned)
 
 ```text
 error: 'async'/'await'/'spawn' are not supported
   help: Trident execution is sequential; concurrency is handled at the runtime level
 ```
 
-**Spec:** language.md Section 12.
+Spec: language.md Section 12.
 
 ---
 
-### No pointers or references **(planned)**
+### No pointers or references (planned)
 
 ```text
 error: pointers and references ('&', '*') are not supported
   help: all values are passed by copy on the stack
 ```
 
-**Spec:** language.md Section 2, Section 8, Section 12 (no heap, no pointers).
+Spec: language.md Section 2, Section 8, Section 12 (no heap, no pointers).
 
 ---
 
-### Unsupported visibility modifier **(planned)**
+### Unsupported visibility modifier (planned)
 
 ```text
 error: visibility modifier 'pub(crate)' is not supported
@@ -318,11 +318,11 @@ error: visibility modifier 'pub(crate)' is not supported
 No `pub(crate)`, `friend`, or `internal` modifiers. Visibility is binary:
 `pub` or private.
 
-**Spec:** language.md Section 1 (no pub(crate), no friend, no internal).
+Spec: language.md Section 1 (no pub(crate), no friend, no internal).
 
 ---
 
-### No heap allocation **(planned)**
+### No heap allocation (planned)
 
 ```text
 error: 'alloc' is not supported; Trident has no heap
@@ -332,4 +332,4 @@ error: 'alloc' is not supported; Trident has no heap
 No `alloc`, `free`, `new`, or garbage collection. All memory is either
 stack (16 elements, LRU spill) or word-addressed RAM.
 
-**Spec:** language.md Section 8, Section 12 (no heap, no GC).
+Spec: language.md Section 8, Section 12 (no heap, no GC).

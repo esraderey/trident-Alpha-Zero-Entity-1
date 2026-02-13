@@ -39,62 +39,62 @@ error: cannot read 'main.tri': No such file or directory
 
 ---
 
-### Program without main **(planned)**
+### Program without main (planned)
 
 ```text
 error: program 'my_program' must have a `fn main()` entry point
   help: add `fn main() { ... }` or change to `module` if this is a library
 ```
 
-**Spec:** language.md Section 1 (program must have fn main).
+Spec: language.md Section 1 (program must have fn main).
 
 ---
 
-### Module with main **(planned)**
+### Module with main (planned)
 
 ```text
 error: module 'my_module' must not define `fn main()`
   help: modules are libraries; change to `program` if this is an entry point
 ```
 
-**Spec:** language.md Section 1 (module must NOT have fn main).
+Spec: language.md Section 1 (module must NOT have fn main).
 
 ---
 
-### Duplicate struct **(planned)**
+### Duplicate struct (planned)
 
 ```text
 error: duplicate struct definition 'Point'
 ```
 
-**Spec:** language.md Section 1 (items are unique within a module).
+Spec: language.md Section 1 (items are unique within a module).
 
 ---
 
-### Duplicate constant **(planned)**
+### Duplicate constant (planned)
 
 ```text
 error: duplicate constant definition 'MAX'
 ```
 
-**Spec:** language.md Section 1 (items are unique within a module).
+Spec: language.md Section 1 (items are unique within a module).
 
 ---
 
-### Duplicate import **(planned)**
+### Duplicate import (planned)
 
 ```text
 error: duplicate import 'use merkle'
 ```
 
-**Spec:** language.md Section 1 (import rules).
+Spec: language.md Section 1 (import rules).
 
 ---
 
-### Self import **(planned)**
+### Self import (planned)
 
 ```text
 error: module cannot import itself
 ```
 
-**Spec:** language.md Section 1 (DAG requirement).
+Spec: language.md Section 1 (DAG requirement).

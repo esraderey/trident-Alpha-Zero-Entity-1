@@ -38,39 +38,39 @@ Functions annotated `#[pure]` cannot perform any I/O operations.
 
 ---
 
-### Unknown attribute **(planned)**
+### Unknown attribute (planned)
 
 ```text
 error: unknown attribute '#[foo]'
   help: valid attributes are: cfg, test, pure, intrinsic, requires, ensures
 ```
 
-**Spec:** language.md Section 7 (closed set of attributes).
+Spec: language.md Section 7 (closed set of attributes).
 
 ---
 
-### Duplicate attribute **(planned)**
+### Duplicate attribute (planned)
 
 ```text
 error: duplicate attribute '#[pure]' on function 'foo'
 ```
 
-**Spec:** language.md Section 7.
+Spec: language.md Section 7.
 
 ---
 
-### Unknown cfg flag **(planned)**
+### Unknown cfg flag (planned)
 
 ```text
 error: unknown cfg flag 'unknown_flag'
   help: valid cfg flags are target-specific and project-defined
 ```
 
-**Spec:** language.md Section 7 (cfg conditional compilation).
+Spec: language.md Section 7 (cfg conditional compilation).
 
 ---
 
-### Invalid requires/ensures predicate **(planned)**
+### Invalid requires/ensures predicate (planned)
 
 ```text
 error: invalid predicate in #[requires]: undefined variable 'x'
@@ -81,11 +81,11 @@ The expression inside `#[requires(...)]` or `#[ensures(...)]` must be a
 valid boolean expression over the function's parameters (for requires)
 or parameters and `result` (for ensures).
 
-**Spec:** language.md Section 7 (#[requires]/#[ensures] predicates).
+Spec: language.md Section 7 (#[requires]/#[ensures] predicates).
 
 ---
 
-### Result in requires predicate **(planned)**
+### Result in requires predicate (planned)
 
 ```text
 error: 'result' is not available in #[requires] predicates
@@ -95,4 +95,4 @@ error: 'result' is not available in #[requires] predicates
 The `result` keyword represents the function's return value, which does
 not exist at the point of precondition checking.
 
-**Spec:** language.md Section 7 (result = return value, ensures only).
+Spec: language.md Section 7 (result = return value, ensures only).

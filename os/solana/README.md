@@ -27,7 +27,7 @@ lives in accounts passed into each transaction.
 
 ### Entry Points
 
-Solana programs have a single entry point: **process instruction**. Every
+Solana programs have a single entry point: process instruction. Every
 transaction specifies which accounts to pass and what instruction data to
 send. The program receives accounts by index.
 
@@ -55,8 +55,8 @@ receive raw instruction data and dispatch manually.
 
 ### State Access
 
-Programs are **stateless** -- they own no storage. All state lives in
-**accounts** that are passed into the transaction by the caller. Each
+Programs are stateless -- they own no storage. All state lives in
+accounts that are passed into the transaction by the caller. Each
 account is a byte buffer with an owner, lamport balance, and data.
 
 ```
@@ -77,8 +77,8 @@ let is_signer: Bool = os.solana.account.is_signer(0)
 ```
 
 The account model is fundamentally different from Ethereum:
-- **Ethereum**: contract owns storage, callers invoke functions
-- **Solana**: program is stateless, callers supply accounts containing data
+- Ethereum: contract owns storage, callers invoke functions
+- Solana: program is stateless, callers supply accounts containing data
 
 ### Identity and Authorization
 
@@ -95,7 +95,7 @@ assert(os.solana.account.is_signer(0))
 let authority: Digest = os.solana.account.key(0)
 ```
 
-**Program Derived Addresses (PDAs)** are deterministic addresses derived
+Program Derived Addresses (PDAs) are deterministic addresses derived
 from a program ID and seeds. They allow programs to "sign" for accounts
 they control.
 
@@ -132,7 +132,7 @@ SPL token transfers use CPI to the Token Program (see below).
 
 ### Cross-Contract Interaction
 
-**Cross-Program Invocation (CPI)** lets programs call other programs:
+Cross-Program Invocation (CPI) lets programs call other programs:
 
 ```
 use os.solana.cpi
@@ -154,9 +154,9 @@ os.solana.cpi.invoke_signed(
 ```
 
 Common CPI targets:
-- **System Program** -- create accounts, transfer SOL
-- **Token Program** -- SPL token operations
-- **Associated Token Account** -- canonical token account derivation
+- System Program -- create accounts, transfer SOL
+- Token Program -- SPL token operations
+- Associated Token Account -- canonical token account derivation
 
 ### Events
 
@@ -233,7 +233,7 @@ rent exemption checks, or other Solana-specific features. See
 
 | Module | Function | Signature | Description |
 |--------|----------|-----------|-------------|
-| **account** | `key(index)` | `U32 -> Digest` | Account public key |
+| account | `key(index)` | `U32 -> Digest` | Account public key |
 | | `owner(index)` | `U32 -> Field` | Account owner program |
 | | `lamports(index)` | `U32 -> Field` | Account lamport balance |
 | | `data(index, offset)` | `(U32, U32) -> Field` | Read from account data |
@@ -241,20 +241,20 @@ rent exemption checks, or other Solana-specific features. See
 | | `data_len(index)` | `U32 -> U32` | Account data length |
 | | `is_signer(index)` | `U32 -> Bool` | Was this account a signer? |
 | | `is_writable(index)` | `U32 -> Bool` | Is this account writable? |
-| **pda** | `find(program, seeds)` | `(Field, [Field]) -> (Digest, Field)` | Find PDA + bump |
+| pda | `find(program, seeds)` | `(Field, [Field]) -> (Digest, Field)` | Find PDA + bump |
 | | `create_address(program, seeds)` | `(Field, [Field]) -> Digest` | Derive PDA address |
-| **cpi** | `invoke(program, accounts, data)` | `(Field, [...], [Field]) -> ()` | Cross-program invocation |
+| cpi | `invoke(program, accounts, data)` | `(Field, [...], [Field]) -> ()` | Cross-program invocation |
 | | `invoke_signed(program, accounts, data, seeds)` | `(Field, [...], [Field], [[Field]]) -> ()` | CPI with PDA signer |
-| **transfer** | `lamports(from, to, amount)` | `(U32, U32, Field) -> ()` | SOL transfer |
-| **system** | `create_account(from, new, lamports, space, owner)` | `(...) -> ()` | Create new account |
+| transfer | `lamports(from, to, amount)` | `(U32, U32, Field) -> ()` | SOL transfer |
+| system | `create_account(from, new, lamports, space, owner)` | `(...) -> ()` | Create new account |
 | | `allocate(account, space)` | `(U32, U32) -> ()` | Allocate account space |
 | | `assign(account, owner)` | `(U32, Field) -> ()` | Assign account owner |
-| **log** | `msg(text)` | `[Field] -> ()` | Log message |
+| log | `msg(text)` | `[Field] -> ()` | Log message |
 | | `data(bytes)` | `[Field] -> ()` | Log structured data |
-| **clock** | `slot()` | `-> Field` | Current slot |
+| clock | `slot()` | `-> Field` | Current slot |
 | | `epoch()` | `-> Field` | Current epoch |
 | | `unix_timestamp()` | `-> Field` | Unix timestamp |
-| **rent** | `minimum_balance(size)` | `U32 -> Field` | Rent-exempt minimum |
+| rent | `minimum_balance(size)` | `U32 -> Field` | Rent-exempt minimum |
 
 ---
 

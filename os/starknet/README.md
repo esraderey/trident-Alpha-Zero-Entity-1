@@ -29,10 +29,10 @@ abstraction -- every account is a smart contract.
 
 Starknet contracts expose typed entry points categorized by mutability:
 
-- **External** -- mutates state, callable by transactions and other contracts
-- **View** -- read-only, no state mutation
-- **Constructor** -- runs once at deployment
-- **L1 handler** -- triggered by messages from Ethereum L1
+- External -- mutates state, callable by transactions and other contracts
+- View -- read-only, no state mutation
+- Constructor -- runs once at deployment
+- L1 handler -- triggered by messages from Ethereum L1
 
 ```
 program my_token
@@ -113,7 +113,7 @@ storage address convention.
 
 ### Identity and Authorization
 
-Starknet has **native account abstraction** -- every account is a smart
+Starknet has native account abstraction -- every account is a smart
 contract that validates its own transactions. There is no privileged
 signature scheme.
 
@@ -174,7 +174,7 @@ let deployed_address: Field = starknet.ext.call.deploy(
 )
 ```
 
-**L1/L2 messaging** -- send messages to Ethereum L1:
+L1/L2 messaging -- send messages to Ethereum L1:
 
 ```
 use starknet.ext.messaging
@@ -248,23 +248,23 @@ Pedersen-addressed storage vars, or other Starknet-specific features. See
 
 | Module | Function | Signature | Description |
 |--------|----------|-----------|-------------|
-| **storage** | `read(addr)` | `Field -> Field` | Read storage variable |
+| storage | `read(addr)` | `Field -> Field` | Read storage variable |
 | | `write(addr, val)` | `(Field, Field) -> ()` | Write storage variable |
 | | `read_map(addr, key)` | `(Field, Field) -> Field` | Read mapping entry |
 | | `write_map(addr, key, val)` | `(Field, Field, Field) -> ()` | Write mapping entry |
 | | `read_map2(addr, k1, k2)` | `(Field, Field, Field) -> Field` | Read nested mapping |
 | | `write_map2(addr, k1, k2, val)` | `(Field, Field, Field, Field) -> ()` | Write nested mapping |
-| **account** | `caller()` | `-> Field` | get_caller_address |
+| account | `caller()` | `-> Field` | get_caller_address |
 | | `self_address()` | `-> Field` | get_contract_address |
 | | `tx_info()` | `-> Field` | Transaction info hash |
 | | `block_number()` | `-> Field` | Current block number |
 | | `block_timestamp()` | `-> Field` | Current block timestamp |
-| **call** | `invoke(addr, selector, args)` | `(Field, Field, [Field]) -> [Field]` | Contract call |
+| call | `invoke(addr, selector, args)` | `(Field, Field, [Field]) -> [Field]` | Contract call |
 | | `library_call(hash, selector, args)` | `(Field, Field, [Field]) -> [Field]` | Library call |
 | | `deploy(hash, args, salt)` | `(Field, [Field], Field) -> Field` | Deploy contract |
-| **event** | `emit(keys, data)` | `([Field], [Field]) -> ()` | Raw event emission |
-| **messaging** | `send_to_l1(addr, payload)` | `(Field, [Field]) -> ()` | L1 message |
-| **crypto** | `pedersen(a, b)` | `(Field, Field) -> Field` | Pedersen hash |
+| event | `emit(keys, data)` | `([Field], [Field]) -> ()` | Raw event emission |
+| messaging | `send_to_l1(addr, payload)` | `(Field, [Field]) -> ()` | L1 message |
+| crypto | `pedersen(a, b)` | `(Field, Field) -> Field` | Pedersen hash |
 | | `poseidon(data)` | `[Field] -> Field` | Poseidon hash |
 
 ---

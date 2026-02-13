@@ -17,10 +17,10 @@
 
 ## Runtime Binding (`android.ext.*`)
 
-- **Filesystem** — app-scoped file I/O (planned)
-- **Network** — socket, HTTP (planned)
-- **Sensors** — accelerometer, GPS, camera (planned)
-- **UI** — native activity, surface (planned)
+- Filesystem — app-scoped file I/O (planned)
+- Network — socket, HTTP (planned)
+- Sensors — accelerometer, GPS, camera (planned)
+- UI — native activity, surface (planned)
 
 ## Notes
 

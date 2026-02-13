@@ -18,11 +18,11 @@
 
 ## Runtime Binding (`cosmwasm.ext.*`)
 
-- **Storage** — key-value store via Cosmos KV
-- **IBC** — cross-chain messaging and contract calls
-- **Bank** — token transfers via bank module
-- **Staking** — delegation and validator queries
-- **Entry points** — typed: `instantiate`, `execute`, `query`, `migrate`
+- Storage — key-value store via Cosmos KV
+- IBC — cross-chain messaging and contract calls
+- Bank — token transfers via bank module
+- Staking — delegation and validator queries
+- Entry points — typed: `instantiate`, `execute`, `query`, `migrate`
 
 ## Notes
 

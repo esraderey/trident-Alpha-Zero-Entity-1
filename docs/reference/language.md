@@ -6,7 +6,7 @@ Trident is a programming language for provable computation. One source
 file is designed to compile to 20 virtual machines — from zero-knowledge
 proof systems to EVM, WASM, and native x86-64. Write once. Prove anywhere.
 
-**Version 0.5** | File extension: `.tri` | Compiler: `trident`
+Version 0.5 | File extension: `.tri` | Compiler: `trident`
 
 ---
 
@@ -44,8 +44,8 @@ Rules:
 ### Visibility
 
 Two levels only:
-- **`pub`** — visible to any module that imports this one
-- **default** — private to this module
+- `pub` — visible to any module that imports this one
+- default — private to this module
 
 No `pub(crate)`, no `friend`, no `internal`.
 
@@ -655,7 +655,7 @@ Note: The `*.` operator (scalar multiply) maps to `ExtMul` in the IR.
 
 ## 16. Proof Composition (Tier 3)
 
-Proofs that verify other proofs. **TRITON and NOCK only.**
+Proofs that verify other proofs. TRITON and NOCK only.
 
 Tier 3 enables a program to verify another program's proof inside its own
 execution. This is STARK-in-STARK recursion: the verifier circuit runs as
@@ -671,9 +671,9 @@ proof_block(program_hash) {
 
 Tier 3 uses the extension field builtins above plus dedicated IR operations:
 
-- **ProofBlock** — Wraps a recursive verification circuit
-- **FoldExt / FoldBase** — FRI folding over extension / base field
-- **ExtMul / ExtInvert** — Extension field arithmetic for the verifier
+- ProofBlock — Wraps a recursive verification circuit
+- FoldExt / FoldBase — FRI folding over extension / base field
+- ExtMul / ExtInvert — Extension field arithmetic for the verifier
 
 See [ir.md Part I, Tier 3](ir.md) for the full list of 5 recursive operations.
 

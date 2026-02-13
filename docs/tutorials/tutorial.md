@@ -1,6 +1,6 @@
 # 🎓 Trident Tutorial
 
-This is the first stage of the Trident program lifecycle: **Writing** > [Compiling](../guides/compiling-a-program.md) > [Running](../guides/running-a-program.md) > [Deploying](../guides/deploying-a-program.md) > [Generating Proofs](../guides/generating-proofs.md) > [Verifying Proofs](../guides/verifying-proofs.md).
+This is the first stage of the Trident program lifecycle: Writing > [Compiling](../guides/compiling-a-program.md) > [Running](../guides/running-a-program.md) > [Deploying](../guides/deploying-a-program.md) > [Generating Proofs](../guides/generating-proofs.md) > [Verifying Proofs](../guides/verifying-proofs.md).
 
 This tutorial covers everything you need to write a valid Trident program -- file structure, types, control flow, functions, modules, and the key differences from conventional languages. For a complete lookup table, see the [Reference](../reference/language.md). For a formal treatment, see the [Target Reference](../reference/targets.md).
 
@@ -55,7 +55,7 @@ trident check hello.tri
 
 Every `.tri` file starts with either a `program` or a `module` declaration.
 
-A **program** has an entry point (`fn main()`) and compiles to an executable:
+A program has an entry point (`fn main()`) and compiles to an executable:
 
 ```trident
 program my_app
@@ -66,7 +66,7 @@ fn main() {
 }
 ```
 
-A **module** is a library with no entry point. Its public items are available to other files:
+A module is a library with no entry point. Its public items are available to other files:
 
 ```trident
 module helpers
@@ -363,7 +363,7 @@ for i in 0..10 bounded 10 {
 }
 ```
 
-**Why bounds are required.** Provable VMs execute a fixed-length trace. The prover must know the worst-case iteration count before execution begins. The `bounded N` annotation declares this maximum. The compiler uses the bound -- not the runtime count -- to compute proving cost, so `bounded 100` always costs 100 iterations in the trace even if the loop exits earlier. See [How STARK Proofs Work](../explanation/stark-proofs.md) Section 11 for the proving time formula, and the [Optimization Guide](../guides/optimization.md) for strategies to choose good bounds.
+Why bounds are required. Provable VMs execute a fixed-length trace. The prover must know the worst-case iteration count before execution begins. The `bounded N` annotation declares this maximum. The compiler uses the bound -- not the runtime count -- to compute proving cost, so `bounded 100` always costs 100 iterations in the trace even if the loop exits earlier. See [How STARK Proofs Work](../explanation/stark-proofs.md) Section 11 for the proving time formula, and the [Optimization Guide](../guides/optimization.md) for strategies to choose good bounds.
 
 Dynamic ranges work with `bounded`:
 

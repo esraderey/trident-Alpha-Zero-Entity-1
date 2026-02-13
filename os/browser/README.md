@@ -17,10 +17,10 @@
 
 ## Runtime Binding (`browser.ext.*`)
 
-- **DOM** — element creation, query, mutation (planned)
-- **Fetch** — HTTP requests (planned)
-- **Storage** — IndexedDB, localStorage (planned)
-- **Canvas/WebGL** — 2D/3D rendering (planned)
+- DOM — element creation, query, mutation (planned)
+- Fetch — HTTP requests (planned)
+- Storage — IndexedDB, localStorage (planned)
+- Canvas/WebGL — 2D/3D rendering (planned)
 
 ## Notes
 

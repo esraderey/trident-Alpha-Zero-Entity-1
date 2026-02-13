@@ -29,7 +29,7 @@ kernels, and recursive proof composition.
 
 Neptune has two kinds of scripts that Trident programs implement:
 
-**Lock scripts** guard a UTXO -- they prove the right to spend.
+Lock scripts guard a UTXO -- they prove the right to spend.
 
 Public input: kernel MAST hash (1 Digest = 5 field elements).
 
@@ -45,7 +45,7 @@ fn main() {
 }
 ```
 
-**Type scripts** validate coin rules (e.g., "amounts balance," "timelock
+Type scripts validate coin rules (e.g., "amounts balance," "timelock
 expired").
 
 Public input: 3 Digests (kernel hash, input UTXOs hash, output UTXOs hash).
@@ -68,9 +68,9 @@ fn main() {
 Programs cannot directly access blockchain state. Neptune uses a universal
 pattern:
 
-1. Public input contains a **MAST hash** (Merkle root) of a known structure
-2. The program **divines** the actual value (secret input)
-3. The program **authenticates** the divined value against the MAST hash
+1. Public input contains a MAST hash (Merkle root) of a known structure
+2. The program divines the actual value (secret input)
+3. The program authenticates the divined value against the MAST hash
    using Merkle proofs (`merkle_step`)
 4. If authentication fails, the VM crashes -- no proof is generated
 
@@ -115,14 +115,14 @@ fn verify_auth(expected: Digest) {
 }
 ```
 
-This is **account abstraction by default**. The "secret" can be anything:
+This is account abstraction by default. The "secret" can be anything:
 a private key, a Shamir share, a biometric hash, a hardware attestation,
 or the output of another ZK proof.
 
 Neptune supports two address types:
-- **Generation addresses** (`nolga` prefix) -- lattice-based KEM (post-quantum),
+- Generation addresses (`nolga` prefix) -- lattice-based KEM (post-quantum),
   AES-256-GCM encrypted UTXO notifications on-chain
-- **Symmetric addresses** (`nolsa` prefix) -- shared symmetric key,
+- Symmetric addresses (`nolsa` prefix) -- shared symmetric key,
   AES-256-GCM, off-chain or on-chain notifications
 
 Both use hash-lock scripts: `hash(divine_preimage) == expected_postimage`.
@@ -155,7 +155,7 @@ Known type scripts:
 ### Cross-Contract Interaction
 
 Programs are isolated -- no external calls. Composition happens through
-**recursive proof verification**: a program can verify that another STARK
+recursive proof verification: a program can verify that another STARK
 proof is valid inside its own execution.
 
 ```
@@ -176,7 +176,7 @@ multiple transaction proofs into one.
 
 ### Events
 
-Neptune uses **announcements** -- public messages embedded in transactions
+Neptune uses announcements -- public messages embedded in transactions
 at leaf index 2 of the kernel MAST tree.
 
 In Trident, events map to announcements:
@@ -202,7 +202,7 @@ Announcements are used for UTXO notifications:
 
 ## Transaction Kernel
 
-Every Neptune transaction has a **TransactionKernel** with 8 fields,
+Every Neptune transaction has a TransactionKernel with 8 fields,
 organized as a Merkle tree of height 3:
 
 | Leaf | Field | Type | Description |
@@ -216,7 +216,7 @@ organized as a Merkle tree of height 3:
 | 6 | `mutator_set_hash` | `Digest` | Current UTXO set state |
 | 7 | `merge_bit` | `bool` | Merged transaction flag |
 
-The **kernel MAST hash** is the root of this tree and serves as the
+The kernel MAST hash is the root of this tree and serves as the
 primary public input for all scripts.
 
 ---
@@ -266,7 +266,7 @@ instead of `os.neptune.*` for cross-chain portability:
 | Hash preimage via `std.crypto.auth` | `os.neuron.auth(cred)` → divine + hash + assert_eq |
 | Manual UTXO output construction | `os.signal.send(from, to, amt)` → emit output UTXO |
 
-**Note:** `os.neuron.id()` is a **compile error** on Neptune — UTXO chains
+Note: `os.neuron.id()` is a compile error on Neptune — UTXO chains
 have no caller concept. Use `os.neuron.auth(credential)` for authorization.
 
 Use `os.neptune.*` when you need: kernel MAST authentication, recursive proof

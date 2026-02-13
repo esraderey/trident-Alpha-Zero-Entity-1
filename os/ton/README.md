@@ -17,10 +17,10 @@
 
 ## Runtime Binding (`ton.ext.*`)
 
-- **Cell operations** — construct, parse, and manipulate cells (the fundamental data unit)
-- **Message sending** — internal and external message dispatch between contracts
-- **Contract storage** — persistent state access via cell trees
-- **Ton DNS/Storage** — access to Ton DNS resolution and decentralized storage
+- Cell operations — construct, parse, and manipulate cells (the fundamental data unit)
+- Message sending — internal and external message dispatch between contracts
+- Contract storage — persistent state access via cell trees
+- Ton DNS/Storage — access to Ton DNS resolution and decentralized storage
 
 ## Notes
 

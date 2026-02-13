@@ -27,12 +27,12 @@ with different `os.*` bindings.
 
 ### Entry Points
 
-Ethereum programs are **contracts** -- deployed bytecode with exported
+Ethereum programs are contracts -- deployed bytecode with exported
 functions. A contract has:
 
-- **Constructor** -- runs once at deployment, initializes storage
-- **External functions** -- callable by transactions or other contracts
-- **View functions** -- read-only, no state mutation
+- Constructor -- runs once at deployment, initializes storage
+- External functions -- callable by transactions or other contracts
+- View functions -- read-only, no state mutation
 
 ```
 program my_token
@@ -109,7 +109,7 @@ let self_addr: Field = os.ethereum.account.self_address()  // address(this)
 assert(caller == owner)
 ```
 
-**No reentrancy.** Trident programs are sequential with bounded loops.
+No reentrancy. Trident programs are sequential with bounded loops.
 There is no callback mechanism, no fallback function, no way for an
 external call to re-enter the current contract mid-execution.
 
@@ -227,30 +227,30 @@ LOG topics, storage maps, or other EVM-specific features. See
 
 | Module | Function | Signature | Description |
 |--------|----------|-----------|-------------|
-| **storage** | `read(slot)` | `Field -> Field` | SLOAD |
+| storage | `read(slot)` | `Field -> Field` | SLOAD |
 | | `write(slot, val)` | `(Field, Field) -> ()` | SSTORE |
 | | `read_map(slot, key)` | `(Field, Field) -> Field` | Mapping read |
 | | `write_map(slot, key, val)` | `(Field, Field, Field) -> ()` | Mapping write |
 | | `read_map2(slot, k1, k2)` | `(Field, Field, Field) -> Field` | Nested mapping read |
 | | `write_map2(slot, k1, k2, val)` | `(Field, Field, Field, Field) -> ()` | Nested mapping write |
-| **account** | `caller()` | `-> Field` | msg.sender |
+| account | `caller()` | `-> Field` | msg.sender |
 | | `origin()` | `-> Field` | tx.origin |
 | | `self_address()` | `-> Field` | address(this) |
 | | `balance(addr)` | `Field -> Field` | Address balance |
-| **transfer** | `send(to, amount)` | `(Field, Field) -> ()` | ETH transfer |
-| **call** | `call(addr, value, data)` | `(Field, Field, [Field]) -> [Field]` | External call |
+| transfer | `send(to, amount)` | `(Field, Field) -> ()` | ETH transfer |
+| call | `call(addr, value, data)` | `(Field, Field, [Field]) -> [Field]` | External call |
 | | `static_call(addr, data)` | `(Field, [Field]) -> [Field]` | Read-only call |
 | | `delegate_call(addr, data)` | `(Field, [Field]) -> [Field]` | Delegated call |
 | | `return_data()` | `-> [Field]` | Last call return data |
-| **event** | `log(topics, data)` | `([Field], [Field]) -> ()` | Raw LOG |
-| **block** | `number()` | `-> Field` | block.number |
+| event | `log(topics, data)` | `([Field], [Field]) -> ()` | Raw LOG |
+| block | `number()` | `-> Field` | block.number |
 | | `timestamp()` | `-> Field` | block.timestamp |
 | | `coinbase()` | `-> Field` | block.coinbase |
 | | `base_fee()` | `-> Field` | block.basefee |
 | | `chain_id()` | `-> Field` | block.chainid |
-| **tx** | `gas_price()` | `-> Field` | tx.gasprice |
+| tx | `gas_price()` | `-> Field` | tx.gasprice |
 | | `gas_remaining()` | `-> Field` | gasleft() |
-| **precompile** | `ecrecover(hash, v, r, s)` | `(Field, Field, Field, Field) -> Field` | ECDSA recovery |
+| precompile | `ecrecover(hash, v, r, s)` | `(Field, Field, Field, Field) -> Field` | ECDSA recovery |
 | | `sha256(data)` | `[Field] -> Digest` | SHA-256 precompile |
 
 ---

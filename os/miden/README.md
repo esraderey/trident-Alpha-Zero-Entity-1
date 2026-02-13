@@ -17,10 +17,10 @@
 
 ## Runtime Binding (`miden.ext.*`)
 
-- **Account management** — create and manage Miden accounts
-- **Note operations** — send and receive notes between accounts
-- **Storage access** — read/write account storage slots
-- **Cross-contract calls** — invoke other accounts' interfaces
+- Account management — create and manage Miden accounts
+- Note operations — send and receive notes between accounts
+- Storage access — read/write account storage slots
+- Cross-contract calls — invoke other accounts' interfaces
 
 ## Notes
 

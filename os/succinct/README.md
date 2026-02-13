@@ -17,9 +17,9 @@
 
 ## Runtime Binding (`succinct.ext.*`)
 
-- **Journal I/O** — public inputs and outputs for proof verification
-- **Guest-host communication** — data exchange between guest program and host
-- **Proof composition** — compose proofs for recursive verification
+- Journal I/O — public inputs and outputs for proof verification
+- Guest-host communication — data exchange between guest program and host
+- Proof composition — compose proofs for recursive verification
 
 ## Notes
 

@@ -29,11 +29,11 @@ Sealed-bid, second-price: every bidder submits one secret bid. The highest bidde
 
 A Vickrey auction runs in three phases:
 
-1. **Commit** -- Bidders submit `hash(bid_amount, salt, auth)`. The
+1. Commit -- Bidders submit `hash(bid_amount, salt, auth)`. The
    commitment is public. The bid amount is secret.
-2. **Reveal** -- The winner proves their bid is at least the second
+2. Reveal -- The winner proves their bid is at least the second
    price, without revealing the actual bid or any losing bids.
-3. **Settle** -- The name transfers to the winner. The winner pays the
+3. Settle -- The name transfers to the winner. The winner pays the
    second price using coin from Chapter 2.
 
 ---
@@ -142,28 +142,28 @@ fn assert_non_negative(val: Field) {
 
 Walk through it.
 
-**`let bid_commitment: Digest = pub_read5()`** -- The winner's commitment
+`let bid_commitment: Digest = pub_read5()` -- The winner's commitment
 from Phase 1, visible to the verifier. This anchors the proof to a
 specific on-chain commitment.
 
-**`let bid_amount: Field = divine()`** -- The actual bid. This is the
+`let bid_amount: Field = divine()` -- The actual bid. This is the
 secret. It enters the prover's machine and never leaves. The verifier
 never sees it. It does not appear in the proof.
 
-**`assert_digest(computed, bid_commitment)`** -- The commitment check.
+`assert_digest(computed, bid_commitment)` -- The commitment check.
 The prover recomputes the hash from their secret inputs and asserts it
 matches the public commitment from Phase 1. This prevents the winner
 from changing their bid after seeing the second price.
 
-**`let margin: Field = sub(bid_amount, second_price)`** -- Compute
+`let margin: Field = sub(bid_amount, second_price)` -- Compute
 the difference. If the bid is at least the second price, this is a
 non-negative value.
 
-**`assert_non_negative(margin)`** -- Proves the winner condition: bid >= second price.
+`assert_non_negative(margin)` -- Proves the winner condition: bid >= second price.
 
-**`verify_auth(bidder_auth)`** -- Proves the bidder's identity. Both helpers are from Chapter 2.
+`verify_auth(bidder_auth)` -- Proves the bidder's identity. Both helpers are from Chapter 2.
 
-**`pub_write(second_price)`** -- The output. The winner pays the second
+`pub_write(second_price)` -- The output. The winner pays the second
 price, not their actual bid. This is the Vickrey mechanism: the price
 you pay is independent of what you bid, so you have no reason to bid
 anything other than your true value.
@@ -179,11 +179,11 @@ by the prover's machine and they vanish when the machine halts.
 
 Settlement composes three proofs, each from a previous chapter:
 
-1. **Auction proof** (this chapter) -- The winner proved their bid
+1. Auction proof (this chapter) -- The winner proved their bid
    exceeds the second price.
-2. **Coin pay proof** (Chapter 2) -- The winner transfers `second_price`
+2. Coin pay proof (Chapter 2) -- The winner transfers `second_price`
    coins to the seller.
-3. **Name transfer proof** (Chapter 3) -- The seller transfers the name
+3. Name transfer proof (Chapter 3) -- The seller transfers the name
    to the winner.
 
 ```text
@@ -258,19 +258,19 @@ efficiency.
 
 ## ✅ What You Learned
 
-- **Vickrey auctions** are sealed-bid, second-price, and
+- Vickrey auctions are sealed-bid, second-price, and
   incentive-compatible. Your dominant strategy is to bid your true value.
-- **Commit** -- `hash(bid, salt, auth)` publishes a commitment. Nobody
+- Commit -- `hash(bid, salt, auth)` publishes a commitment. Nobody
   sees the bid. The salt prevents dictionary attacks. The auth binds the
   commitment to the bidder.
-- **Reveal** -- The winner proves `bid >= second_price` without revealing
+- Reveal -- The winner proves `bid >= second_price` without revealing
   the bid. `sub` computes the margin. `as_u32` range-checks it. One
   line proves the winner condition.
-- **Settle** -- Compose with coin pay (Chapter 2) and name transfer
+- Settle -- Compose with coin pay (Chapter 2) and name transfer
   (Chapter 3). Three proofs, one verified settlement.
-- **Losing bids stay secret forever.** Not encrypted. Not obfuscated.
+- Losing bids stay secret forever. Not encrypted. Not obfuscated.
   Never computed outside the bidder's machine.
-- **The secret is your bid** -- `divine()`, `hash()`, `assert` -- the
+- The secret is your bid -- `divine()`, `hash()`, `assert` -- the
   Chapter 1 pattern, once more.
 
 ---

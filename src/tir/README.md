@@ -2,7 +2,7 @@
 
 Target-independent TIR between the AST and backend assembly.
 
-The compiler pipeline is: **parse -> typecheck -> TIRBuilder -> StackLowering -> assembly text**.
+The compiler pipeline is: parse -> typecheck -> TIRBuilder -> StackLowering -> assembly text.
 
 ## Structure
 

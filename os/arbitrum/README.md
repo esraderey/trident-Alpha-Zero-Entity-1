@@ -17,10 +17,10 @@
 
 ## Runtime Binding (`arbitrum.ext.*`)
 
-- **EVM storage** — SLOAD/SSTORE (shared with EVM contracts)
-- **Contract calls** — WASM ↔ EVM cross-calls, Solidity ABI compatible
-- **msg context** — msg.sender, msg.value, block context
-- **Events** — LOG opcodes (EVM-compatible event logging)
+- EVM storage — SLOAD/SSTORE (shared with EVM contracts)
+- Contract calls — WASM ↔ EVM cross-calls, Solidity ABI compatible
+- msg context — msg.sender, msg.value, block context
+- Events — LOG opcodes (EVM-compatible event logging)
 
 ## Notes
 

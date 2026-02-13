@@ -21,7 +21,7 @@
 Dual execution VM: private functions compile to ACIR circuits (proved
 client-side), public functions run on the Aztec VM (AVM) on sequencers.
 
-**Noir** is the ZK DSL — Rust-like syntax, proving-system agnostic, compiles
+Noir is the ZK DSL — Rust-like syntax, proving-system agnostic, compiles
 to ACIR (Abstract Circuit Intermediate Representation). 600+ GitHub projects.
 Most popular ZK development language. ACIR can target multiple backends:
 Barretenberg (default), Plonk variants, others.

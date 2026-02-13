@@ -16,15 +16,15 @@ No existing language solves this because every existing blockchain language was 
 
 Trident was designed for provable computation on zero-knowledge virtual machines. This forced a set of language constraints that turned out to be exactly what universal blockchain deployment requires:
 
-- **Bounded loops.** Every loop has a compile-time bound. No infinite execution, no gas-limit surprises. Required by ZK provers, but equally valuable on EVM (predictable gas), SVM (predictable compute units), and CosmWasm (predictable execution).
+- Bounded loops. Every loop has a compile-time bound. No infinite execution, no gas-limit surprises. Required by ZK provers, but equally valuable on EVM (predictable gas), SVM (predictable compute units), and CosmWasm (predictable execution).
 
-- **No heap, no dynamic dispatch.** All data has known size at compile time. No malloc, no vtables, no runtime type checks. This makes programs auditable, their cost predictable, and their compilation to any target straightforward.
+- No heap, no dynamic dispatch. All data has known size at compile time. No malloc, no vtables, no runtime type checks. This makes programs auditable, their cost predictable, and their compilation to any target straightforward.
 
-- **Fixed-width types.** `Field`, `U32`, `Bool`, `Digest`, fixed-size arrays, structs. No dynamically-sized types. Every value's memory footprint is known at compile time.
+- Fixed-width types. `Field`, `U32`, `Bool`, `Digest`, fixed-size arrays, structs. No dynamically-sized types. Every value's memory footprint is known at compile time.
 
-- **Field-native arithmetic.** The core numeric type is a finite field element (Goldilocks: 2^64 - 2^32 + 1). This fits in a 64-bit integer, making it efficient on every platform — native on ZK VMs, trivial `u64` arithmetic with modular reduction on RISC-V and WASM, `addmod`/`mulmod` on EVM.
+- Field-native arithmetic. The core numeric type is a finite field element (Goldilocks: 2^64 - 2^32 + 1). This fits in a 64-bit integer, making it efficient on every platform — native on ZK VMs, trivial `u64` arithmetic with modular reduction on RISC-V and WASM, `addmod`/`mulmod` on EVM.
 
-- **Compile-time cost analysis.** The compiler tells you exactly what your program costs before you deploy it. Not an estimate — an exact row count per algebraic table (ZK targets) or instruction count (conventional targets).
+- Compile-time cost analysis. The compiler tells you exactly what your program costs before you deploy it. Not an estimate — an exact row count per algebraic table (ZK targets) or instruction count (conventional targets).
 
 These properties emerged from ZK requirements. The discovery is that they define a language ideal for safe, portable blockchain execution on any VM.
 
@@ -58,15 +58,15 @@ These properties emerged from ZK requirements. The discovery is that they define
 └─────────────────────────────────────────────────────────┘
 ```
 
-A `.tri` file that uses only Level 1 constructs is designed to compile to **every** target. Level 2 imports restrict to ZK targets. Level 3 imports lock to a specific platform. The compiler enforces this statically — no runtime check, no silent failure.
+A `.tri` file that uses only Level 1 constructs is designed to compile to every target. Level 2 imports restrict to ZK targets. Level 3 imports lock to a specific platform. The compiler enforces this statically — no runtime check, no silent failure.
 
 ### What each level means in practice
 
-**Level 1** is the business logic. The math, the state transitions, the validation rules. This is where developers spend their time and where bugs live. It is designed to compile everywhere.
+Level 1 is the business logic. The math, the state transitions, the validation rules. This is where developers spend their time and where bugs live. It is designed to compile everywhere.
 
-**Level 2** adds cryptographic provability. Secret witness inputs, public I/O, sealed events, Merkle authentication. The same Level 1 logic now produces STARK proofs. Only available on ZK targets.
+Level 2 adds cryptographic provability. Secret witness inputs, public I/O, sealed events, Merkle authentication. The same Level 1 logic now produces STARK proofs. Only available on ZK targets.
 
-**Level 3** is the OS layer. Two tiers: `os.*` is the portable runtime
+Level 3 is the OS layer. Two tiers: `os.*` is the portable runtime
 (neuron identity, signals, tokens, state, time — designed for all 25
 OSes), and `os.<os>.*` provides OS-specific extensions (PDAs on Solana,
 UTXO authentication on Neptune, CPI on Sui). The compiler is designed to
@@ -84,7 +84,7 @@ to audit, and expensive to get wrong — lives entirely in Level 1.
 
 ### Direct bytecode generation
 
-Trident does not generate Solidity, Vyper, Rust, or any intermediate source language. It generates **target bytecode directly** from its own TIR:
+Trident does not generate Solidity, Vyper, Rust, or any intermediate source language. It generates target bytecode directly from its own TIR:
 
 ```text
 Source (.tri)
@@ -174,7 +174,7 @@ target-optimal execution. No adapters to write.
 
 Level 1 provides abstract interfaces. The compiler maps them to target-native implementations:
 
-**`hash()`** — cryptographic hash, target-optimal:
+`hash()` — cryptographic hash, target-optimal:
 | Target    | Implementation      | Cost            |
 |-----------|---------------------|-----------------|
 | Triton VM | Tip5 permutation    | 1 cycle + 6 co  |
@@ -183,7 +183,7 @@ Level 1 provides abstract interfaces. The compiler maps them to target-native im
 | CosmWasm  | SHA-256 (native)    | ~microseconds   |
 | SVM       | SHA-256 syscall     | ~100 CUs        |
 
-**`os.state.read()` / `os.state.write()`** — persistent state:
+`os.state.read()` / `os.state.write()` — persistent state:
 | Target    | Mapping                                          |
 |-----------|--------------------------------------------------|
 | Triton VM | RAM addresses + Merkle commitment                |
@@ -192,7 +192,7 @@ Level 1 provides abstract interfaces. The compiler maps them to target-native im
 | CosmWasm  | `deps.storage` with binary key encoding          |
 | SVM       | Account data at computed offsets                  |
 
-**`reveal`** — observable events:
+`reveal` — observable events:
 | Target    | Mapping                                          |
 |-----------|--------------------------------------------------|
 | Triton VM | Public output                                    |
@@ -227,19 +227,19 @@ Bounded loops guarantee termination on every target. No gas-limit runaways, no s
 
 Level 2 adds zero-knowledge capabilities. Programs compile only to ZK virtual machines but gain the ability to produce cryptographic proofs of correct execution.
 
-**`divine()`** — secret witness input. The prover supplies data invisible to the verifier. No equivalent in conventional smart contracts.
+`divine()` — secret witness input. The prover supplies data invisible to the verifier. No equivalent in conventional smart contracts.
 
-**`pub_read()` / `pub_write()`** — public I/O for proof circuits. Define the claim the proof attests to.
+`pub_read()` / `pub_write()` — public I/O for proof circuits. Define the claim the proof attests to.
 
-**`seal`** — privacy-preserving events. Fields are hashed; only the commitment is visible.
+`seal` — privacy-preserving events. Fields are hashed; only the commitment is visible.
 
-**Merkle authentication** — divine-and-authenticate pattern for state proofs.
+Merkle authentication — divine-and-authenticate pattern for state proofs.
 
-**Sponge construction** — incremental hashing for variable-length data.
+Sponge construction — incremental hashing for variable-length data.
 
-**Recursive proof verification** — verify a STARK inside another STARK.
+Recursive proof verification — verify a STARK inside another STARK.
 
-**Cost annotations** — exact proving cost before you deploy.
+Cost annotations — exact proving cost before you deploy.
 
 A Level 2 program is a Level 1 program with these additions. The business logic is identical — only the I/O and witness handling differ:
 
@@ -286,9 +286,9 @@ Each target implements two traits: `StackLowering` (mapping TIR operations to ta
 
 Three layers enable portability:
 
-- **`std.core`** -- Pure Trident, no VM dependencies. Compiles everywhere.
-- **`std.io` / `std.crypto`** -- Same API on every target. The compiler dispatches to target-native instructions.
-- **`os.<os>.*`** -- OS-specific extensions that lock to one target.
+- `std.core` -- Pure Trident, no VM dependencies. Compiles everywhere.
+- `std.io` / `std.crypto` -- Same API on every target. The compiler dispatches to target-native instructions.
+- `os.<os>.*` -- OS-specific extensions that lock to one target.
 
 Programs using only `std.*` compile to any backend. `std/target.tri` exposes compile-time constants (`DIGEST_WIDTH`, `FIELD_LIMBS`, `HASH_RATE`) derived from the active target, enabling polymorphic code without `#[cfg]` guards. See [Standard Library Reference](../reference/stdlib.md) for the full module inventory.
 
@@ -412,13 +412,13 @@ and instruction encoding.
 
 The practical value of multi-target compilation is economic, not theoretical.
 
-**One codebase, one audit.** A security audit of Trident Level 1 code covers every deployment target. Today, deploying the same logic on Ethereum, Solana, and Cosmos requires three separate codebases in three languages with three audits. Trident reduces this to one.
+One codebase, one audit. A security audit of Trident Level 1 code covers every deployment target. Today, deploying the same logic on Ethereum, Solana, and Cosmos requires three separate codebases in three languages with three audits. Trident reduces this to one.
 
-**Deploy where the economics are best.** The same program runs on whichever chain offers the best fee structure, liquidity, or user base at any given time. No rewrite required. The operational decision of "which chain" is separated from the engineering decision of "how to build it."
+Deploy where the economics are best. The same program runs on whichever chain offers the best fee structure, liquidity, or user base at any given time. No rewrite required. The operational decision of "which chain" is separated from the engineering decision of "how to build it."
 
-**Prove where it matters.** Level 1 logic can be deployed directly on conventional chains (fast, cheap, transparent execution) or wrapped in Level 2 for ZK targets (private, provable execution). The same business logic, different trust models. A lending protocol can run transparently on EVM while its risk engine runs privately on Triton VM, both from the same source.
+Prove where it matters. Level 1 logic can be deployed directly on conventional chains (fast, cheap, transparent execution) or wrapped in Level 2 for ZK targets (private, provable execution). The same business logic, different trust models. A lending protocol can run transparently on EVM while its risk engine runs privately on Triton VM, both from the same source.
 
-**Reduce attack surface.** Every rewrite is a chance to introduce bugs. Every new language is a chance to misunderstand semantics. Trident's constraints (bounded loops, no heap, no dynamic dispatch) eliminate entire classes of vulnerabilities that affect conventional smart contract languages: reentrancy (no callbacks without explicit `os.<os>.*` access), integer overflow (field arithmetic is modular by definition), unbounded gas consumption (loops are bounded).
+Reduce attack surface. Every rewrite is a chance to introduce bugs. Every new language is a chance to misunderstand semantics. Trident's constraints (bounded loops, no heap, no dynamic dispatch) eliminate entire classes of vulnerabilities that affect conventional smart contract languages: reentrancy (no callbacks without explicit `os.<os>.*` access), integer overflow (field arithmetic is modular by definition), unbounded gas consumption (loops are bounded).
 
 ---
 
@@ -460,10 +460,10 @@ This creates a spectrum of trust: deploy the same logic directly (transparent, a
 
 ### What exists today
 
-- **Triton VM backend:** Production-quality. Full type system, bounded loops, modules, cost analysis, 756 tests.
-- **Miden VM backend:** Lowering implemented. Inline `if.true/else/end` control flow, correct instruction set. Not validated against Miden runtime.
-- **TIR pipeline:** Operational. `TIRBuilder` produces `Vec<TIROp>` from AST. `TritonLowering` and `MidenLowering` produce assembly from TIR. Adding new lowerings is mechanical.
-- **20 VM + 25 OS configurations:** TOML configs with field parameters, stack depth, cost tables. Each lives in `vm/{name}/target.toml` and `os/{name}/target.toml`.
+- Triton VM backend: Production-quality. Full type system, bounded loops, modules, cost analysis, 756 tests.
+- Miden VM backend: Lowering implemented. Inline `if.true/else/end` control flow, correct instruction set. Not validated against Miden runtime.
+- TIR pipeline: Operational. `TIRBuilder` produces `Vec<TIROp>` from AST. `TritonLowering` and `MidenLowering` produce assembly from TIR. Adding new lowerings is mechanical.
+- 20 VM + 25 OS configurations: TOML configs with field parameters, stack depth, cost tables. Each lives in `vm/{name}/target.toml` and `os/{name}/target.toml`.
 
 ---
 
@@ -475,17 +475,17 @@ Existing blockchain languages are designed for one VM: Solidity for EVM, Cairo f
 
 ## 📐 Design Principles
 
-**Think in business logic, not in chains.** The developer writes what the program does. The compiler decides how to do it on each target. Platform-specific code is generated, not written.
+Think in business logic, not in chains. The developer writes what the program does. The compiler decides how to do it on each target. Platform-specific code is generated, not written.
 
-**Direct bytecode, no intermediate languages.** Trident generates EVM bytecode, not Solidity. WASM, not Rust. TASM, not some Triton DSL. This gives the compiler full control and eliminates dependency on third-party toolchains.
+Direct bytecode, no intermediate languages. Trident generates EVM bytecode, not Solidity. WASM, not Rust. TASM, not some Triton DSL. This gives the compiler full control and eliminates dependency on third-party toolchains.
 
-**Levels are enforced, not suggested.** The compiler rejects Level 2 constructs when targeting EVM. This is a compile error, not a warning. No surprises at deployment.
+Levels are enforced, not suggested. The compiler rejects Level 2 constructs when targeting EVM. This is a compile error, not a warning. No surprises at deployment.
 
-**Thin `os.<os>.*`, thick Level 1.** Good programs have most logic in the portable Level 1 core. `os.*` is the portable runtime. `os.<os>.*` is OS-specific. The less OS-specific code, the more value from universal deployment.
+Thin `os.<os>.*`, thick Level 1. Good programs have most logic in the portable Level 1 core. `os.*` is the portable runtime. `os.<os>.*` is OS-specific. The less OS-specific code, the more value from universal deployment.
 
-**Constraints are features.** Bounded loops prevent runaways. No heap prevents memory exploits. No dynamic dispatch prevents reentrancy. These aren't limitations — they're safety guarantees that hold on every chain.
+Constraints are features. Bounded loops prevent runaways. No heap prevents memory exploits. No dynamic dispatch prevents reentrancy. These aren't limitations — they're safety guarantees that hold on every chain.
 
-**The proof bridge is a natural extension.** Because Level 1 already requires field arithmetic on every target, the infrastructure for cross-chain proof verification is partially deployed by default. This is not an accident — it's a consequence of field-native design.
+The proof bridge is a natural extension. Because Level 1 already requires field arithmetic on every target, the infrastructure for cross-chain proof verification is partially deployed by default. This is not an accident — it's a consequence of field-native design.
 
 ---
 
@@ -493,13 +493,13 @@ Existing blockchain languages are designed for one VM: Solidity for EVM, Cairo f
 
 ### Triton VM (Production)
 
-- **Status:** Fully implemented. All compiler features, standard library, cost
+- Status: Fully implemented. All compiler features, standard library, cost
   analysis, and tooling work with Triton VM.
-- **Architecture:** 16-element operand stack, Goldilocks field, Tip5 hash.
-- **Output:** `.tasm` files (Triton Assembly).
-- **Extensions:** `os.neptune.xfield`, `os.neptune.kernel`, `os.neptune.utxo`,
+- Architecture: 16-element operand stack, Goldilocks field, Tip5 hash.
+- Output: `.tasm` files (Triton Assembly).
+- Extensions: `os.neptune.xfield`, `os.neptune.kernel`, `os.neptune.utxo`,
   `os.neptune.proof`, `os.neptune.recursive`, `os.neptune.registry`.
-- **Cost model:** 6-table model (processor, hash, u32, op_stack, ram,
+- Cost model: 6-table model (processor, hash, u32, op_stack, ram,
   jump_stack) with padded-height estimation, boundary warnings, and hotspot
   analysis.
 
@@ -507,13 +507,13 @@ Existing blockchain languages are designed for one VM: Solidity for EVM, Cairo f
 
 Backend implementations and target configurations exist for:
 
-- **Miden VM** -- Stack machine, Goldilocks field, Rescue-Prime hash, 4-element
+- Miden VM -- Stack machine, Goldilocks field, Rescue-Prime hash, 4-element
   digests. `StackBackend` and `CostModel` implemented. TOML shipped.
-- **OpenVM** -- RISC-V register machine, Goldilocks field, Poseidon2 hash.
+- OpenVM -- RISC-V register machine, Goldilocks field, Poseidon2 hash.
   `StackBackend` and cycle-based `CostModel` implemented. TOML shipped.
-- **SP1** -- RISC-V register machine, Mersenne-31 field, Poseidon2 hash.
+- SP1 -- RISC-V register machine, Mersenne-31 field, Poseidon2 hash.
   `StackBackend` and cycle-based `CostModel` implemented. TOML shipped.
-- **Cairo** -- Register machine, Stark-252 field, Pedersen hash.
+- Cairo -- Register machine, Stark-252 field, Pedersen hash.
   `StackBackend` and steps-based `CostModel` implemented. TOML shipped.
 
 These backends have structural implementations -- trait methods are filled in

@@ -35,32 +35,32 @@ without ever learning what the value is.
 
 Let us walk through each line.
 
-**`program secret`** -- Every Trident file starts with a declaration. A
+`program secret` -- Every Trident file starts with a declaration. A
 `program` has a `main` function and compiles to an executable. The name
 `secret` is the program identifier.
 
-**`fn main() {`** -- The entry point. All I/O happens inside `main` through
+`fn main() {` -- The entry point. All I/O happens inside `main` through
 builtins: `pub_read5`, `divine`, `hash`, and `assert_digest`.
 
-**`let lock_hash: Digest = pub_read5()`** -- Read five field elements from
+`let lock_hash: Digest = pub_read5()` -- Read five field elements from
 public input and pack them into a `Digest`. This is the hash the prover claims
 to know the preimage of. It is *public* -- the verifier sees it. Think of it as
 the lock on a door: everyone can see the lock, but only the person with the key
 can open it.
 
-**`let secret: Field = divine()`** -- Read one field element from secret input.
+`let secret: Field = divine()` -- Read one field element from secret input.
 This is the preimage -- the key. The word "divine" means the prover conjures
 the value. The verifier never sees it. It does not appear in the proof, it is
 not transmitted, it is not encrypted. It simply never leaves the prover's
 machine.
 
-**`let computed: Digest = hash(secret, 0, 0, 0, 0, 0, 0, 0, 0, 0)`** -- Hash
+`let computed: Digest = hash(secret, 0, 0, 0, 0, 0, 0, 0, 0, 0)` -- Hash
 the secret. The `hash` builtin takes exactly 10 field elements (the Tip5 hash
 rate) and returns a 5-element `Digest`. We only have one field of real data, so
 the remaining nine slots are zero-padded. The result is a one-way commitment:
 given `computed`, nobody can recover `secret`.
 
-**`assert_digest(computed, lock_hash)`** -- Assert that the two digests are
+`assert_digest(computed, lock_hash)` -- Assert that the two digests are
 equal, element by element. If they match, execution continues and a proof can
 be generated. If they do not match, execution fails and no proof is produced.
 This is the core constraint: the prover must supply a secret whose hash matches
@@ -98,15 +98,15 @@ the cheapest useful programs you can write.
 
 ## 🧠 The Mental Model
 
-There are two roles: the **prover** and the **verifier**. They have radically
+There are two roles: the prover and the verifier. They have radically
 different views of the same program.
 
-**The prover** runs the program with all inputs -- both public and secret. The
+The prover runs the program with all inputs -- both public and secret. The
 prover knows `lock_hash` and `secret`. The prover executes every instruction,
 produces a full execution trace, and compresses that trace into a proof using
 the STARK protocol.
 
-**The verifier** never runs the program. The verifier receives three things:
+The verifier never runs the program. The verifier receives three things:
 the program hash (which program was proved), the public input (`lock_hash`),
 and the proof. The verifier runs a fast mathematical check -- milliseconds,
 constant time, regardless of how complex the original program was -- and either
@@ -134,22 +134,22 @@ verify instantly.
 This four-line program is the atom of zero-knowledge programming. Every
 interesting application is a variation of the same pattern.
 
-A **payment** is proving you know the secret that unlocks a coin -- without
+A payment is proving you know the secret that unlocks a coin -- without
 revealing the secret. The lock hash lives in the coin. Your secret is the key.
 Chapter 2.
 
-A **name registration** is proving you own the secret behind a unique asset --
+A name registration is proving you own the secret behind a unique asset --
 without revealing it. The lock hash lives in the name record. Chapter 3.
 
-A **trade** is proving your position obeys a mathematical invariant -- without
+A trade is proving your position obeys a mathematical invariant -- without
 showing the position itself. The invariant is public, the position is divine.
 Chapter 4.
 
-A **sealed bid** is proving your bid price is committed and hidden until
+A sealed bid is proving your bid price is committed and hidden until
 reveal time -- without anyone seeing it early. The commitment is a hash. The
 price is the preimage. Chapter 5.
 
-A **vote** is proving you hold tokens that entitle you to vote -- without
+A vote is proving you hold tokens that entitle you to vote -- without
 revealing which tokens. The token set is divine. The eligibility proof is a
 hash. Chapter 6.
 

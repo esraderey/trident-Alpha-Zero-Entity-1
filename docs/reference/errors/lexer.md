@@ -13,11 +13,11 @@ error: unexpected character '@' (U+0040)
 
 A character outside the Trident grammar was found. Source files must be ASCII.
 
-**Fix:** Remove the character. Check for copy-paste artifacts or encoding issues.
+Fix: Remove the character. Check for copy-paste artifacts or encoding issues.
 
 ---
 
-### Non-ASCII source **(planned)**
+### Non-ASCII source (planned)
 
 ```text
 error: non-ASCII byte 0xNN at position N
@@ -26,7 +26,7 @@ error: non-ASCII byte 0xNN at position N
 
 Trident source is ASCII-only. Unicode identifiers are not supported.
 
-**Spec:** grammar.md (IDENT production).
+Spec: grammar.md (IDENT production).
 
 ---
 
@@ -41,7 +41,7 @@ Trident deliberately omits `-` (see [language.md](../language.md) Section 4).
 Subtraction in a prime field is addition by the additive inverse. Making it
 explicit prevents the `(1 - 2) == p - 1` footgun.
 
-**Fix:** `let diff: Field = sub(a, b)`
+Fix: `let diff: Field = sub(a, b)`
 
 ---
 
@@ -55,130 +55,130 @@ error: unexpected '/'; Trident has no division operator
 Field division is multiplication by the modular inverse. The `/%` operator
 makes the cost explicit.
 
-**Fix:** `let (quotient, remainder) = a /% b`
+Fix: `let (quotient, remainder) = a /% b`
 
 ---
 
-### No inequality operator **(planned)**
+### No inequality operator (planned)
 
 ```text
 error: unexpected '!='; Trident has no inequality operator
   help: use `(a == b) == false`
 ```
 
-**Spec:** language.md Section 4 (excluded operators).
+Spec: language.md Section 4 (excluded operators).
 
 ---
 
-### No greater-than operator **(planned)**
+### No greater-than operator (planned)
 
 ```text
 error: unexpected '>'; Trident has no '>' operator
   help: use `b < a` (U32 only)
 ```
 
-**Spec:** language.md Section 4 (excluded operators).
+Spec: language.md Section 4 (excluded operators).
 
 ---
 
-### No less-or-equal operator **(planned)**
+### No less-or-equal operator (planned)
 
 ```text
 error: unexpected '<='; Trident has no '<=' operator
   help: combine `<` and `==`
 ```
 
-**Spec:** language.md Section 4 (excluded operators).
+Spec: language.md Section 4 (excluded operators).
 
 ---
 
-### No greater-or-equal operator **(planned)**
+### No greater-or-equal operator (planned)
 
 ```text
 error: unexpected '>='; Trident has no '>=' operator
   help: combine `<` and `==`
 ```
 
-**Spec:** language.md Section 4 (excluded operators).
+Spec: language.md Section 4 (excluded operators).
 
 ---
 
-### No logical AND operator **(planned)**
+### No logical AND operator (planned)
 
 ```text
 error: unexpected '&&'; Trident has no '&&' operator
   help: use `a * b` for logical AND on Bool values
 ```
 
-**Spec:** language.md Section 4 (excluded operators).
+Spec: language.md Section 4 (excluded operators).
 
 ---
 
-### No logical OR operator **(planned)**
+### No logical OR operator (planned)
 
 ```text
 error: unexpected '||'; Trident has no '||' operator
   help: use `a + b + (neg(a * b))` or equivalent field logic
 ```
 
-**Spec:** language.md Section 4 (excluded operators).
+Spec: language.md Section 4 (excluded operators).
 
 ---
 
-### No logical NOT operator **(planned)**
+### No logical NOT operator (planned)
 
 ```text
 error: unexpected '!'; Trident has no '!' operator
   help: use `sub(1, a)` for logical NOT on Bool values
 ```
 
-**Spec:** language.md Section 4 (excluded operators).
+Spec: language.md Section 4 (excluded operators).
 
 ---
 
-### No modulo operator **(planned)**
+### No modulo operator (planned)
 
 ```text
 error: unexpected '%'; Trident has no '%' operator
   help: use `a /% b` to get both quotient and remainder
 ```
 
-**Spec:** language.md Section 4 (excluded operators).
+Spec: language.md Section 4 (excluded operators).
 
 ---
 
-### No left shift operator **(planned)**
+### No left shift operator (planned)
 
 ```text
 error: unexpected '<<'; Trident has no '<<' operator
 ```
 
-**Spec:** language.md Section 4 (excluded operators).
+Spec: language.md Section 4 (excluded operators).
 
 ---
 
-### No right shift operator **(planned)**
+### No right shift operator (planned)
 
 ```text
 error: unexpected '>>'; Trident has no '>>' operator
 ```
 
-**Spec:** language.md Section 4 (excluded operators).
+Spec: language.md Section 4 (excluded operators).
 
 ---
 
-### No string literal **(planned)**
+### No string literal (planned)
 
 ```text
 error: unexpected '"'; Trident has no string type
   help: strings are a permanent exclusion — no target VM supports string operations
 ```
 
-**Spec:** language.md Section 2, Section 12.
+Spec: language.md Section 2, Section 12.
 
 ---
 
-### No block comment **(planned)**
+### No block comment (planned)
 
 ```text
 error: block comments '/* */' are not supported
@@ -188,7 +188,7 @@ error: block comments '/* */' are not supported
 Trident only supports line comments (`//`). Block comments are not part of
 the grammar.
 
-**Spec:** grammar.md (`comment = "//" .* NEWLINE`).
+Spec: grammar.md (`comment = "//" .* NEWLINE`).
 
 ---
 
@@ -201,7 +201,7 @@ error: integer literal '999999999999999999999' is too large
 
 The literal exceeds `u64::MAX` (2^64 - 1).
 
-**Fix:** Use a smaller value. Values are reduced modulo p at runtime.
+Fix: Use a smaller value. Values are reduced modulo p at runtime.
 
 ---
 
@@ -212,7 +212,7 @@ error: unterminated asm block: missing closing '}'
   help: every `asm { ... }` block must have a matching closing brace
 ```
 
-**Fix:** Add the closing `}`.
+Fix: Add the closing `}`.
 
 ---
 
@@ -225,7 +225,7 @@ error: expected ')' after asm annotation
 
 The `asm` block has a malformed annotation.
 
-**Fix:** Use one of the valid forms:
+Fix: Use one of the valid forms:
 
 ```trident
 asm { ... }                     // zero effect, default target
@@ -243,4 +243,4 @@ error: expected '{' after `asm` keyword
   help: inline assembly syntax is `asm { instructions }` or `asm(triton) { instructions }`
 ```
 
-**Fix:** Add `{ ... }` after the asm keyword or annotation.
+Fix: Add `{ ... }` after the asm keyword or annotation.

@@ -17,9 +17,9 @@
 
 ## Runtime Binding (`nockchain.ext.*`)
 
-- **Note management** — create and consume UTXO notes
-- **Kernel operations** — interaction with the Nockchain kernel
-- **Proof composition** — compose and verify STARK proofs
+- Note management — create and consume UTXO notes
+- Kernel operations — interaction with the Nockchain kernel
+- Proof composition — compose and verify STARK proofs
 
 ## Notes
 

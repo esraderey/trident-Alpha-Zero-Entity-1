@@ -17,10 +17,10 @@
 
 ## Runtime Binding (`wasi.ext.*`)
 
-- **Filesystem** — open, read, write, close (capability-gated) (planned)
-- **Clock** — monotonic clock, wall clock (planned)
-- **Random** — cryptographic random bytes (planned)
-- **Stdio** — stdin, stdout, stderr (planned)
+- Filesystem — open, read, write, close (capability-gated) (planned)
+- Clock — monotonic clock, wall clock (planned)
+- Random — cryptographic random bytes (planned)
+- Stdio — stdin, stdout, stderr (planned)
 
 ## Notes
 

@@ -17,8 +17,8 @@
 
 ## Runtime Binding (`openvm.ext.*`)
 
-- **Journal I/O** — read inputs from and write outputs to the execution journal
-- **Guest-host communication** — syscall interface between guest program and host prover
+- Journal I/O — read inputs from and write outputs to the execution journal
+- Guest-host communication — syscall interface between guest program and host prover
 
 ## Notes
 

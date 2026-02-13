@@ -114,18 +114,18 @@ Forty-five lines. A complete private vote.
 The verifier receives a proof and two public outputs: `yes_weight` and
 `no_weight`. That is all.
 
-The verifier does **not** see:
+The verifier does not see:
 
-- **Who voted.** `voter_id` is divine -- it never leaves the prover.
-- **Their total balance.** `voter_bal` is divine. The verifier knows the
+- Who voted. `voter_id` is divine -- it never leaves the prover.
+- Their total balance. `voter_bal` is divine. The verifier knows the
   voter has *at least* as many coins as the weight, but not the exact
   amount.
-- **Which direction.** Both `yes_weight` and `no_weight` are published.
+- Which direction. Both `yes_weight` and `no_weight` are published.
   One is zero and the other is the balance -- but the verifier cannot
   link this to a specific voter, so it reveals nothing about any
   individual.
 
-The verifier **does** confirm:
+The verifier does confirm:
 
 - The voter's leaf exists in the coin tree (Merkle proof against
   `coin_root`).

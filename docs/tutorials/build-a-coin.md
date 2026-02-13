@@ -221,33 +221,33 @@ fn pay() {
 
 Walk through the key moments.
 
-**Public inputs.** The verifier sees the old state root, the new state root,
+Public inputs. The verifier sees the old state root, the new state root,
 the total supply, the current timestamp, and the transfer amount. These are the
 claim: "the state transitioned from old_root to new_root by moving `amount`
 tokens."
 
-**Divine the sender.** The prover secretly inputs the sender's account fields.
+Divine the sender. The prover secretly inputs the sender's account fields.
 Nobody else sees these. The prover then hashes them into a leaf and verifies
 that leaf against the tree. If the prover lies about the balance, the leaf hash
 will not match, and the proof fails.
 
-**Authorize.** `verify_auth(s_auth)` is Chapter 1 embedded in a payment. The
+Authorize. `verify_auth(s_auth)` is Chapter 1 embedded in a payment. The
 prover divines the secret key, hashes it, asserts it matches the sender's
 `auth_hash`. Only the account owner can produce this proof.
 
-**Balance and time-lock.** Subtract the amount from the balance and range-check
+Balance and time-lock. Subtract the amount from the balance and range-check
 the result. Subtract the lock time from the current time and range-check that.
 Both use the same pattern: `sub` then `as_u32`.
 
-**New leaves.** Compute what the sender and receiver accounts look like after
+New leaves. Compute what the sender and receiver accounts look like after
 the transfer. The sender's balance decreases, the receiver's balance increases,
 and the sender's nonce increments by 1.
 
-**Nullifier.** `seal Nullifier { ... }` emits a sealed (hashed) event. The
+Nullifier. `seal Nullifier { ... }` emits a sealed (hashed) event. The
 verifier sees the commitment but not the contents. If the prover tries to
 replay this proof, the same nullifier appears twice and the verifier rejects it.
 
-**Supply.** A transfer does not change the total supply. We reveal this fact
+Supply. A transfer does not change the total supply. We reveal this fact
 so the verifier can confirm it.
 
 ---
@@ -396,9 +396,9 @@ fn main() {
 
 We kept opcodes 0, 3, and 4 to match the production numbering. The two missing operations:
 
-**Lock (op 1)** -- Time-locks an account's tokens until a future timestamp. Locks can only be extended, never shortened.
+Lock (op 1) -- Time-locks an account's tokens until a future timestamp. Locks can only be extended, never shortened.
 
-**Update (op 2)** -- Changes the token's configuration. Setting `admin_auth = 0` permanently renounces control -- no secret hashes to 0, so the config becomes immutable forever.
+Update (op 2) -- Changes the token's configuration. Setting `admin_auth = 0` permanently renounces control -- no secret hashes to 0, so the config becomes immutable forever.
 
 ---
 
@@ -416,15 +416,15 @@ The pay operation will be the most expensive -- it hashes the most leaves and pe
 
 ## ✅ What You Learned
 
-**Accounts are Merkle leaves.** `hash(id, balance, nonce, auth, lock, 0, 0,
+Accounts are Merkle leaves. `hash(id, balance, nonce, auth, lock, 0, 0,
 0, 0, 0)` -- five meaningful fields, five zeros, one digest. The entire ledger
 is a tree of these leaves, committed to by a single root hash.
 
-**Authorization is Chapter 1.** `verify_auth` divines a secret, hashes it,
+Authorization is Chapter 1. `verify_auth` divines a secret, hashes it,
 and asserts the hash matches. The same four-line pattern from `secret.tri`,
 called inside every operation.
 
-**Nullifiers prevent replay.** `seal Nullifier { account_id, nonce }` emits a
+Nullifiers prevent replay. `seal Nullifier { account_id, nonce }` emits a
 sealed commitment. The verifier tracks these. If a nullifier repeats, the
 transaction is rejected.
 
@@ -435,13 +435,13 @@ transaction is rejected.
 This tutorial built a simplified coin to show the core patterns. The
 production implementation adds:
 
-- **Config commitment** -- a hash of 5 authorities and 5 hooks, verified by
+- Config commitment -- a hash of 5 authorities and 5 hooks, verified by
   every operation to bind the proof to a specific token
-- **Dual authorization** -- config-level authority on top of account-level
+- Dual authorization -- config-level authority on top of account-level
   auth, enabling regulated tokens
-- **Per-operation hooks** -- external program IDs that compose with the token
+- Per-operation hooks -- external program IDs that compose with the token
   proof at the verifier level
-- **Admin renounce** -- setting `admin_auth = 0` permanently freezes the
+- Admin renounce -- setting `admin_auth = 0` permanently freezes the
   config, enforced by hash preimage infeasibility
 
 For the complete implementation with all 5 operations, config authorities,

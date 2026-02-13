@@ -17,10 +17,10 @@
 
 ## Runtime Binding (`linux.ext.*`)
 
-- **Filesystem** — open, read, write, close, stat (planned)
-- **Network** — socket, connect, bind, listen (planned)
-- **Process** — fork, exec, signal handling (planned)
-- **Memory** — mmap, mprotect (planned)
+- Filesystem — open, read, write, close, stat (planned)
+- Network — socket, connect, bind, listen (planned)
+- Process — fork, exec, signal handling (planned)
+- Memory — mmap, mprotect (planned)
 
 ## Notes
 

@@ -9,7 +9,7 @@ tutorials, how-to guides, reference, and explanation.
 
 ## 🎓 Tutorials: learning-oriented
 
-**The Builder's Journey** — six chapters that build one complete private
+The Builder's Journey — six chapters that build one complete private
 application, from a four-line proof to a sovereign DAO.
 
 | # | Document | You Build |

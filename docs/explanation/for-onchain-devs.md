@@ -70,11 +70,11 @@ State lives in a key-value store (`deps.storage`). You read/write with
 ### Trident
 
 There are no storage slots, no accounts, no key-value store. State is a
-**Merkle tree commitment** -- a single hash (the root) that represents the
+Merkle tree commitment -- a single hash (the root) that represents the
 entire state. The prover knows the full tree; the verifier only sees the root.
 
-To read state, the prover **divines** (secretly inputs) the leaf data and then
-**authenticates** it against the root using a Merkle proof. This is the
+To read state, the prover divines (secretly inputs) the leaf data and then
+authenticates it against the root using a Merkle proof. This is the
 divine-and-authenticate pattern (see [Programming Model](../explanation/programming-model.md) for the full treatment):
 
 ```trident
@@ -101,7 +101,7 @@ let leaf: Digest = vm.crypto.hash.tip5(account_id, balance, nonce,
 The verifier never sees `account_id`, `balance`, or any leaf data. It only
 sees `state_root` and the proof that the program executed correctly.
 
-**Key insight**: In Solidity, state is *read from on-chain storage*. In
+Key insight: In Solidity, state is *read from on-chain storage*. In
 Trident, state is *claimed by the prover and cryptographically verified*.
 
 ### Side-by-Side: Token Balance Lookup
@@ -160,7 +160,7 @@ corresponding private key. The runtime enforces it before your program runs.
 ### Trident
 
 There is no `msg.sender`. There is no implicit identity. Authorization is
-explicit: the prover **divines** a secret and proves knowledge of it by hashing
+explicit: the prover divines a secret and proves knowledge of it by hashing
 it and asserting the hash matches an expected value.
 
 ```trident
@@ -181,7 +181,7 @@ fn verify_auth(auth_hash: Field) {
 The verifier never sees `secret`. It only knows the proof is valid, which means
 *someone who knew the preimage of `auth_hash`* ran this program.
 
-**This is account abstraction by default.** The "secret" can be anything:
+This is account abstraction by default. The "secret" can be anything:
 - A private key
 - A Shamir secret share (threshold multisig)
 - A biometric hash
@@ -248,22 +248,22 @@ tables in Triton VM:
 
 | Table | What It Measures |
 |-------|-----------------|
-| **Processor** | Clock cycles (instructions executed) |
-| **Hash** | Hash coprocessor rows (6 per `hash` / `tip5` call) |
-| **U32** | Range checks, bitwise operations (`as_u32`, `split`, `&`) |
-| **Op Stack** | Operand stack underflow handling |
-| **RAM** | Memory read/write operations |
-| **Jump Stack** | Function call/return, branching overhead |
+| Processor | Clock cycles (instructions executed) |
+| Hash | Hash coprocessor rows (6 per `hash` / `tip5` call) |
+| U32 | Range checks, bitwise operations (`as_u32`, `split`, `&`) |
+| Op Stack | Operand stack underflow handling |
+| RAM | Memory read/write operations |
+| Jump Stack | Function call/return, branching overhead |
 
-The **tallest table** determines the actual STARK proving cost. All tables are
+The tallest table determines the actual STARK proving cost. All tables are
 padded to the next power of 2. This means:
 
-**The power-of-2 cliff**: If your tallest table has 1025 rows, it pads to 2048.
+The power-of-2 cliff: If your tallest table has 1025 rows, it pads to 2048.
 If it had 1024 rows, it pads to 1024. That one extra instruction *doubled*
 your proving cost. This is the single most important cost concept in ZK
 programming.
 
-Cost is known at **compile time** because all loops have bounded iteration
+Cost is known at compile time because all loops have bounded iteration
 counts and there is no dynamic dispatch. See [How STARK Proofs Work](../explanation/stark-proofs.md) Section 4 for why there are exactly six tables, and the [Optimization Guide](../guides/optimization.md) for cost reduction strategies.
 
 ```bash
@@ -337,7 +337,7 @@ If the assertion fails, the VM halts. No proof is generated. There is no
 partial execution, no state to roll back (because state was never mutated --
 it was proven). There is no gas cost for failure (there is no gas).
 
-**No partial failure.** Either the entire proof succeeds and every assertion
+No partial failure. Either the entire proof succeeds and every assertion
 holds, or nothing happens. There is no try/catch because there is nothing to
 catch -- a failed assertion means the computation is invalid and no proof
 exists.
@@ -381,7 +381,7 @@ Events are logged on-chain. Anyone can read them. Indexers watch for them.
 
 Two kinds of events:
 
-**`reveal` -- open events** (like Solidity events). All fields visible to the verifier:
+`reveal` -- open events (like Solidity events). All fields visible to the verifier:
 
 ```trident
 event Transfer {
@@ -396,7 +396,7 @@ fn pay() {
 }
 ```
 
-**`seal` -- sealed events** (no EVM equivalent). Fields are hashed; only the
+`seal` -- sealed events (no EVM equivalent). Fields are hashed; only the
 digest is visible to the verifier. The verifier knows *an event happened* but
 cannot read its contents:
 

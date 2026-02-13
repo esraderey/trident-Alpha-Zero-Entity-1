@@ -24,13 +24,13 @@ The alternative ecosystems each sacrifice at least one essential property:
 
 | OS | VM | Quantum-Safe | Private | Programmable | Mineable |
 |----|-----|:---:|:---:|:---:|:---:|
-| StarkNet | Cairo/Stwo | Yes | Yes | Yes | **No** (PoS L2) |
-| Boundless | SP1 | **No** (Groth16 wrap) | No | Yes | **No** |
-| RISC Zero | RISC Zero | **No** (Groth16 wrap) | Yes | Yes | **No** |
-| Aleo | AVM | **No** (Pasta curves) | Yes | Yes | **Partial** (stake-gated) |
-| Mina | Kimchi | **No** (Pasta curves) | Partial | **Partial** | **No** |
-| Nockchain | Nock | **No** (no STARK hash) | **No** | **Partial** (Jock alpha) | Yes |
-| **Neptune** | **Triton** | **Yes** | **Yes** | **Yes** | **Yes** |
+| StarkNet | Cairo/Stwo | Yes | Yes | Yes | No (PoS L2) |
+| Boundless | SP1 | No (Groth16 wrap) | No | Yes | No |
+| RISC Zero | RISC Zero | No (Groth16 wrap) | Yes | Yes | No |
+| Aleo | AVM | No (Pasta curves) | Yes | Yes | Partial (stake-gated) |
+| Mina | Kimchi | No (Pasta curves) | Partial | Partial | No |
+| Nockchain | Nock | No (no STARK hash) | No | Partial (Jock alpha) | Yes |
+| Neptune | Triton | Yes | Yes | Yes | Yes |
 
 Neptune is the only OS that passes all four tests today. Trident is
 the language that makes it accessible.
@@ -47,10 +47,10 @@ EVM, Nock, and native backends.
 
 The design constraints are deliberate:
 
-- **Bounded loops.** Every loop has a compile-time bound. No infinite execution.
-- **No heap, no recursion, no dynamic dispatch.** All data has known size.
-- **Fixed-width types.** `Field`, `U32`, `Bool`, `Digest`, fixed arrays, structs.
-- **Cost transparency.** Proving cost computable from source before execution.
+- Bounded loops. Every loop has a compile-time bound. No infinite execution.
+- No heap, no recursion, no dynamic dispatch. All data has known size.
+- Fixed-width types. `Field`, `U32`, `Bool`, `Digest`, fixed arrays, structs.
+- Cost transparency. Proving cost computable from source before execution.
 
 These constraints make every program a fixed, bounded computation -- exactly
 what a STARK prover requires. See [For Offchain Devs](for-offchain-devs.md) for
@@ -67,23 +67,23 @@ For hash performance and quantum safety comparisons, see
 
 ## 🔮 The Vision
 
-**Sovereign, private, provable computation should be accessible to every
-developer -- and it should not be locked to a single virtual machine.**
+Sovereign, private, provable computation should be accessible to every
+developer -- and it should not be locked to a single virtual machine.
 
 The bet is fourfold:
 
-**Quantum computers will break elliptic curves within our professional
-lifetimes.** Every SNARK system in production has an expiration date.
+Quantum computers will break elliptic curves within our professional
+lifetimes. Every SNARK system in production has an expiration date.
 Infrastructure built on hash-only STARKs does not need to migrate.
 
-**Privacy is a requirement, not a feature.** When you build tokens, identity,
+Privacy is a requirement, not a feature. When you build tokens, identity,
 governance, or any system touching human agency, the default must be private.
 
-**Developer experience determines adoption.** Triton VM is the right
+Developer experience determines adoption. Triton VM is the right
 foundation. Raw TASM is the wrong interface. Cairo proved this for StarkWare.
 Trident proves this for the only OS that gets all four properties right.
 
-**No program should be stranded on one VM.** The universal core compiles to
+No program should be stranded on one VM. The universal core compiles to
 any target. Backend extensions add power without limiting portability.
 Choosing Trident is not choosing a single ecosystem -- it is choosing all
 of them.

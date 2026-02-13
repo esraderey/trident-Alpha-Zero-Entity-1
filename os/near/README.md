@@ -17,10 +17,10 @@
 
 ## Runtime Binding (`near.ext.*`)
 
-- **Storage** — key-value store with per-byte read/write costs
-- **Promises** — async cross-contract calls (receipt-based)
-- **Account/balance** — account management, token transfers
-- **Crypto** — SHA-256, ed25519 verification via host functions
+- Storage — key-value store with per-byte read/write costs
+- Promises — async cross-contract calls (receipt-based)
+- Account/balance — account management, token transfers
+- Crypto — SHA-256, ed25519 verification via host functions
 
 ## Notes
 

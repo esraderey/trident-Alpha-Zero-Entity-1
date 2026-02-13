@@ -30,7 +30,7 @@ target Miden.
 ## Cost Model (4 tables)
 
 Each instruction contributes rows to multiple tables simultaneously.
-Proving cost is determined by the **tallest** table, not the sum.
+Proving cost is determined by the tallest table, not the sum.
 
 | Table | What grows it | Notes |
 |---|---|---|
@@ -45,7 +45,7 @@ Proving cost is determined by the **tallest** table, not the sum.
 |---|---:|---:|---:|
 | `a + b`, `a * b`, `a == b` | 1 | 0 | 2 |
 | `a < b`, `a & b`, `a ^ b`, `a /% b` | 1 | 0 | 2 |
-| `hash(...)` | 1 | **8** | 0 |
+| `hash(...)` | 1 | 8 | 0 |
 | `split(a)` | 1 | 0 | 0 |
 | All other builtins | 1 | 0 | 0 |
 | fn call+return | 2 | 0 | 0 |

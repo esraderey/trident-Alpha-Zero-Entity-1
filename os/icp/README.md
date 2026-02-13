@@ -17,12 +17,12 @@
 
 ## Runtime Binding (`icp.ext.*`)
 
-- **Stable memory** — persistent across upgrades, byte-addressable
-- **Inter-canister calls** — async/await semantics
-- **HTTP outcalls** — direct HTTPS requests from canisters
-- **Timers** — periodic and one-shot timers
-- **Threshold crypto** — ECDSA and Schnorr signing (chain-key)
-- **Entry points** — `#[update]` (state-changing), `#[query]` (read-only)
+- Stable memory — persistent across upgrades, byte-addressable
+- Inter-canister calls — async/await semantics
+- HTTP outcalls — direct HTTPS requests from canisters
+- Timers — periodic and one-shot timers
+- Threshold crypto — ECDSA and Schnorr signing (chain-key)
+- Entry points — `#[update]` (state-changing), `#[query]` (read-only)
 
 ## Notes
 

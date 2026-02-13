@@ -1,7 +1,7 @@
 # 📦 Deploying a Program
 
 This is the fourth stage of the Trident program lifecycle:
-**Writing** -> **Compiling** -> **Running** -> **Deploying** -> **Generating Proofs** -> **Verifying Proofs**.
+Writing -> Compiling -> Running -> Deploying -> Generating Proofs -> Verifying Proofs.
 
 You have a compiled `.tasm` artifact. This guide covers what "deployment" means
 for zero-knowledge programs and how to get your compiled Trident program into a
@@ -13,12 +13,12 @@ real system.
 
 Trident provides two commands for the deployment pipeline:
 
-- **`trident package`** — compile, hash, and produce a self-contained artifact
-- **`trident deploy`** — package + publish to a registry server (or blockchain node)
+- `trident package` — compile, hash, and produce a self-contained artifact
+- `trident deploy` — package + publish to a registry server (or blockchain node)
 
 ### `trident deploy` — Deploy to a Server
 
-The `deploy` command is the **last mile**. It compiles your program, packages
+The `deploy` command is the last mile. It compiles your program, packages
 the artifact, and deploys it to a registry server:
 
 ```bash
@@ -94,11 +94,11 @@ The `manifest.json` contains everything needed for integration:
 ```
 
 Key fields:
-- **`program_digest`** — Poseidon2 hash of the compiled TASM. This is what
+- `program_digest` — Poseidon2 hash of the compiled TASM. This is what
   verifiers check proofs against. Same source always produces the same digest.
-- **`source_hash`** — BLAKE3 content hash of the source AST.
-- **`cost`** — table heights for proving cost estimation.
-- **`functions`** — per-function content hashes and signatures.
+- `source_hash` — BLAKE3 content hash of the source AST.
+- `cost` — table heights for proving cost estimation.
+- `functions` — per-function content hashes and signatures.
 
 Both commands default to `--profile release` (unlike `build` which defaults to
 `debug`), because deployment artifacts should be release-optimized.
@@ -108,14 +108,14 @@ Both commands default to `--profile release` (unlike `build` which defaults to
 ## 📦 What "Deployment" Means for ZK Programs
 
 A Trident program compiles to a `.tasm` file -- a sequence of Triton VM
-instructions. That file **is** the deployable artifact. There is no on-chain
+instructions. That file is the deployable artifact. There is no on-chain
 deployment transaction, no contract address, no ABI registry. Instead:
 
-1. The program is identified by its **Tip5 hash** (the `program_digest` in the
+1. The program is identified by its Tip5 hash (the `program_digest` in the
    Claim structure). Anyone who has the same source compiles to the same hash.
-2. **Provers** execute the program locally with their inputs and produce a STARK
+2. Provers execute the program locally with their inputs and produce a STARK
    proof that the computation was performed correctly.
-3. **Verifiers** check the proof against the program hash and public I/O. They
+3. Verifiers check the proof against the program hash and public I/O. They
    never execute the program themselves.
 
 Deployment, then, means making the compiled program available where it needs to
@@ -138,17 +138,17 @@ Neptune uses a UTXO (Unspent Transaction Output) model rather than an
 account model. Each UTXO represents a discrete piece of value, and it carries
 two kinds of scripts:
 
-- **Lock script** -- a Trident program (compiled to TASM) that guards the UTXO.
+- Lock script -- a Trident program (compiled to TASM) that guards the UTXO.
   To spend the UTXO, the spender must produce a valid STARK proof that the lock
   script executed successfully. This is ownership logic: hash-preimage locks,
   signature verification, multisig schemes, timelocks, or any custom condition.
 
-- **Type script** -- a Trident program that validates the *type* of value stored
+- Type script -- a Trident program that validates the *type* of value stored
   in the UTXO (native currency, custom tokens, uniqs). Type scripts can
   authenticate both kernel fields and the actual coin data, enforcing supply
   invariants and transfer rules.
 
-A UTXO stores only the **hash** of its lock script, not the script itself.
+A UTXO stores only the hash of its lock script, not the script itself.
 When spending, the prover supplies the full program as part of the witness
 and proves it matches the stored hash.
 
@@ -216,7 +216,7 @@ For the blockchain developer mental model, see
 Trident's three-layer architecture -- universal core, abstraction layer, backend
 extensions -- is designed so the same source can compile to different zkVMs.
 
-**Today**: Triton VM is the only supported backend. The `--target triton` flag
+Today: Triton VM is the only supported backend. The `--target triton` flag
 is the default and currently the only option that produces output.
 
 ### How Portability Works
@@ -294,13 +294,13 @@ trident deploy main.deploy/ --registry http://prod:8090
 
 ### 4. Integrate
 
-- **Neptune Cash**: Embed the `lock_script_hash` (Tip5 hash of the compiled
+- Neptune Cash: Embed the `lock_script_hash` (Tip5 hash of the compiled
   TASM) in the UTXO you create. Provide the full TASM as witness data when
   spending.
-- **Standalone verification**: Feed the `.tasm` file to the Triton VM prover
+- Standalone verification: Feed the `.tasm` file to the Triton VM prover
   along with public and secret inputs. The prover produces a STARK proof.
   Distribute the Claim (program hash + public I/O) and Proof to verifiers.
-- **Proof composition**: A Trident program can verify another program's proof
+- Proof composition: A Trident program can verify another program's proof
   internally, enabling recursive proof structures. The inner program's hash
   becomes part of the outer program's public input.
 
@@ -320,11 +320,11 @@ hash. See [Content-Addressed Code](../explanation/content-addressing.md) for det
 
 Trident includes standard token implementations ready for deployment:
 
-- **TSP-1**: Coin standard with conservation laws, mint authority,
+- TSP-1: Coin standard with conservation laws, mint authority,
   and burn support. See `examples/neptune/type_custom_token.tri`.
-- **TSP-2**: Uniq standard with unique IDs and metadata.
+- TSP-2: Uniq standard with unique IDs and metadata.
   See `examples/uniq/uniq.tri`.
-- **Native currency**: Neptune's built-in currency type script.
+- Native currency: Neptune's built-in currency type script.
   See `examples/neptune/type_native_currency.tri`.
 
 ### On-Chain Registry

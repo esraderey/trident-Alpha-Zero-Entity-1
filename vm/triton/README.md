@@ -37,7 +37,7 @@ coprocessor (`lt`, `and`, `xor`, `div_mod`, `split`, `pow`, `log_2_floor`,
 ## Cost Model (6 tables)
 
 Each instruction contributes rows to multiple tables simultaneously.
-Proving cost is determined by the **tallest** table, not the sum.
+Proving cost is determined by the tallest table, not the sum.
 
 | Table | What grows it | Rows per trigger |
 |---|---|---|
@@ -67,13 +67,13 @@ boundary doubles proving time.
 | `pow(b, e)` | 1 | 0 | 33 | 1 | 0 |
 | `log2(a)` | 1 | 0 | 33 | 0 | 0 |
 | `popcount(a)` | 1 | 0 | 33 | 0 | 0 |
-| `hash(...)` | 1 | **6** | 0 | 1 | 0 |
-| `sponge_init()` | 1 | **6** | 0 | 0 | 0 |
-| `sponge_absorb(...)` | 1 | **6** | 0 | 1 | 0 |
-| `sponge_squeeze()` | 1 | **6** | 0 | 1 | 0 |
-| `sponge_absorb_mem(p)` | 1 | **6** | 0 | 1 | 10 |
-| `merkle_step(i, d)` | 1 | **6** | 33 | 0 | 0 |
-| `merkle_step_mem(...)` | 1 | **6** | 33 | 0 | 5 |
+| `hash(...)` | 1 | 6 | 0 | 1 | 0 |
+| `sponge_init()` | 1 | 6 | 0 | 0 | 0 |
+| `sponge_absorb(...)` | 1 | 6 | 0 | 1 | 0 |
+| `sponge_squeeze()` | 1 | 6 | 0 | 1 | 0 |
+| `sponge_absorb_mem(p)` | 1 | 6 | 0 | 1 | 10 |
+| `merkle_step(i, d)` | 1 | 6 | 33 | 0 | 0 |
+| `merkle_step_mem(...)` | 1 | 6 | 33 | 0 | 5 |
 | `hint()` | 1 | 0 | 0 | 1 | 0 |
 | `pub_read()` | 1 | 0 | 0 | 1 | 0 |
 | `pub_write(v)` | 1 | 0 | 0 | 1 | 0 |

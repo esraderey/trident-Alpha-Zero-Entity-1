@@ -2,7 +2,7 @@
 
 *From execution trace to cryptographic proof*
 
-> **Lifecycle stage 5 of 6.** This document covers what happens after a Trident
+> Lifecycle stage 5 of 6. This document covers what happens after a Trident
 > program has been compiled and executed. The previous stage is Deploying; the
 > next stage is [Verifying Proofs](verifying-proofs.md).
 
@@ -16,17 +16,17 @@ generation process: what it does, what it costs, and how to control that cost.
 ## 🔐 1. What Is Proof Generation?
 
 When Triton VM executes a compiled Trident program, it does more than produce
-output. It records a complete **execution trace** -- every instruction
+output. It records a complete execution trace -- every instruction
 executed, every stack state, every memory access, every hash permutation. This
 trace is the raw material for proof generation.
 
-The **prover** takes this execution trace and converts it into a **STARK
-proof**: a compact cryptographic object (roughly 100 KB) that convinces any
+The prover takes this execution trace and converts it into a STARK
+proof: a compact cryptographic object (roughly 100 KB) that convinces any
 verifier of two things:
 
-1. **Correctness.** The program with the given public inputs produced the
+1. Correctness. The program with the given public inputs produced the
    given public outputs. Every instruction was executed faithfully.
-2. **Zero knowledge.** The verifier learns nothing beyond the public inputs
+2. Zero knowledge. The verifier learns nothing beyond the public inputs
    and outputs. Secret inputs, intermediate values, memory contents, and the
    execution trace itself remain hidden.
 
@@ -59,11 +59,11 @@ Execution trace (6 tables)
 STARK proof + Claim
 ```
 
-**Trident handles the first arrow.** It compiles `.tri` source into `.tasm`
+Trident handles the first arrow. It compiles `.tri` source into `.tasm`
 (Triton Assembly) and performs cost analysis. Once compilation is done,
 Trident's job is finished.
 
-**Triton VM handles everything else.** Execution, trace generation, polynomial
+Triton VM handles everything else. Execution, trace generation, polynomial
 interpolation, FRI commitment, and proof assembly are all performed by the
 `triton-vm` crate. Trident does not implement any part of the proof system.
 
@@ -72,7 +72,7 @@ you tools to reason about the *shape* of the execution trace (table heights,
 hotspots, cost distribution). Triton VM turns that trace into a proof. You
 optimize the trace through your Trident code; the proof system is fixed.
 
-The **Claim** -- the public statement that accompanies every proof -- contains
+The Claim -- the public statement that accompanies every proof -- contains
 the program digest, the public inputs, and the public outputs:
 
 ```text
@@ -91,7 +91,7 @@ for the full execution model.
 
 ## ⚡ 3. Understanding Proving Cost
 
-Proving time and memory are determined by one number: the **padded height**. Only the tallest table matters; reducing a shorter table has zero effect on proving time. See [Optimization Guide](optimization.md) for the full table model and reduction strategies.
+Proving time and memory are determined by one number: the padded height. Only the tallest table matters; reducing a shorter table has zero effect on proving time. See [Optimization Guide](optimization.md) for the full table model and reduction strategies.
 
 ### Measuring Cost with Trident
 
@@ -132,11 +132,11 @@ let (stark, claim, proof) = triton_vm::prove(
 
 The three inputs to the prover are:
 
-1. **The compiled program** (`.tasm` output from `trident build`)
-2. **Public inputs** (visible to the verifier, included in the Claim)
-3. **Secret inputs** (hidden from the verifier, used during execution only)
+1. The compiled program (`.tasm` output from `trident build`)
+2. Public inputs (visible to the verifier, included in the Claim)
+3. Secret inputs (hidden from the verifier, used during execution only)
 
-The prover returns a **Claim** and a **Proof**. Together, these are everything
+The prover returns a Claim and a Proof. Together, these are everything
 a verifier needs. The program source, the secret inputs, and the execution
 trace are not required for verification.
 
@@ -148,12 +148,12 @@ performance tuning.
 
 ## 🔄 6. Recursive Proofs
 
-Triton VM supports **recursive STARK verification**: you can verify a STARK
+Triton VM supports recursive STARK verification: you can verify a STARK
 proof *inside* the VM itself. This means a Trident program can take a proof as
 secret input, verify it, and produce a new proof that the verification
 succeeded.
 
-This enables **proof composition**: chain multiple computations together by
+This enables proof composition: chain multiple computations together by
 proving that each step's proof is valid. Use cases include incremental
 computation, proof aggregation, and bootstrapping trust across independent
 programs.
@@ -180,6 +180,6 @@ STARK proofs are ~100 KB, verification takes milliseconds regardless of computat
 
 Once a proof is generated, it must be verified.
 
-**Next:** [Verifying Proofs](verifying-proofs.md) -- how verifiers check
+Next: [Verifying Proofs](verifying-proofs.md) -- how verifiers check
 proofs, what the verification algorithm does, and how on-chain verification
 works.

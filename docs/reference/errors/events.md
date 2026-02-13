@@ -10,7 +10,7 @@
 error: undefined event 'Transfer'
 ```
 
-**Fix:** Declare the event before using `reveal` or `seal`:
+Fix: Declare the event before using `reveal` or `seal`:
 
 ```trident
 event Transfer { from: Digest, to: Digest, amount: Field }
@@ -54,7 +54,7 @@ error: unknown field 'extra' in event 'Transfer'
 
 ---
 
-### Event field type mismatch in reveal/seal **(planned)**
+### Event field type mismatch in reveal/seal (planned)
 
 ```text
 error: reveal field 'amount': expected Field but got Bool
@@ -62,15 +62,15 @@ error: reveal field 'amount': expected Field but got Bool
 
 The expression type does not match the event field's declared type.
 
-**Spec:** language.md Section 10 (reveal/seal must match event
+Spec: language.md Section 10 (reveal/seal must match event
 with matching field types).
 
 ---
 
-### Duplicate event declaration **(planned)**
+### Duplicate event declaration (planned)
 
 ```text
 error: event 'Transfer' is already defined
 ```
 
-**Spec:** language.md Section 1 (items are unique within a module).
+Spec: language.md Section 1 (items are unique within a module).

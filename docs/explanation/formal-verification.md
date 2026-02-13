@@ -9,16 +9,16 @@ assertion holds universally or produce a concrete counterexample.
 
 The verification toolchain consists of:
 
-- **Specification annotations** (`#[requires]`, `#[ensures]`, `#[invariant]`,
+- Specification annotations (`#[requires]`, `#[ensures]`, `#[invariant]`,
   `#[pure]`) that declare properties directly in source code.
-- **Symbolic execution** that converts programs into constraint systems.
-- **Algebraic solving** using Schwartz-Zippel random evaluation over the
+- Symbolic execution that converts programs into constraint systems.
+- Algebraic solving using Schwartz-Zippel random evaluation over the
   Goldilocks field and bounded model checking.
-- **SMT checking** that encodes constraints as SMT-LIB2 bitvector queries
+- SMT checking that encodes constraints as SMT-LIB2 bitvector queries
   for Z3.
-- **Invariant synthesis** that automatically infers loop invariants and
+- Invariant synthesis that automatically infers loop invariants and
   pre/postconditions from code patterns.
-- **Semantic equivalence checking** that proves two functions produce
+- Semantic equivalence checking that proves two functions produce
   identical outputs for all inputs.
 
 All of these are available today through the `trident verify`, `trident equiv`,
@@ -146,16 +146,16 @@ The symbolic executor walks the type-checked AST and
 builds a `ConstraintSystem`. Each variable becomes a symbolic value. Each
 operation becomes a constraint. The executor handles:
 
-- **`let` bindings** as symbolic variable assignments (SSA-versioned for
+- `let` bindings as symbolic variable assignments (SSA-versioned for
   mutable variables).
-- **`assert` / `assert_eq`** as equality or truth constraints.
-- **Control flow** (`if/else`, `match`) via path conditions with ITE merging
+- `assert` / `assert_eq` as equality or truth constraints.
+- Control flow (`if/else`, `match`) via path conditions with ITE merging
   of environments from each branch.
-- **Bounded `for` loops** by unrolling up to the declared bound (max 64
+- Bounded `for` loops by unrolling up to the declared bound (max 64
   iterations).
-- **Function calls** by inlining (up to depth 64; no recursion means this
+- Function calls by inlining (up to depth 64; no recursion means this
   always terminates).
-- **`divine()` / `pub_read()` / `pub_write()`** as fresh symbolic variables
+- `divine()` / `pub_read()` / `pub_write()` as fresh symbolic variables
   or recorded symbolic outputs. Hash operations are opaque (uninterpreted).
 
 The resulting `ConstraintSystem` contains all constraints, variable bindings,
@@ -165,12 +165,12 @@ public inputs/outputs, and divine inputs.
 
 The algebraic solver checks the constraint system using two methods:
 
-**Schwartz-Zippel random evaluation.** Constraints are evaluated at 100 random
+Schwartz-Zippel random evaluation. Constraints are evaluated at 100 random
 points over the Goldilocks field. By the Schwartz-Zippel lemma, a false
 polynomial identity is overwhelmingly unlikely to pass all rounds -- the
 false-positive probability is negligible for the Goldilocks field size.
 
-**Bounded model checking.** For systems with few free variables (8 or fewer),
+Bounded model checking. For systems with few free variables (8 or fewer),
 the solver tests a grid of interesting field values exhaustively. For larger
 systems, it uses stratified random sampling. When a constraint fails, the
 solver reports a concrete counterexample with the variable assignments that
@@ -186,10 +186,10 @@ an SMT-LIB2 script using the `QF_BV` (quantifier-free bitvector) logic.
 Goldilocks field arithmetic is encoded as 128-bit bitvector operations with
 modular reduction. Two query modes are supported:
 
-- **Safety check**: Asserts the negation of the conjunction of all constraints
+- Safety check: Asserts the negation of the conjunction of all constraints
   and checks satisfiability. SAT means a counterexample was found (a bug).
   UNSAT means all constraints hold for all inputs.
-- **Witness existence**: Asserts all constraints and checks satisfiability.
+- Witness existence: Asserts all constraints and checks satisfiability.
   SAT means a valid `divine()` witness exists. UNSAT means no valid witness
   can be constructed.
 
@@ -247,18 +247,18 @@ patterns. Run it with `trident verify --synthesize`.
 The synthesizer recognizes common patterns in loop bodies and function
 structures:
 
-**Additive accumulation.** `acc = acc + expr` in a loop yields
+Additive accumulation. `acc = acc + expr` in a loop yields
 `acc >= init_value` and bound-related postconditions.
 
-**Counting patterns.** Conditional `acc = acc + 1` yields `count <= loop_var`
+Counting patterns. Conditional `acc = acc + 1` yields `count <= loop_var`
 invariant and `count <= N` postcondition.
 
-**Monotonic updates.** Variables that only increase get `x >= init_value`.
+Monotonic updates. Variables that only increase get `x >= init_value`.
 
-**Identity / constant detection.** Functions returning their parameter
+Identity / constant detection. Functions returning their parameter
 unchanged get `result == param`; single-literal bodies get `result == constant`.
 
-**Range preservation.** U32-to-U32 functions get `result <= 4294967295`.
+Range preservation. U32-to-U32 functions get `result <= 4294967295`.
 
 ### Precondition Inference
 
@@ -313,12 +313,12 @@ to the original.
 The checker runs three strategies in order, returning as soon as one is
 conclusive:
 
-1. **Content hash comparison.** Function bodies are hashed using a
+1. Content hash comparison. Function bodies are hashed using a
    normalization that replaces variable names with de Bruijn indices.
    Functions that differ only in variable naming (alpha-equivalent) produce
    the same hash and are immediately declared equivalent.
 
-2. **Polynomial normalization.** For pure field-arithmetic functions (using
+2. Polynomial normalization. For pure field-arithmetic functions (using
    only `+`, `*`, `-`, constants, and variables), both functions are
    symbolically evaluated and their results are normalized into canonical
    multivariate polynomial form over the Goldilocks field. If the polynomials
@@ -326,7 +326,7 @@ conclusive:
    like commutativity (`x + y` vs `y + x`) and distribution
    (`(x + y) * x` vs `x * x + x * y`).
 
-3. **Differential testing.** The checker builds a synthetic program that
+3. Differential testing. The checker builds a synthetic program that
    reads shared inputs, calls both functions, and asserts their outputs are
    equal. This synthetic program is then run through the full verification
    pipeline (symbolic execution + algebraic solver + BMC). If no violation
@@ -430,33 +430,33 @@ state space finite and enumerable.
 
 ### What Can Be Verified
 
-**Algebraic identities.** Conservation laws (`sum(outputs) == sum(inputs)`),
+Algebraic identities. Conservation laws (`sum(outputs) == sum(inputs)`),
 commutativity, idempotence, and equivalence of two implementations. Checked
 by polynomial identity testing -- typically proves in milliseconds.
 
-**Range properties.** U32 range checks (`x <= 2^32 - 1`), boolean outputs
+Range properties. U32 range checks (`x <= 2^32 - 1`), boolean outputs
 (`result in {0, 1}`), array index bounds.
 
-**Assertion reachability.** Whether an `assert` can ever fail, whether code
+Assertion reachability. Whether an `assert` can ever fail, whether code
 is reachable.
 
-**Witness existence.** For `divine()` values: whether a valid witness exists
+Witness existence. For `divine()` values: whether a valid witness exists
 for all valid public inputs. Decidable because the field is finite.
 
-**Loop invariant checking.** Base case + inductive step over finite field
+Loop invariant checking. Base case + inductive step over finite field
 arithmetic. For small bounds, complete unrolling as a fallback.
 
 ### What May Time Out
 
-**Multiple interacting `divine()` values.** Existential quantification over
+Multiple interacting `divine()` values. Existential quantification over
 many witness variables is decidable in theory but may be slow for more than
 about 10 divine variables.
 
-**Loops with large bounds (> 64 iterations).** Unrolling is impractical.
+Loops with large bounds (> 64 iterations). Unrolling is impractical.
 Invariant checking works if an invariant is provided. Without an invariant,
 automatic synthesis is attempted but may not find one.
 
-**Hash-dependent properties.** Hash functions are modeled as opaque
+Hash-dependent properties. Hash functions are modeled as opaque
 (uninterpreted). Properties requiring reasoning about hash internals cannot
 be verified automatically.
 
@@ -467,23 +467,23 @@ be verified automatically.
 The verification system is functional end-to-end, but several components
 have incomplete coverage or known bugs:
 
-**Opaque stubs for field access and indexing.** Struct field access and array
+Opaque stubs for field access and indexing. Struct field access and array
 indexing produce fresh symbolic variables rather than tracking the source
 struct/array. The verifier cannot yet reason about read-back properties.
 
-**CEGIS is not complete.** Template-based synthesis works and produces useful
+CEGIS is not complete. Template-based synthesis works and produces useful
 suggestions, but the CEGIS refinement loop does not yet contribute verified
 candidates for functions with parameters.
 
-**SMT `Inv` encoding bug.** The SMT encoding of multiplicative inverse
+SMT `Inv` encoding bug. The SMT encoding of multiplicative inverse
 declares a variable but omits the `inv_x * x == 1 mod p` constraint, making
 it unconstrained. The algebraic solver handles inversion correctly.
 
-**Polynomial normalization limited to `+`, `*`, `-`.** Functions using
+Polynomial normalization limited to `+`, `*`, `-`. Functions using
 division, hashes, conditionals, or I/O fall through to differential testing
 (high confidence, not a proof).
 
-**No `#[invariant]` parsing for loops yet.** The annotation is part of the
+No `#[invariant]` parsing for loops yet. The annotation is part of the
 specification design but the parser does not yet recognize it on loop
 statements. Loop invariant checking relies on the synthesizer or unrolling.
 

@@ -44,10 +44,10 @@ coprocessor usage.
 |---|---:|---:|
 | `a + b`, `a * b`, `a == b` | 1 | 0 |
 | `a < b`, `a & b`, `a ^ b`, `a /% b` | 1 | 0 |
-| `hash(...)` | 3 | **1** |
-| `sponge_init()` | 5 | **1** |
-| `sponge_absorb(...)` | 5 | **1** |
-| `sponge_squeeze()` | 5 | **1** |
+| `hash(...)` | 3 | 1 |
+| `sponge_init()` | 5 | 1 |
+| `sponge_absorb(...)` | 5 | 1 |
+| `sponge_squeeze()` | 5 | 1 |
 | All other builtins | 1 | 0 |
 | fn call+return | 2 | 0 |
 | if/else overhead | 2 | 0 |

@@ -33,8 +33,8 @@ be compiled and proved on whichever backend suits your deployment.
 ## 🧮 2. What Is a Field Element?
 
 In normal programming, integers are 32-bit or 64-bit values that overflow
-silently or throw exceptions. In Trident, the basic numeric type is a **field
-element** -- an integer that wraps around at a specific prime number instead of
+silently or throw exceptions. In Trident, the basic numeric type is a field
+element -- an integer that wraps around at a specific prime number instead of
 at a power of two.
 
 Each target VM uses its own prime. Triton VM (the default target) uses
@@ -87,7 +87,7 @@ for i in 0..n bounded 100 {
 }
 ```
 
-The reason is the **execution trace**. When a zkVM runs your program, it
+The reason is the execution trace. When a zkVM runs your program, it
 records every single instruction executed -- every addition, every comparison,
 every stack operation -- into a giant table called the execution trace. This
 trace is what gets turned into a proof.
@@ -122,12 +122,12 @@ depth becomes your loop bound.
 Trident has no `malloc`, no `free`, no garbage collector, no dynamically-sized
 data structures. Every piece of data has a size known at compile time.
 
-This is because the target VMs (such as Triton VM) use **stack machines with
-fixed-size RAM**. The execution model has:
+This is because the target VMs (such as Triton VM) use stack machines with
+fixed-size RAM. The execution model has:
 
-- An **operand stack** (16 elements directly accessible, with automatic spill
+- An operand stack (16 elements directly accessible, with automatic spill
   to memory for deeper values)
-- **RAM** (word-addressed, each cell holds one field element)
+- RAM (word-addressed, each cell holds one field element)
 - No heap allocator, no pointer arithmetic, no dynamic dispatch
 
 All variables in Trident are either on the stack or at fixed RAM addresses. The
@@ -158,9 +158,9 @@ This is the concept that trips up most newcomers. In a normal program, all
 inputs come from the same place -- the user, a file, a network socket. In
 Trident, there are two kinds of input:
 
-- **Public input** (`pub_read`): visible to both the prover and the verifier.
+- Public input (`pub_read`): visible to both the prover and the verifier.
   The verifier sees these values and can check them.
-- **Secret input** (`divine`): visible only to the prover. The verifier never
+- Secret input (`divine`): visible only to the prover. The verifier never
   sees these values.
 
 The word "divine" comes from "divination" -- the prover conjures a value out of
@@ -190,12 +190,12 @@ fails, no proof is generated, and the computation is rejected.
 
 The divine-and-verify pattern shows up everywhere:
 
-- **Merkle proofs**: divine the sibling hashes, verify the path hashes up to
+- Merkle proofs: divine the sibling hashes, verify the path hashes up to
   the root
-- **Square roots**: divine the root, verify `root * root == input`
-- **Preimage checks**: divine the preimage, verify `hash(preimage) ==
+- Square roots: divine the root, verify `root * root == input`
+- Preimage checks: divine the preimage, verify `hash(preimage) ==
   known_hash`
-- **Transaction validation**: divine the transaction details, verify the
+- Transaction validation: divine the transaction details, verify the
   balances add up
 
 ---
@@ -208,18 +208,18 @@ A binary tree where each leaf is a hash of data and each internal node is the ha
 
 ## ⚡ 8. What Is a STARK?
 
-STARK stands for **Scalable Transparent ARgument of Knowledge**. It is the
+STARK stands for Scalable Transparent ARgument of Knowledge. It is the
 proof system that Triton VM uses. Here is what each word means in practical
 terms:
 
-- **Scalable**: the proof is small and fast to verify, even for enormous
+- Scalable: the proof is small and fast to verify, even for enormous
   computations. A computation that takes minutes to run produces a proof that
   takes milliseconds to check.
-- **Transparent**: no trusted setup. Some older proof systems (SNARKs) require
+- Transparent: no trusted setup. Some older proof systems (SNARKs) require
   a one-time ceremony where secret parameters are generated and then
   destroyed. If the ceremony is compromised, the entire system is broken.
   STARKs do not need this -- they rely only on hash functions.
-- **ARgument of Knowledge**: the proof demonstrates that the prover actually
+- ARgument of Knowledge: the proof demonstrates that the prover actually
   performed the computation, not just that the answer is correct.
 
 Think of a STARK as a compression algorithm for computation. The prover runs
@@ -230,14 +230,14 @@ valid.
 
 Key properties that matter for you as a developer:
 
-- **No trusted setup**: you do not need to trust anyone to set up the system.
+- No trusted setup: you do not need to trust anyone to set up the system.
   Deploy and verify with no ceremony.
-- **Hash-based security**: STARKs use only hash functions (specifically Tip5 in
+- Hash-based security: STARKs use only hash functions (specifically Tip5 in
   Triton VM), not elliptic curve cryptography. This makes them resistant to
   quantum computers, which can break elliptic curve systems.
-- **Post-quantum safe**: when (if) quantum computers become practical, STARK
+- Post-quantum safe: when (if) quantum computers become practical, STARK
   proofs remain secure. Elliptic-curve-based SNARKs do not.
-- **Proof size**: STARK proofs are larger than SNARK proofs (kilobytes vs.
+- Proof size: STARK proofs are larger than SNARK proofs (kilobytes vs.
   hundreds of bytes), but this is usually an acceptable trade-off for the
   security and simplicity benefits.
 
@@ -271,11 +271,11 @@ original computation was. A million verifiers spend a few seconds total.
 
 This asymmetry is why ZK proofs are useful:
 
-- **Blockchains**: a miner proves a transaction is valid. Every node verifies
+- Blockchains: a miner proves a transaction is valid. Every node verifies
   the proof instead of re-executing the transaction. Consensus becomes cheap.
-- **Privacy**: the prover proves they have sufficient funds without revealing
+- Privacy: the prover proves they have sufficient funds without revealing
   their balance. The verifier checks the proof without seeing the numbers.
-- **Compression**: a rollup proves it executed 10,000 transactions correctly.
+- Compression: a rollup proves it executed 10,000 transactions correctly.
   The base chain verifies one proof instead of replaying 10,000 transactions.
 
 In Trident, this asymmetry shows up in the `divine` pattern. The prover does
@@ -312,31 +312,31 @@ restrictive. Here is an honest accounting of what you give up and what you get.
 
 ### What you gain
 
-**Provability.** Every execution of your program produces a mathematical proof
+Provability. Every execution of your program produces a mathematical proof
 that the computation was correct. No one has to trust the prover. Anyone can
 verify in milliseconds.
 
-**Privacy.** Secret inputs (`divine`) are never revealed to the verifier. You
+Privacy. Secret inputs (`divine`) are never revealed to the verifier. You
 can prove properties of data without exposing the data itself.
 
-**Quantum safety.** STARK proofs are based on hash functions, not elliptic
+Quantum safety. STARK proofs are based on hash functions, not elliptic
 curves. When quantum computers arrive, your proofs remain secure.
 
-**Multi-target deployment.** The same Trident source is designed to compile to
+Multi-target deployment. The same Trident source is designed to compile to
 multiple zkVMs via `--target`. Write your program once, then deploy to Triton
 VM, Miden VM, Cairo, or other backends without rewriting. The universal core of the language
 is portable across all targets; backend extensions let you access
 target-specific capabilities when needed.
 
-**Cost certainty.** The compiler tells you exactly how much proving will cost
+Cost certainty. The compiler tells you exactly how much proving will cost
 before you run anything. `trident build --costs` gives you the precise trace
 size, dominant table, and estimated proving time. No surprises.
 
-**Determinism.** No garbage collection pauses, no memory allocation failures,
+Determinism. No garbage collection pauses, no memory allocation failures,
 no undefined behavior. The same program with the same inputs always produces
 the same trace with the same cost.
 
-**Auditability.** Trident compiles directly to TASM with no intermediate
+Auditability. Trident compiles directly to TASM with no intermediate
 representation. Every language construct maps predictably to specific
 instructions. A security auditor can verify the translation in days, not
 months.

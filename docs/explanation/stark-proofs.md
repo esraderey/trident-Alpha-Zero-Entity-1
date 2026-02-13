@@ -2,7 +2,7 @@
 
 *From execution traces to quantum-safe cryptographic proofs*
 
-> **Triton VM target.** This document describes the proof system used by the
+> Triton VM target. This document describes the proof system used by the
 > Triton VM backend -- Trident's current default compilation target. Other
 > backends (future or third-party) may use different proof systems, different
 > arithmetizations, or different hash functions. The concepts here -- execution
@@ -28,16 +28,16 @@ computed it?
 
 Not a toy example. Real computation:
 
-- **A token transfer.** You prove that sender and receiver balances are
+- A token transfer. You prove that sender and receiver balances are
   consistent -- that no tokens were created or destroyed -- without revealing
   the amounts, the accounts, or the authorization secret. The verifier sees
   only "this transfer is valid." The ledger stays private.
 
-- **An identity check.** You prove you are authorized to perform an action
+- An identity check. You prove you are authorized to perform an action
   without showing your secret key, your password hash, or your biometric
   data. The verifier learns one bit: authorized or not. Nothing else leaks.
 
-- **A bridge verification.** You prove that an external blockchain reached a
+- A bridge verification. You prove that an external blockchain reached a
   particular state -- a specific block header, a specific account balance --
   without replaying every transaction in that chain's history. The verifier
   checks a small proof instead of terabytes of block data.
@@ -69,7 +69,7 @@ predictable cost (Section 11), and supports recursive proof verification
 When Triton VM runs a program, it does not merely produce an output. It
 records everything: every instruction executed, every stack state, every
 memory access, every hash permutation. This complete record is the
-**execution trace**.
+execution trace.
 
 A small example. Consider a program that adds 3 and 7:
 
@@ -103,7 +103,7 @@ trace into a small proof (hundreds of kilobytes regardless of trace size) and
 hides the trace contents (the verifier learns nothing beyond what the program
 explicitly outputs).
 
-The starting point for all of this is the **Claim**: a public statement of
+The starting point for all of this is the Claim: a public statement of
 what was proved.
 
 ```text
@@ -162,9 +162,9 @@ polynomial form:
 S0(x_next) = S0(x) + S1(x)     (when the instruction at cycle x is `add`)
 ```
 
-This is a **transition constraint** -- it relates consecutive rows. There are
-also **boundary constraints** (the initial stack must be empty, the final
-output must match the Claim) and **consistency constraints** (cross-table
+This is a transition constraint -- it relates consecutive rows. There are
+also boundary constraints (the initial stack must be empty, the final
+output must match the Claim) and consistency constraints (cross-table
 references must agree).
 
 All of these constraints are polynomial equations. If the execution trace is
@@ -202,7 +202,7 @@ a polynomial (no remainder). If C(x) does NOT vanish at some row -- if the
 trace is invalid -- then Q(x) is not a polynomial. It has a pole. It is
 rational, not polynomial.
 
-The **Schwartz-Zippel lemma** gives us a way to check this cheaply: two
+The Schwartz-Zippel lemma gives us a way to check this cheaply: two
 different polynomials of degree d can agree on at most d points. So if you
 evaluate Q at a random point z and it looks like a polynomial evaluation
 (consistent with its claimed degree), the probability that Q is actually
@@ -239,12 +239,12 @@ These numbers come directly from the Trident compiler's cost model
 
 | Table | Triggered by | Rows per trigger | Purpose |
 |-------|-------------|-----------------|---------|
-| **Processor** | Every instruction | 1 | Enforces instruction semantics: each row encodes one clock cycle |
-| **Hash** | `hash`, `sponge_init`, `sponge_absorb`, `sponge_squeeze`, `merkle_step` | 6 | Enforces the [Tip5](https://eprint.iacr.org/2023/107) permutation (5 rounds + 1 setup row) |
-| **U32** | `split`, `lt`, `and`, `xor`, `log2`, `pow`, `div_mod`, `popcount`, `merkle_step` | up to 33 | Enforces 32-bit arithmetic via bit decomposition |
-| **Op Stack** | Stack-depth-changing instructions | 1 | Enforces operand stack consistency |
-| **RAM** | `read_mem`, `write_mem`, `sponge_absorb_mem`, `xx_dot_step`, `xb_dot_step` | 1 per word | Enforces random-access memory consistency |
-| **Jump Stack** | `call`, `return`, `recurse`, `recurse_or_return` | 1 | Enforces control flow integrity |
+| Processor | Every instruction | 1 | Enforces instruction semantics: each row encodes one clock cycle |
+| Hash | `hash`, `sponge_init`, `sponge_absorb`, `sponge_squeeze`, `merkle_step` | 6 | Enforces the [Tip5](https://eprint.iacr.org/2023/107) permutation (5 rounds + 1 setup row) |
+| U32 | `split`, `lt`, `and`, `xor`, `log2`, `pow`, `div_mod`, `popcount`, `merkle_step` | up to 33 | Enforces 32-bit arithmetic via bit decomposition |
+| Op Stack | Stack-depth-changing instructions | 1 | Enforces operand stack consistency |
+| RAM | `read_mem`, `write_mem`, `sponge_absorb_mem`, `xx_dot_step`, `xb_dot_step` | 1 per word | Enforces random-access memory consistency |
+| Jump Stack | `call`, `return`, `recurse`, `recurse_or_return` | 1 | Enforces control flow integrity |
 
 ### Cross-table lookups
 
@@ -261,7 +261,7 @@ not vanish, and the proof will fail.
 
 ### The dominant table rule
 
-The tallest table determines the **padded height** -- the height rounded up
+The tallest table determines the padded height -- the height rounded up
 to the next power of 2. All tables are padded to this same height for the
 polynomial arithmetic to work. This means a program's proving cost is
 determined entirely by its tallest table.
@@ -320,7 +320,7 @@ the hash of its children. The root -- a single hash digest -- is a short,
 fixed-size commitment to the entire dataset.
 
 The key property: the prover can later reveal any individual leaf by providing
-a **Merkle authentication path** -- the sequence of sibling hashes from the
+a Merkle authentication path -- the sequence of sibling hashes from the
 leaf to the root. The verifier checks the path by recomputing hashes upward.
 If the path is valid, the revealed leaf is guaranteed to be part of the
 committed dataset. And revealing one leaf exposes nothing about any other leaf.
@@ -374,7 +374,7 @@ confirm that these evaluations actually come from a low-degree polynomial --
 not from arbitrary data that happens to satisfy constraints at a few queried
 points.
 
-This is the **low-degree test**, also called a **proximity test**: are the
+This is the low-degree test, also called a proximity test: are the
 committed values close to a polynomial of the expected degree? If yes, the
 arithmetization from Section 3 guarantees the trace is valid. If no, the
 prover is cheating.
@@ -387,20 +387,20 @@ No pairings. No discrete logarithm assumptions.
 
 The core idea of FRI is elegant. Given a polynomial f(x) of degree at most d:
 
-1. **Split** f(x) into its even and odd parts:
+1. Split f(x) into its even and odd parts:
    f(x) = g(x^2) + x * h(x^2), where g and h each have degree at most d/2.
    This decomposition is always possible and unique.
 
-2. **Challenge.** The verifier sends a random field element alpha.
+2. Challenge. The verifier sends a random field element alpha.
 
-3. **Fold.** The prover computes a new polynomial:
+3. Fold. The prover computes a new polynomial:
    f'(x) = g(x) + alpha * h(x). This polynomial has degree at most d/2 --
    half the original degree.
 
-4. **Commit.** The prover commits to the evaluations of f' via a new Merkle
+4. Commit. The prover commits to the evaluations of f' via a new Merkle
    tree and publishes the root.
 
-5. **Repeat.** Apply the same fold to f', halving the degree again. After
+5. Repeat. Apply the same fold to f', halving the degree again. After
    log2(d) rounds, the polynomial is a constant.
 
 ```text
@@ -414,7 +414,7 @@ Round 2: f2(x)    degree <= d/4      committed via Merkle tree
 Round k: f_k      constant           sent directly
 ```
 
-After all rounds are committed, the verifier picks random **query positions**
+After all rounds are committed, the verifier picks random query positions
 and checks consistency between adjacent rounds. For each query position, the
 verifier requests Merkle authentication paths for the corresponding
 evaluations in round i and round i+1, then checks that the folding relation
@@ -442,11 +442,11 @@ O(log^2(d)) -- polylogarithmic in the degree of the original polynomial.
 
 FRI uses exactly two cryptographic primitives:
 
-1. **Field arithmetic** -- polynomial evaluation, addition, multiplication
+1. Field arithmetic -- polynomial evaluation, addition, multiplication
    over the Goldilocks field. These are ordinary 64-bit integer operations
    modulo p = 2^64 - 2^32 + 1.
 
-2. **Hashing** -- Merkle tree construction and authentication path
+2. Hashing -- Merkle tree construction and authentication path
    verification using Tip5.
 
 No groups. No pairings. No discrete logarithm. No elliptic curves of any
@@ -484,13 +484,13 @@ transcript and check consistency.
 
 In Triton VM, the Tip5 hash function serves three distinct purposes:
 
-1. **Data hashing** inside programs -- the `hash` instruction, `sponge_*`
+1. Data hashing inside programs -- the `hash` instruction, `sponge_*`
    operations, and `merkle_step` all invoke Tip5.
 
-2. **Merkle commitments** for trace polynomial evaluations -- the Merkle
+2. Merkle commitments for trace polynomial evaluations -- the Merkle
    trees that commit the prover to the extended trace are built with Tip5.
 
-3. **Challenge generation** via Fiat-Shamir -- the random challenges that
+3. Challenge generation via Fiat-Shamir -- the random challenges that
    drive FRI folding and constraint evaluation are derived from Tip5 hashes
    of the proof transcript.
 
@@ -541,38 +541,38 @@ The verifier receives the Claim (program hash, public inputs, public outputs)
 and the Proof (Merkle roots, FRI commitments, authentication paths, queried
 evaluations). It performs four categories of checks:
 
-1. **Merkle root integrity.** The committed Merkle roots are well-formed.
+1. Merkle root integrity. The committed Merkle roots are well-formed.
    Every authentication path provided by the prover hashes correctly to the
    claimed root.
 
-2. **AIR satisfaction.** At every queried evaluation point, the constraint
+2. AIR satisfaction. At every queried evaluation point, the constraint
    polynomials (divided by the zerofier) evaluate to values consistent with
    a low-degree quotient polynomial. This confirms the execution trace
    satisfies the AIR -- the transition, boundary, and consistency constraints
    all hold.
 
-3. **FRI consistency.** Across all FRI folding rounds, the evaluations are
+3. FRI consistency. Across all FRI folding rounds, the evaluations are
    consistent with the folding relation. Each round's committed polynomial
    is the correct fold of the previous round's polynomial at the challenged
    alpha value. This confirms the quotient polynomial is actually low-degree.
 
-4. **Claim binding.** The public inputs and outputs in the Claim match the
+4. Claim binding. The public inputs and outputs in the Claim match the
    boundary constraints in the trace. The program digest matches the attested
    program hash. The Fiat-Shamir challenges are correctly derived from the
    transcript.
 
 ### Concrete numbers
 
-- **Proof size**: typically 100-200 KB. Larger than pairing-based SNARKs
+- Proof size: typically 100-200 KB. Larger than pairing-based SNARKs
   (~200 bytes for Groth16), but requires no trusted setup and no elliptic
   curves.
 
-- **Verification time**: milliseconds, regardless of the original
+- Verification time: milliseconds, regardless of the original
   computation's complexity. A program that runs for a billion cycles produces
   a proof that verifies in the same time as a program that runs for a
   thousand cycles.
 
-- **Prover time**: depends on padded height. See Section 11.
+- Prover time: depends on padded height. See Section 11.
 
 Cross-reference: [for-offchain-devs.md](for-offchain-devs.md) Section 9 for the
 CLI walkthrough of build, prove, and verify.
@@ -582,7 +582,7 @@ CLI walkthrough of build, prove, and verify.
 ## 🛡️ 9. Why No Trusted Setup?
 
 Many SNARK systems -- Groth16, PLONK with KZG commitments, Marlin -- require
-a **trusted setup ceremony** before they can be used:
+a trusted setup ceremony before they can be used:
 
 1. Generate a secret value tau (the "toxic waste").
 2. Compute powers of tau encrypted on an elliptic curve:
@@ -615,8 +615,8 @@ FRI avoids this entirely. The verifier's challenges come from hashing the
 proof transcript (Fiat-Shamir), not from pre-generated parameters. There is
 no secret. There is no ceremony. There is nothing to compromise.
 
-The word "transparent" in STARK -- **S**calable **T**ransparent **AR**gument
-of **K**nowledge -- means exactly this: no hidden parameters. Anyone can
+The word "transparent" in STARK -- Scalable Transparent ARgument
+of Knowledge -- means exactly this: no hidden parameters. Anyone can
 verify the proof system's integrity by reading the specification. There are
 no secrets embedded in the verification key, no trust assumptions beyond the
 hash function's collision resistance.
@@ -636,12 +636,12 @@ ZK proof systems and their setup requirements.
 the discrete logarithm problem in polynomial time on a quantum computer. A
 sufficiently powerful quantum computer running Shor's algorithm would break:
 
-- **ECDSA** -- transaction signatures on Bitcoin, Ethereum, and every major
+- ECDSA -- transaction signatures on Bitcoin, Ethereum, and every major
   blockchain
-- **BN254, BLS12-381** -- the elliptic curves used by pairing-based SNARKs
+- BN254, BLS12-381 -- the elliptic curves used by pairing-based SNARKs
   (Groth16, KZG commitments)
-- **Pasta curves (Pallas/Vesta)** -- used by Mina and Aleo
-- **All pairing-based polynomial commitments** -- PLONK, Groth16, Marlin
+- Pasta curves (Pallas/Vesta) -- used by Mina and Aleo
+- All pairing-based polynomial commitments -- PLONK, Groth16, Marlin
   verification
 
 The break is total and retroactive. Every Groth16 proof ever generated
@@ -650,11 +650,11 @@ becomes forgeable. Every KZG polynomial commitment becomes extractable.
 STARK security rests on two assumptions, neither of which involves discrete
 logarithm:
 
-1. **Hash collision resistance.** Finding x != y where H(x) = H(y) is
+1. Hash collision resistance. Finding x != y where H(x) = H(y) is
    computationally hard. This is the security foundation of Merkle trees
    and the Fiat-Shamir transform.
 
-2. **FRI soundness.** The proximity test correctly rejects data that is far
+2. FRI soundness. The proximity test correctly rejects data that is far
    from any low-degree polynomial. This is a combinatorial property of
    Reed-Solomon codes, not a number-theoretic assumption.
 
@@ -692,18 +692,18 @@ proving_time = padded_height * 300 * log2(padded_height) * 3ns
 
 Where:
 
-- **padded_height** = the next power of 2 above the tallest table's row count.
+- padded_height = the next power of 2 above the tallest table's row count.
   This is the single most important number in the cost model.
 
-- **300** = approximate number of columns across all constraint polynomials.
+- 300 = approximate number of columns across all constraint polynomials.
   This is fixed by Triton VM's arithmetization -- it does not depend on the
   program.
 
-- **log2(padded_height)** = the number of FRI folding rounds. Each round
+- log2(padded_height) = the number of FRI folding rounds. Each round
   halves the polynomial degree, so the total number of rounds is logarithmic
   in the padded height.
 
-- **3ns** = approximate time per field operation on reference hardware
+- 3ns = approximate time per field operation on reference hardware
   (~1-5 ns per 64-bit field operation depending on CPU).
 
 ### The power-of-2 cliff
@@ -800,8 +800,8 @@ decomposes into dozens of base-field multiplications and additions, each of
 which is a separate RISC-V instruction adding rows to the execution trace.
 A single `xx_dot_step` in Triton VM replaces hundreds of RISC-V instructions.
 
-The recursive verification cost in Triton VM is approximately **300,000
-clock cycles** regardless of the inner proof's original computation
+The recursive verification cost in Triton VM is approximately 300,000
+clock cycles regardless of the inner proof's original computation
 complexity. In SP1 or RISC Zero, the same verification costs millions of
 cycles -- an order of magnitude more. This difference comes directly from
 the native dot-product instructions and the algebraic hash (Tip5 verification
@@ -831,19 +831,19 @@ a working recursive verifier running in production today.
 
 ### Applications
 
-- **Proof aggregation.** Combine N individual transaction proofs into one
+- Proof aggregation. Combine N individual transaction proofs into one
   constant-size proof. A rollup batches thousands of state transitions and
   proves them all with a single outer proof.
 
-- **Rollup compression.** Prove a batch of state transitions in a single
+- Rollup compression. Prove a batch of state transitions in a single
   proof. The batch proof is the same size regardless of how many transitions
   it contains.
 
-- **Cross-chain bridges.** Verify another chain's proof without replaying
+- Cross-chain bridges. Verify another chain's proof without replaying
   its history. A Triton VM program reads the external proof from secret
   input, verifies it, and outputs only "valid" or "invalid."
 
-- **Incrementally verifiable computation.** Chain proofs to prove long-running
+- Incrementally verifiable computation. Chain proofs to prove long-running
   computations. Each step proves "I verified the previous step's proof AND
   computed the next increment." The chain can grow indefinitely without any
   single proof growing larger.

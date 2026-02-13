@@ -59,7 +59,7 @@ error: struct `Point` has no field `z`
 
 ---
 
-### Missing field in struct pattern **(planned)**
+### Missing field in struct pattern (planned)
 
 ```text
 error: match on struct 'Point' is missing field 'y' in pattern
@@ -68,15 +68,15 @@ error: match on struct 'Point' is missing field 'y' in pattern
 
 Struct patterns must account for every field.
 
-**Spec:** language.md Section 5 (exhaustive match, struct patterns).
+Spec: language.md Section 5 (exhaustive match, struct patterns).
 
 ---
 
-### Duplicate match arm **(planned)**
+### Duplicate match arm (planned)
 
 ```text
 error: duplicate match arm for value '0'
   help: remove the duplicate arm
 ```
 
-**Spec:** language.md Section 5 (match semantics).
+Spec: language.md Section 5 (match semantics).

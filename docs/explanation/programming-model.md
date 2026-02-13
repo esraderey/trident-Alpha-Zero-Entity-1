@@ -13,7 +13,7 @@ the specific prime is an implementation detail of the proof system, not a
 semantic property of the program. All Trident values decompose into `Field`
 elements: a `Digest` is five, a `u128` is four, and so on.
 
-> **Target-dependent detail.** The Triton VM default field is the Goldilocks
+> Target-dependent detail. The Triton VM default field is the Goldilocks
 > prime `p = 2^64 - 2^32 + 1`. Other targets use different primes. Programs
 > should never depend on the specific modulus.
 
@@ -23,12 +23,12 @@ Every Trident program communicates through three channels:
 
 | Channel | Instruction | Visible to verifier? | Use for |
 |---------|-------------|----------------------|---------|
-| **Public input** | `pub_read()` | Yes | Data the verifier must see |
-| **Public output** | `pub_write()` | Yes | Results and commitments |
-| **Secret input** | `divine()` | No | Witness data, private state |
+| Public input | `pub_read()` | Yes | Data the verifier must see |
+| Public output | `pub_write()` | Yes | Results and commitments |
+| Secret input | `divine()` | No | Witness data, private state |
 
-On provable targets, the verifier sees only the **Claim** (program hash +
-public I/O) and a **Proof**. On non-provable targets (EVM, WASM, native),
+On provable targets, the verifier sees only the Claim (program hash +
+public I/O) and a Proof. On non-provable targets (EVM, WASM, native),
 channels map to native I/O: calldata, return data, storage reads.
 
 ## 🧮 Arithmetic
@@ -52,13 +52,13 @@ Programs use three tiers. Each trades portability for OS access:
 | S1 | `os.*` | All OSes with the concept | `os.state.read`, `os.neuron.id` |
 | S2 | `os.<os>.*` | One OS | `os.neptune.kernel`, `os.ethereum.storage` |
 
-**S0** -- Pure computation. Works everywhere. Cannot touch state, identity,
+S0 -- Pure computation. Works everywhere. Cannot touch state, identity,
 or money.
 
-**S1** -- Portable OS abstraction. Names the *intent* (identify neuron, send
+S1 -- Portable OS abstraction. Names the *intent* (identify neuron, send
 signal, read state) -- the compiler picks the *mechanism* for the target OS.
 
-**S2** -- OS-native API. Full access to OS-specific features. Importing any
+S2 -- OS-native API. Full access to OS-specific features. Importing any
 `os.<os>.*` module locks the program to that OS.
 
 ### `os.*` Modules
@@ -77,8 +77,8 @@ The less `os.<os>.*` code in a program, the more portable it is.
 
 ## 🖥️ The Six Concerns of OS Programming
 
-Every OS must address six concerns. The compiler's job is **runtime
-binding** -- translating each to OS-native primitives.
+Every OS must address six concerns. The compiler's job is runtime
+binding -- translating each to OS-native primitives.
 
 ### 1. Entry Points
 
@@ -154,7 +154,7 @@ Programs are scripts attached to transaction outputs. The program never
 sees "the blockchain" -- it receives a commitment (Merkle root) as public
 input and authenticates everything against it.
 
-**Key pattern: divine-and-authenticate.** The prover supplies private data
+Key pattern: divine-and-authenticate. The prover supplies private data
 via `divine()`, then proves it belongs to the committed state via Merkle
 proofs.
 
