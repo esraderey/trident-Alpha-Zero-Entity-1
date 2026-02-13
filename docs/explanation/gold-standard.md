@@ -83,7 +83,7 @@ A new standard would require a new conservation law — a third mathematical inv
 
 A token knows its supply — the circuit enforces `Σ balances = supply` on every operation. Price should work the same way. In a provable blockchain, every swap is a STARK proof. Price and volume are free byproducts of proven swaps. The question is how to aggregate them into a signal that the token itself can consume.
 
-The answer is fees burned. Raw volume is trivially inflatable — trade with yourself, back and forth, infinite volume. But every Neptune swap burns 0.1% (10 basis points) of the trade value in NPT as a protocol fee. This burn is irrecoverable. Inflating volume costs real money. The proven metric is not "how much was traded" but "how much was spent to trade."
+The answer is protocol fees. Raw volume is trivially inflatable — trade with yourself, back and forth, infinite volume. But every Neptune swap collects 0.1% (10 basis points) of the trade value in NPT as a protocol fee, distributed to TRI token holders. Inflating volume costs real money that goes to someone else. The proven metric is not "how much was traded" but "how much was paid to trade."
 
 Three proven properties of a Neptune token:
 
@@ -91,37 +91,38 @@ Three proven properties of a Neptune token:
 |----------|-----------|--------|
 | Supply | `Σ balances = supply` | Conservation law (per-operation) |
 | Price | Fee-weighted TWAP against NPT | Derivation law (per-block aggregation) |
-| Liquidity depth | Cumulative fees burned in window | Economic signal (per-block aggregation) |
+| Liquidity depth | Cumulative fees collected in window | Economic signal (per-block aggregation) |
 
 Supply is a conservation law — enforced per operation. Price is a derivation law — computed per block from proven swap data. Both are circuit-enforced public inputs. Both are available to every hook and every skill without additional proof composition.
 
 #### How It Works
 
-1. Every Liquidity (TIDE) swap proves: token pair, amount in, amount out, fee burned
+1. Every Liquidity (TIDE) swap proves: token pair, amount in, amount out, fee collected
 2. The block circuit aggregates all swap proofs for each pair into a fee-weighted TWAP
 3. The resulting `proven_price` and `proven_fees` become public state for the next block
-4. Any skill can read proven price as a public input — no oracle composition required
+4. Collected fees are distributed to TRI token holders
+5. Any skill can read proven price as a public input — no oracle composition required
 
-#### Why Fees Burned, Not Volume
+#### Why Protocol Fees, Not Volume
 
 | Signal | Cost to fake | Sybil-resistant |
 |--------|-------------|-----------------|
 | Volume | Zero (wash trade with yourself) | No |
 | Fees paid to LPs | Low (recycle as LP) | Weak |
-| Fees burned | 0.1% of fake volume, irrecoverable | Yes |
+| Protocol fees to TRI holders | 0.1% of fake volume, paid to someone else | Yes |
 
-The burn is the unforgeable cost. A token with 1,000 NPT in proven fees burned has 1,000 NPT of economic skin behind its price. Skills that consume price (Lending, Stablecoin, Liquidation) can set minimum fee thresholds: "accept this price only if proven fees > X NPT over > N blocks."
+The protocol fee is the unforgeable cost — it leaves the attacker's hands and goes to TRI holders. A token with 1,000 NPT in proven fees collected has 1,000 NPT of economic skin behind its price. Skills that consume price (Lending, Stablecoin, Liquidation) can set minimum fee thresholds: "accept this price only if proven fees > X NPT over > N blocks."
 
 #### Protocol Fee
 
-Every swap burns 0.1% (10 basis points) of trade value in NPT. This is a global protocol constant — uniform across all pairs, not configurable per token.
+Every swap collects 0.1% (10 basis points) of trade value in NPT, distributed to TRI token holders. This is a global protocol constant — uniform across all pairs, not configurable per token.
 
-- On a 10,000 NPT swap: 10 NPT burned
-- To sustain a fake price for 1 hour (6 blocks at 10-minute intervals): 0.1% × volume × 6 blocks
-- Total trader cost: 0.1% protocol burn + strategy fee (0.1-0.3%) = 0.2-0.4% total
+- On a 10,000 NPT swap: 10 NPT to TRI holders
+- To sustain a fake price for 1 hour (6 blocks at 10-minute intervals): 0.1% × volume × 6 blocks — all paid to someone else
+- Total trader cost: 0.1% protocol fee + strategy fee (0.1-0.3%) = 0.2-0.4% total
 - Competitive with Uniswap (0.3% + gas + MEV) — Neptune traders save on MEV and gas
 
-The burn creates deflationary pressure on NPT. The more the ecosystem is used, the more NPT is burned. Every swap across every token pair strengthens the economic signal for every other token.
+The protocol fee aligns incentives: TRI holders benefit from ecosystem activity, and every swap across every token pair strengthens the economic signal for every other token.
 
 #### Bootstrap
 
@@ -699,11 +700,11 @@ Alice swaps 100 TOKEN_A for TOKEN_B with maker Bob:
 
 No tokens leave user accounts. No approvals. No router.
 
-#### Protocol Burn Fee
+#### Protocol Fee
 
-Every swap burns 0.1% (10 basis points) of trade value in NPT. This is a global protocol constant, not configurable per token or per strategy. The burn serves two purposes: Sybil-resistant price discovery (section 2.4) and deflationary pressure on NPT.
+Every swap collects 0.1% (10 basis points) of trade value in NPT, distributed to TRI token holders. This is a global protocol constant, not configurable per token or per strategy. The fee serves two purposes: Sybil-resistant price discovery (section 2.4) and protocol revenue for TRI holders.
 
-The strategy fee (paid to LPs) is separate and set per-strategy. Total trader cost: 0.1% protocol burn + 0.1-0.3% strategy fee = 0.2-0.4% total.
+The strategy fee (paid to LPs) is separate and set per-strategy. Total trader cost: 0.1% protocol fee + 0.1-0.3% strategy fee = 0.2-0.4% total.
 
 #### Shared Liquidity
 
@@ -1325,8 +1326,8 @@ Update: TSP-2 metadata update (if flags.updatable=1)
 | TIDE | Codename for the Liquidity skill — Tokens In Direct Exchange |
 | COMPASS | Codename for the Oracle Pricing skill |
 | Proven price | Fee-weighted TWAP derived from swap execution, denominated in base currency |
-| Proven fees | Cumulative protocol fees burned in aggregation window — economic signal for price confidence |
-| Protocol burn fee | 0.1% (10 bps) of every swap, burned in NPT, global constant |
+| Proven fees | Cumulative protocol fees collected in aggregation window — economic signal for price confidence |
+| Protocol fee | 0.1% (10 bps) of every swap in NPT, distributed to TRI holders, global constant |
 | Circuit | AIR constraints defining valid state transitions |
 | Config | Hashed commitment binding authorities and hooks |
 | Hook | Reusable ZK program composed with token proof |
