@@ -75,7 +75,7 @@ This is why two standards plus a skill library covers the entire design space:
 - Any DeFi protocol is proof composition between tokens with skills
 - Any new financial primitive is a new skill, not a new standard
 
-The model is also complete because tokens are both subjects and objects. A TSP-1 token can be collateral (object of a Lending skill), a payment medium (object of a Liquidity skill), and a governance instrument (subject that votes). A TSP-2 token can be a credential (object of a KYC Gate), a membership proof (subject that authorizes), and a collectible (object of a marketplace). The same leaf participates in multiple roles simultaneously through proof composition. No additional primitives are needed because the two standards already cover both sides of every interaction.
+The model is also complete because tokens are both subjects and objects. A coin can be an acting company — add Governance, Liquidity, Lending, and Staking skills and the token becomes a fully autonomous economic entity that raises capital, trades, lends, and governs itself. A card can be an identity — a name, a reputation, a legal entity, the root of who you are on-chain. The same leaf participates in multiple roles simultaneously through proof composition. No additional primitives are needed because the two standards already cover both sides of every interaction.
 
 A new standard would require a new conservation law — a third mathematical invariant incompatible with both divisible supply and unique ownership. No such invariant exists in token systems. Two is not a simplification. Two is the number.
 
