@@ -387,7 +387,7 @@ incorrect results.
 
 ---
 
-## Semantic Equivalence
+## 🔍 6. Semantic Equivalence
 
 Two definitions with the same content hash are trivially equivalent. For definitions with different hashes, `trident equiv` checks semantic equivalence through three strategies: content hash comparison, polynomial normalization, and differential testing. See [Formal Verification](formal-verification.md) for the full equivalence pipeline.
 

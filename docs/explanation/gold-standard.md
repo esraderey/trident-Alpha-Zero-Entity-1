@@ -580,9 +580,6 @@ Metadata update: Owner auth, `flags & UPDATABLE`, only `metadata_hash` changes, 
 
 ---
 
-
----
-
 ## 🗺️ 7. Roadmap
 
 ### 0.1 — Foundation (current target)
