@@ -1,7 +1,7 @@
 use std::path::{Path, PathBuf};
 use std::process;
 
-use super::{load_dep_dirs, resolve_options};
+use super::{load_dep_dirs, resolve_input, resolve_options};
 
 pub fn cmd_deploy(
     input: PathBuf,
@@ -11,78 +11,44 @@ pub fn cmd_deploy(
     verify: bool,
     dry_run: bool,
 ) {
-    // 1. Resolve input to project or file
-    let (project, entry, source_path) = if input.is_dir() {
-        // Could be a .deploy/ artifact directory
-        if input.join("manifest.json").exists() && input.join("program.tasm").exists() {
-            // Pre-packaged artifact — deploy directly from manifest
-            let manifest_json = match std::fs::read_to_string(input.join("manifest.json")) {
-                Ok(s) => s,
-                Err(e) => {
-                    eprintln!("error: cannot read manifest.json: {}", e);
-                    process::exit(1);
-                }
-            };
-            let url = registry.unwrap_or_else(trident::registry::RegistryClient::default_url);
-
-            if dry_run {
-                eprintln!("Dry run — would deploy artifact:");
-                eprintln!("  Artifact:  {}", input.display());
-                eprintln!("  Registry:  {}", url);
-                // Extract name from manifest for display
-                for line in manifest_json.lines() {
-                    let trimmed = line.trim();
-                    if trimmed.starts_with("\"name\"") {
-                        eprintln!("  {}", trimmed.trim_end_matches(','));
-                    }
-                    if trimmed.starts_with("\"program_digest\"") {
-                        eprintln!("  {}", trimmed.trim_end_matches(','));
-                    }
-                }
-                return;
-            }
-
-            eprintln!("Deploying artifact {} to {}...", input.display(), url);
-            deploy_to_registry(&input, &url);
-            return;
-        }
-
-        // Project directory with trident.toml
-        let toml_path = input.join("trident.toml");
-        if !toml_path.exists() {
-            eprintln!("error: no trident.toml found in '{}'", input.display());
-            process::exit(1);
-        }
-        let project = match trident::project::Project::load(&toml_path) {
-            Ok(p) => p,
+    // Handle pre-packaged .deploy/ artifact directory
+    if input.is_dir() && input.join("manifest.json").exists() && input.join("program.tasm").exists()
+    {
+        let manifest_json = match std::fs::read_to_string(input.join("manifest.json")) {
+            Ok(s) => s,
             Err(e) => {
-                eprintln!("error: {}", e.message);
+                eprintln!("error: cannot read manifest.json: {}", e);
                 process::exit(1);
             }
         };
-        let entry = project.entry.clone();
-        let source_path = project.entry.clone();
-        (Some(project), entry, source_path)
-    } else if input.extension().is_some_and(|e| e == "tri") {
-        if let Some(toml_path) =
-            trident::project::Project::find(input.parent().unwrap_or(Path::new(".")))
-        {
-            let project = match trident::project::Project::load(&toml_path) {
-                Ok(p) => p,
-                Err(e) => {
-                    eprintln!("error: {}", e.message);
-                    process::exit(1);
+        let url = registry.unwrap_or_else(trident::registry::RegistryClient::default_url);
+
+        if dry_run {
+            eprintln!("Dry run — would deploy artifact:");
+            eprintln!("  Artifact:  {}", input.display());
+            eprintln!("  Registry:  {}", url);
+            for line in manifest_json.lines() {
+                let trimmed = line.trim();
+                if trimmed.starts_with("\"name\"") {
+                    eprintln!("  {}", trimmed.trim_end_matches(','));
                 }
-            };
-            let entry = project.entry.clone();
-            (Some(project), entry, input.clone())
-        } else {
-            (None, input.clone(), input.clone())
+                if trimmed.starts_with("\"program_digest\"") {
+                    eprintln!("  {}", trimmed.trim_end_matches(','));
+                }
+            }
+            return;
         }
-    } else {
-        eprintln!("error: input must be a .tri file, project directory, or .deploy/ artifact");
-        process::exit(1);
-    };
+
+        eprintln!("Deploying artifact {} to {}...", input.display(), url);
+        deploy_to_registry(&input, &url);
+        return;
+    }
+
+    // 1. Resolve input to project or file
+    let ri = resolve_input(&input);
+    let project = ri.project;
+    let entry = ri.entry;
+    let source_path = entry.clone();
 
     // 2. Resolve target (OS-aware)
     let resolved = match trident::target::ResolvedTarget::resolve(target) {
@@ -255,11 +221,7 @@ fn deploy_to_registry(artifact_dir: &Path, url: &str) {
         }
     };
 
-    // Parse the TASM as a pseudo-source to get function definitions for UCM.
-    // Since we already have manifest.json, we use the original source if available.
-    // Fall back to publishing just the compiled artifact.
     let source_path = artifact_dir.parent().and_then(|parent| {
-        // Look for a .tri file next to the .deploy/ directory
         let stem = artifact_dir
             .file_stem()
             .and_then(|s| s.to_str())
@@ -325,10 +287,8 @@ fn deploy_to_registry(artifact_dir: &Path, url: &str) {
 
 /// Publish just the compiled TASM when source is unavailable.
 fn publish_artifact_only(client: &trident::registry::RegistryClient, tasm: &str) {
-    // Create a minimal codebase entry for the compiled artifact
     let hash = trident::hash::ContentHash(trident::poseidon2::hash_bytes(tasm.as_bytes()));
     eprintln!("Publishing artifact (digest: {})...", hash.to_hex());
-    // Use the registry's raw definition publish endpoint
     let cb = match trident::ucm::Codebase::open() {
         Ok(cb) => cb,
         Err(e) => {

@@ -1,7 +1,7 @@
 use std::path::{Path, PathBuf};
 use std::process;
 
-use super::{load_dep_dirs, resolve_options};
+use super::{load_dep_dirs, resolve_input, resolve_options};
 
 pub fn cmd_package(
     input: PathBuf,
@@ -12,42 +12,10 @@ pub fn cmd_package(
     dry_run: bool,
 ) {
     // 1. Resolve input to project or file
-    let (project, entry, source_path) = if input.is_dir() {
-        let toml_path = input.join("trident.toml");
-        if !toml_path.exists() {
-            eprintln!("error: no trident.toml found in '{}'", input.display());
-            process::exit(1);
-        }
-        let project = match trident::project::Project::load(&toml_path) {
-            Ok(p) => p,
-            Err(e) => {
-                eprintln!("error: {}", e.message);
-                process::exit(1);
-            }
-        };
-        let entry = project.entry.clone();
-        let source_path = project.entry.clone();
-        (Some(project), entry, source_path)
-    } else if input.extension().is_some_and(|e| e == "tri") {
-        if let Some(toml_path) =
-            trident::project::Project::find(input.parent().unwrap_or(Path::new(".")))
-        {
-            let project = match trident::project::Project::load(&toml_path) {
-                Ok(p) => p,
-                Err(e) => {
-                    eprintln!("error: {}", e.message);
-                    process::exit(1);
-                }
-            };
-            let entry = project.entry.clone();
-            (Some(project), entry, input.clone())
-        } else {
-            (None, input.clone(), input.clone())
-        }
-    } else {
-        eprintln!("error: input must be a .tri file or project directory");
-        process::exit(1);
-    };
+    let ri = resolve_input(&input);
+    let project = ri.project;
+    let entry = ri.entry;
+    let source_path = entry.clone();
 
     // 2. Resolve target (OS-aware)
     let resolved = match trident::target::ResolvedTarget::resolve(target) {

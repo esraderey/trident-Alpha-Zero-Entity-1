@@ -19,7 +19,6 @@ use std::path::{Path, PathBuf};
 use std::process;
 
 /// Resolved input: entry file and optional project.
-#[allow(dead_code)]
 pub struct ResolvedInput {
     pub entry: PathBuf,
     pub project: Option<trident::project::Project>,
@@ -28,7 +27,6 @@ pub struct ResolvedInput {
 /// Resolve an input path (file or project directory) to an entry file and optional project.
 ///
 /// This is the common "is-it-a-dir? find-toml? load-project?" boilerplate.
-#[allow(dead_code)]
 pub fn resolve_input(input: &Path) -> ResolvedInput {
     if input.is_dir() {
         let toml_path = input.join("trident.toml");

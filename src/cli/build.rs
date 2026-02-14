@@ -1,7 +1,7 @@
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::process;
 
-use super::{find_program_source, load_dep_dirs, resolve_options};
+use super::{find_program_source, load_dep_dirs, resolve_input, resolve_options};
 
 #[allow(clippy::too_many_arguments)]
 pub fn cmd_build(
@@ -16,58 +16,22 @@ pub fn cmd_build(
     target: &str,
     profile: &str,
 ) {
-    let (tasm, default_output) = if input.is_dir() {
-        let toml_path = input.join("trident.toml");
-        if !toml_path.exists() {
-            eprintln!("error: no trident.toml found in '{}'", input.display());
-            process::exit(1);
-        }
-        let project = match trident::project::Project::load(&toml_path) {
-            Ok(p) => p,
-            Err(e) => {
-                eprintln!("error: {}", e.message);
-                process::exit(1);
-            }
-        };
-        let mut options = resolve_options(target, profile, Some(&project));
-        options.dep_dirs = load_dep_dirs(&project);
-        let tasm = match trident::compile_project_with_options(&project.entry, &options) {
-            Ok(t) => t,
-            Err(_) => process::exit(1),
-        };
-        let out = input.join(format!("{}.tasm", project.name));
-        (tasm, out)
-    } else if input.extension().is_some_and(|e| e == "tri") {
-        if let Some(toml_path) =
-            trident::project::Project::find(input.parent().unwrap_or(Path::new(".")))
-        {
-            let project = match trident::project::Project::load(&toml_path) {
-                Ok(p) => p,
-                Err(e) => {
-                    eprintln!("error: {}", e.message);
-                    process::exit(1);
-                }
-            };
-            let mut options = resolve_options(target, profile, Some(&project));
-            options.dep_dirs = load_dep_dirs(&project);
-            let tasm = match trident::compile_project_with_options(&project.entry, &options) {
-                Ok(t) => t,
-                Err(_) => process::exit(1),
-            };
-            let out = project.root_dir.join(format!("{}.tasm", project.name));
-            (tasm, out)
-        } else {
-            let options = resolve_options(target, profile, None);
-            let tasm = match trident::compile_project_with_options(&input, &options) {
-                Ok(t) => t,
-                Err(_) => process::exit(1),
-            };
-            let out = input.with_extension("tasm");
-            (tasm, out)
-        }
+    let ri = resolve_input(&input);
+
+    let mut options = resolve_options(target, profile, ri.project.as_ref());
+    if let Some(ref proj) = ri.project {
+        options.dep_dirs = load_dep_dirs(proj);
+    }
+
+    let tasm = match trident::compile_project_with_options(&ri.entry, &options) {
+        Ok(t) => t,
+        Err(_) => process::exit(1),
+    };
+
+    let default_output = if let Some(ref proj) = ri.project {
+        proj.root_dir.join(format!("{}.tasm", proj.name))
     } else {
-        eprintln!("error: input must be a .tri file or project directory");
-        process::exit(1);
+        input.with_extension("tasm")
     };
 
     let out_path = output.unwrap_or(default_output);
@@ -96,8 +60,8 @@ pub fn cmd_build(
     // Cost analysis, hotspots, and optimization hints
     if costs || hotspots || hints || save_costs.is_some() || compare.is_some() {
         if let Some(source_path) = find_program_source(&input) {
-            let options = resolve_options(target, profile, None);
-            if let Ok(program_cost) = trident::analyze_costs_project(&source_path, &options) {
+            let cost_options = resolve_options(target, profile, None);
+            if let Ok(program_cost) = trident::analyze_costs_project(&source_path, &cost_options) {
                 if costs || hotspots {
                     eprintln!("\n{}", program_cost.format_report());
                     if hotspots {
