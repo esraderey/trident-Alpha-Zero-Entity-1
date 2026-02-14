@@ -5,7 +5,7 @@ use std::path::PathBuf;
 
 use cli::deps::DepsAction;
 use cli::registry::RegistryAction;
-use cli::ucm::UcmAction;
+use cli::store::StoreAction;
 
 #[derive(Parser)]
 #[command(
@@ -157,10 +157,10 @@ enum Command {
         #[arg(long)]
         full: bool,
     },
-    /// Universal Codebase Manager — hash-keyed definitions store
-    Ucm {
+    /// Hash-keyed definitions store
+    Store {
         #[command(subcommand)]
-        action: UcmAction,
+        action: StoreAction,
     },
     /// Global registry — publish, pull, search definitions
     Registry {
@@ -277,7 +277,7 @@ fn main() {
         Command::Bench { dir } => cli::bench::cmd_bench(dir),
         Command::Generate { input, output } => cli::generate::cmd_generate(input, output),
         Command::View { name, input, full } => cli::view::cmd_view(name, input, full),
-        Command::Ucm { action } => cli::ucm::cmd_ucm(action),
+        Command::Store { action } => cli::store::cmd_store(action),
         Command::Registry { action } => cli::registry::cmd_registry(action),
         Command::Equiv {
             input,

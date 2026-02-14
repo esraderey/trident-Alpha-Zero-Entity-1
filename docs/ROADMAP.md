@@ -21,7 +21,7 @@ are the remaining roadmap.
 
 ## Milestone 3: Content-Addressed Codebase
 
-- [x] Complete — AST normalization, content hashing, UCM (add/list/view/rename/stats/history/deps), compilation caching, global registry (HTTP API, publish/pull, search, certificate sharing), semantic equivalence checking
+- [x] Complete — AST normalization, content hashing, store (add/list/view/rename/stats/history/deps), compilation caching, global registry (HTTP API, publish/pull, search, certificate sharing), semantic equivalence checking
 - [ ] On-chain Merkle registry (target: 0.2) — content-addressed definitions anchored on-chain with provable registration and verification
 
 ## Milestone 4: Multi-Target Backends
@@ -44,7 +44,7 @@ backend is fully implemented; others are stubs.
 - [ ] Browser extension integration library
 - [ ] ZK coprocessor programs (Axiom, Brevis, Herodotus integration)
 - [ ] Editor extension download page + marketplace listings
-- [ ] Reimplement UCM registry using gold standards with name auction
+- [ ] Reimplement store registry using gold standards with name auction
 
 ## Language Evolution
 

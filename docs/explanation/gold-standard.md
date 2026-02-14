@@ -594,7 +594,7 @@ Deploy basic tokens and interact with them.
 
 ### 0.2 — On-Chain Registry + Skills
 
-1. On-chain Merkle registry for content-addressed code (UCM definitions
+1. On-chain Merkle registry for content-addressed code (store definitions
    anchored on-chain, provable registration and verification)
 2. First skills — Supply Cap, Delegation, Compliance
 3. Skill composition end-to-end

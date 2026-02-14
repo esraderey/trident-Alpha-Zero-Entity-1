@@ -10,8 +10,8 @@ pub mod hash;
 pub mod init;
 pub mod package;
 pub mod registry;
+pub mod store;
 pub mod test;
-pub mod ucm;
 pub mod verify;
 pub mod view;
 
@@ -289,9 +289,9 @@ pub fn load_and_parse(path: &Path) -> (String, trident::ast::File) {
     }
 }
 
-/// Open the UCM codebase, exiting on error.
-pub fn open_codebase() -> trident::ucm::Codebase {
-    match trident::ucm::Codebase::open() {
+/// Open the codebase store, exiting on error.
+pub fn open_codebase() -> trident::store::Codebase {
+    match trident::store::Codebase::open() {
         Ok(cb) => cb,
         Err(e) => {
             eprintln!("error: cannot open codebase: {}", e);

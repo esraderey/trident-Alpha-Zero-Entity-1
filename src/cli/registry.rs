@@ -7,7 +7,7 @@ use super::{collect_tri_files, open_codebase, registry_client, registry_url};
 
 #[derive(Subcommand)]
 pub enum RegistryAction {
-    /// Publish local UCM definitions to a registry
+    /// Publish local store definitions to a registry
     Publish {
         /// Registry URL (default: $TRIDENT_REGISTRY_URL or http://127.0.0.1:8090)
         #[arg(long)]
@@ -15,11 +15,11 @@ pub enum RegistryAction {
         /// Tags to attach to published definitions
         #[arg(long)]
         tag: Vec<String>,
-        /// Input .tri file or directory (adds to UCM first, then publishes)
+        /// Input .tri file or directory (adds to store first, then publishes)
         #[arg(short, long)]
         input: Option<PathBuf>,
     },
-    /// Pull a definition from a registry into local UCM
+    /// Pull a definition from a registry into local store
     Pull {
         /// Name or content hash to pull
         name: String,

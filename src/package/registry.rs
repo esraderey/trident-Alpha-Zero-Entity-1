@@ -7,7 +7,7 @@ use std::io::{BufRead, BufReader, Write};
 use std::net::TcpStream;
 
 use crate::hash::ContentHash;
-use crate::ucm::{Codebase, Definition};
+use crate::store::{Codebase, Definition};
 
 // ─── Published Definition (wire format) ───────────────────────────
 
@@ -363,9 +363,9 @@ fn read_response(stream: &TcpStream) -> Result<ClientResponse, String> {
     Ok(ClientResponse { status, body })
 }
 
-// ─── Publish from Local UCM ───────────────────────────────────────
+// ─── Publish from Local Store ──────────────────────────────────────
 
-/// Publish all definitions from the local UCM codebase to a registry.
+/// Publish all definitions from the local store to a registry.
 pub fn publish_codebase(
     codebase: &Codebase,
     client: &RegistryClient,
@@ -407,7 +407,7 @@ pub fn publish_codebase(
     Ok(results)
 }
 
-/// Pull a definition from a registry into the local UCM codebase.
+/// Pull a definition from a registry into the local store.
 pub fn pull_into_codebase(
     codebase: &mut Codebase,
     client: &RegistryClient,

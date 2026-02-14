@@ -147,7 +147,7 @@ fn deploy_to_registry(artifact_dir: &Path, client: &trident::registry::RegistryC
 
 fn publish_and_report(
     client: &trident::registry::RegistryClient,
-    cb: &trident::ucm::Codebase,
+    cb: &trident::store::Codebase,
     _tasm: &str,
 ) {
     match trident::registry::publish_codebase(cb, client, &[]) {

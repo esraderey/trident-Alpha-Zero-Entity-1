@@ -149,9 +149,9 @@ Since hashing operates on the normalized AST, the hash is invariant to variable 
 
 ---
 
-## 📦 3. Using the Codebase Manager (UCM)
+## 📦 3. Using the Definitions Store
 
-The Universal Codebase Manager (`trident ucm`) is a hash-keyed definitions store
+The definitions store (`trident store`) is a hash-keyed storage
 inspired by Unison's codebase model. Every function is stored by its content hash,
 with names as mutable pointers into the hash-keyed store.
 
@@ -174,7 +174,7 @@ The codebase is stored at `~/.trident/codebase/` by default. Override with the
 Parse a `.tri` file and store all its function definitions in the codebase:
 
 ```bash
-trident ucm add myfile.tri
+trident store add myfile.tri
 ```
 
 Output:
@@ -193,7 +193,7 @@ and the name pointer is updated.
 ### 3.3 Listing Definitions
 
 ```bash
-trident ucm list
+trident store list
 ```
 
 Shows all named definitions, sorted alphabetically:
@@ -209,8 +209,8 @@ Shows all named definitions, sorted alphabetically:
 View a definition by name or by hash prefix:
 
 ```bash
-trident ucm view verify_merkle
-trident ucm view #a7f3b2
+trident store view verify_merkle
+trident store view #a7f3b2
 ```
 
 Output includes the function source, its hash, spec annotations, and dependency list:
@@ -232,7 +232,7 @@ Renaming is instant and non-breaking because it only updates the name pointer.
 The hash (and therefore all cached compilation and verification results) is unchanged:
 
 ```bash
-trident ucm rename old_name new_name
+trident store rename old_name new_name
 ```
 
 ### 3.6 Viewing Dependencies
@@ -240,7 +240,7 @@ trident ucm rename old_name new_name
 Show what a definition depends on and what depends on it:
 
 ```bash
-trident ucm deps transfer_token
+trident store deps transfer_token
 ```
 
 Output:
@@ -259,7 +259,7 @@ Dependents:
 Show all hashes a name has pointed to over time:
 
 ```bash
-trident ucm history verify_merkle
+trident store history verify_merkle
 ```
 
 This is useful for tracking how a function has evolved. Old definitions remain in the
@@ -268,7 +268,7 @@ codebase (append-only semantics) -- they are never deleted.
 ### 3.8 Codebase Statistics
 
 ```bash
-trident ucm stats
+trident store stats
 ```
 
 Shows the number of unique definitions, name bindings, and total source bytes.
@@ -395,7 +395,7 @@ Two definitions with the same content hash are trivially equivalent. For definit
 
 ## 🔮 7. Future: On-Chain Registry (0.2)
 
-The 0.1 release provides local-first UCM and an HTTP registry. Version 0.2
+The 0.1 release provides local-first store and an HTTP registry. Version 0.2
 will add an on-chain Merkle registry — content-addressed definitions
 anchored on-chain with provable registration and verification. This will
 enable trustless, blockchain-backed code discovery and certification.

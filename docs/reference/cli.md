@@ -68,11 +68,11 @@ trident equiv <file> <fn_a> <fn_b>      # Check two functions are equivalent
 # Benchmarks
 trident bench <dir>                     # Compare .tri vs .baseline.tasm
 
-# UCM (Universal Codebase Manager)
-trident ucm add <file>                  # Add definitions to codebase
-trident ucm list                        # List all definitions
-trident ucm lookup <hash>               # Find definition by hash
-trident ucm diff <file>                 # Show changed definitions
+# Store (definitions store)
+trident store add <file>                # Add definitions to codebase
+trident store list                      # List all definitions
+trident store lookup <hash>             # Find definition by hash
+trident store diff <file>               # Show changed definitions
 
 # Registry
 trident registry serve                  # Start local registry server

@@ -1,4 +1,4 @@
-//! Universal Codebase Manager (UCM) — hash-keyed definitions store.
+//! Definitions store — hash-keyed definitions storage.
 //!
 //! Inspired by Unison: every function definition is stored by its content hash.
 //! Names are metadata pointing to hashes. This allows instant rename, perfect
@@ -22,7 +22,7 @@ use crate::hash::{self, ContentHash};
 
 // ─── Data Structures ───────────────────────────────────────────────
 
-/// The UCM codebase database.
+/// The codebase database.
 ///
 /// Stores function definitions by content hash, with name mappings.
 /// Persisted to disk at `~/.trident/codebase/` (or `$TRIDENT_CODEBASE_DIR`).

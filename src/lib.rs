@@ -27,7 +27,7 @@ pub use package::hash;
 pub use package::manifest;
 pub use package::poseidon2;
 pub use package::registry;
-pub use package::ucm;
+pub use package::store;
 pub use tools::lsp;
 pub use tools::package as artifact;
 pub use tools::project;

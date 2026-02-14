@@ -313,7 +313,7 @@ trident deploy main.deploy/ --registry http://prod:8090
 Every Trident function is identified by its content hash. This means
 deployments are reproducible: the same source always compiles to the same
 artifact with the same hash. The `trident hash` command computes a program's
-content hash, and the `trident ucm` codebase manager tracks definitions by
+content hash, and the `trident store` codebase manager tracks definitions by
 hash. See [Content-Addressed Code](../explanation/content-addressing.md) for details.
 
 ### Token Standards

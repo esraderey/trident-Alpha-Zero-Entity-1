@@ -6,7 +6,7 @@ use clap::Subcommand;
 use super::{collect_tri_files, open_codebase};
 
 #[derive(Subcommand)]
-pub enum UcmAction {
+pub enum StoreAction {
     /// Add a file to the codebase
     Add {
         /// Input .tri file or directory
@@ -40,19 +40,19 @@ pub enum UcmAction {
     },
 }
 
-pub fn cmd_ucm(action: UcmAction) {
+pub fn cmd_store(action: StoreAction) {
     match action {
-        UcmAction::Add { input } => cmd_ucm_add(input),
-        UcmAction::List => cmd_ucm_list(),
-        UcmAction::View { name } => cmd_ucm_view(name),
-        UcmAction::Rename { from, to } => cmd_ucm_rename(from, to),
-        UcmAction::Stats => cmd_ucm_stats(),
-        UcmAction::History { name } => cmd_ucm_history(name),
-        UcmAction::Deps { name } => cmd_ucm_deps(name),
+        StoreAction::Add { input } => cmd_store_add(input),
+        StoreAction::List => cmd_store_list(),
+        StoreAction::View { name } => cmd_store_view(name),
+        StoreAction::Rename { from, to } => cmd_store_rename(from, to),
+        StoreAction::Stats => cmd_store_stats(),
+        StoreAction::History { name } => cmd_store_history(name),
+        StoreAction::Deps { name } => cmd_store_deps(name),
     }
 }
 
-fn cmd_ucm_add(input: PathBuf) {
+fn cmd_store_add(input: PathBuf) {
     let mut cb = open_codebase();
 
     let files = if input.is_dir() {
@@ -118,11 +118,11 @@ fn cmd_ucm_add(input: PathBuf) {
     );
 }
 
-fn cmd_ucm_list() {
+fn cmd_store_list() {
     let cb = open_codebase();
     let names = cb.list_names();
     if names.is_empty() {
-        eprintln!("Codebase is empty. Use `trident ucm add <file>` to add definitions.");
+        eprintln!("Codebase is empty. Use `trident store add <file>` to add definitions.");
         return;
     }
     for (name, hash) in &names {
@@ -131,7 +131,7 @@ fn cmd_ucm_list() {
     eprintln!("\n{} definitions", names.len());
 }
 
-fn cmd_ucm_view(name: String) {
+fn cmd_store_view(name: String) {
     let cb = open_codebase();
     if let Some(view) = cb.view(&name) {
         print!("{}", view);
@@ -146,7 +146,7 @@ fn cmd_ucm_view(name: String) {
     }
 }
 
-fn cmd_ucm_rename(from: String, to: String) {
+fn cmd_store_rename(from: String, to: String) {
     let mut cb = open_codebase();
     if let Err(e) = cb.rename(&from, &to) {
         eprintln!("error: {}", e);
@@ -159,7 +159,7 @@ fn cmd_ucm_rename(from: String, to: String) {
     eprintln!("Renamed '{}' -> '{}'", from, to);
 }
 
-fn cmd_ucm_stats() {
+fn cmd_store_stats() {
     let cb = open_codebase();
     let stats = cb.stats();
     eprintln!("Codebase statistics:");
@@ -168,7 +168,7 @@ fn cmd_ucm_stats() {
     eprintln!("  Source size:  {} bytes", stats.total_source_bytes);
 }
 
-fn cmd_ucm_history(name: String) {
+fn cmd_store_history(name: String) {
     let cb = open_codebase();
     let history = cb.name_history(&name);
     if history.is_empty() {
@@ -181,7 +181,7 @@ fn cmd_ucm_history(name: String) {
     }
 }
 
-fn cmd_ucm_deps(name: String) {
+fn cmd_store_deps(name: String) {
     let cb = open_codebase();
 
     let hash = if let Some(_def) = cb.lookup(&name) {

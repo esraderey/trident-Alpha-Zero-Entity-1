@@ -856,7 +856,7 @@ These constraints make every Trident program a fixed, bounded computation -- exa
 - [Formal Verification](../explanation/formal-verification.md) -- `#[requires]`, `#[ensures]`, `#[invariant]`, and `#[pure]`
 - [For Offchain Devs](../explanation/for-offchain-devs.md) -- Zero-knowledge concepts explained for conventional programmers
 - [For Onchain Devs](../explanation/for-onchain-devs.md) -- Mental model migration from Solidity/Anchor/CosmWasm
-- [Content-Addressed Code](../explanation/content-addressing.md) -- Content-addressed code and the UCM model
+- [Content-Addressed Code](../explanation/content-addressing.md) -- Content-addressed code and the store model
 - [Vision](../explanation/vision.md) -- Why Trident exists and what you can build
 - [Comparative Analysis](../explanation/provable-computing.md) -- Triton VM vs. every other ZK system
 - [Triton VM specification](https://triton-vm.org/spec/) -- Target VM instruction set
