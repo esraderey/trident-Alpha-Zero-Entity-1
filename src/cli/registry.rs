@@ -3,7 +3,9 @@ use std::process;
 
 use clap::Subcommand;
 
-use super::{open_codebase, registry_client, registry_url, resolve_tri_files, try_load_and_parse};
+use super::{
+    open_codebase, registry_client, registry_url, resolve_tri_files, short_hash, try_load_and_parse,
+};
 
 #[derive(Subcommand)]
 pub enum RegistryAction {
@@ -40,9 +42,6 @@ pub enum RegistryAction {
         /// Search by tag
         #[arg(long)]
         tag: bool,
-        /// Only show verified definitions
-        #[arg(long)]
-        verified: bool,
     },
 }
 
@@ -59,7 +58,6 @@ pub fn cmd_registry(action: RegistryAction) {
             registry,
             r#type,
             tag,
-            verified: _,
         } => cmd_registry_search(query, registry, r#type, tag),
     }
 }
@@ -106,7 +104,7 @@ fn cmd_registry_pull(name: String, registry: Option<String>) {
     eprintln!("Pulling '{}' from {}...", name, url);
     match trident::registry::pull_into_codebase(&mut cb, &client, &name) {
         Ok(result) => {
-            eprintln!("Pulled: {} ({})", name, &result.hash[..16]);
+            eprintln!("Pulled: {} ({})", name, short_hash(&result.hash));
             eprintln!("  Module: {}", result.module);
             if !result.params.is_empty() {
                 let params: Vec<String> = result
@@ -157,7 +155,7 @@ fn cmd_registry_search(query: String, registry: Option<String>, by_type: bool, b
                 };
                 println!(
                     "  {}  {}  {}{}{}",
-                    &r.hash[..16],
+                    short_hash(&r.hash),
                     r.name,
                     r.signature,
                     verified,

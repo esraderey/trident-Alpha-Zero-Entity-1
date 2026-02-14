@@ -3,7 +3,7 @@ use std::process;
 
 use clap::Args;
 
-use super::{find_program_source, resolve_input};
+use super::{find_program_source, resolve_input, resolve_options};
 
 #[derive(Args)]
 pub struct CheckArgs {
@@ -21,21 +21,22 @@ pub struct CheckArgs {
 }
 
 pub fn cmd_check(args: CheckArgs) {
-    let CheckArgs { input, costs, .. } = args;
+    let CheckArgs {
+        input,
+        costs,
+        target,
+        profile,
+    } = args;
     let ri = resolve_input(&input);
 
     match trident::check_project(&ri.entry) {
-        Ok(()) => {
-            eprintln!("OK: {}", input.display());
-        }
-        Err(_) => {
-            process::exit(1);
-        }
+        Ok(()) => eprintln!("OK: {}", input.display()),
+        Err(_) => process::exit(1),
     }
 
     if costs {
         if let Some(source_path) = find_program_source(&input) {
-            let options = trident::CompileOptions::default();
+            let options = resolve_options(&target, &profile, ri.project.as_ref());
             if let Ok(program_cost) = trident::analyze_costs_project(&source_path, &options) {
                 eprintln!("\n{}", program_cost.format_report());
             }

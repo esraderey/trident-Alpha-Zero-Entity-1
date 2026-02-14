@@ -109,17 +109,9 @@ pub fn cmd_deploy(args: DeployArgs) {
     deploy_to_registry(&result.artifact_dir, &client);
 }
 
-/// Deploy a packaged artifact directory to a registry server.
+/// Deploy a validated artifact directory (must contain manifest.json + program.tasm).
 fn deploy_to_registry(artifact_dir: &Path, client: &trident::registry::RegistryClient) {
     eprintln!("Deploying...");
-
-    if !artifact_dir.join("manifest.json").exists() || !artifact_dir.join("program.tasm").exists() {
-        eprintln!(
-            "error: artifact '{}' missing manifest.json or program.tasm",
-            artifact_dir.display()
-        );
-        process::exit(1);
-    }
 
     // Try to find and add source to codebase
     let source_path = artifact_dir.parent().and_then(|parent| {

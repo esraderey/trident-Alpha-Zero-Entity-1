@@ -310,6 +310,11 @@ pub fn find_program_source(input: &Path) -> Option<PathBuf> {
     None
 }
 
+/// Truncate a hash string to a short prefix for display.
+pub fn short_hash(hash: &str) -> &str {
+    &hash[..hash.len().min(16)]
+}
+
 /// Resolve an input path to a list of .tri files (file or directory), exiting on error.
 pub fn resolve_tri_files(input: &Path) -> Vec<PathBuf> {
     if input.is_dir() {

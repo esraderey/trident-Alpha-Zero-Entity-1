@@ -38,7 +38,10 @@ pub fn cmd_bench(args: BenchArgs) {
     let mut results: Vec<trident::BenchmarkResult> = Vec::new();
 
     for tri_path in &tri_files {
-        let stem = tri_path.file_stem().unwrap().to_string_lossy().to_string();
+        let stem = tri_path
+            .file_stem()
+            .map(|s| s.to_string_lossy().to_string())
+            .unwrap_or_default();
         let baseline_path = dir.join(format!("{}.baseline.tasm", stem));
 
         // Compile the Trident program

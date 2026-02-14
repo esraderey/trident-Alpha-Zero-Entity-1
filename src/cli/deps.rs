@@ -3,6 +3,8 @@ use std::process;
 
 use clap::Subcommand;
 
+use super::short_hash;
+
 #[derive(Subcommand)]
 pub enum DepsAction {
     /// Show declared dependencies and lock status
@@ -49,7 +51,7 @@ pub fn cmd_deps(action: DepsAction) {
                 let dep = &deps[name];
                 match dep {
                     trident::manifest::Dependency::Hash { hash } => {
-                        println!("  {} = {} (hash)", name, &hash[..16]);
+                        println!("  {} = {} (hash)", name, short_hash(hash));
                     }
                     trident::manifest::Dependency::Registry {
                         name: reg_name,
@@ -125,9 +127,9 @@ pub fn cmd_deps(action: DepsAction) {
             for (name, locked) in &lockfile.locked {
                 let cached = trident::manifest::dep_source_path(&project.root_dir, &locked.hash);
                 if cached.exists() {
-                    println!("  OK  {} ({})", name, &locked.hash[..16]);
+                    println!("  OK  {} ({})", name, short_hash(&locked.hash));
                 } else {
-                    println!("  MISSING  {} ({})", name, &locked.hash[..16]);
+                    println!("  MISSING  {} ({})", name, short_hash(&locked.hash));
                     ok = false;
                 }
             }

@@ -70,12 +70,10 @@ pub fn cmd_verify(args: VerifyArgs) {
     }
 
     if synthesize {
-        if let Some(ref file) = parsed_file {
-            let specs = trident::synthesize::synthesize_specs(file);
-            eprintln!("\n{}", trident::synthesize::format_report(&specs));
-        } else {
-            eprintln!("warning: could not parse file for synthesis");
-        }
+        // parsed_file is always Some here because synthesize is included in need_parse
+        let file = parsed_file.as_ref().unwrap();
+        let specs = trident::synthesize::synthesize_specs(file);
+        eprintln!("\n{}", trident::synthesize::format_report(&specs));
     }
 
     match trident::verify_project(&entry) {
