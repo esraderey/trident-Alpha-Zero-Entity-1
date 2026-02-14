@@ -1,12 +1,12 @@
 # Source Architecture
 
-The compiler is organized as a pipeline. Source text enters at the frontend, flows through type checking and optional analysis passes, and exits as Triton VM assembly (TASM).
+The compiler is organized as a pipeline. Source text enters at the syntax layer, flows through type checking and optional analysis passes, and exits as Triton VM assembly (TASM).
 
 ```
 source.tri
     |
     v
- frontend/     lexer -> parser -> AST
+ syntax/       lexer -> parser -> AST
     |
     v
  typecheck/    type checking, borrow checking, generics
@@ -31,8 +31,7 @@ Parallel to the main pipeline, several modules provide analysis, tooling, and pa
 
 | Module | LOC | What it does |
 |--------|----:|--------------|
-| [`common/`](common/) | 314 | Shared infrastructure: [source spans](common/span.rs), [diagnostics](common/diagnostic.rs), [type definitions](common/types.rs) |
-| [`frontend/`](frontend/) | 4,392 | [Lexer](frontend/lexer.rs), [parser](frontend/parser.rs), [token definitions](frontend/lexeme.rs), [pretty-printer/formatter](frontend/format.rs) |
+| [`syntax/`](syntax/) | 4,392 | [Lexer](syntax/lexer.rs), [parser](syntax/parser/), [token definitions](syntax/lexeme.rs), [formatter](syntax/format/) |
 | [`typecheck/`](typecheck/) | 3,007 | [Type checker](typecheck/mod.rs) with borrow analysis, generics, and [builtin registration](typecheck/builtins.rs) |
 | [`tir/`](tir/) | 3,678 | Trident IR: [opcode definitions](tir/mod.rs), [AST→TIR builder](tir/builder/), [Triton lowering](tir/lower/triton.rs), [stack manager](tir/stack.rs) |
 | [`cost/`](cost/) | 2,335 | Static cost [analyzer](cost/analyzer.rs), per-function breakdown, [optimization hints and reports](cost/report.rs), target [cost models](cost/model/) |
@@ -53,7 +52,7 @@ Parallel to the main pipeline, several modules provide analysis, tooling, and pa
 
 ## Compilation Pipeline
 
-Frontend ([`frontend/`](frontend/)). The [lexer](frontend/lexer.rs) tokenizes source into the token types defined in [`lexeme.rs`](frontend/lexeme.rs). The [parser](frontend/parser.rs) produces a typed AST ([`ast.rs`](ast.rs)). The [formatter](frontend/format.rs) can pretty-print any AST back to canonical source.
+Syntax ([`syntax/`](syntax/)). The [lexer](syntax/lexer.rs) tokenizes source into the token types defined in [`lexeme.rs`](syntax/lexeme.rs). The [parser](syntax/parser/) produces a typed AST ([`ast.rs`](ast.rs)). The [formatter](syntax/format/) can pretty-print any AST back to canonical source.
 
 Type Checking ([`typecheck/`](typecheck/)). The [type checker](typecheck/mod.rs) validates types, resolves generics via monomorphization, performs borrow/move analysis, and registers builtin function signatures ([`builtins.rs`](typecheck/builtins.rs)). Diagnostics are emitted for type mismatches, undefined variables, unused bindings, and borrow violations.
 
