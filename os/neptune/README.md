@@ -9,6 +9,36 @@ kernels, and recursive proof composition.
 
 ---
 
+## Directory Structure
+
+```
+os/neptune/
+  kernel.tri, utxo.tri, xfield.tri,    OS bindings (use os.neptune.*)
+  recursive.tri, proof.tri
+
+  standards/                            Token standards
+    coin.tri                            TSP-1 — PLUMB fungible token
+    card.tri                            TSP-2 — PLUMB unique asset
+
+  locks/                                Lock scripts (spending authorization)
+    generation.tri                      Hash-preimage (simplest)
+    symmetric.tri                       5-field preimage (320-bit entropy)
+    multisig.tri                        2-of-3 threshold
+    timelock.tri                        Time-locked UTXO
+
+  types/                                Type scripts (conservation laws)
+    native_currency.tri                 NPT supply conservation
+    custom_token.tri                    TSP-1 token conservation
+
+  programs/                             Standalone programs
+    proof_relay.tri                     Verify and forward a single proof
+    proof_aggregator.tri                Batch N proofs into 1
+    recursive_verifier.tri              Full recursive STARK verifier
+    transaction_validation.tri          Neptune transaction orchestrator
+```
+
+---
+
 ## Runtime Parameters
 
 | Parameter | Value |
@@ -326,8 +356,7 @@ verification, UTXO structure access, or other Neptune-specific features. See
 
 Neptune is the reference implementation of the Trident OS model. It is the
 only OS with fully implemented `os.neptune.*` bindings (5 modules, ~400 lines of
-Trident code in `ext/neptune/`). All other OS bindings are designed but not
-yet implemented.
+Trident code). All other OS bindings are designed but not yet implemented.
 
 For VM details, see [triton.md](../../vm/triton/README.md).
 For the divine-and-authenticate pattern in depth, see

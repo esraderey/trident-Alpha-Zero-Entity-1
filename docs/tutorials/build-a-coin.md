@@ -445,7 +445,7 @@ production implementation adds:
   config, enforced by hash preimage infeasibility
 
 For the complete implementation with all 5 operations, config authorities,
-hooks, and dual auth, see `os/neptune/coin.tri` (535 lines) and its
+hooks, and dual auth, see `os/neptune/standards/coin.tri` (535 lines) and its
 specification at `docs/reference/tsp1-coin.md`.
 
 ---

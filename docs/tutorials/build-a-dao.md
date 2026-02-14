@@ -253,4 +253,4 @@ You have built a complete private web3 application. To go further:
   standards and capability library
 - [OS Reference](../reference/os.md) -- portable runtime APIs across 25
   operating systems
-- `os/neptune/` -- production implementations of `coin.tri` and `uniq.tri`
+- `os/neptune/standards/` -- production implementations of `coin.tri` and `card.tri`

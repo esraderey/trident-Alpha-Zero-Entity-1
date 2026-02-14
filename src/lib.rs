@@ -1160,7 +1160,7 @@ mod integration_tests {
 
     #[test]
     fn test_coin_compiles() {
-        let source = include_str!("../os/neptune/coin.tri");
+        let source = include_str!("../os/neptune/standards/coin.tri");
         let tasm = compile(source, "coin.tri").expect("coin program should compile");
 
         // Verify all 5 operations are in the TASM output
@@ -1225,7 +1225,7 @@ mod integration_tests {
 
     #[test]
     fn test_coin_cost_analysis() {
-        let source = include_str!("../os/neptune/coin.tri");
+        let source = include_str!("../os/neptune/standards/coin.tri");
         let cost = analyze_costs(source, "coin.tri").expect("cost analysis should succeed");
 
         // Processor table should be nonzero
@@ -2339,7 +2339,7 @@ fn main() {
 
     #[test]
     fn test_recursive_verifier_compiles() {
-        let path = std::path::Path::new("os/neptune/recursive_verifier.tri");
+        let path = std::path::Path::new("os/neptune/programs/recursive_verifier.tri");
         if !path.exists() {
             return; // skip if running from different cwd
         }
@@ -2610,7 +2610,7 @@ fn main() {
 
     #[test]
     fn test_proof_relay_example_compiles() {
-        let path = std::path::Path::new("os/neptune/proof_relay.tri");
+        let path = std::path::Path::new("os/neptune/programs/proof_relay.tri");
         if !path.exists() {
             return;
         }
@@ -2624,7 +2624,7 @@ fn main() {
 
     #[test]
     fn test_proof_aggregator_example_compiles() {
-        let path = std::path::Path::new("os/neptune/proof_aggregator.tri");
+        let path = std::path::Path::new("os/neptune/programs/proof_aggregator.tri");
         if !path.exists() {
             return;
         }
@@ -2638,7 +2638,7 @@ fn main() {
 
     #[test]
     fn test_transaction_validation_compiles() {
-        let path = std::path::Path::new("os/neptune/transaction_validation.tri");
+        let path = std::path::Path::new("os/neptune/programs/transaction_validation.tri");
         if !path.exists() {
             return;
         }
@@ -2661,13 +2661,8 @@ fn main() {
 
     #[test]
     fn test_neptune_lock_scripts_compile() {
-        for name in &[
-            "lock_generation",
-            "lock_symmetric",
-            "lock_multisig",
-            "lock_timelock",
-        ] {
-            let path_str = format!("os/neptune/{}.tri", name);
+        for name in &["generation", "symmetric", "multisig", "timelock"] {
+            let path_str = format!("os/neptune/locks/{}.tri", name);
             let path = std::path::Path::new(&path_str);
             if !path.exists() {
                 continue;
@@ -2684,8 +2679,8 @@ fn main() {
 
     #[test]
     fn test_neptune_type_scripts_compile() {
-        for name in &["type_native_currency", "type_custom_token"] {
-            let path_str = format!("os/neptune/{}.tri", name);
+        for name in &["native_currency", "custom_token"] {
+            let path_str = format!("os/neptune/types/{}.tri", name);
             let path = std::path::Path::new(&path_str);
             if !path.exists() {
                 continue;

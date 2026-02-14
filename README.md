@@ -98,18 +98,22 @@ the code. See [Content-Addressed Code](docs/explanation/content-addressing.md).
 
 Everything below compiles to TASM with `trident build` today.
 
-[Coin](os/neptune/coin.tri) — 535-line fungible token (TSP-1). Five
-operations (Pay, Lock, Update, Mint, Burn), time-locks, nullifiers,
+[Coin](os/neptune/standards/coin.tri) — 535-line fungible token (TSP-1).
+Five operations (Pay, Lock, Update, Mint, Burn), time-locks, nullifiers,
 configurable authorities, composable hooks.
 
-[Card](os/neptune/card.tri) — Non-fungible token (TSP-2). Per-asset
-metadata, royalties, creator immutability, flag-gated operations. Same
-PLUMB framework as Coin.
+[Card](os/neptune/standards/card.tri) — Non-fungible token (TSP-2).
+Per-asset metadata, royalties, creator immutability, flag-gated
+operations. Same PLUMB framework as Coin.
 
-[Neptune programs](os/neptune/) — Lock scripts (generation, symmetric,
-timelock, multisig), type scripts (native currency, custom tokens),
-transaction validation, recursive verification, proof aggregation and
-relay.
+[Lock scripts](os/neptune/locks/) — Generation, symmetric, timelock,
+multisig spending authorization.
+
+[Type scripts](os/neptune/types/) — Native currency and custom token
+conservation laws.
+
+[Programs](os/neptune/programs/) — Transaction validation, recursive
+verification, proof aggregation and relay.
 
 See the [Gold Standard](docs/explanation/gold-standard.md) for the full
 PLUMB specification and the [Skill Library](docs/explanation/skill-library.md)
