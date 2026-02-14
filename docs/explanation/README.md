@@ -28,7 +28,8 @@ it does, for readers who want the full picture.
 | Document | Description |
 |----------|-------------|
 | [Content-Addressed Code](content-addressing.md) | Hashing, caching, registry, equivalence |
-| [The Gold Standard](gold-standard.md) | Token standards and capability library |
+| [The Gold Standard](gold-standard.md) | PLUMB framework, TSP-1 (Coin), TSP-2 (Card) |
+| [Skill Library](skill-library.md) | 23 composable token capabilities |
 
 ## 🎓 Onboarding
 
