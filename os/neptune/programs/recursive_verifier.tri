@@ -1,116 +1,25 @@
 program recursive_verifier
 
-// Recursive STARK Verifier — Proof Composition Example
+// Recursive STARK Verifier — Configurable FRI Rounds
 //
-// This program verifies that another Triton VM program executed
-// correctly by checking its STARK proof inside this program's
-// own execution. The result is a single proof that attests to
-// the validity of the inner computation.
-//
-// Use cases:
-//   - Transaction aggregation: verify N transaction proofs → 1 proof
-//   - Proof relay: verify a proof from chain A inside chain B
-//   - Recursive depth reduction: compress a proof chain
+// Verifies a single inner proof with a configurable number of FRI
+// rounds read from public input. This is the general-purpose version;
+// proof_relay.tri hardcodes 4 rounds for production use.
 //
 // Public input:
-//   1. Inner program's digest (5 fields)
-//   2. Number of inner program's public inputs
-//   3. Number of inner program's public outputs
-//   4. Inner program's public I/O values
+//   1. num_fri_rounds (security parameter, typically 3-5)
+//   2. Inner program's Claim (program digest + I/O counts)
+//   3. Inner program's public I/O values
 //
 // Secret input:
-//   The STARK proof data (FRI layers, Merkle paths, OOD values)
+//   STARK proof data (FRI layers, Merkle paths, OOD values)
 //   supplied via divine/divine5.
 //
-// Architecture:
-//   The verifier reads the Claim (what to verify) from public input,
-//   then uses divine input to obtain the proof data, and checks all
-//   STARK verification constraints algebraically using xx_dot_step
-//   and xb_dot_step for inner product accumulation.
-use os.neptune.recursive
-
-// Verify the Fiat-Shamir challenge derivation.
-// The challenges are derived by hashing the proof commitments.
-// This binds the verifier's randomness to the prover's messages.
-fn derive_challenge(commitment: Digest, round: Field) -> Digest {
-    let (c0, c1, c2, c3, c4) = commitment
-    hash(c0, c1, c2, c3, c4, round, 0, 0, 0, 0)
-}
-
-// FRI folding step: given a codeword commitment and a challenge,
-// verify one round of the FRI protocol.
-// Divines the folded codeword values and checks consistency.
-fn fri_fold_round(
-    commitment: Digest,
-    challenge_seed: Digest,
-    round: Field
-) -> Digest {
-    // Derive the folding challenge for this round.
-    let challenge: Digest = derive_challenge(challenge_seed, round)
-    // Divine the next-round commitment from the prover.
-    let next_commitment: Digest = divine5()
-    // In a full implementation, this would:
-    //   1. Sample random evaluation points from challenge
-    //   2. Divine codeword values at those points
-    //   3. Verify Merkle paths against commitment
-    //   4. Check that folded values are consistent with next_commitment
-    //   5. Use xfe_inner_product for polynomial evaluation
-    // Return the next-round commitment for chaining.
-    next_commitment
-}
+// Public output:
+//   Verified inner program's digest (5 fields).
+use os.neptune.proof
 
 fn main() {
-    // Step 1: Read the inner program's Claim.
-    let (program_digest, num_inputs, num_outputs) = recursive.read_claim()
-    // Step 2: Read inner program's public inputs.
-    let mut io_hash_acc: Digest = hash(0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
-    for i in 0..num_inputs bounded 32 {
-        let val: Field = pub_read()
-        let (h0, h1, h2, h3, h4) = io_hash_acc
-        io_hash_acc = hash(h0, h1, h2, h3, h4, val, 0, 0, 0, 0)
-    }
-    // Step 3: Read inner program's public outputs.
-    for i in 0..num_outputs bounded 32 {
-        let val: Field = pub_read()
-        let (h0, h1, h2, h3, h4) = io_hash_acc
-        io_hash_acc = hash(h0, h1, h2, h3, h4, val, 0, 0, 0, 0)
-    }
-    // Step 4: Derive initial Fiat-Shamir seed from Claim.
-    let (p0, p1, p2, p3, p4) = program_digest
-    let (io0, io1, io2, io3, io4) = io_hash_acc
-    let fs_seed: Digest = hash(p0, p1, p2, p3, p4, io0, io1, io2, io3, io4)
-    // Step 5: Read proof commitments and run FRI verification.
-    // A typical STARK proof has 3-5 FRI rounds depending on
-    // the security parameter and codeword length.
-    let base_commitment: Digest = divine5()
-    let round1: Digest = fri_fold_round(base_commitment, fs_seed, 0)
-    let round2: Digest = fri_fold_round(round1, fs_seed, 1)
-    let round3: Digest = fri_fold_round(round2, fs_seed, 2)
-    let round4: Digest = fri_fold_round(round3, fs_seed, 3)
-    // Step 6: Verify the final (constant) polynomial.
-    let final_value: Digest = divine5()
-    // Step 7: Verify out-of-domain (OOD) evaluation.
-    // The verifier checks that the AIR constraints evaluate to zero
-    // at a random out-of-domain point.
-    let ood_point: Digest = derive_challenge(fs_seed, 100)
-    let ood_evaluation: Digest = divine5()
-    // Step 8: Inner product argument for combining constraints.
-    // Uses xx_dot_step for XField*XField products.
-    let ptr_constraints: Field = divine()
-    let ptr_weights: Field = divine()
-    let num_constraints: Field = divine()
-    let combined: Digest = recursive.xfe_inner_product(
-        ptr_constraints,
-        ptr_weights,
-        num_constraints
-    )
-    // Step 9: Output the verified claim.
-    // The outer proof now attests: "the inner program with digest
-    // program_digest produced these public outputs."
-    let (d0, d1, d2, d3, d4) = program_digest
-    pub_write(d0)
-    pub_write(d1)
-    pub_write(d2)
-    pub_write(d3)
-    pub_write(d4)
+    let num_fri_rounds: Field = pub_read()
+    proof.verify_inner_proof(num_fri_rounds)
 }
