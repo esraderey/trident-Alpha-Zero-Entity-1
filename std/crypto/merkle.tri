@@ -54,3 +54,36 @@ pub fn authenticate_leaf3(root: Digest, leaf_idx: U32) -> Digest {
     verify3(leaf, root, leaf_idx)
     leaf
 }
+
+// Verify a Merkle path of variable depth (up to 64 levels).
+// Tree depth is a runtime value — the loop executes exactly `depth` steps.
+pub fn verify(leaf: Digest, root: Digest, leaf_idx: U32, depth: Field) {
+    let (d0, d1, d2, d3, d4) = leaf
+    let mut idx: U32 = leaf_idx
+    let mut n0: Field = d0
+    let mut n1: Field = d1
+    let mut n2: Field = d2
+    let mut n3: Field = d3
+    let mut n4: Field = d4
+    let mut computed: Digest = leaf
+    for i in 0..depth bounded 64 {
+        let (new_idx, node) = merkle.step(idx, n0, n1, n2, n3, n4)
+        let (m0, m1, m2, m3, m4) = node
+        idx = new_idx
+        n0 = m0
+        n1 = m1
+        n2 = m2
+        n3 = m3
+        n4 = m4
+        computed = node
+    }
+    assert.digest(computed, root)
+}
+
+// Authenticate a leaf at variable depth. Divines the leaf, verifies
+// its Merkle path against the root, returns the authenticated leaf.
+pub fn authenticate_leaf(root: Digest, leaf_idx: U32, depth: Field) -> Digest {
+    let leaf: Digest = io.divine5()
+    verify(leaf, root, leaf_idx, depth)
+    leaf
+}
