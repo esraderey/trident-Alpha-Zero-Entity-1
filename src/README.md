@@ -49,9 +49,8 @@ Parallel to the main pipeline, several modules provide analysis, tooling, and pa
 | [`main.rs`](main.rs) | 2,650 | CLI entry point: argument parsing and command dispatch |
 | [`stack.rs`](stack.rs) | 474 | LRU [stack manager](stack.rs) with automatic RAM spill/reload |
 | [`linker.rs`](linker.rs) | 134 | Multi-module [linker](linker.rs) for cross-module calls |
-| [`trident_lsp.rs`](trident_lsp.rs) | 4 | LSP binary entry point |
 
-**Total: ~36,700 lines across 58 Rust files, 5 runtime dependencies.**
+**Total: ~36,700 lines across 57 Rust files, 5 runtime dependencies.**
 
 ## Compilation Pipeline
 

@@ -29,7 +29,3 @@ tempfile = "3"
 [[bin]]
 name = "trident"
 path = "src/main.rs"
-
-[[bin]]
-name = "trident-lsp"
-path = "src/trident_lsp.rs"
