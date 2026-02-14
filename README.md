@@ -1,7 +1,7 @@
 # 🔱 Trident
 
 <p align="center">
-  <video src="assets/trident.mp4" width="420" autoplay loop muted playsinline></video>
+  <video src="https://github.com/mastercyb/trident/raw/master/assets/trident.mp4" width="420" autoplay loop muted playsinline></video>
 </p>
 
 *Write once. Prove anywhere.*
