@@ -1,17 +1,41 @@
 use std::path::{Path, PathBuf};
 use std::process;
 
+use clap::Args;
+
 use super::prepare_artifact;
 
-pub fn cmd_package(
-    input: PathBuf,
-    output: Option<PathBuf>,
-    target: &str,
-    profile: &str,
-    verify: bool,
-    dry_run: bool,
-) {
-    let art = prepare_artifact(&input, target, profile, verify);
+#[derive(Args)]
+pub struct PackageArgs {
+    /// Input .tri file or directory with trident.toml
+    pub input: PathBuf,
+    /// Output directory for the .deploy/ artifact (default: project root or cwd)
+    #[arg(short, long)]
+    pub output: Option<PathBuf>,
+    /// Target VM or OS (default: triton)
+    #[arg(long, default_value = "triton")]
+    pub target: String,
+    /// Compilation profile for cfg flags (default: release)
+    #[arg(long, default_value = "release")]
+    pub profile: String,
+    /// Run verification before packaging
+    #[arg(long)]
+    pub verify: bool,
+    /// Show what would be produced without writing files
+    #[arg(long)]
+    pub dry_run: bool,
+}
+
+pub fn cmd_package(args: PackageArgs) {
+    let PackageArgs {
+        input,
+        output,
+        target,
+        profile,
+        verify,
+        dry_run,
+    } = args;
+    let art = prepare_artifact(&input, &target, &profile, verify);
 
     // Determine output base directory
     let output_base = output.unwrap_or_else(|| {

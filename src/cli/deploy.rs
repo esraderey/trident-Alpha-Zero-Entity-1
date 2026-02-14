@@ -1,16 +1,40 @@
 use std::path::{Path, PathBuf};
 use std::process;
 
-use super::{open_codebase, prepare_artifact, registry_client};
+use clap::Args;
 
-pub fn cmd_deploy(
-    input: PathBuf,
-    target: &str,
-    profile: &str,
-    registry: Option<String>,
-    verify: bool,
-    dry_run: bool,
-) {
+use super::{open_codebase, prepare_artifact, registry_client, try_load_and_parse};
+
+#[derive(Args)]
+pub struct DeployArgs {
+    /// Input .tri file, project directory, or .deploy/ artifact
+    pub input: PathBuf,
+    /// Target VM or OS (default: triton)
+    #[arg(long, default_value = "triton")]
+    pub target: String,
+    /// Compilation profile for cfg flags (default: release)
+    #[arg(long, default_value = "release")]
+    pub profile: String,
+    /// Registry URL to deploy to
+    #[arg(long)]
+    pub registry: Option<String>,
+    /// Run verification before deploying
+    #[arg(long)]
+    pub verify: bool,
+    /// Show what would be deployed without actually deploying
+    #[arg(long)]
+    pub dry_run: bool,
+}
+
+pub fn cmd_deploy(args: DeployArgs) {
+    let DeployArgs {
+        input,
+        target,
+        profile,
+        registry,
+        verify,
+        dry_run,
+    } = args;
     // Handle pre-packaged .deploy/ artifact directory
     if input.is_dir() && input.join("manifest.json").exists() && input.join("program.tasm").exists()
     {
@@ -40,7 +64,7 @@ pub fn cmd_deploy(
     }
 
     // Build from source
-    let art = prepare_artifact(&input, target, profile, verify);
+    let art = prepare_artifact(&input, &target, &profile, verify);
     let output_base = art.entry.parent().unwrap_or(Path::new(".")).to_path_buf();
 
     let target_display = if let Some(ref os) = art.resolved.os {
@@ -119,25 +143,11 @@ fn deploy_to_registry(artifact_dir: &Path, client: &trident::registry::RegistryC
     let mut cb = open_codebase();
 
     if let Some(source_file) = source_path {
-        let source = match std::fs::read_to_string(&source_file) {
-            Ok(s) => s,
-            Err(_) => {
-                eprintln!("warning: cannot read source file, publishing artifact only");
-                publish_and_report(client, &cb, &tasm);
-                return;
-            }
-        };
-        let filename = source_file.to_string_lossy().to_string();
-        match trident::parse_source_silent(&source, &filename) {
-            Ok(file) => {
-                cb.add_file(&file);
-                if let Err(e) = cb.save() {
-                    eprintln!("error: cannot save codebase: {}", e);
-                    process::exit(1);
-                }
-            }
-            Err(_) => {
-                eprintln!("warning: cannot parse source, publishing artifact only");
+        if let Some((_, file)) = try_load_and_parse(&source_file) {
+            cb.add_file(&file);
+            if let Err(e) = cb.save() {
+                eprintln!("error: cannot save codebase: {}", e);
+                process::exit(1);
             }
         }
     }

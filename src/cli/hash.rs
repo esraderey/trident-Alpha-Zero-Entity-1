@@ -1,8 +1,20 @@
 use std::path::PathBuf;
 
+use clap::Args;
+
 use super::{load_and_parse, resolve_input};
 
-pub fn cmd_hash(input: PathBuf, full: bool) {
+#[derive(Args)]
+pub struct HashArgs {
+    /// Input .tri file or directory with trident.toml
+    pub input: PathBuf,
+    /// Show full 256-bit hashes instead of short form
+    #[arg(long)]
+    pub full: bool,
+}
+
+pub fn cmd_hash(args: HashArgs) {
+    let HashArgs { input, full } = args;
     let ri = resolve_input(&input);
     let (_, file) = load_and_parse(&ri.entry);
 

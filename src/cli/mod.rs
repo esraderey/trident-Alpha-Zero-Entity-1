@@ -217,15 +217,7 @@ pub fn prepare_artifact(
     };
 
     // 6. Parse source for function signatures
-    let source = std::fs::read_to_string(&entry).unwrap_or_default();
-    let filename = entry.to_string_lossy().to_string();
-    let file = match trident::parse_source_silent(&source, &filename) {
-        Ok(f) => f,
-        Err(_) => {
-            eprintln!("error: cannot parse source for manifest");
-            process::exit(1);
-        }
-    };
+    let (_, file) = load_and_parse(&entry);
 
     // 7. Determine name and version
     let (name, version) = if let Some(ref proj) = project {
@@ -270,22 +262,30 @@ pub fn prepare_artifact(
     }
 }
 
-/// Load and parse a .tri file, exiting on error.
-pub fn load_and_parse(path: &Path) -> (String, trident::ast::File) {
+/// Try to load and parse a .tri file, returning None on error (prints diagnostics).
+pub fn try_load_and_parse(path: &Path) -> Option<(String, trident::ast::File)> {
     let source = match std::fs::read_to_string(path) {
         Ok(s) => s,
         Err(e) => {
             eprintln!("error: cannot read '{}': {}", path.display(), e);
-            process::exit(1);
+            return None;
         }
     };
     let filename = path.to_string_lossy().to_string();
     match trident::parse_source_silent(&source, &filename) {
-        Ok(f) => (source, f),
+        Ok(f) => Some((source, f)),
         Err(_) => {
             eprintln!("error: parse errors in '{}'", path.display());
-            process::exit(1);
+            None
         }
+    }
+}
+
+/// Load and parse a .tri file, exiting on error.
+pub fn load_and_parse(path: &Path) -> (String, trident::ast::File) {
+    match try_load_and_parse(path) {
+        Some(result) => result,
+        None => process::exit(1),
     }
 }
 
@@ -356,7 +356,7 @@ pub fn collect_tri_files(dir: &Path) -> Vec<PathBuf> {
     result
 }
 
-pub fn collect_tri_files_recursive(dir: &Path, result: &mut Vec<PathBuf>) {
+fn collect_tri_files_recursive(dir: &Path, result: &mut Vec<PathBuf>) {
     let entries = match std::fs::read_dir(dir) {
         Ok(e) => e,
         Err(_) => return,

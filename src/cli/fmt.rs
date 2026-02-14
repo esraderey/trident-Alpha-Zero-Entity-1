@@ -1,9 +1,21 @@
 use std::path::{Path, PathBuf};
 use std::process;
 
+use clap::Args;
+
 use super::collect_tri_files;
 
-pub fn cmd_fmt(input: Option<PathBuf>, check: bool) {
+#[derive(Args)]
+pub struct FmtArgs {
+    /// Input .tri file or directory (defaults to current directory)
+    pub input: Option<PathBuf>,
+    /// Check formatting without modifying (exit 1 if unformatted)
+    #[arg(long)]
+    pub check: bool,
+}
+
+pub fn cmd_fmt(args: FmtArgs) {
+    let FmtArgs { input, check } = args;
     let input = input.unwrap_or_else(|| PathBuf::from("."));
 
     if input.is_dir() {

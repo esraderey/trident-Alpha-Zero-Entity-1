@@ -1,9 +1,27 @@
 use std::path::PathBuf;
 use std::process;
 
+use clap::Args;
+
 use super::{find_program_source, resolve_input};
 
-pub fn cmd_check(input: PathBuf, costs: bool, _target: &str, _profile: &str) {
+#[derive(Args)]
+pub struct CheckArgs {
+    /// Input .tri file or directory with trident.toml
+    pub input: PathBuf,
+    /// Print cost analysis report
+    #[arg(long)]
+    pub costs: bool,
+    /// Target VM (default: triton)
+    #[arg(long, default_value = "triton")]
+    pub target: String,
+    /// Compilation profile for cfg flags (debug or release)
+    #[arg(long, default_value = "debug")]
+    pub profile: String,
+}
+
+pub fn cmd_check(args: CheckArgs) {
+    let CheckArgs { input, costs, .. } = args;
     let ri = resolve_input(&input);
 
     match trident::check_project(&ri.entry) {

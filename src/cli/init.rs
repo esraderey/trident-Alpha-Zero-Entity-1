@@ -1,7 +1,16 @@
 use std::path::PathBuf;
 use std::process;
 
-pub fn cmd_init(name: Option<String>) {
+use clap::Args;
+
+#[derive(Args)]
+pub struct InitArgs {
+    /// Project name (defaults to current directory name)
+    pub name: Option<String>,
+}
+
+pub fn cmd_init(args: InitArgs) {
+    let InitArgs { name } = args;
     let (project_dir, project_name) = if let Some(ref name) = name {
         let dir = PathBuf::from(name);
         (dir, name.clone())

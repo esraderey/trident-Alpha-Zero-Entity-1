@@ -1,7 +1,19 @@
 use std::path::PathBuf;
 use std::process;
 
-pub fn cmd_generate(input: PathBuf, output: Option<PathBuf>) {
+use clap::Args;
+
+#[derive(Args)]
+pub struct GenerateArgs {
+    /// Input .tri spec file
+    pub input: PathBuf,
+    /// Output file (default: stdout)
+    #[arg(short, long)]
+    pub output: Option<PathBuf>,
+}
+
+pub fn cmd_generate(args: GenerateArgs) {
+    let GenerateArgs { input, output } = args;
     if !input.extension().is_some_and(|e| e == "tri") {
         eprintln!("error: input must be a .tri file");
         process::exit(1);

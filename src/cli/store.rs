@@ -3,7 +3,7 @@ use std::process;
 
 use clap::Subcommand;
 
-use super::{collect_tri_files, open_codebase};
+use super::{collect_tri_files, open_codebase, try_load_and_parse};
 
 #[derive(Subcommand)]
 pub enum StoreAction {
@@ -74,20 +74,9 @@ fn cmd_store_add(input: PathBuf) {
     let mut total_unchanged = 0usize;
 
     for file_path in &files {
-        let source = match std::fs::read_to_string(file_path) {
-            Ok(s) => s,
-            Err(e) => {
-                eprintln!("error: cannot read '{}': {}", file_path.display(), e);
-                continue;
-            }
-        };
-        let filename = file_path.to_string_lossy().to_string();
-        let file = match trident::parse_source_silent(&source, &filename) {
-            Ok(f) => f,
-            Err(_) => {
-                eprintln!("error: parse errors in '{}'", file_path.display());
-                continue;
-            }
+        let file = match try_load_and_parse(file_path) {
+            Some((_, f)) => f,
+            None => continue,
         };
         let result = cb.add_file(&file);
         total_added += result.added;

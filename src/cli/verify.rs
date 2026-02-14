@@ -1,16 +1,40 @@
 use std::path::PathBuf;
 use std::process;
 
+use clap::Args;
+
 use super::{load_and_parse, resolve_input};
 
-pub fn cmd_verify(
-    input: PathBuf,
-    verbose: bool,
-    smt_output: Option<PathBuf>,
-    run_z3: bool,
-    json: bool,
-    synthesize: bool,
-) {
+#[derive(Args)]
+pub struct VerifyArgs {
+    /// Input .tri file or directory with trident.toml
+    pub input: PathBuf,
+    /// Show detailed constraint system summary
+    #[arg(long)]
+    pub verbose: bool,
+    /// Output SMT-LIB2 encoding to file (for external solvers)
+    #[arg(long, value_name = "PATH")]
+    pub smt: Option<PathBuf>,
+    /// Run Z3 solver (if available) for formal verification
+    #[arg(long)]
+    pub z3: bool,
+    /// Output machine-readable JSON report (for LLM/CI consumption)
+    #[arg(long)]
+    pub json: bool,
+    /// Synthesize and suggest specifications (invariants, pre/postconditions)
+    #[arg(long)]
+    pub synthesize: bool,
+}
+
+pub fn cmd_verify(args: VerifyArgs) {
+    let VerifyArgs {
+        input,
+        verbose,
+        smt: smt_output,
+        z3: run_z3,
+        json,
+        synthesize,
+    } = args;
     let ri = resolve_input(&input);
     let entry = ri.entry;
 
@@ -136,7 +160,26 @@ fn run_z3_analysis(sys: &trident::sym::ConstraintSystem) {
     }
 }
 
-pub fn cmd_equiv(input: PathBuf, fn_a: &str, fn_b: &str, verbose: bool) {
+#[derive(Args)]
+pub struct EquivArgs {
+    /// Input .tri file containing both functions
+    pub input: PathBuf,
+    /// First function name
+    pub fn_a: String,
+    /// Second function name
+    pub fn_b: String,
+    /// Show detailed symbolic analysis
+    #[arg(long)]
+    pub verbose: bool,
+}
+
+pub fn cmd_equiv(args: EquivArgs) {
+    let EquivArgs {
+        input,
+        fn_a,
+        fn_b,
+        verbose,
+    } = args;
     if !input.extension().is_some_and(|e| e == "tri") {
         eprintln!("error: input must be a .tri file");
         process::exit(1);
@@ -153,15 +196,15 @@ pub fn cmd_equiv(input: PathBuf, fn_a: &str, fn_b: &str, verbose: bool) {
 
     if verbose {
         let fn_hashes = trident::hash::hash_file(&file);
-        if let Some(h) = fn_hashes.get(fn_a) {
+        if let Some(h) = fn_hashes.get(fn_a.as_str()) {
             eprintln!("  {} hash: {}", fn_a, h);
         }
-        if let Some(h) = fn_hashes.get(fn_b) {
+        if let Some(h) = fn_hashes.get(fn_b.as_str()) {
             eprintln!("  {} hash: {}", fn_b, h);
         }
     }
 
-    let result = trident::equiv::check_equivalence(&file, fn_a, fn_b);
+    let result = trident::equiv::check_equivalence(&file, &fn_a, &fn_b);
 
     eprintln!("\n{}", result.format_report());
 

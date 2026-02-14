@@ -1,9 +1,24 @@
 use std::path::PathBuf;
 use std::process;
 
+use clap::Args;
+
 use super::{load_and_parse, resolve_input};
 
-pub fn cmd_view(name: String, input: Option<PathBuf>, full: bool) {
+#[derive(Args)]
+pub struct ViewArgs {
+    /// Function name or content hash prefix
+    pub name: String,
+    /// Input .tri file or directory with trident.toml
+    #[arg(short, long)]
+    pub input: Option<PathBuf>,
+    /// Show full hash instead of short form
+    #[arg(long)]
+    pub full: bool,
+}
+
+pub fn cmd_view(args: ViewArgs) {
+    let ViewArgs { name, input, full } = args;
     let input =
         input.unwrap_or_else(|| std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")));
     let ri = resolve_input(&input);

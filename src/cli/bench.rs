@@ -1,7 +1,17 @@
 use std::path::PathBuf;
 use std::process;
 
-pub fn cmd_bench(dir: PathBuf) {
+use clap::Args;
+
+#[derive(Args)]
+pub struct BenchArgs {
+    /// Directory containing benchmark .tri + .baseline.tasm files
+    #[arg(default_value = "benches")]
+    pub dir: PathBuf,
+}
+
+pub fn cmd_bench(args: BenchArgs) {
+    let BenchArgs { dir } = args;
     if !dir.is_dir() {
         eprintln!("error: '{}' is not a directory", dir.display());
         process::exit(1);

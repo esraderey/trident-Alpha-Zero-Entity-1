@@ -3,7 +3,7 @@ use std::process;
 
 use clap::Subcommand;
 
-use super::{collect_tri_files, open_codebase, registry_client, registry_url};
+use super::{collect_tri_files, open_codebase, registry_client, registry_url, try_load_and_parse};
 
 #[derive(Subcommand)]
 pub enum RegistryAction {
@@ -79,15 +79,7 @@ fn cmd_registry_publish(registry: Option<String>, tags: Vec<String>, input: Opti
         };
 
         for file_path in &files {
-            let source = match std::fs::read_to_string(file_path) {
-                Ok(s) => s,
-                Err(e) => {
-                    eprintln!("error: cannot read '{}': {}", file_path.display(), e);
-                    continue;
-                }
-            };
-            let filename = file_path.to_string_lossy().to_string();
-            if let Ok(file) = trident::parse_source_silent(&source, &filename) {
+            if let Some((_, file)) = try_load_and_parse(file_path) {
                 cb.add_file(&file);
             }
         }
