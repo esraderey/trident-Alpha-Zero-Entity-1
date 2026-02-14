@@ -43,7 +43,8 @@ fn mix2(a: Field, b: Field) -> (Field, Field) {
     // [ 2  1 ] [ a ]   =   [ 2a + b  ]
     // [ 1  3 ] [ b ]       [ a + 3b  ]
     let new_a: Field = a + a + b
-    let new_b: Field = a + b + b + b(new_a, new_b)
+    let new_b: Field = a + b + b + b
+    (new_a, new_b)
 }
 
 // Placeholder linear mixing for a 4-element state.
@@ -53,7 +54,8 @@ fn mix4(a: Field, b: Field, c: Field, d: Field) -> (Field, Field, Field, Field) 
     let new_a: Field = a + a + b + c + d
     let new_b: Field = a + b + b + c + d
     let new_c: Field = a + b + c + c + d
-    let new_d: Field = a + b + c + d + d(new_a, new_b, new_c, new_d)
+    let new_d: Field = a + b + c + d + d
+    (new_a, new_b, new_c, new_d)
 }
 
 // One full round for a 2-element state: S-box + mix.
