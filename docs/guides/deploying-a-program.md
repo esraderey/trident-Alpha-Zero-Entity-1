@@ -321,19 +321,19 @@ hash. See [Content-Addressed Code](../explanation/content-addressing.md) for det
 Trident includes standard token implementations ready for deployment:
 
 - TSP-1: Coin standard with conservation laws, mint authority,
-  and burn support. See `examples/neptune/type_custom_token.tri`.
+  and burn support. See `os/neptune/type_custom_token.tri`.
 - TSP-2: Uniq standard with unique IDs and metadata.
-  See `examples/uniq/uniq.tri`.
+  See `os/neptune/card.tri`.
 - Native currency: Neptune's built-in currency type script.
-  See `examples/neptune/type_native_currency.tri`.
+  See `os/neptune/type_native_currency.tri`.
 
 ### Proof Composition
 
 A Trident program can verify another program's proof internally using the
 `os.neptune.proof` library. This enables recursive proof structures where
 the inner program's hash becomes part of the outer program's public input.
-See `examples/neptune/proof_aggregator.tri` for a transaction batching
-example and `examples/neptune/transaction_validation.tri` for the full
+See `os/neptune/proof_aggregator.tri` for a transaction batching
+example and `os/neptune/transaction_validation.tri` for the full
 Neptune transaction validation orchestrator.
 
 ---

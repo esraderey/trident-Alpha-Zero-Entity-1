@@ -98,18 +98,18 @@ the code. See [Content-Addressed Code](docs/explanation/content-addressing.md).
 
 Everything below compiles to TASM with `trident build` today.
 
-[Coin](examples/coin/coin.tri) — 535-line fungible token (TSP-1). Five
+[Coin](os/neptune/coin.tri) — 535-line fungible token (TSP-1). Five
 operations (Pay, Lock, Update, Mint, Burn), time-locks, nullifiers,
 configurable authorities, composable hooks.
 
-[Card](examples/uniq/uniq.tri) — Non-fungible token (TSP-2). Per-asset
+[Card](os/neptune/card.tri) — Non-fungible token (TSP-2). Per-asset
 metadata, royalties, creator immutability, flag-gated operations. Same
 PLUMB framework as Coin.
 
-[Neptune programs](examples/neptune/) — Lock scripts (generation,
-symmetric, timelock, multisig), type scripts (native currency, custom
-tokens), transaction validation, recursive verification, proof
-aggregation and relay.
+[Neptune programs](os/neptune/) — Lock scripts (generation, symmetric,
+timelock, multisig), type scripts (native currency, custom tokens),
+transaction validation, recursive verification, proof aggregation and
+relay.
 
 See the [Gold Standard](docs/explanation/gold-standard.md) for the full
 PLUMB specification and the [Skill Library](docs/explanation/skill-library.md)
@@ -138,8 +138,7 @@ trident deploy main.tri          # package + deploy to registry
 src/          Compiler in Rust            ~43K lines, 5 runtime dependencies
 vm/           VM intrinsics in Trident    Compiler primitives (hash, I/O, field ops)
 std/          Standard library in Trident Crypto algorithms (sha256, bigint, ecdsa)
-os/           OS bindings in Trident      Per-OS config, docs, and extensions
-examples/     Example programs            coin (TSP-1), uniq (TSP-2), and more
+os/           OS bindings in Trident      Per-OS config, programs, and extensions
 ```
 
 ---

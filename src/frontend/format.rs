@@ -1217,7 +1217,7 @@ fn main() {
 
     #[test]
     fn test_coin_idempotent() {
-        let src = include_str!("../../examples/coin/coin.tri");
+        let src = include_str!("../../os/neptune/coin.tri");
         let first = fmt(src);
         let second = fmt(&first);
         assert_eq!(first, second, "token.tri formatting should be idempotent");

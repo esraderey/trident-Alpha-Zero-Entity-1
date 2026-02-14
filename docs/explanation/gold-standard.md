@@ -21,10 +21,10 @@ Level 2 (provable computation).
 | Layer | What | Status | Files |
 |-------|------|--------|-------|
 | OS bindings | Neptune runtime modules | Compiler support | `os/neptune/kernel.tri`, `utxo.tri`, `proof.tri`, `xfield.tri`, `recursive.tri` |
-| Type scripts | Value conservation rules | Compiler support | `examples/neptune/type_native_currency.tri` (NPT), `type_custom_token.tri` (TSP-1) |
-| Lock scripts | Spending authorization | Compiler support | `examples/neptune/lock_generation.tri`, `lock_symmetric.tri`, `lock_timelock.tri`, `lock_multisig.tri` |
-| Transaction validation | Full transaction verification | Compiler support | `examples/neptune/transaction_validation.tri` |
-| Proof composition | Recursive STARK verification | Compiler support | `examples/neptune/proof_aggregator.tri`, `proof_relay.tri` |
+| Type scripts | Value conservation rules | Compiler support | `os/neptune/type_native_currency.tri` (NPT), `type_custom_token.tri` (TSP-1) |
+| Lock scripts | Spending authorization | Compiler support | `os/neptune/lock_generation.tri`, `lock_symmetric.tri`, `lock_timelock.tri`, `lock_multisig.tri` |
+| Transaction validation | Full transaction verification | Compiler support | `os/neptune/transaction_validation.tri` |
+| Proof composition | Recursive STARK verification | Compiler support | `os/neptune/proof_aggregator.tri`, `proof_relay.tri` |
 
 See the [Tutorial](../tutorials/tutorial.md) for language basics, [Programming Model](programming-model.md) for the Neptune transaction model, and [Deploying a Program](../guides/deploying-a-program.md) for deployment workflows.
 

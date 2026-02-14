@@ -735,16 +735,16 @@ trident build main.tri --costs
 
 ### 3. Read the Coin Example
 
-The `examples/coin/` directory contains a complete ZK-native coin
-with pay, lock, update, mint, and burn operations. Start with
-`examples/coin/SPEC.md` for the design, then read `coin.tri` for
-the implementation.
+The `os/neptune/` directory contains a complete ZK-native coin
+with pay, lock, update, mint, and burn operations. See
+`os/neptune/coin.tri` for the implementation and
+`docs/reference/tsp1-coin.md` for the design.
 
 ### 4. Build and Check Costs
 
 ```bash
-trident build examples/coin/coin.tri --costs
-trident build examples/coin/coin.tri --hotspots
+trident build os/neptune/coin.tri --costs
+trident build os/neptune/coin.tri --hotspots
 ```
 
 ### 5. Full Walkthrough
