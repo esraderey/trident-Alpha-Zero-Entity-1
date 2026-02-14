@@ -1,0 +1,77 @@
+use std::path::{Path, PathBuf};
+use std::process;
+
+use super::collect_tri_files;
+
+pub fn cmd_fmt(input: Option<PathBuf>, check: bool) {
+    let input = input.unwrap_or_else(|| PathBuf::from("."));
+
+    if input.is_dir() {
+        let files = collect_tri_files(&input);
+        if files.is_empty() {
+            eprintln!("No .tri files found in '{}'", input.display());
+            return;
+        }
+
+        let mut any_unformatted = false;
+        for file in &files {
+            match format_single_file(file, check) {
+                Ok(changed) => {
+                    if changed {
+                        any_unformatted = true;
+                    }
+                }
+                Err(msg) => {
+                    eprintln!("error: {}", msg);
+                }
+            }
+        }
+
+        if check && any_unformatted {
+            process::exit(1);
+        }
+    } else if input.extension().is_some_and(|e| e == "tri") {
+        match format_single_file(&input, check) {
+            Ok(changed) => {
+                if check && changed {
+                    process::exit(1);
+                }
+            }
+            Err(msg) => {
+                eprintln!("error: {}", msg);
+                process::exit(1);
+            }
+        }
+    } else {
+        eprintln!("error: input must be a .tri file or directory");
+        process::exit(1);
+    }
+}
+
+/// Format a single .tri file. Returns Ok(true) if the file was changed/would be changed.
+fn format_single_file(path: &Path, check: bool) -> Result<bool, String> {
+    let source = std::fs::read_to_string(path)
+        .map_err(|e| format!("cannot read '{}': {}", path.display(), e))?;
+    let filename = path.to_string_lossy().to_string();
+    let formatted = trident::format_source(&source, &filename)
+        .map_err(|_| format!("cannot format '{}' (parse errors)", path.display()))?;
+
+    if formatted == source {
+        if check {
+            eprintln!("OK: {}", path.display());
+        } else {
+            eprintln!("Already formatted: {}", path.display());
+        }
+        return Ok(false);
+    }
+
+    if check {
+        eprintln!("would reformat: {}", path.display());
+        return Ok(true);
+    }
+
+    std::fs::write(path, &formatted)
+        .map_err(|e| format!("cannot write '{}': {}", path.display(), e))?;
+    eprintln!("Formatted: {}", path.display());
+    Ok(true)
+}

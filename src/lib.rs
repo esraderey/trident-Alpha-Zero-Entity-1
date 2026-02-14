@@ -1,11 +1,13 @@
 pub mod ast;
 pub mod common;
 pub mod cost;
+pub mod doc;
 pub mod frontend;
 pub mod kir;
 pub mod linker;
 pub mod lir;
 pub mod package;
+pub mod pipeline;
 pub mod tir;
 pub mod tools;
 pub mod tree;
@@ -48,7 +50,7 @@ use diagnostic::{render_diagnostics, Diagnostic};
 use lexer::Lexer;
 use linker::{link, ModuleTasm};
 use parser::Parser;
-use resolve::{resolve_modules, resolve_modules_with_deps};
+use resolve::resolve_modules;
 use target::TargetConfig;
 use tir::builder::TIRBuilder;
 use tir::lower::create_stack_lowering;
@@ -141,118 +143,25 @@ pub fn compile_project_with_options(
     entry_path: &Path,
     options: &CompileOptions,
 ) -> Result<String, Vec<Diagnostic>> {
-    // Resolve all modules in dependency order
-    let modules = if options.dep_dirs.is_empty() {
-        resolve_modules(entry_path)?
-    } else {
-        resolve_modules_with_deps(entry_path, options.dep_dirs.clone())?
-    };
+    use pipeline::PreparedProject;
 
-    let mut parsed_modules = Vec::new();
-    let mut all_exports: Vec<ModuleExports> = Vec::new();
+    let project = PreparedProject::build(entry_path, options)?;
 
-    // Parse all modules
-    for module in &modules {
-        let file = parse_source(&module.source, &module.file_path.to_string_lossy())?;
-        parsed_modules.push((
-            module.name.clone(),
-            module.file_path.clone(),
-            module.source.clone(),
-            file,
-        ));
-    }
-
-    // Type-check in topological order (deps first), collecting exports
-    for (_module_name, file_path, source, file) in &parsed_modules {
-        let mut tc = TypeChecker::with_target(options.target_config.clone())
-            .with_cfg_flags(options.cfg_flags.clone());
-
-        // Import signatures from already-checked dependencies
-        for exports in &all_exports {
-            tc.import_module(exports);
-        }
-
-        match tc.check_file(file) {
-            Ok(exports) => {
-                if !exports.warnings.is_empty() {
-                    render_diagnostics(&exports.warnings, &file_path.to_string_lossy(), source);
-                }
-                all_exports.push(exports);
-            }
-            Err(errors) => {
-                render_diagnostics(&errors, &file_path.to_string_lossy(), source);
-                return Err(errors);
-            }
-        }
-    }
-
-    // Build global intrinsic map from all modules
-    let mut intrinsic_map = HashMap::new();
-    for (_module_name, _file_path, _source, file) in &parsed_modules {
-        for item in &file.items {
-            if let ast::Item::Fn(func) = &item.node {
-                if let Some(ref intrinsic) = func.intrinsic {
-                    // Extract the inner value from "intrinsic(VALUE)"
-                    let intr_value = if let Some(start) = intrinsic.node.find('(') {
-                        let end = intrinsic.node.rfind(')').unwrap_or(intrinsic.node.len());
-                        intrinsic.node[start + 1..end].to_string()
-                    } else {
-                        intrinsic.node.clone()
-                    };
-                    // Register under short function name
-                    intrinsic_map.insert(func.name.node.clone(), intr_value.clone());
-                    // Register under qualified name (module.func)
-                    let qualified = format!("{}.{}", file.name.node, func.name.node);
-                    intrinsic_map.insert(qualified, intr_value.clone());
-                    // For dotted module names like std.hash, also
-                    // register under short alias (hash.func)
-                    if let Some(short) = file.name.node.rsplit('.').next() {
-                        if short != file.name.node {
-                            let short_qualified = format!("{}.{}", short, func.name.node);
-                            intrinsic_map.insert(short_qualified, intr_value.clone());
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    // Build module alias map: short name → full name for dotted modules
-    let mut module_aliases = HashMap::new();
-    for (_module_name, _file_path, _source, file) in &parsed_modules {
-        let full_name = &file.name.node;
-        if let Some(short) = full_name.rsplit('.').next() {
-            if short != full_name.as_str() {
-                module_aliases.insert(short.to_string(), full_name.clone());
-            }
-        }
-    }
-
-    // Build external constants map from all module exports
-    let mut external_constants = HashMap::new();
-    for exports in &all_exports {
-        let full = &exports.module_name;
-        let short = full.rsplit('.').next().unwrap_or(full);
-        let has_short = short != full;
-        for (const_name, _ty, value) in &exports.constants {
-            let qualified = format!("{}.{}", full, const_name);
-            external_constants.insert(qualified, *value);
-            if has_short {
-                let short_qualified = format!("{}.{}", short, const_name);
-                external_constants.insert(short_qualified, *value);
-            }
-        }
-    }
+    let intrinsic_map = project.intrinsic_map();
+    let module_aliases = project.module_aliases();
+    let external_constants = project.external_constants();
 
     // Emit TASM for each module
     let mut tasm_modules = Vec::new();
-    for (i, (_module_name, _file_path, _source, file)) in parsed_modules.iter().enumerate() {
-        let is_program = file.kind == FileKind::Program;
-        let mono = all_exports
+    for (i, pm) in project.modules.iter().enumerate() {
+        let is_program = pm.file.kind == FileKind::Program;
+        let mono = project
+            .exports
             .get(i)
             .map(|e| e.mono_instances.clone())
             .unwrap_or_default();
-        let call_res = all_exports
+        let call_res = project
+            .exports
             .get(i)
             .map(|e| e.call_resolutions.clone())
             .unwrap_or_default();
@@ -263,11 +172,11 @@ pub fn compile_project_with_options(
             .with_constants(external_constants.clone())
             .with_mono_instances(mono)
             .with_call_resolutions(call_res)
-            .build_file(file);
+            .build_file(&pm.file);
         let lowering = create_stack_lowering(&options.target_config.name);
         let tasm = lowering.lower(&ir).join("\n");
         tasm_modules.push(ModuleTasm {
-            module_name: file.name.node.clone(),
+            module_name: pm.file.name.node.clone(),
             is_program,
             tasm,
         });
@@ -293,36 +202,9 @@ pub fn check(source: &str, filename: &str) -> Result<(), Vec<Diagnostic>> {
 /// Project-aware type-check from an entry point path.
 /// Resolves all modules (including std.*) and type-checks in dependency order.
 pub fn check_project(entry_path: &Path) -> Result<(), Vec<Diagnostic>> {
-    let modules = resolve_modules(entry_path)?;
+    use pipeline::PreparedProject;
 
-    let mut all_exports: Vec<ModuleExports> = Vec::new();
-
-    for module in &modules {
-        let file = parse_source(&module.source, &module.file_path.to_string_lossy())?;
-
-        let mut tc = TypeChecker::new();
-        for exports in &all_exports {
-            tc.import_module(exports);
-        }
-
-        match tc.check_file(&file) {
-            Ok(exports) => {
-                if !exports.warnings.is_empty() {
-                    render_diagnostics(
-                        &exports.warnings,
-                        &module.file_path.to_string_lossy(),
-                        &module.source,
-                    );
-                }
-                all_exports.push(exports);
-            }
-            Err(errors) => {
-                render_diagnostics(&errors, &module.file_path.to_string_lossy(), &module.source);
-                return Err(errors);
-            }
-        }
-    }
-
+    PreparedProject::build_default(entry_path)?;
     Ok(())
 }
 
@@ -358,48 +240,15 @@ pub fn run_tests(
     entry_path: &std::path::Path,
     options: &CompileOptions,
 ) -> Result<String, Vec<Diagnostic>> {
-    // Resolve all modules
-    let modules = resolve_modules(entry_path)?;
+    use pipeline::PreparedProject;
 
-    // Parse all modules
-    let mut parsed_modules = Vec::new();
-    for module in &modules {
-        let file = parse_source(&module.source, &module.file_path.to_string_lossy())?;
-        parsed_modules.push((
-            module.name.clone(),
-            module.file_path.clone(),
-            module.source.clone(),
-            file,
-        ));
-    }
-
-    // Type-check all modules in order, collecting exports
-    let mut all_exports: Vec<typecheck::ModuleExports> = Vec::new();
-    for (_module_name, file_path, source, file) in &parsed_modules {
-        let mut tc = TypeChecker::with_target(options.target_config.clone())
-            .with_cfg_flags(options.cfg_flags.clone());
-        for exports in &all_exports {
-            tc.import_module(exports);
-        }
-        match tc.check_file(file) {
-            Ok(exports) => {
-                if !exports.warnings.is_empty() {
-                    render_diagnostics(&exports.warnings, &file_path.to_string_lossy(), source);
-                }
-                all_exports.push(exports);
-            }
-            Err(errors) => {
-                render_diagnostics(&errors, &file_path.to_string_lossy(), source);
-                return Err(errors);
-            }
-        }
-    }
+    let project = PreparedProject::build(entry_path, options)?;
 
     // Discover all #[test] functions across all modules
     let mut test_fns: Vec<(String, String)> = Vec::new(); // (module_name, fn_name)
-    for (_module_name, _file_path, _source, file) in &parsed_modules {
-        for test_name in discover_tests(file) {
-            test_fns.push((file.name.node.clone(), test_name));
+    for pm in &project.modules {
+        for test_name in discover_tests(&pm.file) {
+            test_fns.push((pm.file.name.node.clone(), test_name));
         }
     }
 
@@ -411,27 +260,29 @@ pub fn run_tests(
     let mut results: Vec<TestResult> = Vec::new();
     for (module_name, test_name) in &test_fns {
         // Find the source file for this module
-        let source_entry = parsed_modules
+        let source_entry = project
+            .modules
             .iter()
-            .find(|(_, _, _, f)| f.name.node == *module_name);
+            .find(|m| m.file.name.node == *module_name);
 
-        if let Some((_name, file_path, source, _file)) = source_entry {
+        if let Some(pm) = source_entry {
             // Build a mini-program source that just calls the test function
             let mini_source = if module_name.starts_with("module") || module_name.contains('.') {
                 // For module test functions, we'd need cross-module calls
                 // For simplicity, compile in-context
-                source.clone()
+                pm.source.clone()
             } else {
-                source.clone()
+                pm.source.clone()
             };
 
             // Try to compile (type-check + emit) the source.
             // The test function itself is validated by the type checker.
             // For now, "passing" means it compiles without errors.
-            match compile_with_options(&mini_source, &file_path.to_string_lossy(), options) {
+            match compile_with_options(&mini_source, &pm.file_path.to_string_lossy(), options) {
                 Ok(tasm) => {
                     // Compute cost for the test function
-                    let test_cost = analyze_costs(&mini_source, &file_path.to_string_lossy()).ok();
+                    let test_cost =
+                        analyze_costs(&mini_source, &pm.file_path.to_string_lossy()).ok();
                     let fn_cost = test_cost.as_ref().and_then(|pc| {
                         pc.functions
                             .iter()
@@ -531,43 +382,12 @@ pub fn analyze_costs_project(
     entry_path: &Path,
     options: &CompileOptions,
 ) -> Result<cost::ProgramCost, Vec<Diagnostic>> {
-    let modules = resolve_modules(entry_path)?;
+    use pipeline::PreparedProject;
 
-    let mut parsed_modules = Vec::new();
-    let mut all_exports: Vec<ModuleExports> = Vec::new();
-
-    for module in &modules {
-        let file = parse_source(&module.source, &module.file_path.to_string_lossy())?;
-        parsed_modules.push((
-            module.name.clone(),
-            module.file_path.clone(),
-            module.source.clone(),
-            file,
-        ));
-    }
-
-    for (_module_name, file_path, source, file) in &parsed_modules {
-        let mut tc = TypeChecker::with_target(options.target_config.clone())
-            .with_cfg_flags(options.cfg_flags.clone());
-        for exports in &all_exports {
-            tc.import_module(exports);
-        }
-        match tc.check_file(file) {
-            Ok(exports) => {
-                if !exports.warnings.is_empty() {
-                    render_diagnostics(&exports.warnings, &file_path.to_string_lossy(), source);
-                }
-                all_exports.push(exports);
-            }
-            Err(errors) => {
-                render_diagnostics(&errors, &file_path.to_string_lossy(), source);
-                return Err(errors);
-            }
-        }
-    }
+    let project = PreparedProject::build(entry_path, options)?;
 
     // Analyze costs for the program file (last in topological order)
-    if let Some((_name, _path, _source, file)) = parsed_modules.last() {
+    if let Some(file) = project.last_file() {
         let cost = cost::CostAnalyzer::new().analyze_file(file);
         Ok(cost)
     } else {
@@ -583,40 +403,12 @@ pub fn analyze_costs_project(
 /// Returns a `VerificationReport` with static analysis, random testing (Schwartz-Zippel),
 /// and bounded model checking results.
 pub fn verify_project(entry_path: &Path) -> Result<solve::VerificationReport, Vec<Diagnostic>> {
-    let modules = resolve_modules(entry_path)?;
+    use pipeline::PreparedProject;
 
-    let mut all_exports: Vec<ModuleExports> = Vec::new();
-    let mut last_file = None;
+    let project = PreparedProject::build_default(entry_path)?;
 
-    for module in &modules {
-        let file = parse_source(&module.source, &module.file_path.to_string_lossy())?;
-
-        let mut tc = TypeChecker::new();
-        for exports in &all_exports {
-            tc.import_module(exports);
-        }
-        match tc.check_file(&file) {
-            Ok(exports) => {
-                if !exports.warnings.is_empty() {
-                    render_diagnostics(
-                        &exports.warnings,
-                        &module.file_path.to_string_lossy(),
-                        &module.source,
-                    );
-                }
-                all_exports.push(exports);
-            }
-            Err(errors) => {
-                render_diagnostics(&errors, &module.file_path.to_string_lossy(), &module.source);
-                return Err(errors);
-            }
-        }
-
-        last_file = Some(file);
-    }
-
-    if let Some(file) = last_file {
-        let system = sym::analyze(&file);
+    if let Some(file) = project.last_file() {
+        let system = sym::analyze(file);
         Ok(solve::verify(&system))
     } else {
         Err(vec![Diagnostic::error(
@@ -682,313 +474,7 @@ pub fn generate_docs(
     entry_path: &Path,
     options: &CompileOptions,
 ) -> Result<String, Vec<Diagnostic>> {
-    // Resolve all modules in dependency order
-    let modules = resolve_modules(entry_path)?;
-
-    let mut parsed_modules = Vec::new();
-    let mut all_exports: Vec<ModuleExports> = Vec::new();
-
-    // Parse all modules
-    for module in &modules {
-        let file = parse_source(&module.source, &module.file_path.to_string_lossy())?;
-        parsed_modules.push((
-            module.name.clone(),
-            module.file_path.clone(),
-            module.source.clone(),
-            file,
-        ));
-    }
-
-    // Type-check in topological order, collecting exports
-    for (_module_name, file_path, source, file) in &parsed_modules {
-        let mut tc = TypeChecker::with_target(options.target_config.clone())
-            .with_cfg_flags(options.cfg_flags.clone());
-        for exports in &all_exports {
-            tc.import_module(exports);
-        }
-        match tc.check_file(file) {
-            Ok(exports) => {
-                all_exports.push(exports);
-            }
-            Err(errors) => {
-                render_diagnostics(&errors, &file_path.to_string_lossy(), source);
-                return Err(errors);
-            }
-        }
-    }
-
-    // Compute cost analysis per module
-    let mut module_costs: Vec<Option<cost::ProgramCost>> = Vec::new();
-    for (_module_name, _file_path, _source, file) in &parsed_modules {
-        let pc = cost::CostAnalyzer::new().analyze_file(file);
-        module_costs.push(Some(pc));
-    }
-
-    // Determine the program name from the entry module
-    let program_name = parsed_modules
-        .iter()
-        .find(|(_, _, _, f)| f.kind == FileKind::Program)
-        .map(|(_, _, _, f)| f.name.node.clone())
-        .unwrap_or_else(|| "project".to_string());
-
-    let mut doc = String::new();
-    doc.push_str(&format!("# {}\n", program_name));
-
-    // --- Functions ---
-    let mut fn_entries: Vec<String> = Vec::new();
-    for (i, (_module_name, _file_path, _source, file)) in parsed_modules.iter().enumerate() {
-        let module_name = &file.name.node;
-        let costs = module_costs[i].as_ref();
-        for item in &file.items {
-            if let ast::Item::Fn(func) = &item.node {
-                // Skip test functions, intrinsic-only, and non-pub functions in modules
-                if func.is_test {
-                    continue;
-                }
-                if file.kind == FileKind::Module && !func.is_pub {
-                    continue;
-                }
-                // Skip cfg-excluded items
-                if let Some(ref cfg) = func.cfg {
-                    if !options.cfg_flags.contains(&cfg.node) {
-                        continue;
-                    }
-                }
-
-                let sig = format_fn_signature(func);
-                let fn_cost =
-                    costs.and_then(|pc| pc.functions.iter().find(|f| f.name == func.name.node));
-
-                let mut entry = format!("### `{}`\n", sig);
-                if let Some(fc) = fn_cost {
-                    let c = &fc.cost;
-                    entry.push_str(&format!(
-                        "**Cost:** cc={}, hash={}, u32={} | dominant: {}\n",
-                        c.processor,
-                        c.hash,
-                        c.u32_table,
-                        c.dominant_table()
-                    ));
-                }
-                entry.push_str(&format!("**Module:** {}\n", module_name));
-                fn_entries.push(entry);
-            }
-        }
-    }
-
-    if !fn_entries.is_empty() {
-        doc.push_str("\n## Functions\n\n");
-        for entry in &fn_entries {
-            doc.push_str(entry);
-            doc.push('\n');
-        }
-    }
-
-    // --- Structs ---
-    let mut struct_entries: Vec<String> = Vec::new();
-    for (_module_name, _file_path, _source, file) in parsed_modules.iter() {
-        for item in &file.items {
-            if let ast::Item::Struct(sdef) = &item.node {
-                if file.kind == FileKind::Module && !sdef.is_pub {
-                    continue;
-                }
-                if let Some(ref cfg) = sdef.cfg {
-                    if !options.cfg_flags.contains(&cfg.node) {
-                        continue;
-                    }
-                }
-
-                let mut entry = format!("### `struct {}`\n", sdef.name.node);
-                entry.push_str("| Field | Type | Width |\n");
-                entry.push_str("|-------|------|-------|\n");
-                let mut total_width: u32 = 0;
-                for field in &sdef.fields {
-                    let ty_str = format_ast_type(&field.ty.node);
-                    let width = ast_type_width(&field.ty.node, &options.target_config);
-                    total_width += width;
-                    entry.push_str(&format!(
-                        "| {} | {} | {} |\n",
-                        field.name.node, ty_str, width
-                    ));
-                }
-                entry.push_str(&format!("Total width: {} field elements\n", total_width));
-                struct_entries.push(entry);
-            }
-        }
-    }
-
-    if !struct_entries.is_empty() {
-        doc.push_str("\n## Structs\n\n");
-        for entry in &struct_entries {
-            doc.push_str(entry);
-            doc.push('\n');
-        }
-    }
-
-    // --- Constants ---
-    let mut const_entries: Vec<(String, String, String)> = Vec::new(); // (name, type, value)
-    for (_module_name, _file_path, _source, file) in parsed_modules.iter() {
-        for item in &file.items {
-            if let ast::Item::Const(cdef) = &item.node {
-                if file.kind == FileKind::Module && !cdef.is_pub {
-                    continue;
-                }
-                if let Some(ref cfg) = cdef.cfg {
-                    if !options.cfg_flags.contains(&cfg.node) {
-                        continue;
-                    }
-                }
-                let ty_str = format_ast_type(&cdef.ty.node);
-                let val_str = format_const_value(&cdef.value.node);
-                const_entries.push((cdef.name.node.clone(), ty_str, val_str));
-            }
-        }
-    }
-
-    if !const_entries.is_empty() {
-        doc.push_str("\n## Constants\n\n");
-        doc.push_str("| Name | Type | Value |\n");
-        doc.push_str("|------|------|-------|\n");
-        for (name, ty, val) in &const_entries {
-            doc.push_str(&format!("| {} | {} | {} |\n", name, ty, val));
-        }
-        doc.push('\n');
-    }
-
-    // --- Events ---
-    let mut event_entries: Vec<String> = Vec::new();
-    for (_module_name, _file_path, _source, file) in parsed_modules.iter() {
-        for item in &file.items {
-            if let ast::Item::Event(edef) = &item.node {
-                if let Some(ref cfg) = edef.cfg {
-                    if !options.cfg_flags.contains(&cfg.node) {
-                        continue;
-                    }
-                }
-                let mut entry = format!("### `event {}`\n", edef.name.node);
-                entry.push_str("| Field | Type |\n");
-                entry.push_str("|-------|------|\n");
-                for field in &edef.fields {
-                    let ty_str = format_ast_type(&field.ty.node);
-                    entry.push_str(&format!("| {} | {} |\n", field.name.node, ty_str));
-                }
-                event_entries.push(entry);
-            }
-        }
-    }
-
-    if !event_entries.is_empty() {
-        doc.push_str("\n## Events\n\n");
-        for entry in &event_entries {
-            doc.push_str(entry);
-            doc.push('\n');
-        }
-    }
-
-    // --- Cost Summary ---
-    // Aggregate costs across all modules — use the program module's cost if it exists,
-    // otherwise sum all module costs.
-    let program_cost = parsed_modules
-        .iter()
-        .enumerate()
-        .find(|(_, (_, _, _, f))| f.kind == FileKind::Program)
-        .and_then(|(i, _)| module_costs[i].as_ref());
-
-    let total_cost = if let Some(pc) = program_cost {
-        pc.total.clone()
-    } else {
-        // Sum across all modules
-        let mut total = cost::TableCost::ZERO;
-        for pc in module_costs.iter().flatten() {
-            total = total.add(&pc.total);
-        }
-        total
-    };
-
-    let padded_height = if let Some(pc) = program_cost {
-        pc.padded_height
-    } else {
-        cost::next_power_of_two(total_cost.max_height())
-    };
-
-    doc.push_str("\n## Cost Summary\n\n");
-    doc.push_str("| Table | Height |\n");
-    doc.push_str("|-------|--------|\n");
-    doc.push_str(&format!("| Processor | {} |\n", total_cost.processor));
-    doc.push_str(&format!("| Hash | {} |\n", total_cost.hash));
-    doc.push_str(&format!("| U32 | {} |\n", total_cost.u32_table));
-    doc.push_str(&format!("| Padded | {} |\n", padded_height));
-
-    Ok(doc)
-}
-
-/// Format an AST type for documentation display.
-fn format_ast_type(ty: &ast::Type) -> String {
-    match ty {
-        ast::Type::Field => "Field".to_string(),
-        ast::Type::XField => "XField".to_string(),
-        ast::Type::Bool => "Bool".to_string(),
-        ast::Type::U32 => "U32".to_string(),
-        ast::Type::Digest => "Digest".to_string(),
-        ast::Type::Array(inner, size) => format!("[{}; {}]", format_ast_type(inner), size),
-        ast::Type::Tuple(elems) => {
-            let parts: Vec<_> = elems.iter().map(format_ast_type).collect();
-            format!("({})", parts.join(", "))
-        }
-        ast::Type::Named(path) => path.as_dotted(),
-    }
-}
-
-/// Compute the width in field elements for an AST type (best-effort).
-fn ast_type_width(ty: &ast::Type, config: &TargetConfig) -> u32 {
-    match ty {
-        ast::Type::Field | ast::Type::Bool | ast::Type::U32 => 1,
-        ast::Type::XField => config.xfield_width,
-        ast::Type::Digest => config.digest_width,
-        ast::Type::Array(inner, size) => {
-            let inner_w = ast_type_width(inner, config);
-            let n = size.as_literal().unwrap_or(1) as u32;
-            inner_w * n
-        }
-        ast::Type::Tuple(elems) => elems.iter().map(|e| ast_type_width(e, config)).sum(),
-        ast::Type::Named(_) => 1, // unknown, default to 1
-    }
-}
-
-/// Format a function signature for documentation.
-fn format_fn_signature(func: &ast::FnDef) -> String {
-    let mut sig = String::from("fn ");
-    sig.push_str(&func.name.node);
-
-    // Type params
-    if !func.type_params.is_empty() {
-        let params: Vec<_> = func.type_params.iter().map(|p| p.node.clone()).collect();
-        sig.push_str(&format!("<{}>", params.join(", ")));
-    }
-
-    sig.push('(');
-    let params: Vec<String> = func
-        .params
-        .iter()
-        .map(|p| format!("{}: {}", p.name.node, format_ast_type(&p.ty.node)))
-        .collect();
-    sig.push_str(&params.join(", "));
-    sig.push(')');
-
-    if let Some(ref ret) = func.return_ty {
-        sig.push_str(&format!(" -> {}", format_ast_type(&ret.node)));
-    }
-
-    sig
-}
-
-/// Format a constant value expression for documentation.
-fn format_const_value(expr: &ast::Expr) -> String {
-    match expr {
-        ast::Expr::Literal(ast::Literal::Integer(n)) => n.to_string(),
-        ast::Expr::Literal(ast::Literal::Bool(b)) => b.to_string(),
-        _ => "...".to_string(),
-    }
+    doc::generate_docs(entry_path, options)
 }
 
 /// Parse, type-check, and produce per-line cost-annotated source output.
@@ -1129,7 +615,7 @@ pub fn check_file_in_project(source: &str, file_path: &Path) -> Result<(), Vec<D
     Ok(())
 }
 
-fn parse_source(source: &str, filename: &str) -> Result<ast::File, Vec<Diagnostic>> {
+pub(crate) fn parse_source(source: &str, filename: &str) -> Result<ast::File, Vec<Diagnostic>> {
     let (tokens, _comments, lex_errors) = Lexer::new(source, 0).tokenize();
     if !lex_errors.is_empty() {
         render_diagnostics(&lex_errors, filename, source);
