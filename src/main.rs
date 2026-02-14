@@ -2493,16 +2493,16 @@ fn cmd_deps(action: DepsAction) {
             for name in names {
                 let dep = &deps[name];
                 match dep {
-                    trident::package::Dependency::Hash { hash } => {
+                    trident::manifest::Dependency::Hash { hash } => {
                         println!("  {} = {} (hash)", name, &hash[..16]);
                     }
-                    trident::package::Dependency::Registry {
+                    trident::manifest::Dependency::Registry {
                         name: reg_name,
                         registry,
                     } => {
                         println!("  {} = {} @ {} (registry)", name, reg_name, registry);
                     }
-                    trident::package::Dependency::Path { path } => {
+                    trident::manifest::Dependency::Path { path } => {
                         println!("  {} = {} (path)", name, path.display());
                     }
                 }
@@ -2510,7 +2510,7 @@ fn cmd_deps(action: DepsAction) {
             // Check lockfile
             let lock_path = project.root_dir.join("trident.lock");
             if lock_path.exists() {
-                match trident::package::load_lockfile(&lock_path) {
+                match trident::manifest::load_lockfile(&lock_path) {
                     Ok(lock) => println!("\nLocked: {} dependencies", lock.locked.len()),
                     Err(e) => println!("\nLockfile error: {}", e),
                 }
@@ -2527,18 +2527,18 @@ fn cmd_deps(action: DepsAction) {
             // Load existing lockfile if present
             let lock_path = project.root_dir.join("trident.lock");
             let existing_lock = if lock_path.exists() {
-                trident::package::load_lockfile(&lock_path).ok()
+                trident::manifest::load_lockfile(&lock_path).ok()
             } else {
                 None
             };
-            match trident::package::resolve_dependencies(
+            match trident::manifest::resolve_dependencies(
                 &project.root_dir,
                 deps,
                 &existing_lock,
                 &registry,
             ) {
                 Ok(lockfile) => {
-                    if let Err(e) = trident::package::save_lockfile(&lock_path, &lockfile) {
+                    if let Err(e) = trident::manifest::save_lockfile(&lock_path, &lockfile) {
                         eprintln!("error writing lockfile: {}", e);
                         process::exit(1);
                     }
@@ -2559,7 +2559,7 @@ fn cmd_deps(action: DepsAction) {
                 eprintln!("error: no trident.lock found. Run `trident deps fetch` first.");
                 process::exit(1);
             }
-            let lockfile = match trident::package::load_lockfile(&lock_path) {
+            let lockfile = match trident::manifest::load_lockfile(&lock_path) {
                 Ok(l) => l,
                 Err(e) => {
                     eprintln!("error: {}", e);
@@ -2568,7 +2568,7 @@ fn cmd_deps(action: DepsAction) {
             };
             let mut ok = true;
             for (name, locked) in &lockfile.locked {
-                let cached = trident::package::dep_source_path(&project.root_dir, &locked.hash);
+                let cached = trident::manifest::dep_source_path(&project.root_dir, &locked.hash);
                 if cached.exists() {
                     println!("  OK  {} ({})", name, &locked.hash[..16]);
                 } else {
@@ -2599,8 +2599,8 @@ fn load_dep_dirs(project: &trident::project::Project) -> Vec<PathBuf> {
     if !lock_path.exists() {
         return Vec::new();
     }
-    match trident::package::load_lockfile(&lock_path) {
-        Ok(lockfile) => trident::package::dependency_search_paths(&project.root_dir, &lockfile),
+    match trident::manifest::load_lockfile(&lock_path) {
+        Ok(lockfile) => trident::manifest::dependency_search_paths(&project.root_dir, &lockfile),
         Err(_) => Vec::new(),
     }
 }

@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
 use crate::diagnostic::Diagnostic;
-use crate::package::Manifest;
+use crate::manifest::Manifest;
 use crate::span::Span;
 
 /// Minimal project configuration from trident.toml.
@@ -99,7 +99,7 @@ impl Project {
             entry = "main.tri".to_string();
         }
 
-        let dependencies = crate::package::parse_dependencies(&content);
+        let dependencies = crate::manifest::parse_dependencies(&content);
 
         Ok(Project {
             name,
