@@ -2,11 +2,14 @@ pub mod ast;
 pub mod common;
 pub mod cost;
 pub mod frontend;
+pub mod kir;
 pub mod linker;
+pub mod lir;
 pub mod pkgmgmt;
 pub mod stack;
 pub mod tir;
 pub mod tools;
+pub mod tree;
 pub mod typecheck;
 pub mod verify;
 
