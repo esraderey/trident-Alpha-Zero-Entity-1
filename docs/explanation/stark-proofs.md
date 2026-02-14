@@ -674,6 +674,13 @@ computers whenever they arrive.
 
 See [Comparative Analysis](provable-computing.md#-42-quantum-safety) for the full quantum safety comparison across all ZK systems. Summary: Triton VM uses FRI + Tip5 — no elliptic curves. Both prover and verifier are quantum-safe. No migration needed.
 
+Beyond post-quantum security, Trident's prime field architecture is
+*quantum-native* — the same algebraic structure that enables provability is
+the optimal substrate for prime-dimensional quantum computing. See
+[Quantum Computing](quantum.md) for the full analysis of how `Field` maps to
+qudit registers, `divine()` maps to quantum oracles, and STARK proof
+generation becomes a candidate for quantum acceleration.
+
 ---
 
 ## ⚡ 11. Performance: What Does Proving Cost?

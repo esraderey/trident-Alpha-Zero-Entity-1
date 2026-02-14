@@ -72,6 +72,7 @@ Per-target documentation lives alongside its config:
 | [Neptune Gold Standard](explanation/gold-standard.md) | Token standards and capability library |
 | [For Offchain Devs](explanation/for-offchain-devs.md) | Zero-knowledge from scratch |
 | [For Onchain Devs](explanation/for-onchain-devs.md) | Mental model migration from Solidity/Anchor/CosmWasm |
+| [Quantum Computing](explanation/quantum.md) | Why prime field arithmetic is quantum-native |
 | [Cyber License](explanation/cyber-license.md) | Don't trust. Don't fear. Don't beg. |
 
 ## 🗺️ Project

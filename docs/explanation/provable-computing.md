@@ -469,6 +469,7 @@ The verdict: For a sovereign verification layer that must be quantum-safe, priva
 ## 🔗 See Also
 
 - [How STARK Proofs Work](stark-proofs.md) -- The proof system Triton VM uses, explained from first principles
+- [Quantum Computing](quantum.md) -- Why prime field arithmetic is simultaneously provable and quantum-native
 - [Vision](vision.md) -- Why Trident exists: quantum safety, cost transparency, recursive verification
 - [Language Reference](../reference/language.md) -- Permanent exclusions and design decisions
 - [Language Reference](../reference/language.md) -- Quick lookup for the Trident language

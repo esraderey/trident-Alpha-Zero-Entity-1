@@ -71,11 +71,21 @@ For hash performance and quantum safety comparisons, see
 Sovereign, private, provable computation should be accessible to every
 developer -- and it should not be locked to a single virtual machine.
 
-The bet is fourfold:
+The bet is fivefold:
 
 Quantum computers will break elliptic curves within our professional
 lifetimes. Every SNARK system in production has an expiration date.
 Infrastructure built on hash-only STARKs does not need to migrate.
+
+Trident is quantum-native by structural necessity. The prime field
+arithmetic that makes programs provable is the same algebraic structure that
+makes them optimal for quantum execution. Every Trident program is an
+arithmetic circuit over the Goldilocks prime field -- the natural substrate
+for prime-dimensional quantum computing. `Field` maps to a qudit register.
+`divine()` maps to a quantum oracle. Bounded loops map to fixed-depth quantum
+circuits. The same program that runs on Triton VM today can have its proof
+generation quantum-accelerated tomorrow, with zero source code changes.
+See [Quantum Computing](quantum.md) for the full analysis.
 
 Privacy is a requirement, not a feature. When you build tokens, identity,
 governance, or any system touching human agency, the default must be private.
@@ -114,6 +124,7 @@ makes this position stronger.
 
 ## 🔗 See Also
 
+- [Quantum Computing](quantum.md) -- Why prime field arithmetic is quantum-native
 - [For Offchain Devs](for-offchain-devs.md) -- Zero-knowledge programming from scratch
 - [For Onchain Devs](for-onchain-devs.md) -- From Solidity/Cairo/Anchor to Trident
 - [Multi-Target Compilation](multi-target.md) -- One source, every chain

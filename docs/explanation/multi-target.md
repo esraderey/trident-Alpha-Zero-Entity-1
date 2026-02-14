@@ -22,7 +22,7 @@ Trident was designed for provable computation on zero-knowledge virtual machines
 
 - Fixed-width types. `Field`, `U32`, `Bool`, `Digest`, fixed-size arrays, structs. No dynamically-sized types. Every value's memory footprint is known at compile time.
 
-- Field-native arithmetic. The core numeric type is a finite field element (Goldilocks: 2^64 - 2^32 + 1). This fits in a 64-bit integer, making it efficient on every platform — native on ZK VMs, trivial `u64` arithmetic with modular reduction on RISC-V and WASM, `addmod`/`mulmod` on EVM.
+- Field-native arithmetic. The core numeric type is a finite field element (Goldilocks: 2^64 - 2^32 + 1). This fits in a 64-bit integer, making it efficient on every platform — native on ZK VMs, trivial `u64` arithmetic with modular reduction on RISC-V and WASM, `addmod`/`mulmod` on EVM. This prime field structure also makes Trident programs [quantum-native](quantum.md) — the same algebraic foundation required for provability is the optimal substrate for prime-dimensional quantum computing.
 
 - Compile-time cost analysis. The compiler tells you exactly what your program costs before you deploy it. Not an estimate — an exact row count per algebraic table (ZK targets) or instruction count (conventional targets).
 

@@ -47,6 +47,16 @@ programmability, or permissionless participation.
 [Neptune](https://neptune.cash/) is the only OS that passes all four tests —
 and Trident is the language that makes it programmable.
 
+Quantum-native by structural necessity. Trident's prime field arithmetic
+is not just an implementation choice for STARK proofs — it is the same
+algebraic structure required for optimal quantum computation.
+Every Trident program is an arithmetic circuit over a prime field: `Field`
+maps to a qudit register, `divine()` maps to a quantum oracle, bounded loops
+map to fixed-depth quantum circuits. The same program that proves on Triton VM
+today can be quantum-accelerated tomorrow — zero source changes. Post-quantum
+secure AND pre-quantum-advantage ready, from the same design choice. See the
+[Quantum Computing paper](docs/explanation/quantum.md).
+
 What you see is what you prove. Source compiles through a 54-operation
 [intermediate representation](docs/reference/ir.md) that maps nearly 1:1 to
 target instructions. No optimization engine reorders your operations.
