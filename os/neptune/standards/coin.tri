@@ -4,30 +4,39 @@ program coin
 // ZK-Native Coin — TSP-1 (PLUMB)
 // Ops: pay (0), lock (1), update (2), mint (3), burn (4)
 //
-// State: Merkle tree of leaves + config commitment
-// Leaf   = hash(id, bal, nonce, auth, lock, 0..0)
+// State: Merkle tree of account leaves + config commitment
+// Leaf   = hash(id, bal, nonce, auth, lock,
+//               controller, locked_by, lock_data, 0, 0)
 // Config = hash(5 authorities + 5 hooks)
 // Meta   = hash(name, ticker, teaser, site, custom,
 //               price_oracle, volume_oracle, 0, 0, 0)
 //
-// Config = business logic (authorities + hooks)
-//   Authorities: who can perform the operation
-//   Hooks: external program for custom logic
-// Metadata = descriptive + oracle refs, standalone
-//
 // Authority semantics:
 //   Account ops (pay/lock/burn): 0 = self, else dual
 //   Config ops (mint/update):    0 = off, else auth
+//
+// Leaves are Merkle-authenticated against the state root.
+// Hook program IDs are output for external proof composition.
 // ======================================================
-// --- Leaf hashing ---
+use std.crypto.merkle
+
+// Depth of the account Merkle tree (2^20 = ~1M leaves).
+fn tree_depth() -> Field {
+    20
+}
+
+// --- Leaf hashing (10 fields: 5 core + 3 program control + 2 reserved) ---
 fn hash_leaf(
     id: Field,
     bal: Field,
     nonce: Field,
     auth: Field,
-    lock: Field
+    lock: Field,
+    controller: Field,
+    locked_by: Field,
+    lock_data: Field
 ) -> Digest {
-    hash(id, bal, nonce, auth, lock, 0, 0, 0, 0, 0)
+    hash(id, bal, nonce, auth, lock, controller, locked_by, lock_data, 0, 0)
 }
 
 // --- Metadata hashing (standalone, descriptive + oracle references) ---
@@ -110,13 +119,19 @@ fn verify_config(
 }
 
 // --- Authorization: prove knowledge of secret matching auth_hash ---
-// Proves preimage knowledge and binds auth_hash to the first field
-// of the computed digest: auth_hash == hash(secret)[0].
 fn verify_auth(auth_hash: Field) {
     let secret: Field = divine()
     let computed: Digest = hash(secret, 0, 0, 0, 0, 0, 0, 0, 0, 0)
     let (h0, _, _, _, _) = computed
     assert_eq(auth_hash, h0)
+}
+
+// --- Hook signaling: output hook program ID for external composition ---
+fn signal_hook(hook: Field) {
+    if hook == 0 {
+    } else {
+        pub_write(hook)
+    }
 }
 
 // --- Events ---
@@ -142,8 +157,6 @@ fn assert_non_negative(val: Field) {
 // ============================================================
 // Op 0: PAY — transfer tokens between accounts
 // ============================================================
-// Pub: old_root, new_root, supply, time, amount, config
-// Sec: config(10), sender, receiver, auth witnesses
 fn pay() {
     let old_root: Digest = pub_read5()
     let new_root: Digest = pub_read5()
@@ -175,16 +188,22 @@ fn pay() {
         cfg_burn_hook,
         config
     )
-    // --- Sender account (secret) ---
+    // --- Sender account ---
     let s_id: Field = divine()
     let s_bal: Field = divine()
     let s_nonce: Field = divine()
     let s_auth: Field = divine()
     let s_lock: Field = divine()
-    // Verify sender leaf
-    let s_leaf: Digest = hash_leaf(s_id, s_bal, s_nonce, s_auth, s_lock)
-    let s_leaf_expected: Digest = divine5()
-    assert_digest(s_leaf, s_leaf_expected)
+    let s_controller: Field = divine()
+    let s_locked_by: Field = divine()
+    let s_lock_data: Field = divine()
+    // Authenticate sender leaf against old state root
+    let s_leaf: Digest = hash_leaf(
+        s_id, s_bal, s_nonce, s_auth, s_lock,
+        s_controller, s_locked_by, s_lock_data
+    )
+    let s_idx: U32 = as_u32(divine())
+    merkle.verify(s_leaf, old_root, s_idx, tree_depth())
     // Account-level authorization (always required)
     verify_auth(s_auth)
     // Config-level pay auth (0 = self only, else dual)
@@ -192,38 +211,54 @@ fn pay() {
     } else {
         verify_auth(cfg_pay_auth)
     }
+    // Controller co-authorization signal
+    if s_controller == 0 {
+    } else {
+        pub_write(s_controller)
+    }
+    // Locked-by restriction signal
+    if s_locked_by == 0 {
+    } else {
+        pub_write(s_locked_by)
+    }
     // Time-lock check: current_time >= lock_until
     let time_diff: Field = sub(current_time, s_lock)
     assert_non_negative(time_diff)
     // Sufficient balance
     let new_s_bal: Field = sub(s_bal, amount)
     assert_non_negative(new_s_bal)
-    // --- Receiver account (secret) ---
+    // --- Receiver account ---
     let r_id: Field = divine()
     let r_bal: Field = divine()
     let r_nonce: Field = divine()
     let r_auth: Field = divine()
     let r_lock: Field = divine()
-    // Verify receiver leaf
-    let r_leaf: Digest = hash_leaf(r_id, r_bal, r_nonce, r_auth, r_lock)
-    let r_leaf_expected: Digest = divine5()
-    assert_digest(r_leaf, r_leaf_expected)
+    let r_controller: Field = divine()
+    let r_locked_by: Field = divine()
+    let r_lock_data: Field = divine()
+    // Authenticate receiver leaf against old state root
+    let r_leaf: Digest = hash_leaf(
+        r_id, r_bal, r_nonce, r_auth, r_lock,
+        r_controller, r_locked_by, r_lock_data
+    )
+    let r_idx: U32 = as_u32(divine())
+    merkle.verify(r_leaf, old_root, r_idx, tree_depth())
     // --- Compute new leaves ---
     let new_s_nonce: Field = s_nonce + 1
     let new_s_leaf: Digest = hash_leaf(
-        s_id,
-        new_s_bal,
-        new_s_nonce,
-        s_auth,
-        s_lock
+        s_id, new_s_bal, new_s_nonce, s_auth, s_lock,
+        s_controller, s_locked_by, s_lock_data
     )
     let new_r_bal: Field = r_bal + amount
-    let new_r_leaf: Digest = hash_leaf(r_id, new_r_bal, r_nonce, r_auth, r_lock)
-    // Verify new leaves
-    let new_s_expected: Digest = divine5()
-    assert_digest(new_s_leaf, new_s_expected)
-    let new_r_expected: Digest = divine5()
-    assert_digest(new_r_leaf, new_r_expected)
+    let new_r_leaf: Digest = hash_leaf(
+        r_id, new_r_bal, r_nonce, r_auth, r_lock,
+        r_controller, r_locked_by, r_lock_data
+    )
+    // Authenticate new leaves against new state root
+    merkle.verify(new_s_leaf, new_root, s_idx, tree_depth())
+    merkle.verify(new_r_leaf, new_root, r_idx, tree_depth())
+    // Hook signal
+    signal_hook(cfg_pay_hook)
     // Nullifier (sealed — verifier sees commitment)
     seal Nullifier { account_id: s_id, nonce: s_nonce }
     // Supply unchanged
@@ -234,8 +269,6 @@ fn pay() {
 // ============================================================
 // Op 1: LOCK — time-lock tokens
 // ============================================================
-// Pub: old_root, new_root, supply, lock_until, config
-// Sec: config(10), account, auth witnesses
 fn lock() {
     let old_root: Digest = pub_read5()
     let new_root: Digest = pub_read5()
@@ -266,16 +299,22 @@ fn lock() {
         cfg_burn_hook,
         config
     )
-    // Account to lock
+    // --- Account to lock ---
     let a_id: Field = divine()
     let a_bal: Field = divine()
     let a_nonce: Field = divine()
     let a_auth: Field = divine()
     let a_lock: Field = divine()
-    // Verify account leaf
-    let a_leaf: Digest = hash_leaf(a_id, a_bal, a_nonce, a_auth, a_lock)
-    let a_leaf_expected: Digest = divine5()
-    assert_digest(a_leaf, a_leaf_expected)
+    let a_controller: Field = divine()
+    let a_locked_by: Field = divine()
+    let a_lock_data: Field = divine()
+    // Authenticate leaf against old state root
+    let a_leaf: Digest = hash_leaf(
+        a_id, a_bal, a_nonce, a_auth, a_lock,
+        a_controller, a_locked_by, a_lock_data
+    )
+    let a_idx: U32 = as_u32(divine())
+    merkle.verify(a_leaf, old_root, a_idx, tree_depth())
     // Account-level authorization (always required)
     verify_auth(a_auth)
     // Config-level lock auth (0 = self only, else dual)
@@ -289,15 +328,13 @@ fn lock() {
     // New leaf with updated lock_until and incremented nonce
     let new_a_nonce: Field = a_nonce + 1
     let new_a_leaf: Digest = hash_leaf(
-        a_id,
-        a_bal,
-        new_a_nonce,
-        a_auth,
-        lock_time
+        a_id, a_bal, new_a_nonce, a_auth, lock_time,
+        a_controller, a_locked_by, a_lock_data
     )
-    // Verify new leaf
-    let new_a_expected: Digest = divine5()
-    assert_digest(new_a_leaf, new_a_expected)
+    // Authenticate new leaf against new state root
+    merkle.verify(new_a_leaf, new_root, a_idx, tree_depth())
+    // Hook signal
+    signal_hook(cfg_lock_hook)
     // Supply unchanged
     reveal
     SupplyCheck { supply: supply }
@@ -306,9 +343,6 @@ fn lock() {
 // ============================================================
 // Op 2: UPDATE — update token config (admin only)
 // ============================================================
-// Pub: old_root, new_root, supply, old_config, new_config
-// Sec: old config(10), new config(10), admin_secret
-// Setting admin_auth = 0 renounces authority
 fn update() {
     let old_root: Digest = pub_read5()
     let new_root: Digest = pub_read5()
@@ -367,6 +401,8 @@ fn update() {
         new_burn_hook,
         new_config
     )
+    // Hook signal
+    signal_hook(old_update_hook)
     // Supply unchanged
     reveal
     SupplyCheck { supply: supply }
@@ -375,8 +411,6 @@ fn update() {
 // ============================================================
 // Op 3: MINT — create new tokens
 // ============================================================
-// Pub: old_root, new_root, old/new supply, amount, config
-// Sec: config(10), mint_secret, recipient account
 fn mint() {
     let old_root: Digest = pub_read5()
     let new_root: Digest = pub_read5()
@@ -413,22 +447,32 @@ fn mint() {
     // Supply accounting
     let expected_supply: Field = old_supply + amount
     assert_eq(new_supply, expected_supply)
-    // Recipient account
+    // --- Recipient account ---
     let r_id: Field = divine()
     let r_bal: Field = divine()
     let r_nonce: Field = divine()
     let r_auth: Field = divine()
     let r_lock: Field = divine()
-    // Verify old recipient leaf
-    let r_leaf: Digest = hash_leaf(r_id, r_bal, r_nonce, r_auth, r_lock)
-    let r_leaf_expected: Digest = divine5()
-    assert_digest(r_leaf, r_leaf_expected)
+    let r_controller: Field = divine()
+    let r_locked_by: Field = divine()
+    let r_lock_data: Field = divine()
+    // Authenticate old recipient leaf against old state root
+    let r_leaf: Digest = hash_leaf(
+        r_id, r_bal, r_nonce, r_auth, r_lock,
+        r_controller, r_locked_by, r_lock_data
+    )
+    let r_idx: U32 = as_u32(divine())
+    merkle.verify(r_leaf, old_root, r_idx, tree_depth())
     // New recipient leaf (balance increased)
     let new_r_bal: Field = r_bal + amount
-    let new_r_leaf: Digest = hash_leaf(r_id, new_r_bal, r_nonce, r_auth, r_lock)
-    // Verify new leaf
-    let new_r_expected: Digest = divine5()
-    assert_digest(new_r_leaf, new_r_expected)
+    let new_r_leaf: Digest = hash_leaf(
+        r_id, new_r_bal, r_nonce, r_auth, r_lock,
+        r_controller, r_locked_by, r_lock_data
+    )
+    // Authenticate new leaf against new state root
+    merkle.verify(new_r_leaf, new_root, r_idx, tree_depth())
+    // Hook signal
+    signal_hook(cfg_mint_hook)
     // Supply change
     reveal
     SupplyChange { old_supply: old_supply, new_supply: new_supply }
@@ -437,8 +481,6 @@ fn mint() {
 // ============================================================
 // Op 4: BURN — destroy tokens
 // ============================================================
-// Pub: old_root, new_root, old/new supply, time, amount, config
-// Sec: config(10), account, auth witnesses
 fn burn() {
     let old_root: Digest = pub_read5()
     let new_root: Digest = pub_read5()
@@ -471,22 +513,38 @@ fn burn() {
         cfg_burn_hook,
         config
     )
-    // Account to burn from
+    // --- Account to burn from ---
     let a_id: Field = divine()
     let a_bal: Field = divine()
     let a_nonce: Field = divine()
     let a_auth: Field = divine()
     let a_lock: Field = divine()
-    // Verify account leaf
-    let a_leaf: Digest = hash_leaf(a_id, a_bal, a_nonce, a_auth, a_lock)
-    let a_leaf_expected: Digest = divine5()
-    assert_digest(a_leaf, a_leaf_expected)
+    let a_controller: Field = divine()
+    let a_locked_by: Field = divine()
+    let a_lock_data: Field = divine()
+    // Authenticate leaf against old state root
+    let a_leaf: Digest = hash_leaf(
+        a_id, a_bal, a_nonce, a_auth, a_lock,
+        a_controller, a_locked_by, a_lock_data
+    )
+    let a_idx: U32 = as_u32(divine())
+    merkle.verify(a_leaf, old_root, a_idx, tree_depth())
     // Account-level authorization (always required)
     verify_auth(a_auth)
     // Config-level burn auth (0 = self only, else dual)
     if cfg_burn_auth == 0 {
     } else {
         verify_auth(cfg_burn_auth)
+    }
+    // Controller co-authorization signal
+    if a_controller == 0 {
+    } else {
+        pub_write(a_controller)
+    }
+    // Locked-by restriction signal
+    if a_locked_by == 0 {
+    } else {
+        pub_write(a_locked_by)
     }
     // Time-lock check
     let time_diff: Field = sub(current_time, a_lock)
@@ -500,15 +558,13 @@ fn burn() {
     // New leaf
     let new_a_nonce: Field = a_nonce + 1
     let new_a_leaf: Digest = hash_leaf(
-        a_id,
-        new_a_bal,
-        new_a_nonce,
-        a_auth,
-        a_lock
+        a_id, new_a_bal, new_a_nonce, a_auth, a_lock,
+        a_controller, a_locked_by, a_lock_data
     )
-    // Verify new leaf
-    let new_a_expected: Digest = divine5()
-    assert_digest(new_a_leaf, new_a_expected)
+    // Authenticate new leaf against new state root
+    merkle.verify(new_a_leaf, new_root, a_idx, tree_depth())
+    // Hook signal
+    signal_hook(cfg_burn_hook)
     // Nullifier (sealed — verifier sees commitment)
     seal Nullifier { account_id: a_id, nonce: a_nonce }
     // Supply change
