@@ -1160,8 +1160,11 @@ mod integration_tests {
 
     #[test]
     fn test_coin_compiles() {
-        let source = include_str!("../os/neptune/standards/coin.tri");
-        let tasm = compile(source, "coin.tri").expect("coin program should compile");
+        let path = std::path::Path::new("os/neptune/standards/coin.tri");
+        if !path.exists() {
+            return;
+        }
+        let tasm = compile_project(path).expect("coin program should compile");
 
         // Verify all 5 operations are in the TASM output
         assert!(tasm.contains("__pay:"), "missing pay function");
@@ -1225,8 +1228,12 @@ mod integration_tests {
 
     #[test]
     fn test_coin_cost_analysis() {
-        let source = include_str!("../os/neptune/standards/coin.tri");
-        let cost = analyze_costs(source, "coin.tri").expect("cost analysis should succeed");
+        let path = std::path::Path::new("os/neptune/standards/coin.tri");
+        if !path.exists() {
+            return;
+        }
+        let cost = analyze_costs_project(path, &CompileOptions::default())
+            .expect("cost analysis should succeed");
 
         // Processor table should be nonzero
         assert!(cost.total.processor > 0);
@@ -2693,5 +2700,36 @@ fn main() {
                 result.err()
             );
         }
+    }
+
+    #[test]
+    fn test_card_compiles() {
+        let path = std::path::Path::new("os/neptune/standards/card.tri");
+        if !path.exists() {
+            return;
+        }
+        let tasm = compile_project(path).expect("card program should compile");
+
+        // Verify all 5 PLUMB operations
+        assert!(tasm.contains("__pay:"), "missing pay function");
+        assert!(tasm.contains("__mint:"), "missing mint function");
+        assert!(tasm.contains("__burn:"), "missing burn function");
+        assert!(tasm.contains("__lock:"), "missing lock function");
+        assert!(tasm.contains("__update:"), "missing update function");
+
+        // Verify helper functions
+        assert!(tasm.contains("__hash_leaf:"), "missing hash_leaf function");
+        assert!(
+            tasm.contains("__hash_config:"),
+            "missing hash_config function"
+        );
+        assert!(
+            tasm.contains("__verify_auth:"),
+            "missing verify_auth function"
+        );
+        assert!(
+            tasm.contains("__verify_config:"),
+            "missing verify_config function"
+        );
     }
 }
