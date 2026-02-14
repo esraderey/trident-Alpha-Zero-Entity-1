@@ -1,365 +1,189 @@
-# 🔱 Neptune
+# Neptune
 
-[← Target Reference](../../docs/reference/targets.md) | VM: [TRITON](../../vm/triton/README.md)
+[VM: Triton](../../vm/triton/README.md) | [OS Reference](../../docs/reference/os.md) | [Gold Standard](../../docs/explanation/gold-standard.md)
 
-Neptune is the provable blockchain powered by TRITON. Programs produce
-STARK proofs of correct execution. Same bytecode output as bare TRITON
-(`.tasm`), but with OS-level runtime bindings for UTXOs, transaction
-kernels, and recursive proof composition.
+Neptune is a blockchain where every state transition produces a STARK
+proof. No trusted setup. No elliptic curves. Quantum-safe by
+construction.
+
+Four properties define Neptune:
+
+- **Programmable.** Arbitrary programs compile to Triton VM and execute
+  as provable circuits. Lock scripts, type scripts, token standards,
+  proof composition — all written in Trident.
+- **Private.** UTXO model with encrypted notifications. Senders prove
+  correctness without revealing balances, amounts, or addresses to
+  validators. The chain validates proofs, not transactions.
+- **Mineable.** Proof-of-work consensus. No staking cartel. No
+  validator set. Anyone with hardware can mine blocks and earn coinbase.
+- **Quantum-safe.** Lattice-based key encapsulation (generation
+  addresses), Tip5 hashing over Goldilocks field, no elliptic curve
+  assumptions anywhere in the cryptographic stack.
+
+---
+
+## Programming Model
+
+Programs do not call each other. There is no `msg.sender`, no shared
+mutable state, no reentrancy. Every program produces an independent STARK
+proof. A verifier composes proofs together. Composition is recursive — a
+proof can verify another proof inside it, so any chain of proofs
+collapses into a single proof.
+
+All state access follows divine-and-authenticate: the prover divines a
+value from secret input, then Merkle-authenticates it against a public
+root. If authentication fails, the VM crashes — no proof is generated.
+The developer writes `kernel.authenticate_fee(hash)`. The proof
+machinery is invisible.
+
+Authorization is explicit. The prover divines a secret and proves
+knowledge of it: `hash(secret) == expected`. The secret can be a private
+key, a Shamir share, a biometric hash, a hardware attestation, or the
+output of another ZK proof. This is account abstraction by default.
+
+---
+
+## Transaction Kernel
+
+Every transaction has a kernel — 8 fields organized as a Merkle tree of
+height 3:
+
+| Leaf | Field | Description |
+|------|-------|-------------|
+| 0 | `inputs` | UTXOs being spent (removal records) |
+| 1 | `outputs` | New UTXOs being created (addition records) |
+| 2 | `announcements` | Public messages (encrypted UTXO notifications) |
+| 3 | `fee` | Transaction fee in NPT (u128) |
+| 4 | `coinbase` | Block reward (mining transactions only) |
+| 5 | `timestamp` | Transaction timestamp |
+| 6 | `mutator_set_hash` | Current UTXO set commitment |
+| 7 | `merge_bit` | Whether this is a merged transaction |
+
+The kernel MAST hash is the primary public input for all scripts.
+
+---
+
+## Two Script Types
+
+**Lock scripts** guard a UTXO — they prove the right to spend. Public
+input: kernel MAST hash (1 Digest = 5 field elements).
+
+**Type scripts** validate conservation rules — they prove that value is
+neither created nor destroyed. Public input: 3 Digests (kernel hash,
+input UTXOs hash, output UTXOs hash).
+
+---
+
+## Token Standards: The Gold Standard
+
+Neptune's token system is built on PLUMB — Pay, Lock, Update, Mint,
+Burn. Five operations, uniform proof structure, composable hooks.
+
+Two standards cover the entire design space:
+
+| Standard | Name | Conservation law |
+|----------|------|------------------|
+| TSP-1 | Coin | `sum(balances) = supply` |
+| TSP-2 | Card | `owner_count(id) = 1` |
+
+Two conservation laws exist in token systems — divisible supply and
+unique ownership. These are mathematically incompatible, so they require
+separate circuits. Everything else — liquidity, governance, lending,
+oracles, royalties — is a skill. Skills compose through hooks. Standards
+define what a token *is*. Skills define what a token *does*.
+
+See the [Gold Standard](../../docs/explanation/gold-standard.md) for
+PLUMB, circuit constraints, config model, and the hook system. See the
+[Skill Library](../../docs/reference/skill-library.md) for the 23
+designed skills.
 
 ---
 
 ## Directory Structure
 
-```
-os/neptune/
-  kernel.tri, utxo.tri, xfield.tri,    OS bindings (use os.neptune.*)
-  recursive.tri, proof.tri
+2,210 lines of Trident across 17 programs, organized in five layers:
 
-  standards/                            Token standards
-    coin.tri                            TSP-1 — PLUMB fungible token
-    card.tri                            TSP-2 — PLUMB unique asset
+### OS Bindings — `use os.neptune.*`
 
-  locks/                                Lock scripts (spending authorization)
-    generation.tri                      Hash-preimage (simplest)
-    symmetric.tri                       5-field preimage (320-bit entropy)
-    multisig.tri                        2-of-3 threshold
-    timelock.tri                        Time-locked UTXO
+The foundation. Compiler-supported modules that bind Trident programs to
+Neptune's runtime: kernel MAST authentication, UTXO verification,
+extension field arithmetic, and recursive proof composition primitives.
 
-  types/                                Type scripts (conservation laws)
-    native_currency.tri                 NPT supply conservation
-    custom_token.tri                    TSP-1 token conservation
+| File | Lines | What it does |
+|------|-------|-------------|
+| `kernel.tri` | 91 | Read kernel MAST hash, authenticate individual fields (fee, timestamp, inputs, outputs) via Merkle proofs |
+| `utxo.tri` | 19 | Authenticate divined UTXO data against expected digest |
+| `xfield.tri` | 28 | Extension field construction, inverse, dot-product steps (XField * XField, XField * BField) |
+| `recursive.tri` | 94 | Inner product accumulation, claim reading, FRI commitment verification — building blocks for recursive proof verification |
+| `proof.tri` | 160 | End-to-end proof composition: parse claims, hash public I/O, FRI verification chain, inner proof verification, proof aggregation |
 
-  programs/                             Standalone programs
-    proof_relay.tri                     Verify and forward a single proof
-    proof_aggregator.tri                Batch N proofs into 1
-    recursive_verifier.tri              Full recursive STARK verifier
-    transaction_validation.tri          Neptune transaction orchestrator
-```
+### Token Standards — `standards/`
+
+The two PLUMB implementations. Each is a complete token circuit with all
+five operations, config management, hook slots, nullifiers, and
+conservation law enforcement.
+
+| File | Lines | Standard |
+|------|-------|----------|
+| `coin.tri` | 535 | TSP-1 — fungible token. Account leaves, balance arithmetic, time-locks, configurable authorities, composable hooks |
+| `card.tri` | 746 | TSP-2 — unique asset. Per-asset metadata, royalties, creator immutability, flag-gated operations, collection binding |
+
+### Lock Scripts — `locks/`
+
+Spending authorization programs. Each proves the right to spend a UTXO
+by demonstrating knowledge of a secret.
+
+| File | Lines | Mechanism |
+|------|-------|-----------|
+| `generation.tri` | 33 | Hash-preimage lock (lattice-based KEM, post-quantum) |
+| `symmetric.tri` | 22 | 5-field preimage (320-bit entropy, shared symmetric key) |
+| `multisig.tri` | 50 | 2-of-3 threshold — prove knowledge of 2 out of 3 preimages |
+| `timelock.tri` | 33 | Time-locked UTXO — authenticate timestamp, assert `now >= release` |
+
+### Type Scripts — `types/`
+
+Conservation law enforcement. Each proves that a transaction neither
+creates nor destroys value beyond what the rules allow.
+
+| File | Lines | Rule |
+|------|-------|------|
+| `native_currency.tri` | 46 | NPT conservation: `sum(inputs) + coinbase = sum(outputs) + fee` |
+| `custom_token.tri` | 75 | TSP-1 token conservation: `sum(input_balances) = sum(output_balances)` |
+
+### Programs — `programs/`
+
+Standalone programs for transaction orchestration and proof composition.
+
+| File | Lines | Purpose |
+|------|-------|---------|
+| `transaction_validation.tri` | 119 | Full Neptune transaction verification — validate all lock scripts, type scripts, and kernel integrity |
+| `recursive_verifier.tri` | 116 | Complete recursive STARK verifier — verify an inner proof inside the current execution |
+| `proof_aggregator.tri` | 28 | Batch N proofs into a single outer proof |
+| `proof_relay.tri` | 15 | Verify and forward a single proof (simplest composition program) |
 
 ---
 
 ## Runtime Parameters
 
 | Parameter | Value |
-|---|---|
-| VM | TRITON |
+|-----------|-------|
+| VM | Triton (Goldilocks field, 2^64 - 2^32 + 1) |
 | Runtime binding | `os.neptune.*` |
 | Account model | UTXO |
-| Storage model | Merkle-authenticated |
-| Transaction model | Proof-based |
-| Cost model | Table rows (proving cost) |
-| Cross-chain | -- |
+| Storage | Merkle-authenticated (divine-and-authenticate) |
+| Transactions | Proof-based (STARK per script) |
+| Cost model | Table rows (proving cost, computed from source) |
+| Addresses | Generation (`nolga`, post-quantum) and Symmetric (`nolsa`, shared key) |
+| Hashing | Tip5 (algebraic, ZK-native) |
 
 ---
 
-## Programming Model
-
-### Entry Points
-
-Neptune has two kinds of scripts that Trident programs implement:
-
-Lock scripts guard a UTXO -- they prove the right to spend.
-
-Public input: kernel MAST hash (1 Digest = 5 field elements).
-
-```
-program my_lock_script
-
-use vm.io.io
-use std.crypto.auth
-
-fn main() {
-    let kernel_hash: Digest = divine5()
-    auth.verify_preimage(EXPECTED_POSTIMAGE)
-}
-```
-
-Type scripts validate coin rules (e.g., "amounts balance," "timelock
-expired").
-
-Public input: 3 Digests (kernel hash, input UTXOs hash, output UTXOs hash).
-
-```
-program my_type_script
-
-use vm.io.io
-
-fn main() {
-    let kernel_hash: Digest = divine5()
-    let input_utxos_hash: Digest = divine5()
-    let output_utxos_hash: Digest = divine5()
-    // ... validate conservation rules ...
-}
-```
-
-### State Access (Divine-and-Authenticate)
-
-Programs cannot directly access blockchain state. Neptune uses a universal
-pattern:
-
-1. Public input contains a MAST hash (Merkle root) of a known structure
-2. The program divines the actual value (secret input)
-3. The program authenticates the divined value against the MAST hash
-   using Merkle proofs (`merkle_step`)
-4. If authentication fails, the VM crashes -- no proof is generated
-
-```
-use vm.io.io
-use os.neptune.kernel
-
-fn main() {
-    let kernel_hash: Digest = divine5()
-
-    // Authenticate individual kernel fields against the root
-    let fee: Field = kernel.authenticate_fee(kernel_hash)
-    let ts: Field = kernel.authenticate_timestamp(kernel_hash)
-}
-```
-
-Internally, `kernel.authenticate_fee()`:
-1. Divines the fee value from secret input
-2. Hashes the BFieldCodec-encoded value
-3. Uses `merkle_step` to walk up to the MAST root (3 steps, height-3 tree)
-4. Asserts the computed root matches `kernel_hash`
-
-This pattern applies to every piece of state: kernel fields, UTXO data,
-block headers, mutator set membership.
-
-### Identity and Authorization
-
-There is no `msg.sender`. Authorization is explicit: the prover divines
-a secret and proves knowledge of it by hashing and asserting the hash
-matches an expected value.
-
-```
-use vm.io.io
-use vm.crypto.hash
-use vm.core.assert
-
-fn verify_auth(expected: Digest) {
-    let preimage: Digest = divine5()
-    let computed: Digest = hash(preimage[0], preimage[1], preimage[2],
-                                preimage[3], preimage[4], 0, 0, 0, 0, 0)
-    assert_digest(computed, expected)
-}
-```
-
-This is account abstraction by default. The "secret" can be anything:
-a private key, a Shamir share, a biometric hash, a hardware attestation,
-or the output of another ZK proof.
-
-Neptune supports two address types:
-- Generation addresses (`nolga` prefix) -- lattice-based KEM (post-quantum),
-  AES-256-GCM encrypted UTXO notifications on-chain
-- Symmetric addresses (`nolsa` prefix) -- shared symmetric key,
-  AES-256-GCM, off-chain or on-chain notifications
-
-Both use hash-lock scripts: `hash(divine_preimage) == expected_postimage`.
-
-### Value Transfer
-
-Value moves by creating and destroying UTXOs in a transaction. The
-transaction kernel specifies inputs (UTXOs being spent) and outputs
-(new UTXOs being created). Type scripts enforce conservation rules.
-
-```
-Utxo {
-    lock_script_hash: Digest,     // hash of the ownership program
-    coins: Vec<Coin>,             // values inside
-}
-
-Coin {
-    type_script_hash: Digest,     // hash of the validation program
-    state: Vec<Field>,            // arbitrary data (amount, timelock, etc.)
-}
-```
-
-Known type scripts:
-
-| Type Script | State | Validation |
-|-------------|-------|------------|
-| NativeCurrency | `state[0..4]` = amount (u128) | sum(inputs) + coinbase = sum(outputs) + fee |
-| TimeLock | `state[0]` = release timestamp | `release_date < tx_timestamp` |
-
-### Cross-Contract Interaction
-
-Programs are isolated -- no external calls. Composition happens through
-recursive proof verification: a program can verify that another STARK
-proof is valid inside its own execution.
-
-```
-use os.neptune.proof
-
-fn main() {
-    // Verify an inner proof inside this program's execution
-    proof.verify_inner_proof(NUM_FRI_ROUNDS)
-
-    // Or aggregate multiple proofs
-    proof.aggregate_proofs(NUM_PROOFS, NUM_FRI_ROUNDS)
-}
-```
-
-This is how Neptune achieves composability without shared mutable state.
-Each script produces its own proof. A merge transaction can combine
-multiple transaction proofs into one.
-
-### Events
-
-Neptune uses announcements -- public messages embedded in transactions
-at leaf index 2 of the kernel MAST tree.
-
-In Trident, events map to announcements:
-
-```
-event Transfer { from: Digest, to: Digest, amount: Field }
-
-// reveal -- all fields visible to verifier
-reveal Transfer { from: sender, to: receiver, amount: value }
-
-// seal -- only commitment digest visible
-seal Transfer { from: sender, to: receiver, amount: value }
-```
-
-`seal` requires Tier 2 sponge support (native on TRITON).
-
-Announcements are used for UTXO notifications:
-- `message[0]` = key type flag (79 = Generation, 80 = Symmetric)
-- `message[1]` = receiver identifier (for efficient scanning)
-- `message[2..]` = encrypted payload (UTXO + sender randomness)
-
----
-
-## Transaction Kernel
-
-Every Neptune transaction has a TransactionKernel with 8 fields,
-organized as a Merkle tree of height 3:
-
-| Leaf | Field | Type | Description |
-|------|-------|------|-------------|
-| 0 | `inputs` | `Vec<RemovalRecord>` | UTXOs being spent |
-| 1 | `outputs` | `Vec<AdditionRecord>` | New UTXOs being created |
-| 2 | `announcements` | `Vec<Announcement>` | Public messages |
-| 3 | `fee` | `NativeCurrencyAmount` | Transaction fee (u128) |
-| 4 | `coinbase` | `Option<NativeCurrencyAmount>` | Block reward (mining only) |
-| 5 | `timestamp` | `Timestamp` | Transaction timestamp |
-| 6 | `mutator_set_hash` | `Digest` | Current UTXO set state |
-| 7 | `merge_bit` | `bool` | Merged transaction flag |
-
-The kernel MAST hash is the root of this tree and serves as the
-primary public input for all scripts.
-
----
-
-## Block Structure
-
-### Block Kernel MAST (3 leaves)
-
-| Leaf | Field |
-|------|-------|
-| 0 | header MAST hash |
-| 1 | body MAST hash |
-| 2 | appendix |
-
-### Block Header MAST (8 leaves, height 3)
-
-| Leaf | Field | Type |
-|------|-------|------|
-| 0 | `version` | u32 |
-| 1 | `height` | BlockHeight |
-| 2 | `prev_block_digest` | Digest |
-| 3 | `timestamp` | Timestamp |
-| 4 | `pow` | ProofOfWork |
-| 5 | `cumulative_proof_of_work` | ProofOfWork |
-| 6 | `difficulty` | U32s<5> |
-| 7 | `guesser_receiver_data` | encrypted data |
-
-### Block Body MAST (4 leaves)
-
-| Leaf | Field |
-|------|-------|
-| 0 | transaction_kernel MAST hash |
-| 1 | mutator_set_accumulator |
-| 2 | lock_free_mmr_accumulator |
-| 3 | block_mmr_accumulator |
-
----
-
-## Portable Alternative (`os.*`)
-
-Programs that don't need Neptune-specific features can use `os.*`
-instead of `os.neptune.*` for cross-chain portability:
-
-| `os.neptune.*` (this OS only) | `os.*` (any OS) |
-|--------------------------------|---------------------|
-| `os.neptune.kernel.authenticate_*` + divine/merkle | `os.state.read(key)` → auto-generates divine + merkle_authenticate |
-| Hash preimage via `std.crypto.auth` | `os.neuron.auth(cred)` → divine + hash + assert_eq |
-| Manual UTXO output construction | `os.signal.send(from, to, amt)` → emit output UTXO |
-
-Note: `os.neuron.id()` is a compile error on Neptune — UTXO chains
-have no caller concept. Use `os.neuron.auth(credential)` for authorization.
-
-Use `os.neptune.*` when you need: kernel MAST authentication, recursive proof
-verification, UTXO structure access, or other Neptune-specific features. See
-[os.md](../../docs/reference/os.md) for the full `os.*` API.
-
----
-
-## Ecosystem Mapping
-
-| Neptune concept | Trident equivalent |
-|---|---|
-| Lock script | `program` with `fn main()`, public input = kernel MAST hash |
-| Type script | `program` with `fn main()`, public input = 3 Digests |
-| UTXO | Struct of lock_script_hash + coins, authenticated via Merkle |
-| Coin | Struct of type_script_hash + state, validated by type script |
-| Kernel field access | `os.neptune.kernel.authenticate_*(kernel_hash)` |
-| Spending authorization | Hash preimage via `divine5()` + `hash()` + `assert_digest()` |
-| Token balance | NativeCurrency type script, `state[0..4]` = u128 amount |
-| Timelock | TimeLock type script, `state[0]` = release timestamp |
-| Announcements | `reveal` / `seal` events |
-| UTXO notification | Encrypted announcement with key type flag |
-| Proof composition | `os.neptune.proof.verify_inner_proof()` |
-| Program identity | Tip5 hash of the compiled program |
-
----
-
-## `os.neptune.*` API Reference
-
-| Module | Function | Description |
-|--------|----------|-------------|
-| `os.neptune.kernel` | `read_lock_script_hash()` | Read kernel MAST hash (lock script entry) |
-| | `read_type_script_hashes()` | Read 3 Digests (type script entry) |
-| | `leaf_inputs()` .. `leaf_merge_bit()` | Leaf index constants (0-7) |
-| | `authenticate_field(hash, leaf_idx)` | Merkle-authenticate any kernel field |
-| | `authenticate_fee(hash)` | Authenticate and return fee |
-| | `authenticate_timestamp(hash)` | Authenticate and return timestamp |
-| `os.neptune.utxo` | `authenticate(divined, expected)` | Verify divined digest matches expected |
-| `os.neptune.xfield` | `new(a, b, c)` | Construct XField from 3 base fields |
-| | `inv(a)` | Extension field inverse |
-| | `xx_dot_step(acc, ptr_a, ptr_b)` | XField * XField dot product step |
-| | `xb_dot_step(acc, ptr_a, ptr_b)` | XField * BField dot product step |
-| `os.neptune.proof` | `parse_claim()` | Read Claim from public input |
-| | `hash_public_io(claim)` | Hash all public I/O into binding digest |
-| | `fri_verify(commitment, seed, rounds)` | Full FRI verification chain |
-| | `verify_inner_proof(num_fri_rounds)` | End-to-end inner proof verification |
-| | `aggregate_proofs(num_proofs, rounds)` | Batch N proofs into 1 outer proof |
-| `os.neptune.recursive` | `xfe_inner_product(ptr_a, ptr_b, count)` | XField inner product accumulation |
-| | `xb_inner_product(ptr_a, ptr_b, count)` | XField * BField inner product |
-| | `read_claim()` | Read (program_digest, num_inputs, num_outputs) |
-| | `verify_commitment(expected)` | Authenticate FRI commitment roots |
-
-
----
-
-## Notes
-
-Neptune is the reference implementation of the Trident OS model. It is the
-only OS with fully implemented `os.neptune.*` bindings (5 modules, ~400 lines of
-Trident code). All other OS bindings are designed but not yet implemented.
-
-For VM details, see [triton.md](../../vm/triton/README.md).
-For the divine-and-authenticate pattern in depth, see
-[Programming Model](../../docs/explanation/programming-model.md).
-For Solidity-to-Trident mental model migration, see
-[For Onchain Devs](../../docs/explanation/for-onchain-devs.md).
+## See Also
+
+- [Gold Standard](../../docs/explanation/gold-standard.md) — PLUMB framework, TSP-1/TSP-2 circuits, hook system, proven price
+- [Skill Library](../../docs/reference/skill-library.md) — 23 composable token capabilities
+- [Programming Model](../../docs/explanation/programming-model.md) — Divine-and-authenticate, stack semantics
+- [For Onchain Devs](../../docs/explanation/for-onchain-devs.md) — Mental model migration from Solidity
+- [Deploying a Program](../../docs/guides/deploying-a-program.md) — Build and deploy workflows
+- [Triton VM](../../vm/triton/README.md) — The underlying provable virtual machine
+- [OS Reference](../../docs/reference/os.md) — Portable `os.*` API and per-OS lowering tables
