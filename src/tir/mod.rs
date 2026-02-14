@@ -147,15 +147,14 @@ pub enum TIROp {
         field_count: u32,
     },
 
-    // ── Storage (2) ──
-    /// Read from persistent storage. Key is on the stack.
-    /// Produces `width` elements. Lowering maps to target-native storage.
-    ReadStorage {
+    // ── RAM (2) ──
+    /// Read from RAM. Key is on the stack.
+    /// Produces `width` elements.
+    RamRead {
         width: u32,
     },
-    /// Write to persistent storage. Key and value(s) are on the stack.
-    /// Lowering maps to target-native storage.
-    WriteStorage {
+    /// Write to RAM. Key and value(s) are on the stack.
+    RamWrite {
         width: u32,
     },
 
@@ -260,8 +259,8 @@ impl fmt::Display for TIROp {
             TIROp::Seal {
                 name, field_count, ..
             } => write!(f, "seal {}({})", name, field_count),
-            TIROp::ReadStorage { width } => write!(f, "read_storage {}", width),
-            TIROp::WriteStorage { width } => write!(f, "write_storage {}", width),
+            TIROp::RamRead { width } => write!(f, "ram_read {}", width),
+            TIROp::RamWrite { width } => write!(f, "ram_write {}", width),
             TIROp::Call(label) => write!(f, "call {}", label),
             TIROp::Return => write!(f, "return"),
             TIROp::Halt => write!(f, "halt"),
@@ -392,8 +391,8 @@ mod tests {
                 tag: 1,
                 field_count: 1,
             },
-            TIROp::ReadStorage { width: 1 },
-            TIROp::WriteStorage { width: 1 },
+            TIROp::RamRead { width: 1 },
+            TIROp::RamWrite { width: 1 },
             TIROp::ProofBlock {
                 program_hash: "abc123".into(),
                 body: vec![TIROp::ExtMul],

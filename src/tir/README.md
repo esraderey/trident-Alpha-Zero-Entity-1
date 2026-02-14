@@ -14,7 +14,7 @@ The compiler pipeline is: parse -> typecheck -> TIRBuilder -> StackLowering -> a
 
 Higher tier = narrower target set. Tier 0 (structure) runs anywhere. Tier 1 (universal) is designed to compile to every blockchain. Tier 2 (provable) requires proof-capable targets. Tier 3 (recursion) requires recursive verification.
 
-Structural ops (`IfElse`, `IfOnly`, `Loop`) carry nested `Vec<TIROp>` bodies so each backend can choose its own control-flow lowering strategy. Abstract ops (`Open`, `ReadStorage/WriteStorage`, `HashDigest`) keep the TIR target-independent while backends map them to native instructions.
+Structural ops (`IfElse`, `IfOnly`, `Loop`) carry nested `Vec<TIROp>` bodies so each backend can choose its own control-flow lowering strategy. Abstract ops (`Open`, `RamRead/RamWrite`, `HashDigest`) keep the TIR target-independent while backends map them to native instructions.
 
 ## Dependencies
 

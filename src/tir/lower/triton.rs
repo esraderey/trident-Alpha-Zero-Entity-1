@@ -145,12 +145,12 @@ impl TritonLowering {
                 out.push("    hash".to_string());
                 out.push("    write_io 5".to_string());
             }
-            TIROp::ReadStorage { width } => {
+            TIROp::RamRead { width } => {
                 // Triton: read_mem + pop address.
                 out.push(format!("    read_mem {}", width));
                 out.push("    pop 1".to_string());
             }
-            TIROp::WriteStorage { width } => {
+            TIROp::RamWrite { width } => {
                 // Triton: write_mem + pop address.
                 out.push(format!("    write_mem {}", width));
                 out.push("    pop 1".to_string());

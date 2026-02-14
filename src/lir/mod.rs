@@ -199,11 +199,11 @@ pub enum LIROp {
         field_count: u32,
     },
 
-    // ── Storage (2) ──
-    /// Read from persistent storage. Key in `key`, result in `dst`.
-    ReadStorage { dst: Reg, key: Reg, width: u32 },
-    /// Write to persistent storage. Key in `key`, value in `src`.
-    WriteStorage { key: Reg, src: Reg, width: u32 },
+    // ── RAM (2) ──
+    /// Read from RAM. Key in `key`, result in `dst`.
+    RamRead { dst: Reg, key: Reg, width: u32 },
+    /// Write to RAM. Key in `key`, value in `src`.
+    RamWrite { key: Reg, src: Reg, width: u32 },
 
     // ═══════════════════════════════════════════════════════════════
     // Tier 2 — Provable (6)
@@ -345,11 +345,11 @@ impl fmt::Display for LIROp {
             } => {
                 write!(f, "seal {}({}, {})", name, src, field_count)
             }
-            LIROp::ReadStorage { dst, key, width } => {
-                write!(f, "read_storage {}, {}, {}", dst, key, width)
+            LIROp::RamRead { dst, key, width } => {
+                write!(f, "ram_read {}, {}, {}", dst, key, width)
             }
-            LIROp::WriteStorage { key, src, width } => {
-                write!(f, "write_storage {}, {}, {}", key, src, width)
+            LIROp::RamWrite { key, src, width } => {
+                write!(f, "ram_write {}, {}, {}", key, src, width)
             }
 
             // Tier 2
@@ -559,12 +559,12 @@ mod tests {
                 src: r0,
                 field_count: 1,
             },
-            LIROp::ReadStorage {
+            LIROp::RamRead {
                 dst: r0,
                 key: r1,
                 width: 1,
             },
-            LIROp::WriteStorage {
+            LIROp::RamWrite {
                 key: r0,
                 src: r1,
                 width: 1,

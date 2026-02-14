@@ -73,7 +73,7 @@ Arithmetic groups are named by interpretation: how the value is treated.
 | Assertions (1) | `Assert(u32)` | Assert N elements are nonzero |
 | Hash (1) | `Hash { width: u32 }` | Hash N elements into a digest |
 | Events (2) | `Reveal { name, tag, field_count }` `Seal { name, tag, field_count }` | `Reveal` = fields in the clear; `Seal` = hashed, only digest visible. `Seal` is a Tier 1 op but emits Tier 2 sponge ops internally — programs using `seal` require a Tier 2 target |
-| Storage (2) | `ReadStorage { width }` `WriteStorage { width }` | Persistent state access |
+| Storage (2) | `RamRead { width }` `RamWrite { width }` | Persistent state access |
 
 ### Tier 2 — Provable (7)
 
@@ -254,7 +254,7 @@ semantics, it doesn't belong in the IR.
 
 ### Naming conventions
 
-- Verb-first: `ReadIo`, `WriteIo`, `ReadStorage`, `WriteStorage`
+- Verb-first: `ReadIo`, `WriteIo`, `RamRead`, `RamWrite`
 - Max two words: every variant is 1-2 words, no exceptions
 - Arithmetic groups named by interpretation: Modular (field),
   Bitwise (bits), Unsigned (integer), Comparison (boolean)
