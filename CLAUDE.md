@@ -54,7 +54,7 @@ Layout:
 - `vm/core/`, `vm/io/`, `vm/crypto/` — shared VM intrinsic `.tri` source
 - `os/{name}/` — per-OS directory: `target.toml` (config) + `README.md` (docs) + `.tri` extensions
 - `std/` — pure Trident library code (no `#[intrinsic]`)
-- Module resolution: `src/config/resolve.rs`
+- Module resolution: `src/config/resolve/`
 
 ## Compilation Pipeline
 
@@ -73,13 +73,15 @@ and its output (does the next stage still accept it?).
 Update this map when files are added, removed, renamed, or modules are
 reorganized. Do NOT update for line count changes or content-only edits.
 
-~105 files, ~36k lines. Modules listed in pipeline order, then support.
+~153 files, ~36k lines. Modules listed in pipeline order, then support.
 
 **Pipeline stages:**
 
 ```
-syntax/            ~4.3k LOC   Lexer, parser, formatter
-  lexer.rs           ~800       Tokenizer (keywords, operators, literals)
+syntax/            ~4.4k LOC   Lexer, parser, formatter
+  lexer/             ~800       Tokenizer
+    mod.rs           ~440         Keywords, operators, literals
+    tests.rs         ~360         Lexer tests
   lexeme.rs          ~170       Token types and display
   parser/          ~2.1k       Recursive descent parser
     mod.rs           ~180         Core parser (expect, peek, advance)
@@ -87,7 +89,9 @@ syntax/            ~4.3k LOC   Lexer, parser, formatter
     stmts.rs         ~370         Statement parsing (let, if, while, for, return)
     items.rs         ~460         Top-level items (fn, struct, enum, impl, use)
     types.rs         ~110         Type annotation parsing
-    tests.rs         ~690         Parser tests
+    tests/           ~700         Parser tests
+      basics.rs      ~340           Core parsing tests
+      advanced.rs    ~350           Error recovery, edge cases
   format/          ~1.3k       Code formatter (trident fmt)
     mod.rs           ~220         Formatter core + indent tracking
     expr.rs          ~100         Expression formatting
@@ -103,11 +107,14 @@ ast/                 ~600 LOC   Abstract syntax tree
 typecheck/         ~3.1k LOC   Type checker
   mod.rs             ~440       Environment, type context, entry point
   expr.rs            ~450       Expression type inference
-  stmt.rs            ~600       Statement checking (assignment, control flow)
+  stmt.rs            ~420       Statement checking (assignment, control flow)
+  block.rs           ~200       Block, fn body, event, place checking
   builtins.rs        ~350       Built-in function signatures (vm.*)
   resolve.rs         ~100       Name resolution
   analysis.rs        ~270       Type analysis utilities
-  tests.rs           ~870       Type checker tests
+  tests/             ~880       Type checker tests
+    basics.rs        ~450         Core type checking tests
+    advanced.rs      ~440         Error messages, edge cases
 
 kir/                  ~60 LOC   Kernel IR (high-level typed IR)
   mod.rs              ~25       KIR definitions
@@ -130,8 +137,9 @@ tir/               ~3.7k LOC   Trident IR (stack-based, target-generic)
     tests.rs         ~210         Lowering tests
 
 lir/                 ~770 LOC   Low-level IR (target-specific)
-  mod.rs             ~610       LIR instruction set
+  mod.rs             ~390       LIR instruction set
   convert.rs         ~130       LIR conversion utilities
+  tests.rs           ~220       LIR tests
   lower/mod.rs        ~30       LIR lowering stub
 
 tree/                ~210 LOC   Tree IR (structured control flow)
@@ -144,14 +152,24 @@ tree/                ~210 LOC   Tree IR (structured control flow)
 ```
 config/            ~2.3k LOC   Project configuration
   project.rs         ~200       Trident.toml parsing
-  resolve.rs         ~670       Module path resolution (vm/std/os dispatch)
-  scaffold.rs        ~650       Project scaffolding (trident init)
-  target.rs          ~750       Target registry (VM + OS loading)
+  resolve/           ~670       Module path resolution (vm/std/os dispatch)
+    mod.rs           ~190         Entry point, imports
+    resolver.rs      ~380         ModuleResolver, scan_module_header
+    tests.rs         ~100         Resolution tests
+  scaffold/          ~650       Project scaffolding (trident init)
+    mod.rs           ~400         Scaffold logic
+    tests.rs         ~240         Scaffold tests
+  target/            ~760       Target registry (VM + OS loading)
+    mod.rs           ~340         TargetConfig, Arch, VM loading
+    os.rs            ~190         OsConfig, ResolvedTarget
+    tests.rs         ~220         Target tests
 
 cost/              ~2.0k LOC   Cost modeling
   mod.rs             ~450       Cost types, table definitions
-  analyzer.rs        ~600       AST cost annotation
-  report.rs          ~500       Cost report generation (JSON, text)
+  analyzer.rs        ~340       AST cost annotation
+  visit.rs           ~270       Per-expression cost visitor
+  report.rs          ~220       Cost report rendering
+  json.rs            ~290       JSON serialization, comparison
   model/             ~410       Per-target cost models
     mod.rs           ~250         Cost model trait + generic table
     triton.rs        ~160         Triton VM cycle costs
@@ -176,34 +194,76 @@ cli/               ~2.3k LOC   Command-line interface
   view.rs            ~380       trident view (AST/TIR inspector)
 
 package/           ~5.3k LOC   Package management
-  store.rs         ~1,700       Content-addressed artifact store
-  registry.rs      ~1,000       Package registry (publish, fetch)
-  manifest.rs        ~860       Package manifest parsing
-  hash.rs            ~800       Content hashing (blake3, Merkle)
+  store/           ~1,700       Content-addressed artifact store
+    mod.rs           ~470         Store API, put/get/list
+    format.rs        ~400         TOML serialization
+    persist.rs       ~310         Filesystem persistence
+    deps.rs          ~140         Dependency tracking
+    tests.rs         ~390         Store tests
+  registry/        ~1,000       Package registry (publish, fetch)
+    mod.rs            ~20         Module wiring
+    client.rs        ~330         HTTP registry client
+    json.rs          ~320         JSON encoding/decoding
+    types.rs          ~70         Wire format types
+    store_integration.rs ~130     Registry ↔ store bridge
+    tests.rs         ~160         Registry tests
+  manifest/          ~860       Package manifest parsing
+    mod.rs            ~60         Data types (Dependency, Lockfile)
+    parse.rs          ~100        TOML parsing helpers
+    lockfile.rs       ~80         Lockfile read/write
+    resolve.rs       ~220         Dependency resolution + caching
+    tests.rs         ~400         Manifest tests
+  hash/              ~800       Content hashing (blake3, Merkle)
+    mod.rs           ~100         ContentHash, hash_source
+    serialize.rs     ~370         Canonical serialization
+    tests.rs         ~100         Hash tests
   poseidon2.rs       ~450       Poseidon2 hash for proof-friendly addressing
   cache.rs           ~450       Download and build cache
 
 verify/            ~5.6k LOC   Formal verification
-  synthesize.rs    ~1,300       Theorem synthesis from Trident code
-  solve.rs         ~1,000       Constraint solving
-  equiv.rs         ~1,000       Equivalence checking (optimized vs original)
-  sym.rs           ~1,000       Symbolic execution engine
-  report.rs          ~670       Verification report generation
-  smt.rs             ~530       SMT-LIB2 formula encoding
+  synthesize/      ~1,300       Theorem synthesis from Trident code
+    mod.rs           ~270         Entry point, data structures
+    templates.rs     ~380         Pattern matching (accum, monotonic)
+    infer.rs         ~350         CEGIS refinement, postcondition inference
+    tests.rs         ~330         Synthesis tests
+  solve/           ~1,000       Constraint solving
+    mod.rs           ~450         Verification report, combined verification
+    eval.rs          ~220         Field arithmetic, evaluator
+    solver.rs        ~250         SolverConfig, bounded model checking
+    tests.rs         ~130         Solver tests
+  equiv/           ~1,000       Equivalence checking
+    mod.rs           ~290         Entry point, hash equiv, signatures
+    polynomial.rs    ~240         Polynomial normalization
+    differential.rs  ~190         Differential testing
+    tests.rs         ~300         Equivalence tests
+  sym/             ~1,000       Symbolic execution engine
+    mod.rs           ~350         SymValue, constraints, analysis
+    executor.rs      ~320         Statement execution
+    expr.rs          ~210         Expression evaluation
+    tests.rs         ~130         Symbolic tests
+  report/            ~670       Verification report generation
+    mod.rs           ~500         Report formatting
+    tests.rs         ~170         Report tests
+  smt/               ~530       SMT-LIB2 formula encoding
+    mod.rs           ~460         SMT encoding
+    tests.rs          ~75         SMT tests
 
 lsp/               ~1.6k LOC   Language Server Protocol
   mod.rs             ~400       LSP server (tower-lsp, hover, diagnostics)
   intelligence.rs    ~340       Go-to-definition, find-references
   builtins.rs        ~320       Builtin docs for hover
-  util.rs            ~570       LSP utilities (position mapping, etc.)
+  util/              ~570       LSP utilities
+    mod.rs           ~230         Position mapping, etc.
+    tests.rs         ~340         Utility tests
 ```
 
 **Public API:**
 
 ```
-api/                 ~430 LOC   Public API functions
-  mod.rs             ~430       CompileOptions, compile/check/format/cost/docs entry points
-  tests/           ~1,650       Integration tests (79 tests, 7 files)
+api/               ~2.2k LOC   Public API functions
+  mod.rs             ~340       CompileOptions, compile/check/format entry points
+  tools.rs           ~260       Cost, docs, verify, annotate entry points
+  tests/           ~1,550       Integration tests (7 files)
     compile.rs       ~400         Single-file + project compilation
     check.rs         ~130         Type-check, parse, discovery
     format.rs        ~120         Formatting roundtrips
@@ -216,15 +276,17 @@ api/                 ~430 LOC   Public API functions
 **Root files:**
 
 ```
-lib.rs              ~80        Crate root — module decls, re-exports, parse helpers
-deploy.rs            ~560       Artifact deployment (copy, verify, sign)
-doc.rs               ~300       Documentation generation (trident doc)
-pipeline.rs          ~210       Compilation pipeline orchestration
-diagnostic.rs        ~170       Error/warning diagnostic rendering (ariadne)
-linker.rs            ~130       Multi-module linking
-main.rs              ~110       Binary entry point (clap dispatch)
-types.rs              ~80       Shared type definitions (Span re-export, etc.)
-span.rs               ~60       Source span tracking
+lib.rs              ~75        Crate root — module decls, re-exports, parse helpers
+deploy/            ~560        Artifact deployment
+  mod.rs           ~390          Copy, verify, sign
+  tests.rs         ~170          Deploy tests
+doc.rs             ~300        Documentation generation (trident doc)
+pipeline.rs        ~210        Compilation pipeline orchestration
+diagnostic.rs      ~170        Error/warning diagnostic rendering (ariadne)
+linker.rs          ~130        Multi-module linking
+main.rs            ~110        Binary entry point (clap dispatch)
+types.rs            ~80        Shared type definitions (Span re-export, etc.)
+span.rs             ~60        Source span tracking
 ```
 
 ## File Size Limit
