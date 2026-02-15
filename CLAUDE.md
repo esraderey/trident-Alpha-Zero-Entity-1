@@ -79,6 +79,25 @@ agents to revert each other's work.
 - Conventional commits. Use prefixes: `feat:`, `fix:`, `refactor:`,
   `docs:`, `test:`, `chore:`.
 
+## Agent Audit Workspace
+
+Long-running parallel agents (audits, reviews, large refactors) MUST
+persist their findings to `.audit/` so results survive context overflow.
+
+Workflow:
+
+1. **Before launching agents**, create `.audit/` if it doesn't exist.
+2. **Each agent writes its report** to `.audit/<scope>.md`
+   (e.g., `.audit/syntax-lexer.md`, `.audit/syntax-parser.md`).
+   The report must include: file reviewed, findings (bugs, dead code,
+   safety issues, inconsistencies), and suggested fixes.
+3. **After all agents finish**, the main session reads `.audit/*.md`,
+   summarizes findings, and applies fixes with atomic commits.
+4. **Clean up** — delete `.audit/` contents after fixes are committed.
+
+The `.audit/` directory is gitignored — it's a scratch workspace only.
+This prevents losing hours of agent work to context window limits.
+
 ## Chain of Verification
 
 When answering non-trivial questions or making decisions that affect

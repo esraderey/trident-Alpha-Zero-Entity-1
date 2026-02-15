@@ -20,3 +20,6 @@ editor/zed-trident/grammars/trident/
 
 # OS
 .DS_Store
+
+# Agent audit workspace (ephemeral, not committed)
+/.audit/
