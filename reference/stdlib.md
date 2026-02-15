@@ -33,6 +33,14 @@ Trident's standard library reflects a mathematical reality: three computational 
               └────────────────────┼────────────────────┘
                                    │
                         ┌──────────┴──────────┐
+                        │ Token Infrastructure │
+                        │  std.token           │
+                        │  std.coin            │
+                        │  std.card            │
+                        │  std.skill           │
+                        └──────────┬──────────┘
+                                   │
+                        ┌──────────┴──────────┐
                         │    Foundation        │
                         │  std.field           │
                         │  std.math            │
@@ -251,6 +259,156 @@ std.io
 ```
 
 `std.io.divine` is the universal witness injection — and the universal oracle. For privacy: it injects secret data. For AI: it injects model weights, optimization results, adversarial examples. For quantum: it injects measurement outcomes. Same mechanism, different semantics, one proof.
+
+---
+
+## Layer 0.5: Token Infrastructure
+
+Tokens are the economic foundation. While Layer 0 provides mathematical and cryptographic primitives, and Layer 1 provides computational pillars, the token layer provides the economic substrate — standards for value transfer, unique asset ownership, and composable token behaviors.
+
+All token modules build on the PLUMB framework (Pay, Lock, Update, Mint, Burn) — five operations that cover every token lifecycle event. See the [TSP-1 Coin reference](tsp1-coin.md) and [TSP-2 Card reference](tsp2-card.md) for leaf formats, config models, and circuit constraints.
+
+### std.token — PLUMB Framework Primitives
+
+The shared foundation for all token standards. Defines the config model, leaf structure, authorization, hook system, and proof composition.
+
+```
+std.token
+├── config          Token configuration (5 authorities + 5 hooks)
+│   ├── authority   Authority types (disabled, required, optional)
+│   ├── hook        Hook program references (content hash or registry name)
+│   └── validate    Config hash computation and verification
+├── leaf            Token leaf structure (10-field standard layout)
+│   ├── read        Leaf field access
+│   ├── write       Leaf field mutation (within circuit constraints)
+│   └── hash        Leaf hash computation for Merkle inclusion
+├── auth            Authorization primitives
+│   ├── verify      Auth hash verification (divine + hash + assert)
+│   ├── dual        Dual authorization (account + config authority)
+│   └── controller  Controller-based authorization
+├── hook            Hook system
+│   ├── signal      Signal a hook program for proof composition
+│   ├── compose     Compose multiple hook proofs
+│   └── verify      Verify hook proof is valid for operation
+├── tree            Merkle tree operations for token state
+│   ├── include     Inclusion proof (leaf exists in tree)
+│   ├── update      Update proof (old leaf → new leaf)
+│   └── root        Root computation and verification
+└── event           Standard token events
+    ├── nullifier   Nullifier emission (UTXO consumption)
+    ├── supply      Supply change tracking
+    └── state       State transition logging
+```
+
+### std.coin — TSP-1 Coin Standard
+
+Divisible value transfer. Conservation law: `sum(balances) = supply`. Every operation that changes a balance must preserve total supply (except mint and burn, which adjust it).
+
+```
+std.coin
+├── account         Account leaf (10 fields: account_id, balance, nonce, auth_hash,
+│   │                lock_until, controller, locked_by, lock_data, reserved x2)
+│   ├── create      Account creation with initial balance
+│   ├── read        Account field access
+│   └── validate    Account leaf invariant checking
+├── ops             PLUMB operations for coins
+│   ├── pay         Transfer: debit sender, credit receiver, preserve sum
+│   ├── lock        Time-lock: extend lock_until, set locked_by
+│   ├── update      Config update: admin-only, rehash config
+│   ├── mint        Create value: credit recipient, increase supply
+│   └── burn        Destroy value: debit holder, decrease supply
+├── conservation    Supply conservation enforcement
+│   ├── check       Verify sum(inputs) = sum(outputs) ± mint/burn
+│   └── supply      Global supply tracking (supply tree)
+├── metadata        Token metadata
+│   ├── name        Token name and symbol
+│   ├── decimals    Decimal precision
+│   └── supply_cap  Maximum supply (if capped)
+└── events          Coin-specific events
+    ├── transfer    Balance transfer event
+    ├── mint        Supply increase event
+    └── burn        Supply decrease event
+```
+
+See [TSP-1 Coin reference](tsp1-coin.md) for the complete specification.
+
+### std.card — TSP-2 Card Standard
+
+Unique asset ownership. Conservation law: `owner_count(id) = 1`. Every asset has exactly one owner at all times.
+
+```
+std.card
+├── asset           Asset leaf (10 fields: asset_id, owner_id, nonce, auth_hash,
+│   │                lock_until, collection_id, metadata_hash, royalty_bps, creator_id, flags)
+│   ├── create      Asset creation at mint
+│   ├── read        Asset field access
+│   └── validate    Asset leaf invariant checking
+├── ops             PLUMB operations for cards
+│   ├── pay         Transfer ownership: change owner_id, enforce royalties
+│   ├── lock        Time-lock: extend lock_until
+│   ├── update      Metadata update: change metadata_hash (if UPDATABLE flag set)
+│   ├── mint        Create asset: assign asset_id, owner, creator, flags (permanent)
+│   └── burn        Destroy asset: remove from tree (if BURNABLE flag set)
+├── flags           Asset capability flags (set at mint, immutable)
+│   ├── TRANSFERABLE  Can be transferred (bit 0)
+│   ├── BURNABLE      Can be burned (bit 1)
+│   ├── UPDATABLE     Metadata can change (bit 2)
+│   ├── LOCKABLE      Can be time-locked (bit 3)
+│   └── MINTABLE      Collection can mint more (bit 4)
+├── collection      Collection management
+│   ├── create      Create collection with config
+│   ├── metadata    Collection-level metadata
+│   └── supply      Collection supply tracking
+└── events          Card-specific events
+    ├── transfer    Ownership transfer event
+    ├── metadata    Metadata update event
+    ├── mint        Asset creation event
+    └── burn        Asset destruction event
+```
+
+See [TSP-2 Card reference](tsp2-card.md) for the complete specification.
+
+### std.skill — Composable Token Skills
+
+Skills are composable packages that teach tokens new behaviors through the PLUMB hook system. The `std.skill` module ships 23 official skill implementations with the compiler. Each skill is importable Trident source — developers can use them directly, fork and customize, or deploy modified versions to the on-chain registry.
+
+Three usage modes for any skill:
+- **Import**: `use std.skill.liquidity` — inline the skill code at compile time
+- **Fork**: Copy the source, modify it, compile your own version
+- **Deploy**: Publish a compiled skill to the OS's [on-chain registry](os.md#per-os-on-chain-registry), reference it by content hash or name in token config hooks
+
+```
+std.skill
+├── core                        Skills most tokens want
+│   ├── supply_cap              Fixed maximum supply
+│   ├── delegation              Authorized third-party operations
+│   ├── vesting                 Time-released token distribution
+│   ├── royalties               Creator royalties on Card transfers
+│   ├── multisig                Multi-signature authorization
+│   └── timelock                Time-delayed operations
+├── financial                   DeFi capabilities
+│   ├── liquidity               Automated market making (TIDE)
+│   ├── oracle                  Price feed integration (COMPASS)
+│   ├── vault                   Yield-bearing token wrappers
+│   ├── lending                 Collateralized lending
+│   ├── staking                 Stake-for-reward mechanisms
+│   └── stablecoin              Peg maintenance
+├── access                      Compliance and permissions
+│   ├── compliance              Whitelist/blacklist enforcement
+│   ├── kyc_gate                KYC verification gate
+│   ├── transfer_limits         Per-transaction and periodic limits
+│   ├── controller_gate         Institutional custody controls
+│   ├── soulbound               Non-transferable binding
+│   └── fee_on_transfer         Automatic fee collection
+└── composition                 Cross-token interaction
+    ├── bridging                Cross-OS asset bridging
+    ├── subscription            Recurring payment streams
+    ├── burn_to_redeem          Burn one token to receive another
+    ├── governance              Voting and proposal systems
+    └── batch                   Atomic multi-operation bundles
+```
+
+See the [Skill Library](../docs/explanation/skill-library.md) for detailed specifications of all 23 skills, recipes, and proof composition architecture.
 
 ---
 
@@ -825,12 +983,13 @@ All reduce to: arithmetic circuits over F_p → STARK proof → any blockchain
 ### Module Count
 
 ```
-Foundation:   6 modules    (field, math, data, graph, crypto, io)
-Pillars:      3 modules    (nn, private, quantum)
-Intersections: 3 modules   (nn_private, nn_quantum, quantum_private)
-Applications: 3 modules    (agent, defi, science)
+Foundation:    6 modules    (field, math, data, graph, crypto, io)
+Token:         4 modules    (token, coin, card, skill)
+Pillars:       3 modules    (nn, private, quantum)
+Intersections: 3 modules    (nn_private, nn_quantum, quantum_private)
+Applications:  3 modules    (agent, defi, science)
 ─────────────────────────────
-Total:       15 modules
+Total:        19 modules
 
 Estimated submodules:  ~200
 Estimated functions:   ~2,000
@@ -851,6 +1010,14 @@ std.agent ──────► std.nn ──────────► std.fie
     │                            ▼       │
     └───► std.quantum_private ───────────┤
                                          │
+std.coin ───────► std.token ─────────────┤
+std.card ───────► std.token              │
+std.skill.* ────► std.token              │
+std.token ──────► std.crypto ────────────┤
+                                         │
+std.defi ───────► std.coin ──────────────┤
+                  std.card               │
+                                         │
 std.defi ───────► std.math ──────────────┤
     │                                    │
     ▼                                    │
@@ -865,4 +1032,4 @@ std.science ────► std.data ──────────────�
 
 Every arrow is a dependency. Every dependency reduces to field arithmetic. Every field operation produces a constraint. Every constraint is proven by STARK.
 
-One language. One field. One proof. Fifteen modules. The complete standard library for verifiable intelligence, privacy, and quantum computation.
+One language. One field. One proof. Nineteen modules. The complete standard library for verifiable intelligence, privacy, and quantum computation.
