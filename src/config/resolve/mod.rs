@@ -1,4 +1,4 @@
-pub(crate) use std::collections::{HashMap, HashSet};
+pub(crate) use std::collections::HashSet;
 pub(crate) use std::path::{Path, PathBuf};
 
 pub(crate) use crate::diagnostic::Diagnostic;
@@ -19,7 +19,6 @@ pub(crate) struct ModuleInfo {
 
 /// Resolve all modules reachable from an entry point.
 /// Returns modules in topological order (dependencies first).
-
 mod resolver;
 use resolver::*;
 
@@ -156,7 +155,6 @@ fn legacy_stdlib_fallback(name: &str) -> Option<&'static str> {
         _ => None,
     }
 }
-
 
 #[cfg(test)]
 mod tests;

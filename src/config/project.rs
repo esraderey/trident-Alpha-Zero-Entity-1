@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 use crate::config::target::parse_string_array;
@@ -17,7 +17,7 @@ pub struct Project {
     pub target: Option<String>,
     /// Custom profile definitions: profile_name → list of cfg flags.
     /// E.g. `[targets.debug]` with `flags = ["debug", "verbose"]`.
-    pub targets: HashMap<String, Vec<String>>,
+    pub targets: BTreeMap<String, Vec<String>>,
     /// Parsed [dependencies] section.
     pub dependencies: Manifest,
 }
@@ -39,7 +39,7 @@ impl Project {
         let mut version = String::new();
         let mut entry = String::new();
         let mut vm_target: Option<String> = None;
-        let mut targets: HashMap<String, Vec<String>> = HashMap::new();
+        let mut targets: BTreeMap<String, Vec<String>> = BTreeMap::new();
         let mut current_section = String::new();
 
         for line in content.lines() {
