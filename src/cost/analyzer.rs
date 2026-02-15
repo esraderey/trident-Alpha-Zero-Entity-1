@@ -167,13 +167,16 @@ impl<'a> CostAnalyzer<'a> {
 
     fn cost_fn(&mut self, func: &FnDef) -> TableCost {
         if let Some(cached) = self.fn_costs.get(&func.name.node) {
-            return cached.clone();
+            return *cached;
         }
 
-        // Recursion guard.
+        // Recursion guard: if this function is already being analyzed,
+        // return ZERO to break the cycle.
         if self.in_progress.contains(&func.name.node) {
             return TableCost::ZERO;
         }
+
+        let depth_before = self.in_progress.len();
         self.in_progress.push(func.name.node.clone());
 
         let cost = if let Some(body) = &func.body {
@@ -183,7 +186,13 @@ impl<'a> CostAnalyzer<'a> {
         };
 
         self.in_progress.pop();
-        self.fn_costs.insert(func.name.node.clone(), cost.clone());
+
+        // Only cache if we're at the top-level call (no recursion in flight).
+        // Costs computed during active recursion are underestimates because
+        // recursive calls are costed as ZERO.
+        if depth_before == 0 {
+            self.fn_costs.insert(func.name.node.clone(), cost);
+        }
         cost
     }
 
@@ -245,7 +254,15 @@ impl<'a> CostAnalyzer<'a> {
                 } else if let Expr::Literal(Literal::Integer(n)) = &end.node {
                     *n
                 } else {
-                    1 // unknown, conservative fallback
+                    // Non-constant loop bound with no `bounded` annotation.
+                    // Default to 1 iteration but record as a warning so
+                    // report.rs can flag it via H0004.
+                    self.loop_bound_waste.push((
+                        self.in_progress.last().cloned().unwrap_or_default(),
+                        1, // assumed iterations
+                        0, // no declared bound (0 signals "unknown")
+                    ));
+                    1
                 };
                 // Per-iteration: body + loop overhead (dup, check, decrement, recurse).
                 let per_iter = body_cost.add(&self.cost_model.loop_overhead());

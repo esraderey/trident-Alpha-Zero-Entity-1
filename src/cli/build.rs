@@ -80,7 +80,7 @@ pub fn cmd_build(args: BuildArgs) {
         if let Some(source_path) = find_program_source(&input) {
             let source = std::fs::read_to_string(&source_path).unwrap_or_default();
             let filename = source_path.to_string_lossy().to_string();
-            match trident::annotate_source(&source, &filename) {
+            match trident::annotate_source_with_target(&source, &filename, &target) {
                 Ok(annotated) => println!("{}", annotated),
                 Err(_) => eprintln!("error: could not annotate source (compilation errors)"),
             }

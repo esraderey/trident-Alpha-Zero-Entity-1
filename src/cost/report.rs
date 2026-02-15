@@ -184,24 +184,41 @@ impl ProgramCost {
         }
 
         // H0004: Loop bound waste (entries already filtered at 4x+ in analyzer)
+        // Also handles unknown-bound entries (bound == 0) from non-constant loops.
         for (fn_name, end_val, bound) in &self.loop_bound_waste {
-            let ratio = *bound as f64 / *end_val.max(&1) as f64;
-            let mut diag = Diagnostic::warning(
-                format!(
-                    "hint[H0004]: loop in '{}' bounded {} but iterates only {} times",
-                    fn_name, bound, end_val
-                ),
-                Span::dummy(),
-            );
-            diag.notes.push(format!(
-                "declared bound is {:.0}x the actual iteration count",
-                ratio
-            ));
-            diag.help = Some(format!(
-                "tightening the bound to {} would reduce worst-case cost",
-                next_power_of_two(*end_val)
-            ));
-            hints.push(diag);
+            if *bound == 0 {
+                // Non-constant loop end with no `bounded` annotation
+                let mut diag = Diagnostic::warning(
+                    format!(
+                        "hint[H0004]: loop in '{}' has non-constant bound, cost assumes {} iteration(s)",
+                        fn_name, end_val
+                    ),
+                    Span::dummy(),
+                );
+                diag.help = Some(
+                    "add a `bounded N` annotation to set a realistic worst-case iteration count"
+                        .to_string(),
+                );
+                hints.push(diag);
+            } else {
+                let ratio = *bound as f64 / *end_val.max(&1) as f64;
+                let mut diag = Diagnostic::warning(
+                    format!(
+                        "hint[H0004]: loop in '{}' bounded {} but iterates only {} times",
+                        fn_name, bound, end_val
+                    ),
+                    Span::dummy(),
+                );
+                diag.notes.push(format!(
+                    "declared bound is {:.0}x the actual iteration count",
+                    ratio
+                ));
+                diag.help = Some(format!(
+                    "tightening the bound to {} would reduce worst-case cost",
+                    next_power_of_two(*end_val)
+                ));
+                hints.push(diag);
+            }
         }
 
         hints

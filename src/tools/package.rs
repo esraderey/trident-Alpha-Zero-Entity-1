@@ -42,9 +42,10 @@ pub struct PackageManifest {
 
 #[derive(Clone, Debug)]
 pub struct ManifestCost {
-    pub processor: u64,
-    pub hash: u64,
-    pub u32_table: u64,
+    /// Cost values per table, indexed by position.
+    pub table_values: Vec<u64>,
+    /// Table names for serialization (e.g. ["processor", "hash", "u32", ...]).
+    pub table_names: Vec<String>,
     pub padded_height: u64,
 }
 
@@ -113,9 +114,10 @@ pub fn generate_artifact(
         target_os: target_os.map(|os| os.name.clone()),
         architecture,
         cost: ManifestCost {
-            processor: cost.total.get(0),
-            hash: cost.total.get(1),
-            u32_table: cost.total.get(2),
+            table_values: (0..cost.total.count as usize)
+                .map(|i| cost.total.get(i))
+                .collect(),
+            table_names: cost.table_names.clone(),
             padded_height: cost.padded_height,
         },
         functions,
@@ -181,9 +183,10 @@ impl PackageManifest {
 
         // cost object
         out.push_str("  \"cost\": {\n");
-        out.push_str(&format!("    \"processor\": {},\n", self.cost.processor));
-        out.push_str(&format!("    \"hash\": {},\n", self.cost.hash));
-        out.push_str(&format!("    \"u32\": {},\n", self.cost.u32_table));
+        for (i, name) in self.cost.table_names.iter().enumerate() {
+            let val = self.cost.table_values.get(i).copied().unwrap_or(0);
+            out.push_str(&format!("    {}: {},\n", json_string(name), val));
+        }
         out.push_str(&format!(
             "    \"padded_height\": {}\n",
             self.cost.padded_height
@@ -429,9 +432,15 @@ mod tests {
             target_os: Some("neptune".to_string()),
             architecture: "stack".to_string(),
             cost: ManifestCost {
-                processor: 100,
-                hash: 50,
-                u32_table: 25,
+                table_values: vec![100, 50, 25, 0, 0, 0],
+                table_names: vec![
+                    "processor".into(),
+                    "hash".into(),
+                    "u32".into(),
+                    "op_stack".into(),
+                    "ram".into(),
+                    "jump_stack".into(),
+                ],
                 padded_height: 256,
             },
             functions: vec![ManifestFunction {
@@ -466,9 +475,15 @@ mod tests {
             target_os: None,
             architecture: "stack".to_string(),
             cost: ManifestCost {
-                processor: 0,
-                hash: 0,
-                u32_table: 0,
+                table_values: vec![0, 0, 0, 0, 0, 0],
+                table_names: vec![
+                    "processor".into(),
+                    "hash".into(),
+                    "u32".into(),
+                    "op_stack".into(),
+                    "ram".into(),
+                    "jump_stack".into(),
+                ],
                 padded_height: 0,
             },
             functions: vec![],

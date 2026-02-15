@@ -489,7 +489,17 @@ pub fn generate_docs(
 ///
 /// Each source line is printed with a line number and, if the line has
 /// an associated cost, a bracketed annotation showing the cost breakdown.
+/// Uses the specified target for cost model selection, or defaults to Triton.
 pub fn annotate_source(source: &str, filename: &str) -> Result<String, Vec<Diagnostic>> {
+    annotate_source_with_target(source, filename, "triton")
+}
+
+/// Like `annotate_source`, but uses the specified target's cost model.
+pub fn annotate_source_with_target(
+    source: &str,
+    filename: &str,
+    target: &str,
+) -> Result<String, Vec<Diagnostic>> {
     let file = parse_source(source, filename)?;
 
     if let Err(errors) = TypeChecker::new().check_file(&file) {
@@ -497,7 +507,7 @@ pub fn annotate_source(source: &str, filename: &str) -> Result<String, Vec<Diagn
         return Err(errors);
     }
 
-    let mut analyzer = cost::CostAnalyzer::default();
+    let mut analyzer = cost::CostAnalyzer::for_target(target);
     let pc = analyzer.analyze_file(&file);
     let short_names = pc.short_names();
     let stmt_costs = analyzer.stmt_costs(&file, source);

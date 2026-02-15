@@ -174,7 +174,9 @@ impl TableCost {
         let n = self.count as usize;
         let mut parts = Vec::new();
         for i in 0..n.min(names.len()) {
-            parts.push(format!("\"{}\": {}", names[i], self.values[i]));
+            // Escape quotes and backslashes in table names for valid JSON
+            let escaped = names[i].replace('\\', "\\\\").replace('"', "\\\"");
+            parts.push(format!("\"{}\": {}", escaped, self.values[i]));
         }
         format!("{{{}}}", parts.join(", "))
     }
@@ -182,15 +184,26 @@ impl TableCost {
     /// Deserialize from a JSON object string using the given table names as keys.
     pub fn from_json_value(s: &str, names: &[&str]) -> Option<TableCost> {
         fn extract_u64(s: &str, key: &str) -> Option<u64> {
-            let needle = format!("\"{}\"", key);
-            let idx = s.find(&needle)?;
-            let rest = &s[idx + needle.len()..];
-            let colon = rest.find(':')?;
-            let after_colon = rest[colon + 1..].trim_start();
-            let end = after_colon
-                .find(|c: char| !c.is_ascii_digit())
-                .unwrap_or(after_colon.len());
-            after_colon[..end].parse().ok()
+            // Escape the key the same way to_json_value does
+            let escaped = key.replace('\\', "\\\\").replace('"', "\\\"");
+            let needle = format!("\"{}\"", escaped);
+            // Search for all occurrences and pick the one that's a real key
+            let mut search_from = 0;
+            while let Some(pos) = s[search_from..].find(&needle) {
+                let idx = search_from + pos;
+                let rest = &s[idx + needle.len()..];
+                // Must be followed by optional whitespace then ':'
+                let trimmed = rest.trim_start();
+                if trimmed.starts_with(':') {
+                    let after_colon = trimmed[1..].trim_start();
+                    let end = after_colon
+                        .find(|c: char| !c.is_ascii_digit())
+                        .unwrap_or(after_colon.len());
+                    return after_colon[..end].parse().ok();
+                }
+                search_from = idx + needle.len();
+            }
+            None
         }
 
         let mut values = [0u64; MAX_TABLES];
