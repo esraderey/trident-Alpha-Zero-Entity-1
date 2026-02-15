@@ -1,12 +1,6 @@
-use crate::syntax::parser::Parser;
 use crate::ast::*;
-use crate::lexer::Lexer;
 
-fn parse(source: &str) -> File {
-    let (tokens, _comments, lex_diags) = Lexer::new(source, 0).tokenize();
-    assert!(lex_diags.is_empty(), "lex errors: {:?}", lex_diags);
-    Parser::new(tokens).parse_file().unwrap()
-}
+use super::parse;
 
 #[test]
 fn test_minimal_program() {

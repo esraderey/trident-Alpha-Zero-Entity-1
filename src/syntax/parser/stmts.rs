@@ -264,9 +264,7 @@ impl Parser {
         let mut arms = Vec::new();
         while !self.at(&Lexeme::RBrace) && !self.at(&Lexeme::Eof) {
             let pat_start = self.current_span();
-            let pattern = if self.at(&Lexeme::Underscore)
-                || matches!(self.peek(), Lexeme::Ident(s) if s == "_")
-            {
+            let pattern = if self.at(&Lexeme::Underscore) {
                 self.advance();
                 MatchPattern::Wildcard
             } else if let Lexeme::Integer(n) = self.peek().clone() {
@@ -320,9 +318,7 @@ impl Parser {
 
             let pattern = if self.eat(&Lexeme::Colon) {
                 let pat_start = self.current_span();
-                let pat = if self.at(&Lexeme::Underscore)
-                    || matches!(self.peek(), Lexeme::Ident(s) if s == "_")
-                {
+                let pat = if self.at(&Lexeme::Underscore) {
                     self.advance();
                     FieldPattern::Wildcard
                 } else if let Lexeme::Integer(n) = self.peek().clone() {

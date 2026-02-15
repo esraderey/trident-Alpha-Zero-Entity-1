@@ -105,6 +105,7 @@ impl Lexeme {
             "Bool" => Some(Lexeme::BoolTy),
             "U32" => Some(Lexeme::U32Ty),
             "Digest" => Some(Lexeme::DigestTy),
+            "_" => Some(Lexeme::Underscore),
             _ => None,
         }
     }

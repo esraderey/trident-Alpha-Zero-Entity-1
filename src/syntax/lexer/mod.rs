@@ -387,15 +387,6 @@ impl<'src> Lexer<'src> {
                     return None;
                 }
             }
-            b'_' => {
-                // Could be start of identifier like _foo, or standalone underscore
-                if self.pos < self.source.len() && is_ident_continue(self.source[self.pos]) {
-                    // Back up and scan as identifier
-                    self.pos = start;
-                    return Some(self.scan_ident_or_keyword());
-                }
-                Lexeme::Underscore
-            }
             _ => {
                 self.diagnostics.push(
                     Diagnostic::error(

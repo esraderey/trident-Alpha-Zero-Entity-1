@@ -254,7 +254,7 @@ fn test_match_keyword() {
     assert_eq!(tokens[4], Lexeme::FatArrow);
     assert_eq!(tokens[5], Lexeme::LBrace);
     assert_eq!(tokens[6], Lexeme::RBrace);
-    assert_eq!(tokens[7], Lexeme::Ident("_".into()));
+    assert_eq!(tokens[7], Lexeme::Underscore);
     assert_eq!(tokens[8], Lexeme::FatArrow);
 }
 

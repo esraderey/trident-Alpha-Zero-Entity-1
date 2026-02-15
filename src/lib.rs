@@ -13,10 +13,7 @@ pub mod verify;
 
 // Re-exports — moved modules keep their old `crate::X` paths
 pub(crate) use api::pipeline;
-pub use ir::kir;
-pub use ir::lir;
 pub use ir::tir;
-pub use ir::tree;
 pub use syntax::span;
 pub use typecheck::types;
 
@@ -26,7 +23,6 @@ pub use config::resolve;
 pub use config::scaffold;
 pub use config::target;
 pub use deploy as artifact;
-pub use package::cache;
 pub use package::hash;
 pub use package::manifest;
 pub use package::poseidon2;

@@ -6,7 +6,6 @@ use super::Parser;
 
 impl Parser {
     pub(super) fn parse_program(&mut self) -> File {
-        let _start = self.current_span();
         self.expect(&Lexeme::Program);
         let name = self.expect_ident();
 
