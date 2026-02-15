@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use super::parse::{is_hex_hash, parse_inline_table};
 use super::resolve::{cache_dependency, resolve_path_dep};

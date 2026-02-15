@@ -9,9 +9,7 @@
 //!   - **Path** — local filesystem, re-read every build.
 
 use std::collections::HashMap;
-use std::path::{Path, PathBuf};
-
-use crate::registry::{PullResult, RegistryClient};
+use std::path::PathBuf;
 
 // ─── Data Types ────────────────────────────────────────────────────
 
@@ -46,13 +44,13 @@ pub struct Lockfile {
     pub locked: HashMap<String, LockedDep>,
 }
 
-mod parse;
 mod lockfile;
+mod parse;
 mod resolve;
 
-pub use parse::parse_dependencies;
 pub use lockfile::{load_lockfile, save_lockfile};
-pub use resolve::{resolve_dependencies, dep_source_path, dependency_search_paths};
+pub use parse::parse_dependencies;
+pub use resolve::{dep_source_path, dependency_search_paths, resolve_dependencies};
 
 #[cfg(test)]
 mod tests;

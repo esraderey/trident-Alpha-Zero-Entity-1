@@ -1,9 +1,7 @@
-use super::types::*;
-use super::json::*;
 use super::client::*;
+use super::json::*;
 use super::store_integration::*;
-
-use super::*;
+use super::types::*;
 
 #[test]
 fn test_json_escape() {

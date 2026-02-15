@@ -1,5 +1,3 @@
-use crate::hash::ContentHash;
-
 use super::types::*;
 
 pub(super) fn json_escape(s: &str) -> String {

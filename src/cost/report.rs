@@ -1,8 +1,5 @@
-use std::path::Path;
-
 use super::analyzer::{FunctionCost, ProgramCost};
-use super::model::TableCost;
-use super::visit::{find_matching_brace, next_power_of_two};
+use super::visit::next_power_of_two;
 use crate::diagnostic::Diagnostic;
 use crate::span::Span;
 

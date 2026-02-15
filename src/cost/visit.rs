@@ -1,7 +1,5 @@
-use std::collections::HashMap;
-
-use super::analyzer::{CostAnalyzer, FunctionCost, ProgramCost};
-use super::model::{create_cost_model, CostModel, TableCost};
+use super::analyzer::CostAnalyzer;
+use super::model::TableCost;
 use crate::ast::*;
 
 // --- Per-function cost result ---

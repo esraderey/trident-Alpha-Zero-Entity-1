@@ -7,20 +7,21 @@
 //!    invariants, verify with solver, refine using counterexamples.
 //! 3. Specification inference: suggest postconditions from code analysis.
 
-mod templates;
 mod infer;
+mod templates;
 #[cfg(test)]
 mod tests;
 
-pub(crate) use templates::{match_templates, check_identity_preservation, check_range_preservation, check_constant_result};
-pub(crate) use infer::{infer_preconditions, infer_postconditions_from_body, cegis_refine, infer_postconditions_from_constraints, verify_candidate, weaken_candidate};
+pub(crate) use infer::{cegis_refine, infer_postconditions_from_body, infer_preconditions};
+pub(crate) use templates::match_templates;
 
+#[cfg(test)]
+pub(crate) use infer::{infer_postconditions_from_constraints, verify_candidate, weaken_candidate};
 
 pub(crate) use crate::ast::*;
 pub(crate) use crate::solve;
 pub(crate) use crate::sym::{self, ConstraintSystem, SymValue};
 use std::collections::HashMap;
-
 
 // ─── Data Structures ───────────────────────────────────────────────
 
@@ -262,4 +263,3 @@ pub(crate) fn expr_to_string(expr: &Expr) -> String {
         }
     }
 }
-

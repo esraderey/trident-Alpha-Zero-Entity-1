@@ -1,11 +1,11 @@
 use std::io::{BufRead, BufReader, Write};
 use std::net::TcpStream;
 
-use crate::hash::ContentHash;
-
+use super::json::{
+    extract_json_bool, extract_json_string, format_publish_json, parse_pull_response,
+    parse_search_response,
+};
 use super::types::*;
-use super::json::{format_publish_json, extract_json_string, extract_json_bool,
-    parse_pull_response, parse_search_response};
 
 pub struct RegistryClient {
     base_url: String,
@@ -293,7 +293,6 @@ fn read_response(stream: &TcpStream) -> Result<ClientResponse, String> {
     Ok(ClientResponse { status, body })
 }
 
-
 pub(super) fn parse_url(url: &str) -> Result<(String, u16, String), String> {
     let url = url.trim();
     let without_scheme = if let Some(rest) = url.strip_prefix("http://") {
@@ -331,4 +330,3 @@ pub(super) fn url_encode(s: &str) -> String {
     }
     out
 }
-

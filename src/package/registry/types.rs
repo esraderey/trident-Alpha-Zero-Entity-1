@@ -1,5 +1,3 @@
-use crate::hash::ContentHash;
-
 // ─── Published Definition (wire format) ───────────────────────────
 
 /// A definition as published to the registry (JSON wire format).

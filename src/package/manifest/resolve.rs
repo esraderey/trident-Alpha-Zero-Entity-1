@@ -1,7 +1,6 @@
-use std::collections::{BTreeMap, HashMap};
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
-use crate::hash;
 use crate::registry::{PullResult, RegistryClient};
 
 use super::{Dependency, LockedDep, Lockfile, Manifest};

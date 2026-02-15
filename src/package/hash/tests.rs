@@ -1,19 +1,15 @@
 use super::*;
 
-use super::*;
-
 fn parse_file(source: &str) -> File {
     crate::parse_source_silent(source, "test.tri").unwrap()
 }
 
 #[test]
 fn test_same_code_same_hash() {
-    let f1 = parse_file(
-        "program test\nfn add(a: Field, b: Field) -> Field { a + b }\nfn main() { }\n",
-    );
-    let f2 = parse_file(
-        "program test\nfn add(x: Field, y: Field) -> Field { x + y }\nfn main() { }\n",
-    );
+    let f1 =
+        parse_file("program test\nfn add(a: Field, b: Field) -> Field { a + b }\nfn main() { }\n");
+    let f2 =
+        parse_file("program test\nfn add(x: Field, y: Field) -> Field { x + y }\nfn main() { }\n");
 
     let h1 = hash_file(&f1);
     let h2 = hash_file(&f2);
@@ -27,12 +23,10 @@ fn test_same_code_same_hash() {
 
 #[test]
 fn test_different_code_different_hash() {
-    let f1 = parse_file(
-        "program test\nfn f(a: Field, b: Field) -> Field { a + b }\nfn main() { }\n",
-    );
-    let f2 = parse_file(
-        "program test\nfn f(a: Field, b: Field) -> Field { a * b }\nfn main() { }\n",
-    );
+    let f1 =
+        parse_file("program test\nfn f(a: Field, b: Field) -> Field { a + b }\nfn main() { }\n");
+    let f2 =
+        parse_file("program test\nfn f(a: Field, b: Field) -> Field { a * b }\nfn main() { }\n");
 
     let h1 = hash_file(&f1);
     let h2 = hash_file(&f2);
@@ -86,9 +80,8 @@ fn test_hash_with_for() {
 
 #[test]
 fn test_spec_does_not_affect_hash() {
-    let f1 = parse_file(
-        "program test\nfn add(a: Field, b: Field) -> Field { a + b }\nfn main() { }\n",
-    );
+    let f1 =
+        parse_file("program test\nfn add(a: Field, b: Field) -> Field { a + b }\nfn main() { }\n");
     let f2 = parse_file("program test\n#[requires(a + b < 1000)]\n#[ensures(result == a + b)]\nfn add(a: Field, b: Field) -> Field { a + b }\nfn main() { }\n");
 
     let h1 = hash_file(&f1);

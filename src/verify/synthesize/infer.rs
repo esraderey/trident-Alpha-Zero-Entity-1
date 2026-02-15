@@ -163,7 +163,11 @@ const MAX_CEGIS_ROUNDS: usize = 5;
 ///
 /// Takes candidate invariant expressions and checks them against the solver.
 /// Returns specs that passed verification (high confidence).
-pub(crate) fn cegis_refine(func: &FnDef, file: &File, candidates: &[String]) -> Vec<SynthesizedSpec> {
+pub(crate) fn cegis_refine(
+    func: &FnDef,
+    file: &File,
+    candidates: &[String],
+) -> Vec<SynthesizedSpec> {
     let mut verified = Vec::new();
 
     for candidate in candidates {
@@ -275,7 +279,8 @@ pub(crate) fn weaken_candidate(candidate: &str) -> Option<String> {
 ///
 /// Examines the symbolic output values and constraints to suggest
 /// relationships between inputs and outputs.
-pub fn infer_postconditions_from_constraints(
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn infer_postconditions_from_constraints(
     func: &FnDef,
     system: &ConstraintSystem,
 ) -> Vec<SynthesizedSpec> {
@@ -343,4 +348,3 @@ pub fn infer_postconditions_from_constraints(
 
     specs
 }
-
