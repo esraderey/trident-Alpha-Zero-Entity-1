@@ -1,4 +1,5 @@
-use crate::ast::{self, Expr, Stmt, Type};
+pub(super) use crate::ast::display::format_ast_type as format_type;
+use crate::ast::{self, Expr, Stmt};
 
 // ─── Function Source Formatter ─────────────────────────────────────
 //
@@ -384,21 +385,5 @@ fn format_place(place: &ast::Place) -> String {
         ast::Place::Index(base, idx) => {
             format!("{}[{}]", format_place(&base.node), format_expr(&idx.node))
         }
-    }
-}
-
-pub(super) fn format_type(ty: &Type) -> String {
-    match ty {
-        Type::Field => "Field".to_string(),
-        Type::XField => "XField".to_string(),
-        Type::Bool => "Bool".to_string(),
-        Type::U32 => "U32".to_string(),
-        Type::Digest => "Digest".to_string(),
-        Type::Array(inner, size) => format!("[{}; {}]", format_type(inner), size),
-        Type::Tuple(elems) => {
-            let inner: Vec<String> = elems.iter().map(|e| format_type(e)).collect();
-            format!("({})", inner.join(", "))
-        }
-        Type::Named(path) => path.as_dotted(),
     }
 }
