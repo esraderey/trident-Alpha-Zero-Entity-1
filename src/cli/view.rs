@@ -67,185 +67,187 @@ pub fn cmd_view(args: ViewArgs) {
     print!("{}", formatted);
 }
 
-// ─── Line-based diff ──────────────────────────────────────────────
-
-use trident::hash::ContentHash;
-
-/// Compute a simple line-based diff between two source strings.
-///
-/// Uses a longest-common-subsequence algorithm to produce unified-diff
-/// style output:
-/// - Lines only in `old`: `"- <line>"`
-/// - Lines only in `new`: `"+ <line>"`
-/// - Lines in both:       `"  <line>"`
-pub fn diff(old: &str, new: &str) -> String {
-    let old_lines: Vec<&str> = old.lines().collect();
-    let new_lines: Vec<&str> = new.lines().collect();
-
-    let lcs = lcs_table(&old_lines, &new_lines);
-    let edits = backtrack_diff(&lcs, &old_lines, &new_lines);
-
-    let mut out = String::new();
-    for edit in &edits {
-        match edit {
-            DiffLine::Keep(line) => {
-                out.push_str("  ");
-                out.push_str(line);
-                out.push('\n');
-            }
-            DiffLine::Remove(line) => {
-                out.push_str("- ");
-                out.push_str(line);
-                out.push('\n');
-            }
-            DiffLine::Add(line) => {
-                out.push_str("+ ");
-                out.push_str(line);
-                out.push('\n');
-            }
-        }
-    }
-    out
-}
-
-enum DiffLine<'a> {
-    Keep(&'a str),
-    Remove(&'a str),
-    Add(&'a str),
-}
-
-/// Build the LCS length table for two slices of lines.
-fn lcs_table<'a>(old: &[&'a str], new: &[&'a str]) -> Vec<Vec<u32>> {
-    let m = old.len();
-    let n = new.len();
-    let mut table = vec![vec![0u32; n + 1]; m + 1];
-    for i in 1..=m {
-        for j in 1..=n {
-            if old[i - 1] == new[j - 1] {
-                table[i][j] = table[i - 1][j - 1] + 1;
-            } else {
-                table[i][j] = table[i - 1][j].max(table[i][j - 1]);
-            }
-        }
-    }
-    table
-}
-
-/// Backtrack through the LCS table to produce diff edits.
-fn backtrack_diff<'a>(table: &[Vec<u32>], old: &[&'a str], new: &[&'a str]) -> Vec<DiffLine<'a>> {
-    let mut edits = Vec::new();
-    let mut i = old.len();
-    let mut j = new.len();
-
-    while i > 0 || j > 0 {
-        if i > 0 && j > 0 && old[i - 1] == new[j - 1] {
-            edits.push(DiffLine::Keep(old[i - 1]));
-            i -= 1;
-            j -= 1;
-        } else if j > 0 && (i == 0 || table[i][j - 1] >= table[i - 1][j]) {
-            edits.push(DiffLine::Add(new[j - 1]));
-            j -= 1;
-        } else {
-            edits.push(DiffLine::Remove(old[i - 1]));
-            i -= 1;
-        }
-    }
-
-    edits.reverse();
-    edits
-}
-
-// ─── Definition summary ──────────────────────────────────────────
-
-/// Format a one-line definition summary: hash, name, and signature.
-pub fn format_summary(name: &str, hash: &ContentHash, source: &str) -> String {
-    let sig = extract_signature(source);
-    format!("{}  {:<16}  {}", hash, name, sig)
-}
-
-/// Extract the function signature from formatted source text.
-fn extract_signature(source: &str) -> String {
-    for line in source.lines() {
-        let trimmed = line.trim();
-        if trimmed.starts_with("fn ") || trimmed.starts_with("pub fn ") {
-            let sig = trimmed.trim_end_matches(" {").trim_end_matches('{');
-            return sig.trim_end().to_string();
-        }
-    }
-    source
-        .lines()
-        .find(|l| !l.trim().is_empty())
-        .unwrap_or("")
-        .trim()
-        .to_string()
-}
-
-// ─── Definition listing ──────────────────────────────────────────
-
-/// Format a tabular definition listing.
-pub fn format_listing(entries: &[(String, ContentHash, String)]) -> String {
-    let mut out = String::new();
-
-    out.push_str(&format!(
-        "{:<12}  {:<18}  {}\n",
-        "HASH", "NAME", "SIGNATURE"
-    ));
-
-    for (name, hash, source) in entries {
-        let sig = extract_signature(source);
-        out.push_str(&format!(
-            "{:<12}  {:<18}  {}\n",
-            hash.to_string(),
-            name,
-            sig
-        ));
-    }
-
-    out
-}
-
-// ─── History formatting ──────────────────────────────────────────
-
-/// Format history entries for a named definition.
-pub fn format_history(name: &str, entries: &[(ContentHash, u64)]) -> String {
-    let mut out = String::new();
-    out.push_str(&format!("NAME: {}\n", name));
-
-    for (i, (hash, timestamp)) in entries.iter().enumerate() {
-        let time_str = format_unix_timestamp(*timestamp);
-        let current = if i == 0 { "  (current)" } else { "" };
-        out.push_str(&format!("  {}  {}{}\n", hash, time_str, current));
-    }
-
-    out
-}
-
-/// Convert a Unix timestamp to "YYYY-MM-DD HH:MM:SS".
-fn format_unix_timestamp(ts: u64) -> String {
-    const SECS_PER_MIN: u64 = 60;
-    const SECS_PER_HOUR: u64 = 3600;
-    const SECS_PER_DAY: u64 = 86400;
-
-    let mut remaining = ts;
-
-    let days_since_epoch = remaining / SECS_PER_DAY;
-    remaining %= SECS_PER_DAY;
-    let hours = remaining / SECS_PER_HOUR;
-    remaining %= SECS_PER_HOUR;
-    let minutes = remaining / SECS_PER_MIN;
-    let seconds = remaining % SECS_PER_MIN;
-
-    let (year, month, day) = trident::deploy::days_to_date(days_since_epoch);
-
-    format!(
-        "{:04}-{:02}-{:02} {:02}:{:02}:{:02}",
-        year, month, day, hours, minutes, seconds
-    )
-}
-
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use trident::hash::ContentHash;
+
+    // ─── Line-based diff ──────────────────────────────────────────────
+
+    /// Compute a simple line-based diff between two source strings.
+    ///
+    /// Uses a longest-common-subsequence algorithm to produce unified-diff
+    /// style output:
+    /// - Lines only in `old`: `"- <line>"`
+    /// - Lines only in `new`: `"+ <line>"`
+    /// - Lines in both:       `"  <line>"`
+    fn diff(old: &str, new: &str) -> String {
+        let old_lines: Vec<&str> = old.lines().collect();
+        let new_lines: Vec<&str> = new.lines().collect();
+
+        let lcs = lcs_table(&old_lines, &new_lines);
+        let edits = backtrack_diff(&lcs, &old_lines, &new_lines);
+
+        let mut out = String::new();
+        for edit in &edits {
+            match edit {
+                DiffLine::Keep(line) => {
+                    out.push_str("  ");
+                    out.push_str(line);
+                    out.push('\n');
+                }
+                DiffLine::Remove(line) => {
+                    out.push_str("- ");
+                    out.push_str(line);
+                    out.push('\n');
+                }
+                DiffLine::Add(line) => {
+                    out.push_str("+ ");
+                    out.push_str(line);
+                    out.push('\n');
+                }
+            }
+        }
+        out
+    }
+
+    enum DiffLine<'a> {
+        Keep(&'a str),
+        Remove(&'a str),
+        Add(&'a str),
+    }
+
+    /// Build the LCS length table for two slices of lines.
+    fn lcs_table<'a>(old: &[&'a str], new: &[&'a str]) -> Vec<Vec<u32>> {
+        let m = old.len();
+        let n = new.len();
+        let mut table = vec![vec![0u32; n + 1]; m + 1];
+        for i in 1..=m {
+            for j in 1..=n {
+                if old[i - 1] == new[j - 1] {
+                    table[i][j] = table[i - 1][j - 1] + 1;
+                } else {
+                    table[i][j] = table[i - 1][j].max(table[i][j - 1]);
+                }
+            }
+        }
+        table
+    }
+
+    /// Backtrack through the LCS table to produce diff edits.
+    fn backtrack_diff<'a>(
+        table: &[Vec<u32>],
+        old: &[&'a str],
+        new: &[&'a str],
+    ) -> Vec<DiffLine<'a>> {
+        let mut edits = Vec::new();
+        let mut i = old.len();
+        let mut j = new.len();
+
+        while i > 0 || j > 0 {
+            if i > 0 && j > 0 && old[i - 1] == new[j - 1] {
+                edits.push(DiffLine::Keep(old[i - 1]));
+                i -= 1;
+                j -= 1;
+            } else if j > 0 && (i == 0 || table[i][j - 1] >= table[i - 1][j]) {
+                edits.push(DiffLine::Add(new[j - 1]));
+                j -= 1;
+            } else {
+                edits.push(DiffLine::Remove(old[i - 1]));
+                i -= 1;
+            }
+        }
+
+        edits.reverse();
+        edits
+    }
+
+    // ─── Definition summary ──────────────────────────────────────────
+
+    /// Format a one-line definition summary: hash, name, and signature.
+    fn format_summary(name: &str, hash: &ContentHash, source: &str) -> String {
+        let sig = extract_signature(source);
+        format!("{}  {:<16}  {}", hash, name, sig)
+    }
+
+    /// Extract the function signature from formatted source text.
+    fn extract_signature(source: &str) -> String {
+        for line in source.lines() {
+            let trimmed = line.trim();
+            if trimmed.starts_with("fn ") || trimmed.starts_with("pub fn ") {
+                let sig = trimmed.trim_end_matches(" {").trim_end_matches('{');
+                return sig.trim_end().to_string();
+            }
+        }
+        source
+            .lines()
+            .find(|l| !l.trim().is_empty())
+            .unwrap_or("")
+            .trim()
+            .to_string()
+    }
+
+    // ─── Definition listing ──────────────────────────────────────────
+
+    /// Format a tabular definition listing.
+    fn format_listing(entries: &[(String, ContentHash, String)]) -> String {
+        let mut out = String::new();
+
+        out.push_str(&format!(
+            "{:<12}  {:<18}  {}\n",
+            "HASH", "NAME", "SIGNATURE"
+        ));
+
+        for (name, hash, source) in entries {
+            let sig = extract_signature(source);
+            out.push_str(&format!(
+                "{:<12}  {:<18}  {}\n",
+                hash.to_string(),
+                name,
+                sig
+            ));
+        }
+
+        out
+    }
+
+    // ─── History formatting ──────────────────────────────────────────
+
+    /// Format history entries for a named definition.
+    fn format_history(name: &str, entries: &[(ContentHash, u64)]) -> String {
+        let mut out = String::new();
+        out.push_str(&format!("NAME: {}\n", name));
+
+        for (i, (hash, timestamp)) in entries.iter().enumerate() {
+            let time_str = format_unix_timestamp(*timestamp);
+            let current = if i == 0 { "  (current)" } else { "" };
+            out.push_str(&format!("  {}  {}{}\n", hash, time_str, current));
+        }
+
+        out
+    }
+
+    /// Convert a Unix timestamp to "YYYY-MM-DD HH:MM:SS".
+    fn format_unix_timestamp(ts: u64) -> String {
+        const SECS_PER_MIN: u64 = 60;
+        const SECS_PER_HOUR: u64 = 3600;
+        const SECS_PER_DAY: u64 = 86400;
+
+        let mut remaining = ts;
+
+        let days_since_epoch = remaining / SECS_PER_DAY;
+        remaining %= SECS_PER_DAY;
+        let hours = remaining / SECS_PER_HOUR;
+        remaining %= SECS_PER_HOUR;
+        let minutes = remaining / SECS_PER_MIN;
+        let seconds = remaining % SECS_PER_MIN;
+
+        let (year, month, day) = trident::deploy::days_to_date(days_since_epoch);
+
+        format!(
+            "{:04}-{:02}-{:02} {:02}:{:02}:{:02}",
+            year, month, day, hours, minutes, seconds
+        )
+    }
 
     #[test]
     fn test_format_summary_extracts_signature() {
