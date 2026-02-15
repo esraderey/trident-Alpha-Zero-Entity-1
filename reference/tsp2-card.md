@@ -1,11 +1,12 @@
 # TSP-2 — Card Standard
 
-PLUMB implementation for unique assets.
+PLUMB implementation for unique assets. See [PLUMB](plumb.md) for the
+shared token framework.
 
 Conservation law: `owner_count(id) = 1`.
 
-See the [Gold Standard](../docs/explanation/gold-standard.md) for the PLUMB
-framework, skill library, and design rationale.
+See the [Gold Standard](../docs/explanation/gold-standard.md) for design
+rationale and skill architecture.
 
 ---
 
@@ -78,7 +79,7 @@ metadata.
 
 ## Token Config — 10 field elements
 
-Same as TSP-1. See [TSP-1 Config](tsp1-coin.md#token-config--10-field-elements).
+See [PLUMB Config](plumb.md#2-token-config--10-field-elements).
 
 ---
 
@@ -104,9 +105,7 @@ metadata = hash(name_hash, description_hash, image_hash, site_hash, custom_hash,
 
 ## Merkle Tree
 
-Same structure as TSP-1: binary tree of depth `TREE_DEPTH`, internal
-node `hash(left[0..5], right[0..5])`, root is the public state
-commitment.
+See [PLUMB Merkle Tree](plumb.md#7-merkle-tree).
 
 ---
 
@@ -124,7 +123,7 @@ commitment.
 
 ## Operations
 
-All 5 operations follow the PLUMB proof envelope.
+All operations follow the [PLUMB proof envelope](plumb.md#5-proof-envelope).
 
 ### Op 0: Pay (Transfer Ownership)
 
@@ -195,16 +194,13 @@ All 5 operations follow the PLUMB proof envelope.
 
 ## Hooks
 
-Same hook system as TSP-1. See [TSP-1 Hooks](tsp1-coin.md#hooks).
+See [PLUMB Hook System](plumb.md#9-hook-system). All 5 hook slots are available. See [Skill Reference](skills.md) for standard hook programs.
 
 ---
 
 ## Security Properties
 
-Properties 1-4 from TSP-1 apply (replay prevention, time-lock
-enforcement, lock monotonicity, config binding, irreversible renounce,
-config-state separation, hook composability, symmetric authority, safe
-defaults, no approvals).
+All [PLUMB framework security properties](plumb.md#10-security-properties) apply.
 
 Additional TSP-2 properties:
 

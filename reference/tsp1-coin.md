@@ -1,11 +1,12 @@
 # TSP-1 — Coin Standard
 
-PLUMB implementation for divisible assets.
+PLUMB implementation for divisible assets. See [PLUMB](plumb.md) for the
+shared token framework.
 
 Conservation law: `sum(balances) = supply`.
 
-See the [Gold Standard](../docs/explanation/gold-standard.md) for the PLUMB
-framework, skill library, and design rationale.
+See the [Gold Standard](../docs/explanation/gold-standard.md) for design
+rationale and skill architecture.
 
 ---
 
@@ -44,36 +45,11 @@ When `locked_by != 0`, tokens are committed to a specific program. The
 
 ---
 
-## Token Config — 10 field elements
+## Token Config
 
-Shared by all PLUMB standards. Every operation verifies the full config
-hash and extracts its dedicated authority and hook.
-
-```
-config = hash(admin_auth, pay_auth, lock_auth, mint_auth, burn_auth,
-              pay_hook, lock_hook, update_hook, mint_hook, burn_hook)
-```
-
-| Field | Type | Description |
-|---|---|---|
-| `admin_auth` | Field | Admin secret hash. 0 = renounced (permanently immutable) |
-| `pay_auth` | Field | Config-level pay authority. 0 = account auth only |
-| `lock_auth` | Field | Config-level lock authority. 0 = account auth only |
-| `mint_auth` | Field | Config-level mint authority. 0 = minting disabled |
-| `burn_auth` | Field | Config-level burn authority. 0 = account auth only |
-| `pay_hook` | Field | External program ID for pay logic (0 = none) |
-| `lock_hook` | Field | External program ID for lock logic (0 = none) |
-| `update_hook` | Field | External program ID for update logic (0 = none) |
-| `mint_hook` | Field | External program ID for mint logic (0 = none) |
-| `burn_hook` | Field | External program ID for burn logic (0 = none) |
-
-### Authority Semantics
-
-| Operation type | Auth = 0 | Auth != 0 |
-|---|---|---|
-| Account ops (pay, lock, burn) | Account auth only (permissionless) | Dual auth: account + config authority |
-| Config ops (mint) | Operation disabled | Config authority required |
-| Config ops (update) | Renounced (permanently frozen) | Admin authority required |
+See [PLUMB Config](plumb.md#2-token-config--10-field-elements) for the
+shared 10-field config model (5 authorities + 5 hooks) and authority
+semantics.
 
 ---
 
@@ -101,9 +77,7 @@ metadata = hash(name_hash, ticker_hash, teaser_hash, site_hash, custom_hash,
 
 ## Merkle Tree
 
-- Binary tree of depth `TREE_DEPTH` (e.g. 20)
-- Internal node: `hash(left[0..5], right[0..5])`
-- Root is the public state commitment
+See [PLUMB Merkle Tree](plumb.md#7-merkle-tree).
 
 ---
 
@@ -121,9 +95,7 @@ metadata = hash(name_hash, ticker_hash, teaser_hash, site_hash, custom_hash,
 
 ## Operations
 
-All 5 operations follow the PLUMB proof envelope: divine 10 config
-fields, hash, assert match, extract authority and hook, verify auth,
-apply transition, update root, emit public I/O.
+All operations follow the [PLUMB proof envelope](plumb.md#5-proof-envelope).
 
 ### Op 0: Pay
 
@@ -205,33 +177,16 @@ Destroy `amount` tokens from an account.
 
 ## Hooks
 
-| Hook | Triggered by | Example use case |
-|---|---|---|
-| `pay_hook` | Every pay | Whitelist/blacklist, transfer limits, compliance |
-| `lock_hook` | Every lock | Maximum lock duration, lock rewards |
-| `update_hook` | Every config update | Multi-sig requirement, timelock on upgrades |
-| `mint_hook` | Every mint | Cap enforcement, vesting schedule, KYC gate |
-| `burn_hook` | Every burn | Minimum burn amount, burn tax, audit trail |
-
-The token circuit proves the state transition is valid and that the
-config (including hook references) is authentic. The verifier composes
-the token proof with the hook program's proof. If `hook == 0`, no
-external proof is required.
+See [PLUMB Hook System](plumb.md#9-hook-system) for the shared hook
+model. All 5 hook slots are available. See [Skill Reference](skills.md)
+for standard hook programs.
 
 ---
 
 ## Security Properties
 
-1. **No negative balances** — `as_u32()` range check
-2. **Replay prevention** — monotonic nonce + nullifiers `hash(account_id, old_nonce)`
-3. **Time-lock enforcement** — `current_time` from block timestamp
-4. **Lock monotonicity** — locks can only extend, not shorten
-5. **Supply conservation** — `supply` is public, enforced per operation
-6. **Account abstraction** — `auth_hash` accepts any preimage scheme
-7. **Config binding** — every op verifies full config hash
-8. **Irreversible renounce** — `admin_auth = 0` permanently freezes config
-9. **Config-state separation** — config updates cannot modify the Merkle tree
-10. **Hook composability** — hooks bound to config hash, composed at verification
-11. **Symmetric authority** — every op has a dedicated authority and hook
-12. **Safe defaults** — `mint_auth = 0` = disabled, others `= 0` = permissionless
-13. **No approvals** — no allowances, no `transferFrom`, no approval phishing
+All [PLUMB framework security properties](plumb.md#10-security-properties)
+apply. Additional TSP-1 properties:
+
+1. **No negative balances** — `as_u32()` range check on all balance arithmetic
+2. **Supply conservation** — `supply` is public I/O, enforced per Mint/Burn operation
