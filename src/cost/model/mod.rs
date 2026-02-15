@@ -16,7 +16,6 @@ pub const MAX_TABLES: usize = 8;
 /// Each target VM implements this to provide table names, per-instruction
 /// costs, and formatting for cost reports. The cost analyzer delegates all
 /// target-specific knowledge through this trait.
-#[allow(dead_code)]
 pub(crate) trait CostModel {
     /// Names of the execution tables (e.g. ["processor", "hash", "u32", ...]).
     fn table_names(&self) -> &[&str];
@@ -52,9 +51,6 @@ pub(crate) trait CostModel {
 
     /// Number of trace columns (used for proving time estimation).
     fn trace_column_count(&self) -> u64;
-
-    /// Target display name for reports.
-    fn target_name(&self) -> &str;
 }
 
 // ---------------------------------------------------------------------------

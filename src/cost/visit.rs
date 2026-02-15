@@ -243,28 +243,6 @@ impl<'a> CostAnalyzer<'a> {
     }
 }
 
-/// Find the index of the matching closing brace for a `{` at position `start`.
-pub fn find_matching_brace(s: &str, start: usize) -> Option<usize> {
-    let bytes = s.as_bytes();
-    if bytes.get(start) != Some(&b'{') {
-        return None;
-    }
-    let mut depth = 0i32;
-    for (i, &b) in bytes[start..].iter().enumerate() {
-        match b {
-            b'{' => depth += 1,
-            b'}' => {
-                depth -= 1;
-                if depth == 0 {
-                    return Some(start + i);
-                }
-            }
-            _ => {}
-        }
-    }
-    None
-}
-
 /// Smallest power of 2 >= n.
 pub(crate) fn next_power_of_two(n: u64) -> u64 {
     if n <= 1 {

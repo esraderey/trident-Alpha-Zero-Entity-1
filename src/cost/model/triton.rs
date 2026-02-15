@@ -11,15 +11,6 @@ pub(crate) struct TritonCostModel;
 /// Number of active tables for Triton VM.
 const N: u8 = 6;
 
-// Table indices for Triton VM.
-// [0]=processor, [1]=hash, [2]=u32, [3]=op_stack, [4]=ram, [5]=jump_stack
-const _PROC: usize = 0;
-const _HASH: usize = 1;
-const _U32: usize = 2;
-const _OPST: usize = 3;
-const _RAM: usize = 4;
-const _JUMP: usize = 5;
-
 /// Build a Triton TableCost from a 6-element array.
 const fn tc(v: [u64; 6]) -> TableCost {
     TableCost {
@@ -149,9 +140,5 @@ impl CostModel for TritonCostModel {
 
     fn trace_column_count(&self) -> u64 {
         300
-    }
-
-    fn target_name(&self) -> &str {
-        "Triton VM"
     }
 }

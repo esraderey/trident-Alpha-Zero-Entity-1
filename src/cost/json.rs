@@ -2,9 +2,32 @@ use std::path::Path;
 
 use super::analyzer::{FunctionCost, ProgramCost};
 use super::model::TableCost;
-use super::visit::find_matching_brace;
 use crate::diagnostic::Diagnostic;
 use crate::span::Span;
+
+// --- Helpers ---
+
+/// Find the index of the matching closing brace for a `{` at position `start`.
+fn find_matching_brace(s: &str, start: usize) -> Option<usize> {
+    let bytes = s.as_bytes();
+    if bytes.get(start) != Some(&b'{') {
+        return None;
+    }
+    let mut depth = 0i32;
+    for (i, &b) in bytes[start..].iter().enumerate() {
+        match b {
+            b'{' => depth += 1,
+            b'}' => {
+                depth -= 1;
+                if depth == 0 {
+                    return Some(start + i);
+                }
+            }
+            _ => {}
+        }
+    }
+    None
+}
 
 // --- Report formatting ---
 
