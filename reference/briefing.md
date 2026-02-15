@@ -175,6 +175,15 @@ WRONG: else if          ->  else { if ... }
 WRONG: recursive calls  ->  not allowed; call graph must be acyclic
 ```
 
+### Token & Skill Modules
+
+```
+std.token          PLUMB framework (config, leaf, auth, hook, tree)
+std.coin           TSP-1 Coin (account, ops, conservation)
+std.card           TSP-2 Card (asset, ops, flags, collection)
+std.skill.*        23 composable skills (supply_cap, liquidity, oracle, ...)
+```
+
 ---
 
 ## 🔗 See Also

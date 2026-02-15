@@ -105,6 +105,56 @@ Both commands default to `--profile release` (unlike `build` which defaults to
 
 ---
 
+## On-Chain Registry Publishing
+
+The on-chain registry extends deployment beyond HTTP servers. Each OS
+maintains a TSP-2 Card collection as its package registry. Publishing a
+program to the registry mints a Card — the package name becomes the
+`asset_id`, and the compiled artifact's content hash becomes the
+`metadata_hash`.
+
+### Publishing Workflow
+
+```bash
+# Deploy to Neptune's on-chain registry
+trident deploy my_skill.tri --target neptune
+
+# This:
+# 1. Compiles my_skill.tri → .tasm artifact
+# 2. Hashes the artifact (content-addressed)
+# 3. Mints a Card in Neptune's registry collection
+#    asset_id     = hash("my_skill")
+#    metadata_hash = content_hash(artifact)
+#    owner_id     = deployer's neuron identity
+```
+
+### Version Updates
+
+Publishing a new version updates the Card's metadata:
+
+```bash
+# Update existing package with new version
+trident deploy my_skill.tri --target neptune --update
+# Executes TSP-2 Update operation (Op 2) on the existing Card
+```
+
+### Referencing Deployed Programs
+
+Other programs reference deployed skills in two ways:
+
+```trident
+// By registry name (resolved at compile time via on-chain query)
+use os.neptune.registry.my_skill
+
+// By content hash (in PLUMB hook config — resolved at verification time)
+// pay_hook = 0xabcd...1234
+```
+
+See the [OS Reference: Per-OS On-Chain Registry](../../reference/os.md#per-os-on-chain-registry)
+for the full registry architecture.
+
+---
+
 ## 📦 What "Deployment" Means for ZK Programs
 
 A Trident program compiles to a `.tasm` file -- a sequence of Triton VM
