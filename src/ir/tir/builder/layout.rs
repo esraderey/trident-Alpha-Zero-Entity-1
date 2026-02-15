@@ -2,6 +2,7 @@
 
 use std::collections::BTreeMap;
 
+pub(crate) use crate::ast::display::format_ast_type as format_type_name;
 use crate::ast::*;
 use crate::span::Spanned;
 use crate::target::TargetConfig;
@@ -9,22 +10,6 @@ use crate::target::TargetConfig;
 use super::TIRBuilder;
 
 // ─── Free functions: type helpers ─────────────────────────────────
-
-pub(crate) fn format_type_name(ty: &Type) -> String {
-    match ty {
-        Type::Field => "Field".to_string(),
-        Type::Bool => "Bool".to_string(),
-        Type::U32 => "U32".to_string(),
-        Type::XField => "XField".to_string(),
-        Type::Digest => "Digest".to_string(),
-        Type::Array(inner, n) => format!("[{}; {}]", format_type_name(inner), n),
-        Type::Tuple(elems) => {
-            let parts: Vec<_> = elems.iter().map(format_type_name).collect();
-            format!("({})", parts.join(", "))
-        }
-        Type::Named(path) => path.0.join("."),
-    }
-}
 
 pub(crate) fn resolve_type_width(ty: &Type, tc: &TargetConfig) -> u32 {
     match ty {
