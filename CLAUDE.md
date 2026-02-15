@@ -60,7 +60,7 @@ Layout:
 
 ```
 Source → Lexer → Parser → AST → TypeCheck → KIR → TIR → LIR → Target
-syntax/          syntax/   ast/   typecheck/  kir/  tir/  lir/  (per-VM)
+syntax/          syntax/   ast/   typecheck/       ir/          (per-VM)
 ```
 
 Changes to any stage must preserve the pipeline contract: output of
@@ -118,36 +118,35 @@ typecheck/         ~3.2k LOC   Type checker
     basics.rs        ~450         Core type checking tests
     advanced.rs      ~440         Error messages, edge cases
 
-kir/                  ~60 LOC   Kernel IR (high-level typed IR)
-  mod.rs              ~25       KIR definitions
-  lower/mod.rs        ~30       KIR → TIR lowering stub
-
-tir/               ~3.8k LOC   Trident IR (stack-based, target-generic)
-  mod.rs             ~420       TIROp enum, program representation
-  linker.rs          ~130       Multi-module TASM linking
-  stack.rs           ~470       Stack effect tracking and validation
-  builder/         ~2.2k       AST → TIR compilation
-    mod.rs           ~390         Builder context, function compilation
-    expr.rs          ~350         Expression lowering
-    stmt.rs          ~480         Statement lowering
-    call.rs          ~290         Function call compilation
-    helpers.rs       ~140         Shared builder utilities
-    layout.rs        ~130         Struct field layout computation
-    tests.rs         ~460         Builder tests
-  lower/             ~540       TIR → target lowering
-    mod.rs            ~25         Lowering trait definition
-    triton.rs        ~300         TIR → Triton VM assembly
-    tests.rs         ~210         Lowering tests
-
-lir/                 ~770 LOC   Low-level IR (target-specific)
-  mod.rs             ~390       LIR instruction set
-  convert.rs         ~130       LIR conversion utilities
-  tests.rs           ~220       LIR tests
-  lower/mod.rs        ~30       LIR lowering stub
-
-tree/                ~210 LOC   Tree IR (structured control flow)
-  mod.rs              ~35       Tree node definitions
-  lower/mod.rs       ~175       Tree → flat lowering
+ir/                ~4.9k LOC   Intermediate representations
+  mod.rs              ~15       Module declarations
+  kir/                ~60       Kernel IR (high-level typed IR)
+    mod.rs             ~25         KIR definitions
+    lower/mod.rs       ~30         KIR → TIR lowering stub
+  tir/             ~3.8k       Trident IR (stack-based, target-generic)
+    mod.rs            ~420         TIROp enum, program representation
+    linker.rs         ~130         Multi-module TASM linking
+    stack.rs          ~470         Stack effect tracking and validation
+    builder/        ~2.2k         AST → TIR compilation
+      mod.rs          ~390           Builder context, function compilation
+      expr.rs         ~350           Expression lowering
+      stmt.rs         ~480           Statement lowering
+      call.rs         ~290           Function call compilation
+      helpers.rs      ~140           Shared builder utilities
+      layout.rs       ~130           Struct field layout computation
+      tests.rs        ~460           Builder tests
+    lower/            ~540         TIR → target lowering
+      mod.rs           ~25           Lowering trait definition
+      triton.rs       ~300           TIR → Triton VM assembly
+      tests.rs        ~210           Lowering tests
+  lir/               ~770       Low-level IR (register targets)
+    mod.rs            ~390         LIR instruction set
+    convert.rs        ~130         LIR conversion utilities
+    tests.rs          ~220         LIR tests
+    lower/mod.rs       ~30         LIR lowering stub
+  tree/              ~210       Tree IR (tree targets)
+    mod.rs             ~35         Tree node definitions
+    lower/mod.rs      ~175         Tree → flat lowering
 ```
 
 **Support modules:**
@@ -349,7 +348,7 @@ Recommended agent partitions for full-repo work:
 
 - `syntax/` (lexer + parser + format)
 - `ast/` + `typecheck/`
-- `tir/` + `kir/` + `lir/`
+- `ir/` (kir, tir, lir, tree)
 - `cost/` + `verify/`
 - `cli/` + `deploy` + `pipeline`
 - `package/` (store, registry, manifest, hash)

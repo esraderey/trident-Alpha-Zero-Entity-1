@@ -4,18 +4,19 @@ pub mod config;
 pub mod cost;
 pub mod deploy;
 pub mod diagnostic;
-pub mod kir;
-pub mod lir;
+pub mod ir;
 pub mod lsp;
 pub mod package;
 pub mod syntax;
-pub mod tir;
-pub mod tree;
 pub mod typecheck;
 pub mod verify;
 
 // Re-exports — moved modules keep their old `crate::X` paths
 pub(crate) use api::pipeline;
+pub use ir::kir;
+pub use ir::lir;
+pub use ir::tir;
+pub use ir::tree;
 pub use syntax::span;
 pub use typecheck::types;
 
