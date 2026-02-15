@@ -85,7 +85,8 @@ impl TIRBuilder {
             Stmt::Assign { place, value } => {
                 if let Place::Var(name) = &place.node {
                     self.build_expr(&value.node);
-                    let depth = self.find_var_depth(name);
+                    let depth = self.stack.access_var(name);
+                    self.flush_stack_effects();
                     if depth <= 15 {
                         self.ops.push(TIROp::Swap(depth));
                         self.ops.push(TIROp::Pop(1));
@@ -157,7 +158,8 @@ impl TIRBuilder {
                     let elem_width = if n > 0 { total_width / n } else { 1 };
 
                     for name in names.iter().rev() {
-                        let depth = self.find_var_depth(&name.node);
+                        let depth = self.stack.access_var(&name.node);
+                        self.flush_stack_effects();
                         if elem_width == 1 {
                             self.ops.push(TIROp::Swap(depth));
                             self.ops.push(TIROp::Pop(1));
@@ -294,7 +296,8 @@ impl TIRBuilder {
                     let _arm_label = self.fresh_label("match_arm");
                     let _rest_label = self.fresh_label("match_rest");
 
-                    let depth = self.find_var_depth("__match_scrutinee");
+                    let depth = self.stack.access_var("__match_scrutinee");
+                    self.flush_stack_effects();
                     self.ops.push(TIROp::Dup(depth));
 
                     match lit {

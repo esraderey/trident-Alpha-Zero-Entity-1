@@ -108,13 +108,6 @@ impl TIRBuilder {
         self.flush_stack_effects();
     }
 
-    /// Find depth of a named variable (may trigger reload if spilled).
-    pub(crate) fn find_var_depth(&mut self, name: &str) -> u32 {
-        let d = self.stack.access_var(name);
-        self.flush_stack_effects();
-        d
-    }
-
     /// Find depth and width of a named variable (may trigger reload if spilled).
     pub(crate) fn find_var_depth_and_width(&mut self, name: &str) -> Option<(u32, u32)> {
         let r = self.stack.find_var_depth_and_width(name);
