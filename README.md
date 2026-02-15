@@ -84,7 +84,7 @@ Same structure. Three readings.
 
 See [Quantum Computing](docs/explanation/quantum.md),
 [Privacy](docs/explanation/privacy.md), and
-[Verifiable AI](docs/explanation/trident-ai-zkml-deep-dive.md)
+[Verifiable AI](docs/explanation/ai.md)
 for the full treatment of each pillar.
 
 ---

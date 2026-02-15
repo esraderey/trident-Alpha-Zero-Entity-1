@@ -327,6 +327,6 @@ four constraints simultaneously.
 ## See Also
 
 - [Quantum Computing](quantum.md) — the quantum pillar
-- [Verifiable AI](trident-ai-zkml-deep-dive.md) — the AI pillar
+- [Verifiable AI](ai.md) — the AI pillar
 - [Vision](vision.md) — three revolutions, one field
 - [STARK Proofs](stark-proofs.md) — how STARKs work

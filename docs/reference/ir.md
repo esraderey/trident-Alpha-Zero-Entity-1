@@ -124,7 +124,7 @@ pub trait StackLowering {
 
 TIR maps nearly 1:1 to stack VM instructions. Each backend handles
 structural ops differently (Triton: deferred subroutines; Miden: inline
-`if.true/else/end`). See [`src/tir/lower/`](../../src/tir/lower/).
+`if.true/else/end`). See [`src/tir/lower/`](../../src/ir/tir/lower/).
 
 ### Register targets — TIR → LIR → machine code
 
@@ -140,7 +140,7 @@ pub trait RegisterLowering {
 
 LIR converts TIR's stack semantics to three-address form with virtual
 registers (`Reg(u32)`) and flat control flow (`Branch`/`Jump`/`LabelDef`).
-Same 4-tier structure, register-addressed. See [`src/lir/`](../../src/lir/).
+Same 4-tier structure, register-addressed. See [`src/lir/`](../../src/ir/lir/).
 
 ### Tree targets — TIR → TreeLowering → Noun
 
@@ -163,7 +163,7 @@ Control flow maps to Nock 6 (branch) and Nock 7 (compose).
 Performance depends on jet matching — lowered formulas must produce
 hashes that match registered jets for all cryptographic operations.
 Without jets, naive tree interpretation would be extremely slow.
-See [`src/tree/`](../../src/tree/).
+See [`src/tree/`](../../src/ir/tree/).
 
 ### GPU targets — TIR → KIR → kernel source
 
@@ -179,7 +179,7 @@ pub trait KernelLowering {
 KIR is not a separate IR. It wraps scalar TIR programs in GPU compute
 kernels — each GPU thread runs one program instance with its own I/O.
 Parallelism is across instances, not within one execution.
-See [`src/kir/`](../../src/kir/).
+See [`src/kir/`](../../src/ir/kir/).
 
 ---
 
@@ -266,8 +266,8 @@ semantics, it doesn't belong in the IR.
 
 ### TIRBuilder
 
-[`TIRBuilder`](../../src/tir/builder/mod.rs) walks the type-checked AST and
-produces `Vec<TIROp>` via [`StackManager`](../../src/tir/stack.rs) with
+[`TIRBuilder`](../../src/ir/tir/builder/mod.rs) walks the type-checked AST and
+produces `Vec<TIROp>` via [`StackManager`](../../src/ir/tir/stack.rs) with
 automatic LRU spill/reload.
 
 ```rust
@@ -284,13 +284,13 @@ TIRBuilder::new(target_config)
 Five pre-scan passes (return widths, generics, intrinsics, structs/constants,
 event tags), then emission: functions, then monomorphized generic instances.
 
-Dispatch: [`build_stmt`](../../src/tir/builder/stmt.rs) →
-[`build_expr`](../../src/tir/builder/expr.rs) →
-[`build_call`](../../src/tir/builder/call.rs) (~40 intrinsics + user calls).
+Dispatch: [`build_stmt`](../../src/ir/tir/builder/stmt.rs) →
+[`build_expr`](../../src/ir/tir/builder/expr.rs) →
+[`build_call`](../../src/ir/tir/builder/call.rs) (~40 intrinsics + user calls).
 
 ### Stack Management
 
-[`StackManager`](../../src/tir/stack.rs) tracks values by name, width,
+[`StackManager`](../../src/ir/tir/stack.rs) tracks values by name, width,
 and LRU timestamp. Overflow spills to RAM automatically. The string
 round-trip (StackManager → strings → parse back to TIROp) is legacy
 from the pre-IR emitter. Future cleanup: emit TIROp directly.

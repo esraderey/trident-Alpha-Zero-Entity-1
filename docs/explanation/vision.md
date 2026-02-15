@@ -351,7 +351,9 @@ approaching cryptographic relevance, regulatory pressure for auditable code
 
 ## See Also
 
-- [Quantum Computing](quantum.md) -- Deep structural necessity argument
+- [Quantum Computing](quantum.md) -- Prime fields, quantum advantage, convergence thesis
+- [Verifiable AI](ai.md) -- Field-native neural networks and zkML
+- [Privacy](privacy.md) -- Zero-knowledge as structural property
 - [For Offchain Devs](for-offchain-devs.md) -- Zero-knowledge programming from scratch
 - [For Onchain Devs](for-onchain-devs.md) -- From Solidity/Cairo/Anchor to Trident
 - [Multi-Target Compilation](multi-target.md) -- One source, every chain
