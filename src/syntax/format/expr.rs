@@ -1,21 +1,5 @@
+pub(crate) use crate::ast::display::format_ast_type as format_type;
 use crate::ast::*;
-
-/// Format a type to string.
-pub(crate) fn format_type(ty: &Type) -> String {
-    match ty {
-        Type::Field => "Field".to_string(),
-        Type::XField => "XField".to_string(),
-        Type::Bool => "Bool".to_string(),
-        Type::U32 => "U32".to_string(),
-        Type::Digest => "Digest".to_string(),
-        Type::Array(inner, size) => format!("[{}; {}]", format_type(inner), size),
-        Type::Tuple(elems) => {
-            let inner: Vec<String> = elems.iter().map(format_type).collect();
-            format!("({})", inner.join(", "))
-        }
-        Type::Named(path) => path.as_dotted(),
-    }
-}
 
 /// Format an expression to a single-line string.
 pub(crate) fn format_expr(expr: &Expr) -> String {
