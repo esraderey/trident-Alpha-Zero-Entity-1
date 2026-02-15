@@ -56,15 +56,76 @@ Layout:
 - `std/` — pure Trident library code (no `#[intrinsic]`)
 - Module resolution: `src/config/resolve.rs`
 
+## Compilation Pipeline
+
+```
+Source → Lexer → Parser → AST → TypeCheck → KIR → TIR → LIR → Target
+syntax/          syntax/   ast/   typecheck/  kir/  tir/  lir/  (per-VM)
+```
+
+Changes to any stage must preserve the pipeline contract: output of
+stage N is valid input for stage N+1. When modifying a stage, check
+both its input (does it still accept what the previous stage emits?)
+and its output (does the next stage still accept it?).
+
+## File Size Limit
+
+No single `.rs` file should exceed 500 lines. If it does, split it
+into submodules. `lib.rs` is the only exception (re-exports).
+
+When auditing files > 500 lines, split the audit into sections:
+read the file in chunks (offset/limit), report per-section. Never
+try to hold an entire large file in a single agent context.
+
+## Forbidden Patterns
+
+- No `HashMap` in deterministic paths — use `BTreeMap` or indexed vec
+- No `println!` in library code — use the diagnostic system
+- No `std::process::exit` outside `main.rs`
+- No `.unwrap()` outside tests
+- No floating point anywhere
+- No `async` in the compilation pipeline (only in LSP and CLI)
+
+## Builtin Sync Rule
+
+Builtins are defined in 4 places that must stay in sync:
+
+1. `docs/reference/language.md` (canonical)
+2. `src/typecheck/` (type signatures)
+3. `src/tir/` (IR lowering)
+4. `src/cost/` (cost tables)
+
+Adding or removing a builtin requires updating all 4.
+
+## Do Not Touch
+
+Do not modify without explicit request:
+
+- `Cargo.toml` dependencies (minimal by design)
+- `docs/reference/` structure (canonical, changes need discussion)
+- `vm/*/target.toml` and `os/*/target.toml` (configuration, not code)
+- `LICENSE.md`
+
 ## Parallel Agents
 
 When a task touches many files across the repo (bold cleanup, renaming,
 cross-reference updates), split it into parallel agents with
 non-overlapping file scopes. Before launching agents, partition by
-directory or filename so no two agents edit the same file. Example
-partitions: `docs/explanation/` vs `docs/reference/` vs `docs/guides/`
-vs `os/` vs `vm/`. Never let scopes overlap — conflicting writes cause
-agents to revert each other's work.
+directory or filename so no two agents edit the same file. Never let
+scopes overlap — conflicting writes cause agents to revert each other's
+work.
+
+Recommended agent partitions for full-repo work:
+
+- `syntax/` (lexer + parser + format)
+- `ast/` + `typecheck/`
+- `tir/` + `kir/` + `lir/`
+- `cost/` + `verify/`
+- `cli/` + `deploy` + `pipeline`
+- `package/` (store, registry, manifest, hash)
+- `lsp/` + `doc`
+- `docs/` (by subdirectory)
+- `vm/` + `std/` + `os/` (.tri files)
 
 ## Git Workflow
 
@@ -120,6 +181,7 @@ Skip for trivial tasks (single-line edits, formatting, obvious fixes).
 
 Instead of "make it perfect", invoke passes by number.
 Example: "Run PASS 3 and PASS 7 on this module."
+When i ask 
 
 ### PASS 1: DETERMINISM
 - No floating point anywhere — all arithmetic over Goldilocks p = 2^64 - 2^32 + 1
@@ -245,6 +307,12 @@ cargo check          # type-check
 cargo test           # 756+ tests
 cargo build --release
 ```
+
+- `cargo test` must pass before committing.
+- New parser/typecheck features need tests in the corresponding `tests.rs`.
+- Test names describe the property, not the method
+  (e.g., `nested_if_else_preserves_scope` not `test_if`).
+- Snapshot tests: update with `cargo insta review`, never manually.
 
 ## License
 
