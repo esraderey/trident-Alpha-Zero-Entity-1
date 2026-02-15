@@ -6,6 +6,7 @@ mod resolve;
 mod stmt;
 #[cfg(test)]
 mod tests;
+pub mod types;
 
 use std::collections::{HashMap, HashSet};
 

@@ -5,6 +5,7 @@
 //! produces target assembly text.
 
 pub mod builder;
+pub(crate) mod linker;
 pub mod lower;
 pub mod stack;
 

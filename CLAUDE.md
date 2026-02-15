@@ -78,7 +78,8 @@ reorganized. Do NOT update for line count changes or content-only edits.
 **Pipeline stages:**
 
 ```
-syntax/            ~4.4k LOC   Lexer, parser, formatter
+syntax/            ~4.5k LOC   Lexer, parser, formatter, spans
+  span.rs             ~60       Source span tracking (Span, Spanned<T>)
   lexer/             ~800       Tokenizer
     mod.rs           ~440         Keywords, operators, literals
     tests.rs         ~360         Lexer tests
@@ -104,8 +105,9 @@ ast/                 ~600 LOC   Abstract syntax tree
   navigate.rs        ~100       Tree navigation helpers
   display.rs         ~120       Pretty-printing AST nodes
 
-typecheck/         ~3.1k LOC   Type checker
+typecheck/         ~3.2k LOC   Type checker
   mod.rs             ~440       Environment, type context, entry point
+  types.rs            ~80       Semantic types (Ty, StructTy, width)
   expr.rs            ~450       Expression type inference
   stmt.rs            ~420       Statement checking (assignment, control flow)
   block.rs           ~200       Block, fn body, event, place checking
@@ -120,8 +122,9 @@ kir/                  ~60 LOC   Kernel IR (high-level typed IR)
   mod.rs              ~25       KIR definitions
   lower/mod.rs        ~30       KIR → TIR lowering stub
 
-tir/               ~3.7k LOC   Trident IR (stack-based, target-generic)
+tir/               ~3.8k LOC   Trident IR (stack-based, target-generic)
   mod.rs             ~420       TIROp enum, program representation
+  linker.rs          ~130       Multi-module TASM linking
   stack.rs           ~470       Stack effect tracking and validation
   builder/         ~2.2k       AST → TIR compilation
     mod.rs           ~390         Builder context, function compilation
@@ -260,8 +263,10 @@ lsp/               ~1.6k LOC   Language Server Protocol
 **Public API:**
 
 ```
-api/               ~2.2k LOC   Public API functions
+api/               ~2.7k LOC   Public API functions
   mod.rs             ~340       CompileOptions, compile/check/format entry points
+  pipeline.rs        ~210       Shared resolve → parse → typecheck pipeline
+  doc.rs             ~300       Documentation generation (trident doc)
   tools.rs           ~260       Cost, docs, verify, annotate entry points
   tests/           ~1,550       Integration tests (7 files)
     compile.rs       ~400         Single-file + project compilation
@@ -277,16 +282,14 @@ api/               ~2.2k LOC   Public API functions
 
 ```
 lib.rs              ~75        Crate root — module decls, re-exports, parse helpers
+diagnostic/        ~170        Error/warning diagnostic rendering
+  mod.rs           ~170          Diagnostic, Severity, ariadne rendering
+
 deploy/            ~560        Artifact deployment
   mod.rs           ~390          Copy, verify, sign
   tests.rs         ~170          Deploy tests
-doc.rs             ~300        Documentation generation (trident doc)
-pipeline.rs        ~210        Compilation pipeline orchestration
-diagnostic.rs      ~170        Error/warning diagnostic rendering (ariadne)
-linker.rs          ~130        Multi-module linking
+
 main.rs            ~110        Binary entry point (clap dispatch)
-types.rs            ~80        Shared type definitions (Span re-export, etc.)
-span.rs             ~60        Source span tracking
 ```
 
 ## File Size Limit

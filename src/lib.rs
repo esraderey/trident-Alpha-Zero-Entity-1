@@ -4,22 +4,22 @@ pub mod config;
 pub mod cost;
 pub mod deploy;
 pub mod diagnostic;
-pub mod doc;
 pub mod kir;
-pub mod linker;
 pub mod lir;
 pub mod lsp;
 pub mod package;
-pub mod pipeline;
-pub mod span;
 pub mod syntax;
 pub mod tir;
 pub mod tree;
 pub mod typecheck;
-pub mod types;
 pub mod verify;
 
-// Re-exports — preserves all `crate::X` paths
+// Re-exports — moved modules keep their old `crate::X` paths
+pub(crate) use api::pipeline;
+pub use syntax::span;
+pub use typecheck::types;
+
+// Re-exports — preserves all `crate::X` paths for submodules
 pub use config::project;
 pub use config::resolve;
 pub use config::scaffold;

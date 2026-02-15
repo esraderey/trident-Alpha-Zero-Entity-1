@@ -4,14 +4,14 @@ pub(crate) use std::path::Path;
 pub(crate) use crate::ast::{self, FileKind};
 pub(crate) use crate::cost;
 pub(crate) use crate::diagnostic::{render_diagnostics, Diagnostic};
-pub(crate) use crate::linker::{link, ModuleTasm};
 pub(crate) use crate::resolve::resolve_modules;
 pub(crate) use crate::span;
 pub(crate) use crate::target::TargetConfig;
 pub(crate) use crate::tir::builder::TIRBuilder;
+pub(crate) use crate::tir::linker::{link, ModuleTasm};
 pub(crate) use crate::tir::lower::create_stack_lowering;
 pub(crate) use crate::typecheck::{ModuleExports, TypeChecker};
-pub(crate) use crate::{doc, format, lexer, parser, project, solve, sym};
+pub(crate) use crate::{format, lexer, parser, project, solve, sym};
 
 #[cfg(test)]
 mod tests;
@@ -332,6 +332,7 @@ pub fn run_tests(
     Ok(report)
 }
 
-
+pub(crate) mod doc;
+pub(crate) mod pipeline;
 mod tools;
 pub use tools::*;
