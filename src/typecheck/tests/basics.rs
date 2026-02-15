@@ -1,13 +1,6 @@
 //! TypeChecker unit tests.
 
-use std::collections::HashSet;
-
-use crate::diagnostic::Diagnostic;
-use crate::lexer::Lexer;
-use crate::parser::Parser;
-use crate::typecheck::{ModuleExports, TypeChecker};
-
-use super::check;
+use super::{check, check_with_flags};
 
 #[test]
 fn test_valid_field_arithmetic() {
@@ -337,15 +330,6 @@ fn test_generic_fn_non_generic_with_size_args_fails() {
 }
 
 // --- conditional compilation ---
-
-fn check_with_flags(source: &str, flags: &[&str]) -> Result<ModuleExports, Vec<Diagnostic>> {
-    let (tokens, _, _) = Lexer::new(source, 0).tokenize();
-    let file = Parser::new(tokens).parse_file().unwrap();
-    let flag_set: HashSet<String> = flags.iter().map(|s| s.to_string()).collect();
-    TypeChecker::new()
-        .with_cfg_flags(flag_set)
-        .check_file(&file)
-}
 
 #[test]
 fn test_cfg_debug_includes_debug_fn() {
