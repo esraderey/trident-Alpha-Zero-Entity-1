@@ -17,7 +17,7 @@ pub use ir::tir;
 pub use syntax::span;
 pub use typecheck::types;
 
-// Re-exports — preserves all `crate::X` paths for submodules
+// Re-exports — preserves `trident::X` paths used by CLI and tests
 pub use config::project;
 pub use config::resolve;
 pub use config::scaffold;
