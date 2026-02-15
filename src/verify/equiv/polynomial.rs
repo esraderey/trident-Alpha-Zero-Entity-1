@@ -106,7 +106,11 @@ fn canonicalize_poly(mut terms: Vec<PolyTerm>) -> Vec<PolyTerm> {
 /// This works for pure field-arithmetic functions (using only +, *, -,
 /// constants, and variables). Builds symbolic values for both functions
 /// and checks if their polynomial normal forms match.
-pub(super) fn check_polynomial_equivalence(file: &File, fn_a: &str, fn_b: &str) -> Option<EquivalenceResult> {
+pub(super) fn check_polynomial_equivalence(
+    file: &File,
+    fn_a: &str,
+    fn_b: &str,
+) -> Option<EquivalenceResult> {
     let func_a = find_fn(file, fn_a)?;
     let func_b = find_fn(file, fn_b)?;
 
@@ -157,7 +161,7 @@ fn symbolic_eval_fn_with_params(func: &FnDef, params: &[String]) -> Option<SymVa
     let body = func.body.as_ref()?;
 
     // Build an environment mapping parameter names to symbolic variables.
-    let mut env = std::collections::HashMap::new();
+    let mut env = std::collections::BTreeMap::new();
     for (i, param) in func.params.iter().enumerate() {
         let sym_name = if i < params.len() {
             params[i].clone()
@@ -203,7 +207,7 @@ fn symbolic_eval_fn_with_params(func: &FnDef, params: &[String]) -> Option<SymVa
 /// Returns None for anything more complex.
 fn eval_expr_simple(
     expr: &ast::Expr,
-    env: &std::collections::HashMap<String, SymValue>,
+    env: &std::collections::BTreeMap<String, SymValue>,
 ) -> Option<SymValue> {
     match expr {
         ast::Expr::Literal(ast::Literal::Integer(n)) => Some(SymValue::Const(*n)),
@@ -236,4 +240,3 @@ fn eval_expr_simple(
         _ => None,
     }
 }
-

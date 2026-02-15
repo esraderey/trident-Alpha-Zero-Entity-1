@@ -88,11 +88,11 @@ impl Rng {
 
 /// Concrete evaluator: substitutes variable assignments into symbolic values.
 pub(crate) struct Evaluator<'a> {
-    assignments: &'a HashMap<String, u64>,
+    assignments: &'a BTreeMap<String, u64>,
 }
 
 impl<'a> Evaluator<'a> {
-    pub(crate) fn new(assignments: &'a HashMap<String, u64>) -> Self {
+    pub(crate) fn new(assignments: &'a BTreeMap<String, u64>) -> Self {
         Self { assignments }
     }
 

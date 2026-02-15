@@ -42,7 +42,7 @@ pub fn solve(system: &ConstraintSystem, config: &SolverConfig) -> SolverResult {
 
     for _round in 0..config.rounds {
         // Generate random assignments for all variables
-        let mut assignments = HashMap::new();
+        let mut assignments = BTreeMap::new();
         for name in &var_names {
             assignments.insert(name.clone(), rng.next_field());
         }
@@ -143,7 +143,7 @@ pub fn bounded_check(system: &ConstraintSystem, config: &BmcConfig) -> SolverRes
 
     if num_vars == 0 {
         // No variables: just evaluate once with empty assignment
-        let assignments = HashMap::new();
+        let assignments = BTreeMap::new();
         let evaluator = Evaluator::new(&assignments);
         total_rounds = 1;
         for (i, constraint) in system.constraints.iter().enumerate() {
@@ -154,7 +154,7 @@ pub fn bounded_check(system: &ConstraintSystem, config: &BmcConfig) -> SolverRes
                     counterexamples.push(Counterexample {
                         constraint_index: i,
                         constraint_desc: format_constraint(constraint),
-                        assignments: HashMap::new(),
+                        assignments: BTreeMap::new(),
                     });
                 }
                 None => {
@@ -196,7 +196,7 @@ pub fn bounded_check(system: &ConstraintSystem, config: &BmcConfig) -> SolverRes
 
         for _ in 0..sample_count {
             total_rounds += 1;
-            let mut assignments = HashMap::new();
+            let mut assignments = BTreeMap::new();
             for name in &var_names {
                 assignments.insert(name.clone(), rng.next_field());
             }
@@ -242,4 +242,3 @@ pub fn bounded_check(system: &ConstraintSystem, config: &BmcConfig) -> SolverRes
         all_passed,
     }
 }
-

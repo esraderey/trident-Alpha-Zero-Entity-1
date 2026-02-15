@@ -19,7 +19,7 @@
 //!    all tested inputs (candidate tautologies) — these can be eliminated
 //!    to reduce proving cost.
 
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 use crate::sym::{Constraint, ConstraintSystem, SymValue, GOLDILOCKS_P};
 
@@ -41,7 +41,7 @@ pub struct Counterexample {
     /// Human-readable description of the constraint.
     pub constraint_desc: String,
     /// The variable assignments that caused the violation.
-    pub assignments: HashMap<String, u64>,
+    pub assignments: BTreeMap<String, u64>,
 }
 
 impl Counterexample {
@@ -321,7 +321,7 @@ fn interesting_field_values(count: usize) -> Vec<u64> {
 }
 
 /// Add special values for early rounds to improve coverage.
-fn add_special_values(assignments: &mut HashMap<String, u64>, var_names: &[String], round: usize) {
+fn add_special_values(assignments: &mut BTreeMap<String, u64>, var_names: &[String], round: usize) {
     let special = [0, 1, GOLDILOCKS_P - 1, 2, u32::MAX as u64];
     if round < special.len() {
         // In early rounds, set all variables to the same special value
@@ -338,7 +338,7 @@ fn generate_combinations(
     var_names: &[String],
     values: &[u64],
     max_combos: usize,
-) -> Vec<HashMap<String, u64>> {
+) -> Vec<BTreeMap<String, u64>> {
     let num_vars = var_names.len();
     let num_values = values.len();
 
@@ -353,7 +353,7 @@ fn generate_combinations(
         let mut combos = Vec::new();
         let mut indices = vec![0usize; num_vars];
         loop {
-            let mut assignment = HashMap::new();
+            let mut assignment = BTreeMap::new();
             for (i, name) in var_names.iter().enumerate() {
                 assignment.insert(name.clone(), values[indices[i]]);
             }
@@ -381,7 +381,7 @@ fn generate_combinations(
         let mut rng = Rng::new(0xBEEF_CAFE);
         let mut combos = Vec::with_capacity(max_combos);
         for _ in 0..max_combos {
-            let mut assignment = HashMap::new();
+            let mut assignment = BTreeMap::new();
             for name in var_names {
                 let idx = (rng.next_u64() as usize) % num_values;
                 assignment.insert(name.clone(), values[idx]);

@@ -18,14 +18,13 @@
 //!    - A bounded model checker (enumerate concrete values)
 //!    - An SMT solver (Z3/CVC5 via SMT-LIB encoding)
 
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 use crate::ast::*;
 use crate::span::Spanned;
 
 /// The prime modulus for the Goldilocks field.
 pub const GOLDILOCKS_P: u64 = 0xFFFFFFFF00000001; // 2^64 - 2^32 + 1
-
 
 mod executor;
 mod expr;
@@ -222,7 +221,7 @@ pub struct ConstraintSystem {
     /// All constraints that must hold.
     pub constraints: Vec<Constraint>,
     /// Symbolic variables introduced (name → latest version).
-    pub variables: HashMap<String, u32>,
+    pub variables: BTreeMap<String, u32>,
     /// Public inputs read (in order).
     pub pub_inputs: Vec<SymVar>,
     /// Public outputs written (in order).
@@ -237,7 +236,7 @@ impl ConstraintSystem {
     pub fn new() -> Self {
         Self {
             constraints: Vec::new(),
-            variables: HashMap::new(),
+            variables: BTreeMap::new(),
             pub_inputs: Vec::new(),
             pub_outputs: Vec::new(),
             divine_inputs: Vec::new(),
@@ -271,7 +270,6 @@ impl ConstraintSystem {
         )
     }
 }
-
 
 // ─── Analysis Functions ────────────────────────────────────────────
 
@@ -344,4 +342,3 @@ pub fn verify_file(file: &File) -> VerificationResult {
         system_summary: system.summary(),
     }
 }
-

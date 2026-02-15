@@ -21,7 +21,7 @@ pub(crate) use infer::{infer_postconditions_from_constraints, verify_candidate, 
 pub(crate) use crate::ast::*;
 pub(crate) use crate::solve;
 pub(crate) use crate::sym::{self, ConstraintSystem, SymValue};
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 // ─── Data Structures ───────────────────────────────────────────────
 

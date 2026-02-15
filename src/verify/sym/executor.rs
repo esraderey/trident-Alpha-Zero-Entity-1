@@ -7,9 +7,9 @@ pub struct SymExecutor {
     /// The constraint system being built.
     pub(crate) system: ConstraintSystem,
     /// Variable bindings: name → symbolic value.
-    pub(crate) env: HashMap<String, SymValue>,
+    pub(crate) env: BTreeMap<String, SymValue>,
     /// SSA version counter per variable name.
-    pub(crate) versions: HashMap<String, u32>,
+    pub(crate) versions: BTreeMap<String, u32>,
     /// Counter for divine inputs.
     pub(crate) divine_counter: u32,
     /// Counter for public inputs.
@@ -17,7 +17,7 @@ pub struct SymExecutor {
     /// Current path condition (conjunction of conditions leading here).
     pub(crate) path_condition: Vec<SymValue>,
     /// Function definitions for inlining.
-    pub(crate) functions: HashMap<String, FnDef>,
+    pub(crate) functions: BTreeMap<String, FnDef>,
     /// Recursion guard (prevent infinite inlining — shouldn't happen in Trident).
     pub(crate) call_depth: u32,
     /// Maximum call depth before giving up.
@@ -28,12 +28,12 @@ impl SymExecutor {
     pub fn new() -> Self {
         Self {
             system: ConstraintSystem::new(),
-            env: HashMap::new(),
-            versions: HashMap::new(),
+            env: BTreeMap::new(),
+            versions: BTreeMap::new(),
             divine_counter: 0,
             pub_input_counter: 0,
             path_condition: Vec::new(),
-            functions: HashMap::new(),
+            functions: BTreeMap::new(),
             call_depth: 0,
             max_call_depth: 64,
         }
@@ -254,7 +254,7 @@ impl SymExecutor {
             Stmt::Match { expr, arms } => {
                 let match_val = self.eval_expr(&expr.node);
                 let saved_env = self.env.clone();
-                let mut merged_envs: Vec<(SymValue, HashMap<String, SymValue>)> = Vec::new();
+                let mut merged_envs: Vec<(SymValue, BTreeMap<String, SymValue>)> = Vec::new();
 
                 for arm in arms {
                     self.env = saved_env.clone();
@@ -320,5 +320,4 @@ impl SymExecutor {
             }
         }
     }
-
 }

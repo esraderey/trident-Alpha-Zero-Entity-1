@@ -321,7 +321,7 @@ pub(crate) fn infer_postconditions_from_constraints(
     }
 
     // Check for constant propagation through constraints
-    let mut const_vars: HashMap<String, u64> = HashMap::new();
+    let mut const_vars: BTreeMap<String, u64> = BTreeMap::new();
     for constraint in &system.constraints {
         if let sym::Constraint::Equal(SymValue::Var(var), SymValue::Const(c)) = constraint {
             const_vars.insert(var.name.clone(), *c);
