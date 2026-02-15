@@ -1,0 +1,3306 @@
+// Hand-optimized TASM baseline: Keccak-f[1600] permutation
+//
+// Implements the full 24-round Keccak-f[1600] permutation used by Keccak-256.
+// Each 64-bit lane is stored as a (lo, hi) pair of U32 values.
+// The 25-lane state (50 U32 values) lives in RAM for efficient random access.
+//
+// RAM layout (addresses):
+//   State lanes s[x][y]: lane index = 5*y + x, lo at 2*idx, hi at 2*idx+1
+//     s00=[0,1]  s10=[2,3]  s20=[4,5]  s30=[6,7]  s40=[8,9]
+//     s01=[10,11] s11=[12,13] s21=[14,15] s31=[16,17] s41=[18,19]
+//     s02=[20,21] s12=[22,23] s22=[24,25] s32=[26,27] s42=[28,29]
+//     s03=[30,31] s13=[32,33] s23=[34,35] s33=[36,37] s43=[38,39]
+//     s04=[40,41] s14=[42,43] s24=[44,45] s34=[46,47] s44=[48,49]
+//   Theta temporaries:
+//     C0=[50,51] C1=[52,53] C2=[54,55] C3=[56,57] C4=[58,59]
+//     D0=[60,61] D1=[62,63] D2=[64,65] D3=[66,67] D4=[68,69]
+//   Chi/Pi temporaries: [70..119]
+//
+// Optimization summary vs compiler output:
+//   - u32_pow2: pre-computed 2^n constants (1 push) vs 192+ op branch cascade
+//   - Round constants: inlined as push lo / push hi (2 ops, no call overhead)
+//   - Lane ops: all inlined (no call/return overhead on xor/and/not/chi)
+//   - Rotations in rho: each specialized for its known fixed offset
+//   - State access: RAM-based, avoiding deep stack swap chains
+//
+// Instruction count rules:
+//   - Comments (// ...) are NOT counted
+//   - Labels (ending with :) are NOT counted
+//   - halt is NOT counted
+//   - Blank lines are NOT counted
+//   - Everything else IS counted (including return)
+
+// ===================================================================
+// Entry point: keccak_f1600
+// ===================================================================
+// Stack on entry: 50 values [s00_lo s00_hi s10_lo ... s44_hi]
+// Stack on exit:  50 values (permuted state)
+
+// Store all 50 U32 values from stack to RAM[0..49]
+    push 0
+    write_mem 5
+    write_mem 5
+    write_mem 5
+    write_mem 5
+    write_mem 5
+    write_mem 5
+    write_mem 5
+    write_mem 5
+    write_mem 5
+    write_mem 5
+    pop 1
+
+// Execute 24 rounds
+    call __round_0
+    call __round_1
+    call __round_2
+    call __round_3
+    call __round_4
+    call __round_5
+    call __round_6
+    call __round_7
+    call __round_8
+    call __round_9
+    call __round_10
+    call __round_11
+    call __round_12
+    call __round_13
+    call __round_14
+    call __round_15
+    call __round_16
+    call __round_17
+    call __round_18
+    call __round_19
+    call __round_20
+    call __round_21
+    call __round_22
+    call __round_23
+
+// Load state back from RAM to stack
+    push 49
+    read_mem 5
+    read_mem 5
+    read_mem 5
+    read_mem 5
+    read_mem 5
+    read_mem 5
+    read_mem 5
+    read_mem 5
+    read_mem 5
+    read_mem 5
+    pop 1
+    halt
+
+// ===================================================================
+// __rot1: rotate 64-bit lane left by 1 bit
+// Stack: [lo, hi, ...] -> [new_lo, new_hi, ...]
+// new_lo = (lo << 1) | (hi >> 31)
+// new_hi = (hi << 1) | (lo >> 31)
+// ===================================================================
+__rot1:
+    // Stack: [lo, hi]
+    // lo << 1: add lo to itself, split -> (lo_carry, lo_shifted)
+    dup 0
+    add
+    split
+    // [lo_carry, lo_shifted, hi]
+    swap 2
+    // [hi, lo_shifted, lo_carry]
+    // hi << 1: add hi to itself, split -> (hi_carry, hi_shifted)
+    dup 0
+    add
+    split
+    // [hi_carry, hi_shifted, lo_shifted, lo_carry]
+    // Want: new_lo = lo_shifted ^ hi_carry, new_hi = hi_shifted ^ lo_carry
+    // Label: a=hi_carry, b=hi_shifted, c=lo_shifted, d=lo_carry
+    // dup 2: [c, a, b, c, d]
+    // xor:   [c^a, b, c, d] = [new_lo, b, c, d]
+    // swap 3:[d, b, c, new_lo]
+    // swap 1:[b, d, c, new_lo]
+    // xor:   [b^d, c, new_lo] = [new_hi, c, new_lo]
+    // swap 1:[c, new_hi, new_lo]
+    // pop 1: [new_hi, new_lo]
+    // swap 1:[new_lo, new_hi]
+    dup 2
+    xor
+    swap 3
+    swap 1
+    xor
+    swap 1
+    pop 1
+    swap 1
+    return
+
+// ===================================================================
+// __apply_rot: rotate lane by n bits where pow2n = 2^n is on stack
+// Stack: [lo, hi, pow2n, ...] -> [new_lo, new_hi, ...]
+// lo * pow2n -> split -> (lo_over, lo_shift)
+// hi * pow2n -> split -> (hi_over, hi_shift)
+// new_lo = lo_shift XOR hi_over
+// new_hi = hi_shift XOR lo_over
+// ===================================================================
+__apply_rot:
+    // [lo, hi, pow2n]
+    // Step 1: lo * pow2n
+    dup 2
+    mul
+    split
+    // [lo_over, lo_shift, hi, pow2n]
+    // Step 2: hi * pow2n
+    swap 2
+    // [hi, lo_shift, lo_over, pow2n]
+    dup 3
+    // [pow2n, hi, lo_shift, lo_over, pow2n]
+    mul
+    split
+    // [hi_over, hi_shift, lo_shift, lo_over, pow2n]
+    // Step 3: compute new_lo = lo_shift ^ hi_over, new_hi = hi_shift ^ lo_over
+    // Use dup approach:
+    // [hi_over(a), hi_shift(b), lo_shift(c), lo_over(d), pow2n]
+    dup 2
+    xor
+    // [c^a, b, c, d, pow2n] = [new_lo, hi_shift, lo_shift, lo_over, pow2n]
+    swap 3
+    // [d, hi_shift, lo_shift, new_lo, pow2n] = [lo_over, hi_shift, lo_shift, new_lo, pow2n]
+    swap 1
+    // [hi_shift, lo_over, lo_shift, new_lo, pow2n]
+    xor
+    // [new_hi, lo_shift, new_lo, pow2n]
+    swap 1
+    pop 1
+    // [new_hi, new_lo, pow2n]
+    swap 2
+    pop 1
+    // [new_lo, new_hi]
+    return
+
+// ===================================================================
+// THETA step: column parity XOR diffusion
+// C[x] = s[x][0] ^ s[x][1] ^ s[x][2] ^ s[x][3] ^ s[x][4]
+// D[x] = C[x-1] ^ rot1(C[x+1])
+// s[x][y] ^= D[x]
+// ===================================================================
+__theta:
+    // --- Compute C0: s00 ^ s01 ^ s02 ^ s03 ^ s04 -> [50,51] ---
+    // C0_lo = mem[0] ^ mem[10] ^ mem[20] ^ mem[30] ^ mem[40]
+    push 0
+    read_mem 1
+    pop 1
+    push 10
+    read_mem 1
+    pop 1
+    xor
+    push 20
+    read_mem 1
+    pop 1
+    xor
+    push 30
+    read_mem 1
+    pop 1
+    xor
+    push 40
+    read_mem 1
+    pop 1
+    xor
+    // C0_hi = mem[1] ^ mem[11] ^ mem[21] ^ mem[31] ^ mem[41]
+    push 1
+    read_mem 1
+    pop 1
+    push 11
+    read_mem 1
+    pop 1
+    xor
+    push 21
+    read_mem 1
+    pop 1
+    xor
+    push 31
+    read_mem 1
+    pop 1
+    xor
+    push 41
+    read_mem 1
+    pop 1
+    xor
+    // Stack: [C0_hi, C0_lo]
+    // Store C0 to [50, 51]
+    swap 1
+    push 50
+    write_mem 2
+    pop 1
+
+    // C1: mem[2,12,22,32,42] lo; mem[3,13,23,33,43] hi
+    push 2
+    read_mem 1
+    pop 1
+    push 12
+    read_mem 1
+    pop 1
+    xor
+    push 22
+    read_mem 1
+    pop 1
+    xor
+    push 32
+    read_mem 1
+    pop 1
+    xor
+    push 42
+    read_mem 1
+    pop 1
+    xor
+    push 3
+    read_mem 1
+    pop 1
+    push 13
+    read_mem 1
+    pop 1
+    xor
+    push 23
+    read_mem 1
+    pop 1
+    xor
+    push 33
+    read_mem 1
+    pop 1
+    xor
+    push 43
+    read_mem 1
+    pop 1
+    xor
+    swap 1
+    push 52
+    write_mem 2
+    pop 1
+
+    // C2: addrs 4,14,24,34,44 lo; 5,15,25,35,45 hi
+    push 4
+    read_mem 1
+    pop 1
+    push 14
+    read_mem 1
+    pop 1
+    xor
+    push 24
+    read_mem 1
+    pop 1
+    xor
+    push 34
+    read_mem 1
+    pop 1
+    xor
+    push 44
+    read_mem 1
+    pop 1
+    xor
+    push 5
+    read_mem 1
+    pop 1
+    push 15
+    read_mem 1
+    pop 1
+    xor
+    push 25
+    read_mem 1
+    pop 1
+    xor
+    push 35
+    read_mem 1
+    pop 1
+    xor
+    push 45
+    read_mem 1
+    pop 1
+    xor
+    swap 1
+    push 54
+    write_mem 2
+    pop 1
+
+    // C3: addrs 6,16,26,36,46 lo; 7,17,27,37,47 hi
+    push 6
+    read_mem 1
+    pop 1
+    push 16
+    read_mem 1
+    pop 1
+    xor
+    push 26
+    read_mem 1
+    pop 1
+    xor
+    push 36
+    read_mem 1
+    pop 1
+    xor
+    push 46
+    read_mem 1
+    pop 1
+    xor
+    push 7
+    read_mem 1
+    pop 1
+    push 17
+    read_mem 1
+    pop 1
+    xor
+    push 27
+    read_mem 1
+    pop 1
+    xor
+    push 37
+    read_mem 1
+    pop 1
+    xor
+    push 47
+    read_mem 1
+    pop 1
+    xor
+    swap 1
+    push 56
+    write_mem 2
+    pop 1
+
+    // C4: addrs 8,18,28,38,48 lo; 9,19,29,39,49 hi
+    push 8
+    read_mem 1
+    pop 1
+    push 18
+    read_mem 1
+    pop 1
+    xor
+    push 28
+    read_mem 1
+    pop 1
+    xor
+    push 38
+    read_mem 1
+    pop 1
+    xor
+    push 48
+    read_mem 1
+    pop 1
+    xor
+    push 9
+    read_mem 1
+    pop 1
+    push 19
+    read_mem 1
+    pop 1
+    xor
+    push 29
+    read_mem 1
+    pop 1
+    xor
+    push 39
+    read_mem 1
+    pop 1
+    xor
+    push 49
+    read_mem 1
+    pop 1
+    xor
+    swap 1
+    push 58
+    write_mem 2
+    pop 1
+
+    // --- Compute D[x] = C[x-1] ^ rot1(C[x+1]) ---
+    // D0 = C4 ^ rot1(C1)
+    push 52
+    read_mem 1
+    pop 1
+    push 53
+    read_mem 1
+    pop 1
+    swap 1
+    // [C1_lo, C1_hi]
+    call __rot1
+    // [rot_lo, rot_hi]
+    push 58
+    read_mem 1
+    pop 1
+    xor
+    // [rot_lo ^ C4_lo, rot_hi]
+    swap 1
+    push 59
+    read_mem 1
+    pop 1
+    xor
+    // [rot_hi ^ C4_hi, D0_lo]
+    swap 1
+    // [D0_lo, D0_hi]
+    push 60
+    write_mem 2
+    pop 1
+
+    // D1 = C0 ^ rot1(C2)
+    push 54
+    read_mem 1
+    pop 1
+    push 55
+    read_mem 1
+    pop 1
+    swap 1
+    call __rot1
+    push 50
+    read_mem 1
+    pop 1
+    xor
+    swap 1
+    push 51
+    read_mem 1
+    pop 1
+    xor
+    swap 1
+    push 62
+    write_mem 2
+    pop 1
+
+    // D2 = C1 ^ rot1(C3)
+    push 56
+    read_mem 1
+    pop 1
+    push 57
+    read_mem 1
+    pop 1
+    swap 1
+    call __rot1
+    push 52
+    read_mem 1
+    pop 1
+    xor
+    swap 1
+    push 53
+    read_mem 1
+    pop 1
+    xor
+    swap 1
+    push 64
+    write_mem 2
+    pop 1
+
+    // D3 = C2 ^ rot1(C4)
+    push 58
+    read_mem 1
+    pop 1
+    push 59
+    read_mem 1
+    pop 1
+    swap 1
+    call __rot1
+    push 54
+    read_mem 1
+    pop 1
+    xor
+    swap 1
+    push 55
+    read_mem 1
+    pop 1
+    xor
+    swap 1
+    push 66
+    write_mem 2
+    pop 1
+
+    // D4 = C3 ^ rot1(C0)
+    push 50
+    read_mem 1
+    pop 1
+    push 51
+    read_mem 1
+    pop 1
+    swap 1
+    call __rot1
+    push 56
+    read_mem 1
+    pop 1
+    xor
+    swap 1
+    push 57
+    read_mem 1
+    pop 1
+    xor
+    swap 1
+    push 68
+    write_mem 2
+    pop 1
+
+    // --- XOR D[x] into each lane of column x ---
+    call __theta_col0
+    call __theta_col1
+    call __theta_col2
+    call __theta_col3
+    call __theta_col4
+    return
+
+// theta_colN: XOR D[N] (at addr 60+2N) into lanes at column N.
+// Column 0 lanes: addrs 0, 10, 20, 30, 40. D0 at 60,61.
+// Per lane: read lo from state, XOR with D_lo, write back. Same for hi.
+__theta_col0:
+    // Read D0
+    push 60
+    read_mem 1
+    pop 1
+    push 61
+    read_mem 1
+    pop 1
+    // [D0_hi, D0_lo]
+
+    // s00 (addrs 0,1) ^= D0
+    dup 1
+    push 0
+    read_mem 1
+    pop 1
+    xor
+    push 0
+    write_mem 1
+    pop 1
+    dup 0
+    push 1
+    read_mem 1
+    pop 1
+    xor
+    push 1
+    write_mem 1
+    pop 1
+
+    // s01 (addrs 10,11) ^= D0
+    dup 1
+    push 10
+    read_mem 1
+    pop 1
+    xor
+    push 10
+    write_mem 1
+    pop 1
+    dup 0
+    push 11
+    read_mem 1
+    pop 1
+    xor
+    push 11
+    write_mem 1
+    pop 1
+
+    // s02 (addrs 20,21) ^= D0
+    dup 1
+    push 20
+    read_mem 1
+    pop 1
+    xor
+    push 20
+    write_mem 1
+    pop 1
+    dup 0
+    push 21
+    read_mem 1
+    pop 1
+    xor
+    push 21
+    write_mem 1
+    pop 1
+
+    // s03 (addrs 30,31) ^= D0
+    dup 1
+    push 30
+    read_mem 1
+    pop 1
+    xor
+    push 30
+    write_mem 1
+    pop 1
+    dup 0
+    push 31
+    read_mem 1
+    pop 1
+    xor
+    push 31
+    write_mem 1
+    pop 1
+
+    // s04 (addrs 40,41) ^= D0
+    swap 1
+    push 40
+    read_mem 1
+    pop 1
+    xor
+    push 40
+    write_mem 1
+    pop 1
+    push 41
+    read_mem 1
+    pop 1
+    xor
+    push 41
+    write_mem 1
+    pop 1
+    return
+
+__theta_col1:
+    push 62
+    read_mem 1
+    pop 1
+    push 63
+    read_mem 1
+    pop 1
+
+    dup 1
+    push 2
+    read_mem 1
+    pop 1
+    xor
+    push 2
+    write_mem 1
+    pop 1
+    dup 0
+    push 3
+    read_mem 1
+    pop 1
+    xor
+    push 3
+    write_mem 1
+    pop 1
+
+    dup 1
+    push 12
+    read_mem 1
+    pop 1
+    xor
+    push 12
+    write_mem 1
+    pop 1
+    dup 0
+    push 13
+    read_mem 1
+    pop 1
+    xor
+    push 13
+    write_mem 1
+    pop 1
+
+    dup 1
+    push 22
+    read_mem 1
+    pop 1
+    xor
+    push 22
+    write_mem 1
+    pop 1
+    dup 0
+    push 23
+    read_mem 1
+    pop 1
+    xor
+    push 23
+    write_mem 1
+    pop 1
+
+    dup 1
+    push 32
+    read_mem 1
+    pop 1
+    xor
+    push 32
+    write_mem 1
+    pop 1
+    dup 0
+    push 33
+    read_mem 1
+    pop 1
+    xor
+    push 33
+    write_mem 1
+    pop 1
+
+    swap 1
+    push 42
+    read_mem 1
+    pop 1
+    xor
+    push 42
+    write_mem 1
+    pop 1
+    push 43
+    read_mem 1
+    pop 1
+    xor
+    push 43
+    write_mem 1
+    pop 1
+    return
+
+__theta_col2:
+    push 64
+    read_mem 1
+    pop 1
+    push 65
+    read_mem 1
+    pop 1
+
+    dup 1
+    push 4
+    read_mem 1
+    pop 1
+    xor
+    push 4
+    write_mem 1
+    pop 1
+    dup 0
+    push 5
+    read_mem 1
+    pop 1
+    xor
+    push 5
+    write_mem 1
+    pop 1
+
+    dup 1
+    push 14
+    read_mem 1
+    pop 1
+    xor
+    push 14
+    write_mem 1
+    pop 1
+    dup 0
+    push 15
+    read_mem 1
+    pop 1
+    xor
+    push 15
+    write_mem 1
+    pop 1
+
+    dup 1
+    push 24
+    read_mem 1
+    pop 1
+    xor
+    push 24
+    write_mem 1
+    pop 1
+    dup 0
+    push 25
+    read_mem 1
+    pop 1
+    xor
+    push 25
+    write_mem 1
+    pop 1
+
+    dup 1
+    push 34
+    read_mem 1
+    pop 1
+    xor
+    push 34
+    write_mem 1
+    pop 1
+    dup 0
+    push 35
+    read_mem 1
+    pop 1
+    xor
+    push 35
+    write_mem 1
+    pop 1
+
+    swap 1
+    push 44
+    read_mem 1
+    pop 1
+    xor
+    push 44
+    write_mem 1
+    pop 1
+    push 45
+    read_mem 1
+    pop 1
+    xor
+    push 45
+    write_mem 1
+    pop 1
+    return
+
+__theta_col3:
+    push 66
+    read_mem 1
+    pop 1
+    push 67
+    read_mem 1
+    pop 1
+
+    dup 1
+    push 6
+    read_mem 1
+    pop 1
+    xor
+    push 6
+    write_mem 1
+    pop 1
+    dup 0
+    push 7
+    read_mem 1
+    pop 1
+    xor
+    push 7
+    write_mem 1
+    pop 1
+
+    dup 1
+    push 16
+    read_mem 1
+    pop 1
+    xor
+    push 16
+    write_mem 1
+    pop 1
+    dup 0
+    push 17
+    read_mem 1
+    pop 1
+    xor
+    push 17
+    write_mem 1
+    pop 1
+
+    dup 1
+    push 26
+    read_mem 1
+    pop 1
+    xor
+    push 26
+    write_mem 1
+    pop 1
+    dup 0
+    push 27
+    read_mem 1
+    pop 1
+    xor
+    push 27
+    write_mem 1
+    pop 1
+
+    dup 1
+    push 36
+    read_mem 1
+    pop 1
+    xor
+    push 36
+    write_mem 1
+    pop 1
+    dup 0
+    push 37
+    read_mem 1
+    pop 1
+    xor
+    push 37
+    write_mem 1
+    pop 1
+
+    swap 1
+    push 46
+    read_mem 1
+    pop 1
+    xor
+    push 46
+    write_mem 1
+    pop 1
+    push 47
+    read_mem 1
+    pop 1
+    xor
+    push 47
+    write_mem 1
+    pop 1
+    return
+
+__theta_col4:
+    push 68
+    read_mem 1
+    pop 1
+    push 69
+    read_mem 1
+    pop 1
+
+    dup 1
+    push 8
+    read_mem 1
+    pop 1
+    xor
+    push 8
+    write_mem 1
+    pop 1
+    dup 0
+    push 9
+    read_mem 1
+    pop 1
+    xor
+    push 9
+    write_mem 1
+    pop 1
+
+    dup 1
+    push 18
+    read_mem 1
+    pop 1
+    xor
+    push 18
+    write_mem 1
+    pop 1
+    dup 0
+    push 19
+    read_mem 1
+    pop 1
+    xor
+    push 19
+    write_mem 1
+    pop 1
+
+    dup 1
+    push 28
+    read_mem 1
+    pop 1
+    xor
+    push 28
+    write_mem 1
+    pop 1
+    dup 0
+    push 29
+    read_mem 1
+    pop 1
+    xor
+    push 29
+    write_mem 1
+    pop 1
+
+    dup 1
+    push 38
+    read_mem 1
+    pop 1
+    xor
+    push 38
+    write_mem 1
+    pop 1
+    dup 0
+    push 39
+    read_mem 1
+    pop 1
+    xor
+    push 39
+    write_mem 1
+    pop 1
+
+    swap 1
+    push 48
+    read_mem 1
+    pop 1
+    xor
+    push 48
+    write_mem 1
+    pop 1
+    push 49
+    read_mem 1
+    pop 1
+    xor
+    push 49
+    write_mem 1
+    pop 1
+    return
+
+// ===================================================================
+// RHO step: rotate each lane by its fixed offset
+// Offsets: s00:0 s10:1 s20:62 s30:28 s40:27
+//          s01:36 s11:44 s21:6 s31:55 s41:20
+//          s02:3 s12:10 s22:43 s32:25 s42:39
+//          s03:41 s13:45 s23:15 s33:21 s43:8
+//          s04:18 s14:2 s24:61 s34:56 s44:14
+//
+// Small rotation (0 < n < 32): use __apply_rot with pow2n
+// Large rotation (32 < n < 64): swap halves then rot by n-32
+// Rotation by 1: use __rot1 (cheaper, avoids mul)
+// ===================================================================
+__rho:
+    // s00: rot 0 -> no-op
+
+    // s10 (addr 2,3): rot 1
+    push 2
+    read_mem 1
+    pop 1
+    push 3
+    read_mem 1
+    pop 1
+    swap 1
+    // [lo, hi]
+    call __rot1
+    // [new_lo, new_hi]
+    push 2
+    write_mem 1
+    pop 1
+    push 3
+    write_mem 1
+    pop 1
+
+    // s20 (addr 4,5): rot 62 = swap halves + rot_small(30), 2^30 = 1073741824
+    push 4
+    read_mem 1
+    pop 1
+    push 5
+    read_mem 1
+    pop 1
+    swap 1
+    // [lo, hi] -> swap for large rotation
+    swap 1
+    // [hi, lo] (hi becomes "new lo" input, lo becomes "new hi" input)
+    push 1073741824
+    call __apply_rot
+    push 4
+    write_mem 1
+    pop 1
+    push 5
+    write_mem 1
+    pop 1
+
+    // s30 (addr 6,7): rot 28, 2^28 = 268435456
+    push 6
+    read_mem 1
+    pop 1
+    push 7
+    read_mem 1
+    pop 1
+    swap 1
+    push 268435456
+    call __apply_rot
+    push 6
+    write_mem 1
+    pop 1
+    push 7
+    write_mem 1
+    pop 1
+
+    // s40 (addr 8,9): rot 27, 2^27 = 134217728
+    push 8
+    read_mem 1
+    pop 1
+    push 9
+    read_mem 1
+    pop 1
+    swap 1
+    push 134217728
+    call __apply_rot
+    push 8
+    write_mem 1
+    pop 1
+    push 9
+    write_mem 1
+    pop 1
+
+    // s01 (addr 10,11): rot 36 = swap + rot_small(4), 2^4 = 16
+    push 10
+    read_mem 1
+    pop 1
+    push 11
+    read_mem 1
+    pop 1
+    // [hi, lo] from read order -> swap for large rot means feed as [lo_orig, hi_orig]
+    // Actually for large rot: swap halves first, then small rot.
+    // read_mem gives [hi, lo] after the lo/hi naming. But let me be careful:
+    // addr 10 = s01_lo, addr 11 = s01_hi
+    // read_mem 1 from 10 -> s01_lo; read_mem 1 from 11 -> s01_hi
+    // Stack after reads: [s01_hi, s01_lo]
+    // swap 1: [s01_lo, s01_hi] -- normal order
+    swap 1
+    // For large rotation (>32): swap halves then rot_small(n-32)
+    // swap 1 again to swap halves: [s01_hi, s01_lo]
+    swap 1
+    push 16
+    call __apply_rot
+    push 10
+    write_mem 1
+    pop 1
+    push 11
+    write_mem 1
+    pop 1
+
+    // s11 (addr 12,13): rot 44 = swap + rot_small(12), 2^12 = 4096
+    push 12
+    read_mem 1
+    pop 1
+    push 13
+    read_mem 1
+    pop 1
+    swap 1
+    swap 1
+    push 4096
+    call __apply_rot
+    push 12
+    write_mem 1
+    pop 1
+    push 13
+    write_mem 1
+    pop 1
+
+    // s21 (addr 14,15): rot 6, 2^6 = 64
+    push 14
+    read_mem 1
+    pop 1
+    push 15
+    read_mem 1
+    pop 1
+    swap 1
+    push 64
+    call __apply_rot
+    push 14
+    write_mem 1
+    pop 1
+    push 15
+    write_mem 1
+    pop 1
+
+    // s31 (addr 16,17): rot 55 = swap + rot_small(23), 2^23 = 8388608
+    push 16
+    read_mem 1
+    pop 1
+    push 17
+    read_mem 1
+    pop 1
+    swap 1
+    swap 1
+    push 8388608
+    call __apply_rot
+    push 16
+    write_mem 1
+    pop 1
+    push 17
+    write_mem 1
+    pop 1
+
+    // s41 (addr 18,19): rot 20, 2^20 = 1048576
+    push 18
+    read_mem 1
+    pop 1
+    push 19
+    read_mem 1
+    pop 1
+    swap 1
+    push 1048576
+    call __apply_rot
+    push 18
+    write_mem 1
+    pop 1
+    push 19
+    write_mem 1
+    pop 1
+
+    // s02 (addr 20,21): rot 3, 2^3 = 8
+    push 20
+    read_mem 1
+    pop 1
+    push 21
+    read_mem 1
+    pop 1
+    swap 1
+    push 8
+    call __apply_rot
+    push 20
+    write_mem 1
+    pop 1
+    push 21
+    write_mem 1
+    pop 1
+
+    // s12 (addr 22,23): rot 10, 2^10 = 1024
+    push 22
+    read_mem 1
+    pop 1
+    push 23
+    read_mem 1
+    pop 1
+    swap 1
+    push 1024
+    call __apply_rot
+    push 22
+    write_mem 1
+    pop 1
+    push 23
+    write_mem 1
+    pop 1
+
+    // s22 (addr 24,25): rot 43 = swap + rot_small(11), 2^11 = 2048
+    push 24
+    read_mem 1
+    pop 1
+    push 25
+    read_mem 1
+    pop 1
+    swap 1
+    swap 1
+    push 2048
+    call __apply_rot
+    push 24
+    write_mem 1
+    pop 1
+    push 25
+    write_mem 1
+    pop 1
+
+    // s32 (addr 26,27): rot 25, 2^25 = 33554432
+    push 26
+    read_mem 1
+    pop 1
+    push 27
+    read_mem 1
+    pop 1
+    swap 1
+    push 33554432
+    call __apply_rot
+    push 26
+    write_mem 1
+    pop 1
+    push 27
+    write_mem 1
+    pop 1
+
+    // s42 (addr 28,29): rot 39 = swap + rot_small(7), 2^7 = 128
+    push 28
+    read_mem 1
+    pop 1
+    push 29
+    read_mem 1
+    pop 1
+    swap 1
+    swap 1
+    push 128
+    call __apply_rot
+    push 28
+    write_mem 1
+    pop 1
+    push 29
+    write_mem 1
+    pop 1
+
+    // s03 (addr 30,31): rot 41 = swap + rot_small(9), 2^9 = 512
+    push 30
+    read_mem 1
+    pop 1
+    push 31
+    read_mem 1
+    pop 1
+    swap 1
+    swap 1
+    push 512
+    call __apply_rot
+    push 30
+    write_mem 1
+    pop 1
+    push 31
+    write_mem 1
+    pop 1
+
+    // s13 (addr 32,33): rot 45 = swap + rot_small(13), 2^13 = 8192
+    push 32
+    read_mem 1
+    pop 1
+    push 33
+    read_mem 1
+    pop 1
+    swap 1
+    swap 1
+    push 8192
+    call __apply_rot
+    push 32
+    write_mem 1
+    pop 1
+    push 33
+    write_mem 1
+    pop 1
+
+    // s23 (addr 34,35): rot 15, 2^15 = 32768
+    push 34
+    read_mem 1
+    pop 1
+    push 35
+    read_mem 1
+    pop 1
+    swap 1
+    push 32768
+    call __apply_rot
+    push 34
+    write_mem 1
+    pop 1
+    push 35
+    write_mem 1
+    pop 1
+
+    // s33 (addr 36,37): rot 21, 2^21 = 2097152
+    push 36
+    read_mem 1
+    pop 1
+    push 37
+    read_mem 1
+    pop 1
+    swap 1
+    push 2097152
+    call __apply_rot
+    push 36
+    write_mem 1
+    pop 1
+    push 37
+    write_mem 1
+    pop 1
+
+    // s43 (addr 38,39): rot 8, 2^8 = 256
+    push 38
+    read_mem 1
+    pop 1
+    push 39
+    read_mem 1
+    pop 1
+    swap 1
+    push 256
+    call __apply_rot
+    push 38
+    write_mem 1
+    pop 1
+    push 39
+    write_mem 1
+    pop 1
+
+    // s04 (addr 40,41): rot 18, 2^18 = 262144
+    push 40
+    read_mem 1
+    pop 1
+    push 41
+    read_mem 1
+    pop 1
+    swap 1
+    push 262144
+    call __apply_rot
+    push 40
+    write_mem 1
+    pop 1
+    push 41
+    write_mem 1
+    pop 1
+
+    // s14 (addr 42,43): rot 2, 2^2 = 4
+    push 42
+    read_mem 1
+    pop 1
+    push 43
+    read_mem 1
+    pop 1
+    swap 1
+    push 4
+    call __apply_rot
+    push 42
+    write_mem 1
+    pop 1
+    push 43
+    write_mem 1
+    pop 1
+
+    // s24 (addr 44,45): rot 61 = swap + rot_small(29), 2^29 = 536870912
+    push 44
+    read_mem 1
+    pop 1
+    push 45
+    read_mem 1
+    pop 1
+    swap 1
+    swap 1
+    push 536870912
+    call __apply_rot
+    push 44
+    write_mem 1
+    pop 1
+    push 45
+    write_mem 1
+    pop 1
+
+    // s34 (addr 46,47): rot 56 = swap + rot_small(24), 2^24 = 16777216
+    push 46
+    read_mem 1
+    pop 1
+    push 47
+    read_mem 1
+    pop 1
+    swap 1
+    swap 1
+    push 16777216
+    call __apply_rot
+    push 46
+    write_mem 1
+    pop 1
+    push 47
+    write_mem 1
+    pop 1
+
+    // s44 (addr 48,49): rot 14, 2^14 = 16384
+    push 48
+    read_mem 1
+    pop 1
+    push 49
+    read_mem 1
+    pop 1
+    swap 1
+    push 16384
+    call __apply_rot
+    push 48
+    write_mem 1
+    pop 1
+    push 49
+    write_mem 1
+    pop 1
+
+    return
+
+// ===================================================================
+// PI step: lane permutation
+// Copy state to temp[70..119] applying pi mapping, then copy back.
+// Pi mapping (new <- old):
+//   new_s00 <- s00   new_s10 <- s11   new_s20 <- s22   new_s30 <- s33   new_s40 <- s44
+//   new_s01 <- s30   new_s11 <- s41   new_s21 <- s02   new_s31 <- s13   new_s41 <- s24
+//   new_s02 <- s10   new_s12 <- s21   new_s22 <- s32   new_s32 <- s43   new_s42 <- s04
+//   new_s03 <- s40   new_s13 <- s01   new_s23 <- s12   new_s33 <- s23   new_s43 <- s34
+//   new_s04 <- s20   new_s14 <- s31   new_s24 <- s42   new_s34 <- s03   new_s44 <- s14
+//
+// Source RAM addr -> Temp addr (= 70 + dest_lane_index * 2)
+// ===================================================================
+__pi:
+    // Each pi copy: read lo and hi from source, write to temp dest.
+    // Using read_mem 1 for clarity.
+
+    // new_s00 <- s00 (src 0,1 -> dst 70,71)
+    push 0
+    read_mem 1
+    pop 1
+    push 70
+    write_mem 1
+    pop 1
+    push 1
+    read_mem 1
+    pop 1
+    push 71
+    write_mem 1
+    pop 1
+
+    // new_s10 <- s11 (src 12,13 -> dst 72,73)
+    push 12
+    read_mem 1
+    pop 1
+    push 72
+    write_mem 1
+    pop 1
+    push 13
+    read_mem 1
+    pop 1
+    push 73
+    write_mem 1
+    pop 1
+
+    // new_s20 <- s22 (src 24,25 -> dst 74,75)
+    push 24
+    read_mem 1
+    pop 1
+    push 74
+    write_mem 1
+    pop 1
+    push 25
+    read_mem 1
+    pop 1
+    push 75
+    write_mem 1
+    pop 1
+
+    // new_s30 <- s33 (src 36,37 -> dst 76,77)
+    push 36
+    read_mem 1
+    pop 1
+    push 76
+    write_mem 1
+    pop 1
+    push 37
+    read_mem 1
+    pop 1
+    push 77
+    write_mem 1
+    pop 1
+
+    // new_s40 <- s44 (src 48,49 -> dst 78,79)
+    push 48
+    read_mem 1
+    pop 1
+    push 78
+    write_mem 1
+    pop 1
+    push 49
+    read_mem 1
+    pop 1
+    push 79
+    write_mem 1
+    pop 1
+
+    // new_s01 <- s30 (src 6,7 -> dst 80,81)
+    push 6
+    read_mem 1
+    pop 1
+    push 80
+    write_mem 1
+    pop 1
+    push 7
+    read_mem 1
+    pop 1
+    push 81
+    write_mem 1
+    pop 1
+
+    // new_s11 <- s41 (src 18,19 -> dst 82,83)
+    push 18
+    read_mem 1
+    pop 1
+    push 82
+    write_mem 1
+    pop 1
+    push 19
+    read_mem 1
+    pop 1
+    push 83
+    write_mem 1
+    pop 1
+
+    // new_s21 <- s02 (src 20,21 -> dst 84,85)
+    push 20
+    read_mem 1
+    pop 1
+    push 84
+    write_mem 1
+    pop 1
+    push 21
+    read_mem 1
+    pop 1
+    push 85
+    write_mem 1
+    pop 1
+
+    // new_s31 <- s13 (src 32,33 -> dst 86,87)
+    push 32
+    read_mem 1
+    pop 1
+    push 86
+    write_mem 1
+    pop 1
+    push 33
+    read_mem 1
+    pop 1
+    push 87
+    write_mem 1
+    pop 1
+
+    // new_s41 <- s24 (src 44,45 -> dst 88,89)
+    push 44
+    read_mem 1
+    pop 1
+    push 88
+    write_mem 1
+    pop 1
+    push 45
+    read_mem 1
+    pop 1
+    push 89
+    write_mem 1
+    pop 1
+
+    // new_s02 <- s10 (src 2,3 -> dst 90,91)
+    push 2
+    read_mem 1
+    pop 1
+    push 90
+    write_mem 1
+    pop 1
+    push 3
+    read_mem 1
+    pop 1
+    push 91
+    write_mem 1
+    pop 1
+
+    // new_s12 <- s21 (src 14,15 -> dst 92,93)
+    push 14
+    read_mem 1
+    pop 1
+    push 92
+    write_mem 1
+    pop 1
+    push 15
+    read_mem 1
+    pop 1
+    push 93
+    write_mem 1
+    pop 1
+
+    // new_s22 <- s32 (src 26,27 -> dst 94,95)
+    push 26
+    read_mem 1
+    pop 1
+    push 94
+    write_mem 1
+    pop 1
+    push 27
+    read_mem 1
+    pop 1
+    push 95
+    write_mem 1
+    pop 1
+
+    // new_s32 <- s43 (src 38,39 -> dst 96,97)
+    push 38
+    read_mem 1
+    pop 1
+    push 96
+    write_mem 1
+    pop 1
+    push 39
+    read_mem 1
+    pop 1
+    push 97
+    write_mem 1
+    pop 1
+
+    // new_s42 <- s04 (src 40,41 -> dst 98,99)
+    push 40
+    read_mem 1
+    pop 1
+    push 98
+    write_mem 1
+    pop 1
+    push 41
+    read_mem 1
+    pop 1
+    push 99
+    write_mem 1
+    pop 1
+
+    // new_s03 <- s40 (src 8,9 -> dst 100,101)
+    push 8
+    read_mem 1
+    pop 1
+    push 100
+    write_mem 1
+    pop 1
+    push 9
+    read_mem 1
+    pop 1
+    push 101
+    write_mem 1
+    pop 1
+
+    // new_s13 <- s01 (src 10,11 -> dst 102,103)
+    push 10
+    read_mem 1
+    pop 1
+    push 102
+    write_mem 1
+    pop 1
+    push 11
+    read_mem 1
+    pop 1
+    push 103
+    write_mem 1
+    pop 1
+
+    // new_s23 <- s12 (src 22,23 -> dst 104,105)
+    push 22
+    read_mem 1
+    pop 1
+    push 104
+    write_mem 1
+    pop 1
+    push 23
+    read_mem 1
+    pop 1
+    push 105
+    write_mem 1
+    pop 1
+
+    // new_s33 <- s23 (src 34,35 -> dst 106,107)
+    push 34
+    read_mem 1
+    pop 1
+    push 106
+    write_mem 1
+    pop 1
+    push 35
+    read_mem 1
+    pop 1
+    push 107
+    write_mem 1
+    pop 1
+
+    // new_s43 <- s34 (src 46,47 -> dst 108,109)
+    push 46
+    read_mem 1
+    pop 1
+    push 108
+    write_mem 1
+    pop 1
+    push 47
+    read_mem 1
+    pop 1
+    push 109
+    write_mem 1
+    pop 1
+
+    // new_s04 <- s20 (src 4,5 -> dst 110,111)
+    push 4
+    read_mem 1
+    pop 1
+    push 110
+    write_mem 1
+    pop 1
+    push 5
+    read_mem 1
+    pop 1
+    push 111
+    write_mem 1
+    pop 1
+
+    // new_s14 <- s31 (src 16,17 -> dst 112,113)
+    push 16
+    read_mem 1
+    pop 1
+    push 112
+    write_mem 1
+    pop 1
+    push 17
+    read_mem 1
+    pop 1
+    push 113
+    write_mem 1
+    pop 1
+
+    // new_s24 <- s42 (src 28,29 -> dst 114,115)
+    push 28
+    read_mem 1
+    pop 1
+    push 114
+    write_mem 1
+    pop 1
+    push 29
+    read_mem 1
+    pop 1
+    push 115
+    write_mem 1
+    pop 1
+
+    // new_s34 <- s03 (src 30,31 -> dst 116,117)
+    push 30
+    read_mem 1
+    pop 1
+    push 116
+    write_mem 1
+    pop 1
+    push 31
+    read_mem 1
+    pop 1
+    push 117
+    write_mem 1
+    pop 1
+
+    // new_s44 <- s14 (src 42,43 -> dst 118,119)
+    push 42
+    read_mem 1
+    pop 1
+    push 118
+    write_mem 1
+    pop 1
+    push 43
+    read_mem 1
+    pop 1
+    push 119
+    write_mem 1
+    pop 1
+
+    // Copy temp[70..119] back to state[0..49]
+    // 50 values: read from temp, write to state
+    push 119
+    read_mem 5
+    read_mem 5
+    read_mem 5
+    read_mem 5
+    read_mem 5
+    read_mem 5
+    read_mem 5
+    read_mem 5
+    read_mem 5
+    read_mem 5
+    pop 1
+    push 0
+    write_mem 5
+    write_mem 5
+    write_mem 5
+    write_mem 5
+    write_mem 5
+    write_mem 5
+    write_mem 5
+    write_mem 5
+    write_mem 5
+    write_mem 5
+    pop 1
+    return
+
+// ===================================================================
+// CHI step: nonlinear row mixing
+// new[x][y] = state[x][y] ^ (~state[(x+1)%5][y] & state[(x+2)%5][y])
+//
+// Process each row: copy to temp[70..79], compute chi, write back.
+// For one lane chi: new_lo = a_lo ^ (~b_lo & c_lo)
+//                   new_hi = a_hi ^ (~b_hi & c_hi)
+// ~b_lo = b_lo ^ 4294967295 (all-ones U32 mask)
+// ===================================================================
+__chi:
+    call __chi_row_0
+    call __chi_row_1
+    call __chi_row_2
+    call __chi_row_3
+    call __chi_row_4
+    return
+
+// chi_compute_lane: compute chi for one lane position in a row
+// Reads b and c from temp, computes a ^ (~b & c), writes to state.
+// Stack args: [a_addr_lo, b_addr_lo, c_addr_lo, dest_lo]
+// But passing 4 args is awkward. Instead, inline per-lane.
+
+// __chi_one: compute one lane of chi
+// Stack: [a_lo_addr, a_hi_addr, b_lo_addr, b_hi_addr, c_lo_addr, c_hi_addr, dest_lo, dest_hi, ...]
+// Too many args. Use direct inlining per row instead.
+
+// Row 0: lanes s00(0), s10(2), s20(4), s30(6), s40(8)
+// Copy to temp: lo addrs 70,72,74,76,78; hi addrs 71,73,75,77,79
+__chi_row_0:
+    // Copy row 0 (5 lanes, 10 values) to temp[70..79]
+    push 0
+    read_mem 1
+    pop 1
+    push 70
+    write_mem 1
+    pop 1
+    push 1
+    read_mem 1
+    pop 1
+    push 71
+    write_mem 1
+    pop 1
+    push 2
+    read_mem 1
+    pop 1
+    push 72
+    write_mem 1
+    pop 1
+    push 3
+    read_mem 1
+    pop 1
+    push 73
+    write_mem 1
+    pop 1
+    push 4
+    read_mem 1
+    pop 1
+    push 74
+    write_mem 1
+    pop 1
+    push 5
+    read_mem 1
+    pop 1
+    push 75
+    write_mem 1
+    pop 1
+    push 6
+    read_mem 1
+    pop 1
+    push 76
+    write_mem 1
+    pop 1
+    push 7
+    read_mem 1
+    pop 1
+    push 77
+    write_mem 1
+    pop 1
+    push 8
+    read_mem 1
+    pop 1
+    push 78
+    write_mem 1
+    pop 1
+    push 9
+    read_mem 1
+    pop 1
+    push 79
+    write_mem 1
+    pop 1
+
+    // s00 = s00 ^ (~s10 & s20): temp[70] ^ (~temp[72] & temp[74])
+    // lo:
+    push 72
+    read_mem 1
+    pop 1
+    push 4294967295
+    xor
+    push 74
+    read_mem 1
+    pop 1
+    and
+    push 70
+    read_mem 1
+    pop 1
+    xor
+    push 0
+    write_mem 1
+    pop 1
+    // hi:
+    push 73
+    read_mem 1
+    pop 1
+    push 4294967295
+    xor
+    push 75
+    read_mem 1
+    pop 1
+    and
+    push 71
+    read_mem 1
+    pop 1
+    xor
+    push 1
+    write_mem 1
+    pop 1
+
+    // s10 = s10 ^ (~s20 & s30)
+    push 74
+    read_mem 1
+    pop 1
+    push 4294967295
+    xor
+    push 76
+    read_mem 1
+    pop 1
+    and
+    push 72
+    read_mem 1
+    pop 1
+    xor
+    push 2
+    write_mem 1
+    pop 1
+    push 75
+    read_mem 1
+    pop 1
+    push 4294967295
+    xor
+    push 77
+    read_mem 1
+    pop 1
+    and
+    push 73
+    read_mem 1
+    pop 1
+    xor
+    push 3
+    write_mem 1
+    pop 1
+
+    // s20 = s20 ^ (~s30 & s40)
+    push 76
+    read_mem 1
+    pop 1
+    push 4294967295
+    xor
+    push 78
+    read_mem 1
+    pop 1
+    and
+    push 74
+    read_mem 1
+    pop 1
+    xor
+    push 4
+    write_mem 1
+    pop 1
+    push 77
+    read_mem 1
+    pop 1
+    push 4294967295
+    xor
+    push 79
+    read_mem 1
+    pop 1
+    and
+    push 75
+    read_mem 1
+    pop 1
+    xor
+    push 5
+    write_mem 1
+    pop 1
+
+    // s30 = s30 ^ (~s40 & s00)
+    push 78
+    read_mem 1
+    pop 1
+    push 4294967295
+    xor
+    push 70
+    read_mem 1
+    pop 1
+    and
+    push 76
+    read_mem 1
+    pop 1
+    xor
+    push 6
+    write_mem 1
+    pop 1
+    push 79
+    read_mem 1
+    pop 1
+    push 4294967295
+    xor
+    push 71
+    read_mem 1
+    pop 1
+    and
+    push 77
+    read_mem 1
+    pop 1
+    xor
+    push 7
+    write_mem 1
+    pop 1
+
+    // s40 = s40 ^ (~s00 & s10)
+    push 70
+    read_mem 1
+    pop 1
+    push 4294967295
+    xor
+    push 72
+    read_mem 1
+    pop 1
+    and
+    push 78
+    read_mem 1
+    pop 1
+    xor
+    push 8
+    write_mem 1
+    pop 1
+    push 71
+    read_mem 1
+    pop 1
+    push 4294967295
+    xor
+    push 73
+    read_mem 1
+    pop 1
+    and
+    push 79
+    read_mem 1
+    pop 1
+    xor
+    push 9
+    write_mem 1
+    pop 1
+    return
+
+// Row 1: lanes s01(10), s11(12), s21(14), s31(16), s41(18)
+__chi_row_1:
+    // Copy to temp
+    push 10
+    read_mem 1
+    pop 1
+    push 70
+    write_mem 1
+    pop 1
+    push 11
+    read_mem 1
+    pop 1
+    push 71
+    write_mem 1
+    pop 1
+    push 12
+    read_mem 1
+    pop 1
+    push 72
+    write_mem 1
+    pop 1
+    push 13
+    read_mem 1
+    pop 1
+    push 73
+    write_mem 1
+    pop 1
+    push 14
+    read_mem 1
+    pop 1
+    push 74
+    write_mem 1
+    pop 1
+    push 15
+    read_mem 1
+    pop 1
+    push 75
+    write_mem 1
+    pop 1
+    push 16
+    read_mem 1
+    pop 1
+    push 76
+    write_mem 1
+    pop 1
+    push 17
+    read_mem 1
+    pop 1
+    push 77
+    write_mem 1
+    pop 1
+    push 18
+    read_mem 1
+    pop 1
+    push 78
+    write_mem 1
+    pop 1
+    push 19
+    read_mem 1
+    pop 1
+    push 79
+    write_mem 1
+    pop 1
+
+    // Compute chi for each lane in row 1
+    // s01 = s01 ^ (~s11 & s21)
+    push 72
+    read_mem 1
+    pop 1
+    push 4294967295
+    xor
+    push 74
+    read_mem 1
+    pop 1
+    and
+    push 70
+    read_mem 1
+    pop 1
+    xor
+    push 10
+    write_mem 1
+    pop 1
+    push 73
+    read_mem 1
+    pop 1
+    push 4294967295
+    xor
+    push 75
+    read_mem 1
+    pop 1
+    and
+    push 71
+    read_mem 1
+    pop 1
+    xor
+    push 11
+    write_mem 1
+    pop 1
+
+    // s11 = s11 ^ (~s21 & s31)
+    push 74
+    read_mem 1
+    pop 1
+    push 4294967295
+    xor
+    push 76
+    read_mem 1
+    pop 1
+    and
+    push 72
+    read_mem 1
+    pop 1
+    xor
+    push 12
+    write_mem 1
+    pop 1
+    push 75
+    read_mem 1
+    pop 1
+    push 4294967295
+    xor
+    push 77
+    read_mem 1
+    pop 1
+    and
+    push 73
+    read_mem 1
+    pop 1
+    xor
+    push 13
+    write_mem 1
+    pop 1
+
+    // s21 = s21 ^ (~s31 & s41)
+    push 76
+    read_mem 1
+    pop 1
+    push 4294967295
+    xor
+    push 78
+    read_mem 1
+    pop 1
+    and
+    push 74
+    read_mem 1
+    pop 1
+    xor
+    push 14
+    write_mem 1
+    pop 1
+    push 77
+    read_mem 1
+    pop 1
+    push 4294967295
+    xor
+    push 79
+    read_mem 1
+    pop 1
+    and
+    push 75
+    read_mem 1
+    pop 1
+    xor
+    push 15
+    write_mem 1
+    pop 1
+
+    // s31 = s31 ^ (~s41 & s01)
+    push 78
+    read_mem 1
+    pop 1
+    push 4294967295
+    xor
+    push 70
+    read_mem 1
+    pop 1
+    and
+    push 76
+    read_mem 1
+    pop 1
+    xor
+    push 16
+    write_mem 1
+    pop 1
+    push 79
+    read_mem 1
+    pop 1
+    push 4294967295
+    xor
+    push 71
+    read_mem 1
+    pop 1
+    and
+    push 77
+    read_mem 1
+    pop 1
+    xor
+    push 17
+    write_mem 1
+    pop 1
+
+    // s41 = s41 ^ (~s01 & s11)
+    push 70
+    read_mem 1
+    pop 1
+    push 4294967295
+    xor
+    push 72
+    read_mem 1
+    pop 1
+    and
+    push 78
+    read_mem 1
+    pop 1
+    xor
+    push 18
+    write_mem 1
+    pop 1
+    push 71
+    read_mem 1
+    pop 1
+    push 4294967295
+    xor
+    push 73
+    read_mem 1
+    pop 1
+    and
+    push 79
+    read_mem 1
+    pop 1
+    xor
+    push 19
+    write_mem 1
+    pop 1
+    return
+
+// Row 2: lanes s02(20), s12(22), s22(24), s32(26), s42(28)
+__chi_row_2:
+    push 20
+    read_mem 1
+    pop 1
+    push 70
+    write_mem 1
+    pop 1
+    push 21
+    read_mem 1
+    pop 1
+    push 71
+    write_mem 1
+    pop 1
+    push 22
+    read_mem 1
+    pop 1
+    push 72
+    write_mem 1
+    pop 1
+    push 23
+    read_mem 1
+    pop 1
+    push 73
+    write_mem 1
+    pop 1
+    push 24
+    read_mem 1
+    pop 1
+    push 74
+    write_mem 1
+    pop 1
+    push 25
+    read_mem 1
+    pop 1
+    push 75
+    write_mem 1
+    pop 1
+    push 26
+    read_mem 1
+    pop 1
+    push 76
+    write_mem 1
+    pop 1
+    push 27
+    read_mem 1
+    pop 1
+    push 77
+    write_mem 1
+    pop 1
+    push 28
+    read_mem 1
+    pop 1
+    push 78
+    write_mem 1
+    pop 1
+    push 29
+    read_mem 1
+    pop 1
+    push 79
+    write_mem 1
+    pop 1
+
+    push 72
+    read_mem 1
+    pop 1
+    push 4294967295
+    xor
+    push 74
+    read_mem 1
+    pop 1
+    and
+    push 70
+    read_mem 1
+    pop 1
+    xor
+    push 20
+    write_mem 1
+    pop 1
+    push 73
+    read_mem 1
+    pop 1
+    push 4294967295
+    xor
+    push 75
+    read_mem 1
+    pop 1
+    and
+    push 71
+    read_mem 1
+    pop 1
+    xor
+    push 21
+    write_mem 1
+    pop 1
+
+    push 74
+    read_mem 1
+    pop 1
+    push 4294967295
+    xor
+    push 76
+    read_mem 1
+    pop 1
+    and
+    push 72
+    read_mem 1
+    pop 1
+    xor
+    push 22
+    write_mem 1
+    pop 1
+    push 75
+    read_mem 1
+    pop 1
+    push 4294967295
+    xor
+    push 77
+    read_mem 1
+    pop 1
+    and
+    push 73
+    read_mem 1
+    pop 1
+    xor
+    push 23
+    write_mem 1
+    pop 1
+
+    push 76
+    read_mem 1
+    pop 1
+    push 4294967295
+    xor
+    push 78
+    read_mem 1
+    pop 1
+    and
+    push 74
+    read_mem 1
+    pop 1
+    xor
+    push 24
+    write_mem 1
+    pop 1
+    push 77
+    read_mem 1
+    pop 1
+    push 4294967295
+    xor
+    push 79
+    read_mem 1
+    pop 1
+    and
+    push 75
+    read_mem 1
+    pop 1
+    xor
+    push 25
+    write_mem 1
+    pop 1
+
+    push 78
+    read_mem 1
+    pop 1
+    push 4294967295
+    xor
+    push 70
+    read_mem 1
+    pop 1
+    and
+    push 76
+    read_mem 1
+    pop 1
+    xor
+    push 26
+    write_mem 1
+    pop 1
+    push 79
+    read_mem 1
+    pop 1
+    push 4294967295
+    xor
+    push 71
+    read_mem 1
+    pop 1
+    and
+    push 77
+    read_mem 1
+    pop 1
+    xor
+    push 27
+    write_mem 1
+    pop 1
+
+    push 70
+    read_mem 1
+    pop 1
+    push 4294967295
+    xor
+    push 72
+    read_mem 1
+    pop 1
+    and
+    push 78
+    read_mem 1
+    pop 1
+    xor
+    push 28
+    write_mem 1
+    pop 1
+    push 71
+    read_mem 1
+    pop 1
+    push 4294967295
+    xor
+    push 73
+    read_mem 1
+    pop 1
+    and
+    push 79
+    read_mem 1
+    pop 1
+    xor
+    push 29
+    write_mem 1
+    pop 1
+    return
+
+// Row 3: lanes s03(30), s13(32), s23(34), s33(36), s43(38)
+__chi_row_3:
+    push 30
+    read_mem 1
+    pop 1
+    push 70
+    write_mem 1
+    pop 1
+    push 31
+    read_mem 1
+    pop 1
+    push 71
+    write_mem 1
+    pop 1
+    push 32
+    read_mem 1
+    pop 1
+    push 72
+    write_mem 1
+    pop 1
+    push 33
+    read_mem 1
+    pop 1
+    push 73
+    write_mem 1
+    pop 1
+    push 34
+    read_mem 1
+    pop 1
+    push 74
+    write_mem 1
+    pop 1
+    push 35
+    read_mem 1
+    pop 1
+    push 75
+    write_mem 1
+    pop 1
+    push 36
+    read_mem 1
+    pop 1
+    push 76
+    write_mem 1
+    pop 1
+    push 37
+    read_mem 1
+    pop 1
+    push 77
+    write_mem 1
+    pop 1
+    push 38
+    read_mem 1
+    pop 1
+    push 78
+    write_mem 1
+    pop 1
+    push 39
+    read_mem 1
+    pop 1
+    push 79
+    write_mem 1
+    pop 1
+
+    push 72
+    read_mem 1
+    pop 1
+    push 4294967295
+    xor
+    push 74
+    read_mem 1
+    pop 1
+    and
+    push 70
+    read_mem 1
+    pop 1
+    xor
+    push 30
+    write_mem 1
+    pop 1
+    push 73
+    read_mem 1
+    pop 1
+    push 4294967295
+    xor
+    push 75
+    read_mem 1
+    pop 1
+    and
+    push 71
+    read_mem 1
+    pop 1
+    xor
+    push 31
+    write_mem 1
+    pop 1
+
+    push 74
+    read_mem 1
+    pop 1
+    push 4294967295
+    xor
+    push 76
+    read_mem 1
+    pop 1
+    and
+    push 72
+    read_mem 1
+    pop 1
+    xor
+    push 32
+    write_mem 1
+    pop 1
+    push 75
+    read_mem 1
+    pop 1
+    push 4294967295
+    xor
+    push 77
+    read_mem 1
+    pop 1
+    and
+    push 73
+    read_mem 1
+    pop 1
+    xor
+    push 33
+    write_mem 1
+    pop 1
+
+    push 76
+    read_mem 1
+    pop 1
+    push 4294967295
+    xor
+    push 78
+    read_mem 1
+    pop 1
+    and
+    push 74
+    read_mem 1
+    pop 1
+    xor
+    push 34
+    write_mem 1
+    pop 1
+    push 77
+    read_mem 1
+    pop 1
+    push 4294967295
+    xor
+    push 79
+    read_mem 1
+    pop 1
+    and
+    push 75
+    read_mem 1
+    pop 1
+    xor
+    push 35
+    write_mem 1
+    pop 1
+
+    push 78
+    read_mem 1
+    pop 1
+    push 4294967295
+    xor
+    push 70
+    read_mem 1
+    pop 1
+    and
+    push 76
+    read_mem 1
+    pop 1
+    xor
+    push 36
+    write_mem 1
+    pop 1
+    push 79
+    read_mem 1
+    pop 1
+    push 4294967295
+    xor
+    push 71
+    read_mem 1
+    pop 1
+    and
+    push 77
+    read_mem 1
+    pop 1
+    xor
+    push 37
+    write_mem 1
+    pop 1
+
+    push 70
+    read_mem 1
+    pop 1
+    push 4294967295
+    xor
+    push 72
+    read_mem 1
+    pop 1
+    and
+    push 78
+    read_mem 1
+    pop 1
+    xor
+    push 38
+    write_mem 1
+    pop 1
+    push 71
+    read_mem 1
+    pop 1
+    push 4294967295
+    xor
+    push 73
+    read_mem 1
+    pop 1
+    and
+    push 79
+    read_mem 1
+    pop 1
+    xor
+    push 39
+    write_mem 1
+    pop 1
+    return
+
+// Row 4: lanes s04(40), s14(42), s24(44), s34(46), s44(48)
+__chi_row_4:
+    push 40
+    read_mem 1
+    pop 1
+    push 70
+    write_mem 1
+    pop 1
+    push 41
+    read_mem 1
+    pop 1
+    push 71
+    write_mem 1
+    pop 1
+    push 42
+    read_mem 1
+    pop 1
+    push 72
+    write_mem 1
+    pop 1
+    push 43
+    read_mem 1
+    pop 1
+    push 73
+    write_mem 1
+    pop 1
+    push 44
+    read_mem 1
+    pop 1
+    push 74
+    write_mem 1
+    pop 1
+    push 45
+    read_mem 1
+    pop 1
+    push 75
+    write_mem 1
+    pop 1
+    push 46
+    read_mem 1
+    pop 1
+    push 76
+    write_mem 1
+    pop 1
+    push 47
+    read_mem 1
+    pop 1
+    push 77
+    write_mem 1
+    pop 1
+    push 48
+    read_mem 1
+    pop 1
+    push 78
+    write_mem 1
+    pop 1
+    push 49
+    read_mem 1
+    pop 1
+    push 79
+    write_mem 1
+    pop 1
+
+    push 72
+    read_mem 1
+    pop 1
+    push 4294967295
+    xor
+    push 74
+    read_mem 1
+    pop 1
+    and
+    push 70
+    read_mem 1
+    pop 1
+    xor
+    push 40
+    write_mem 1
+    pop 1
+    push 73
+    read_mem 1
+    pop 1
+    push 4294967295
+    xor
+    push 75
+    read_mem 1
+    pop 1
+    and
+    push 71
+    read_mem 1
+    pop 1
+    xor
+    push 41
+    write_mem 1
+    pop 1
+
+    push 74
+    read_mem 1
+    pop 1
+    push 4294967295
+    xor
+    push 76
+    read_mem 1
+    pop 1
+    and
+    push 72
+    read_mem 1
+    pop 1
+    xor
+    push 42
+    write_mem 1
+    pop 1
+    push 75
+    read_mem 1
+    pop 1
+    push 4294967295
+    xor
+    push 77
+    read_mem 1
+    pop 1
+    and
+    push 73
+    read_mem 1
+    pop 1
+    xor
+    push 43
+    write_mem 1
+    pop 1
+
+    push 76
+    read_mem 1
+    pop 1
+    push 4294967295
+    xor
+    push 78
+    read_mem 1
+    pop 1
+    and
+    push 74
+    read_mem 1
+    pop 1
+    xor
+    push 44
+    write_mem 1
+    pop 1
+    push 77
+    read_mem 1
+    pop 1
+    push 4294967295
+    xor
+    push 79
+    read_mem 1
+    pop 1
+    and
+    push 75
+    read_mem 1
+    pop 1
+    xor
+    push 45
+    write_mem 1
+    pop 1
+
+    push 78
+    read_mem 1
+    pop 1
+    push 4294967295
+    xor
+    push 70
+    read_mem 1
+    pop 1
+    and
+    push 76
+    read_mem 1
+    pop 1
+    xor
+    push 46
+    write_mem 1
+    pop 1
+    push 79
+    read_mem 1
+    pop 1
+    push 4294967295
+    xor
+    push 71
+    read_mem 1
+    pop 1
+    and
+    push 77
+    read_mem 1
+    pop 1
+    xor
+    push 47
+    write_mem 1
+    pop 1
+
+    push 70
+    read_mem 1
+    pop 1
+    push 4294967295
+    xor
+    push 72
+    read_mem 1
+    pop 1
+    and
+    push 78
+    read_mem 1
+    pop 1
+    xor
+    push 48
+    write_mem 1
+    pop 1
+    push 71
+    read_mem 1
+    pop 1
+    push 4294967295
+    xor
+    push 73
+    read_mem 1
+    pop 1
+    and
+    push 79
+    read_mem 1
+    pop 1
+    xor
+    push 49
+    write_mem 1
+    pop 1
+    return
+
+// ===================================================================
+// IOTA step: XOR round constant into lane s00
+// Stack: [rc_lo, rc_hi, ...] -> [...]
+// ===================================================================
+__iota:
+    // XOR rc_lo into mem[0]
+    push 0
+    read_mem 1
+    pop 1
+    xor
+    push 0
+    write_mem 1
+    pop 1
+    // XOR rc_hi into mem[1]
+    push 1
+    read_mem 1
+    pop 1
+    xor
+    push 1
+    write_mem 1
+    pop 1
+    return
+
+// ===================================================================
+// 24 ROUND FUNCTIONS
+// Each: theta -> rho -> pi -> chi -> iota(RC)
+// Round constants inlined as push lo / push hi.
+// ===================================================================
+__round_0:
+    call __theta
+    call __rho
+    call __pi
+    call __chi
+    push 0
+    push 1
+    call __iota
+    return
+
+__round_1:
+    call __theta
+    call __rho
+    call __pi
+    call __chi
+    push 0
+    push 32898
+    call __iota
+    return
+
+__round_2:
+    call __theta
+    call __rho
+    call __pi
+    call __chi
+    push 2147483648
+    push 32906
+    call __iota
+    return
+
+__round_3:
+    call __theta
+    call __rho
+    call __pi
+    call __chi
+    push 2147483648
+    push 2147516416
+    call __iota
+    return
+
+__round_4:
+    call __theta
+    call __rho
+    call __pi
+    call __chi
+    push 0
+    push 32907
+    call __iota
+    return
+
+__round_5:
+    call __theta
+    call __rho
+    call __pi
+    call __chi
+    push 0
+    push 2147483649
+    call __iota
+    return
+
+__round_6:
+    call __theta
+    call __rho
+    call __pi
+    call __chi
+    push 2147483648
+    push 2147516545
+    call __iota
+    return
+
+__round_7:
+    call __theta
+    call __rho
+    call __pi
+    call __chi
+    push 2147483648
+    push 32777
+    call __iota
+    return
+
+__round_8:
+    call __theta
+    call __rho
+    call __pi
+    call __chi
+    push 0
+    push 138
+    call __iota
+    return
+
+__round_9:
+    call __theta
+    call __rho
+    call __pi
+    call __chi
+    push 0
+    push 136
+    call __iota
+    return
+
+__round_10:
+    call __theta
+    call __rho
+    call __pi
+    call __chi
+    push 0
+    push 2147516425
+    call __iota
+    return
+
+__round_11:
+    call __theta
+    call __rho
+    call __pi
+    call __chi
+    push 0
+    push 2147483658
+    call __iota
+    return
+
+__round_12:
+    call __theta
+    call __rho
+    call __pi
+    call __chi
+    push 0
+    push 2147516555
+    call __iota
+    return
+
+__round_13:
+    call __theta
+    call __rho
+    call __pi
+    call __chi
+    push 2147483648
+    push 139
+    call __iota
+    return
+
+__round_14:
+    call __theta
+    call __rho
+    call __pi
+    call __chi
+    push 2147483648
+    push 32905
+    call __iota
+    return
+
+__round_15:
+    call __theta
+    call __rho
+    call __pi
+    call __chi
+    push 2147483648
+    push 32771
+    call __iota
+    return
+
+__round_16:
+    call __theta
+    call __rho
+    call __pi
+    call __chi
+    push 2147483648
+    push 32770
+    call __iota
+    return
+
+__round_17:
+    call __theta
+    call __rho
+    call __pi
+    call __chi
+    push 2147483648
+    push 128
+    call __iota
+    return
+
+__round_18:
+    call __theta
+    call __rho
+    call __pi
+    call __chi
+    push 0
+    push 32778
+    call __iota
+    return
+
+__round_19:
+    call __theta
+    call __rho
+    call __pi
+    call __chi
+    push 2147483648
+    push 2147483658
+    call __iota
+    return
+
+__round_20:
+    call __theta
+    call __rho
+    call __pi
+    call __chi
+    push 2147483648
+    push 2147516545
+    call __iota
+    return
+
+__round_21:
+    call __theta
+    call __rho
+    call __pi
+    call __chi
+    push 2147483648
+    push 32896
+    call __iota
+    return
+
+__round_22:
+    call __theta
+    call __rho
+    call __pi
+    call __chi
+    push 0
+    push 2147483649
+    call __iota
+    return
+
+__round_23:
+    call __theta
+    call __rho
+    call __pi
+    call __chi
+    push 2147483648
+    push 2147516424
+    call __iota
+    return
