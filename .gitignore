@@ -1,6 +1,6 @@
 # Rust build artifacts
 /target/
-**/target/
+editor/zed/target/
 
 # Compiled TASM output
 *.tasm

@@ -1,4 +1,5 @@
 mod analysis;
+mod block;
 mod builtins;
 mod expr;
 mod resolve;

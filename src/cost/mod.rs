@@ -1,4 +1,5 @@
 pub mod analyzer;
+mod json;
 /// Static cost analysis for Trident programs.
 ///
 /// Computes the trace heights of all Algebraic Execution Tables for the
@@ -6,6 +7,7 @@ pub mod analyzer;
 /// This gives an upper bound on proving cost without executing the program.
 pub mod model;
 pub mod report;
+mod visit;
 
 // Public re-exports
 pub use analyzer::ProgramCost;
@@ -13,8 +15,9 @@ pub use model::TableCost;
 
 // Crate-internal re-exports
 #[allow(unused_imports)]
-pub(crate) use analyzer::{next_power_of_two, CostAnalyzer, FunctionCost};
+pub(crate) use analyzer::{CostAnalyzer, FunctionCost};
 pub(crate) use model::{cost_builtin, create_cost_model};
+pub(crate) use visit::next_power_of_two;
 
 #[cfg(test)]
 mod tests {
