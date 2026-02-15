@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
+use crate::config::target::parse_string_array;
 use crate::diagnostic::Diagnostic;
 use crate::manifest::Manifest;
 use crate::span::Span;
@@ -19,20 +20,6 @@ pub struct Project {
     pub targets: HashMap<String, Vec<String>>,
     /// Parsed [dependencies] section.
     pub dependencies: Manifest,
-}
-
-/// Parse a minimal TOML string array: `["a", "b", "c"]` → `vec!["a", "b", "c"]`.
-fn parse_string_array(s: &str) -> Vec<String> {
-    let s = s.trim();
-    if !s.starts_with('[') || !s.ends_with(']') {
-        return Vec::new();
-    }
-    let inner = &s[1..s.len() - 1];
-    inner
-        .split(',')
-        .map(|part| part.trim().trim_matches('"').to_string())
-        .filter(|s| !s.is_empty())
-        .collect()
 }
 
 impl Project {
