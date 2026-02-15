@@ -33,7 +33,7 @@ pub use tools::project;
 pub use tools::resolve;
 pub use tools::scaffold;
 pub use tools::target;
-pub use tools::view;
+
 pub use verify::equiv;
 pub use verify::report;
 pub use verify::smt;
