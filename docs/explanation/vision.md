@@ -133,10 +133,11 @@ Three key primitives bridge the three worlds:
   cryptographic S-box, neural activation, FHE bootstrap function, and STARK
   authentication.
 
-The compiler is ~36K lines of Rust with 5 runtime dependencies. 20 VM
-targets. 25 OS targets. 618 tests. For architecture details, see
-[Multi-Target Compilation](multi-target.md). For hash performance and
-quantum safety comparisons, see [Comparative Analysis](provable-computing.md).
+The compiler is ~36K lines of Rust with 5 runtime dependencies. 618 tests.
+The roadmap includes 20 VM targets and 25 OS targets. For architecture
+details, see [Multi-Target Compilation](multi-target.md). For hash
+performance and quantum safety comparisons, see
+[Comparative Analysis](provable-computing.md).
 
 ---
 
