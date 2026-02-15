@@ -14,6 +14,7 @@ use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 use crate::ast;
+use crate::ast::display::format_ast_type;
 use crate::cost::ProgramCost;
 use crate::hash::ContentHash;
 use crate::target::{Arch, OsConfig, TargetConfig};
@@ -304,23 +305,6 @@ fn format_fn_signature(func: &ast::FnDef) -> String {
     sig
 }
 
-/// Format an AST type for display.
-fn format_ast_type(ty: &ast::Type) -> String {
-    match ty {
-        ast::Type::Field => "Field".to_string(),
-        ast::Type::XField => "XField".to_string(),
-        ast::Type::Bool => "Bool".to_string(),
-        ast::Type::U32 => "U32".to_string(),
-        ast::Type::Digest => "Digest".to_string(),
-        ast::Type::Array(inner, size) => format!("[{}; {}]", format_ast_type(inner), size),
-        ast::Type::Tuple(elems) => {
-            let parts: Vec<_> = elems.iter().map(|e| format_ast_type(e)).collect();
-            format!("({})", parts.join(", "))
-        }
-        ast::Type::Named(path) => path.as_dotted(),
-    }
-}
-
 /// Find the entry point function name (looks for "main").
 fn find_entry_point(file: &ast::File) -> String {
     for item in &file.items {
@@ -382,7 +366,6 @@ pub fn days_to_date(days: u64) -> (u64, u64, u64) {
 }
 
 // ─── Tests ─────────────────────────────────────────────────────────
-
 
 #[cfg(test)]
 mod tests;
