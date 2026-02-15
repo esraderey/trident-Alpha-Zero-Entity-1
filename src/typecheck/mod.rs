@@ -8,7 +8,7 @@ mod stmt;
 mod tests;
 pub mod types;
 
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashSet};
 
 use crate::ast::*;
 use crate::diagnostic::Diagnostic;
@@ -43,7 +43,7 @@ pub struct MonoInstance {
 }
 
 impl MonoInstance {
-    /// Mangled label: `sum` with N=3 → `__sum__N3`.
+    /// Mangled label: `sum` with N=3 -> `__sum__N3`.
     pub fn mangled_name(&self) -> String {
         let suffix: Vec<String> = self.size_args.iter().map(|n| format!("{}", n)).collect();
         format!("{}__N{}", self.name, suffix.join("_"))
@@ -77,21 +77,21 @@ pub struct ModuleExports {
 
 pub(crate) struct TypeChecker {
     /// Known function signatures (user-defined + builtins).
-    pub(super) functions: HashMap<String, FnSig>,
+    pub(super) functions: BTreeMap<String, FnSig>,
     /// Variable scopes (stack of scope maps).
-    pub(super) scopes: Vec<HashMap<String, VarInfo>>,
-    /// Known constants (name → value).
-    pub(super) constants: HashMap<String, u64>,
-    /// Known struct types (name or module.name → StructTy).
-    pub(super) structs: HashMap<String, StructTy>,
-    /// Known event types (name → field list).
-    pub(super) events: HashMap<String, Vec<(String, Ty)>>,
+    pub(super) scopes: Vec<BTreeMap<String, VarInfo>>,
+    /// Known constants (name -> value).
+    pub(super) constants: BTreeMap<String, u64>,
+    /// Known struct types (name or module.name -> StructTy).
+    pub(super) structs: BTreeMap<String, StructTy>,
+    /// Known event types (name -> field list).
+    pub(super) events: BTreeMap<String, Vec<(String, Ty)>>,
     /// Accumulated diagnostics.
     pub(super) diagnostics: Vec<Diagnostic>,
     /// Variables proven to be in U32 range (via as_u32, split, or U32 type).
     pub(super) u32_proven: HashSet<String>,
     /// Generic (size-parameterized) function definitions.
-    pub(super) generic_fns: HashMap<String, GenericFnDef>,
+    pub(super) generic_fns: BTreeMap<String, GenericFnDef>,
     /// Unique monomorphized instances collected during type checking.
     pub(super) mono_instances: Vec<MonoInstance>,
     /// Per-call-site resolutions in AST walk order.
@@ -117,14 +117,14 @@ impl TypeChecker {
 
     pub(crate) fn with_target(config: crate::target::TargetConfig) -> Self {
         let mut tc = Self {
-            functions: HashMap::new(),
+            functions: BTreeMap::new(),
             scopes: Vec::new(),
-            constants: HashMap::new(),
-            structs: HashMap::new(),
-            events: HashMap::new(),
+            constants: BTreeMap::new(),
+            structs: BTreeMap::new(),
+            events: BTreeMap::new(),
             diagnostics: Vec::new(),
             u32_proven: HashSet::new(),
-            generic_fns: HashMap::new(),
+            generic_fns: BTreeMap::new(),
             mono_instances: Vec::new(),
             call_resolutions: Vec::new(),
             cfg_flags: HashSet::from(["debug".to_string()]),
@@ -403,10 +403,10 @@ impl TypeChecker {
         }
     }
 
-    // ─── Scope management ──────────────────────────────────────────
+    // --- Scope management ---
 
     pub(super) fn push_scope(&mut self) {
-        self.scopes.push(HashMap::new());
+        self.scopes.push(BTreeMap::new());
     }
 
     pub(super) fn pop_scope(&mut self) {
@@ -428,7 +428,7 @@ impl TypeChecker {
         None
     }
 
-    // ─── Diagnostics ───────────────────────────────────────────────
+    // --- Diagnostics ---
 
     pub(super) fn error(&mut self, msg: String, span: Span) {
         self.diagnostics.push(Diagnostic::error(msg, span));
