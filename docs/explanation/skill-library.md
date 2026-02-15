@@ -32,6 +32,28 @@ A skill is a composable package that teaches a token a new behavior. Every skill
 | Config | What authorities/hooks must be set |
 | Composes with | Which other skills it works alongside |
 
+### 1.1 Skill Namespace: `std.skill.*`
+
+All 23 official skills ship with the compiler as importable Trident source
+under the `std.skill` namespace. Each skill is a `.tri` module that
+developers can use in three ways:
+
+- **Import** (`use std.skill.liquidity`): The skill code is inlined into
+  your circuit at compile time. Use this when you want the standard
+  implementation without modification.
+- **Fork**: Copy the skill source from `std/skill/`, modify it to your
+  needs, and compile your own version. The standard implementation serves
+  as a tested starting point.
+- **Deploy**: Publish a compiled skill (standard or forked) to the OS's
+  [on-chain registry](../../reference/os.md#per-os-on-chain-registry).
+  Other tokens reference your deployed skill by content hash or registry
+  name in their PLUMB hook config.
+
+Skills build on `std.token` (PLUMB framework primitives), `std.coin`
+(TSP-1), and `std.card` (TSP-2). See the
+[Standard Library reference](../../reference/stdlib.md#layer-05-token-infrastructure)
+for the complete module catalog.
+
 ---
 
 ## 2. How Skills Compose
