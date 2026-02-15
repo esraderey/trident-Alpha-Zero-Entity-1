@@ -71,7 +71,7 @@ pub fn cmd_package(args: PackageArgs) {
     }
 
     // Generate artifact
-    let result = match trident::artifact::generate_artifact(
+    let result = match trident::deploy::generate_artifact(
         &art.name,
         &art.version,
         &art.tasm,

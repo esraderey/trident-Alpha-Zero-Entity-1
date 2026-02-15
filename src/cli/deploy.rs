@@ -85,7 +85,7 @@ pub fn cmd_deploy(args: DeployArgs) {
         return;
     }
 
-    let result = match trident::artifact::generate_artifact(
+    let result = match trident::deploy::generate_artifact(
         &art.name,
         &art.version,
         &art.tasm,
