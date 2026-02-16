@@ -123,6 +123,27 @@ Budget: 1000 lines total. Rules for every update:
 Agents self-organize. The budget is the only constraint.
 Gitignored for now (experimental).
 
+## Dual-Stream Optimization
+
+Two independent optimization streams run in parallel:
+
+1. **Hand TASM** (`benches/*.baseline.tasm`): Write from first
+   principles — algorithm + stack machine, never from compiler output.
+   Ask "what is the minimum instruction sequence for this operation on
+   Triton VM?" not "how can I improve what the compiler emitted?"
+   If hand TASM was derived from compiler output, rewrite it.
+
+2. **Compiler** (`src/ir/tir/`): Improve codegen to approach hand
+   baselines. Every baseline function with ratio > 1.5x is a compiler
+   optimization target.
+
+The streams must stay independent. Hand baselines set the floor —
+the compiler races toward it. When the compiler catches up, push the
+baseline lower. Neither stream is a dogma; both improve continuously.
+
+`trident bench` is the scoreboard. Regressions in either direction
+(compiler gets worse, or baselines get sloppy) are bugs.
+
 ## Self-Verification
 
 Every commit:

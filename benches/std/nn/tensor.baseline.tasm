@@ -41,7 +41,7 @@
 // Static instruction count summary:
 //   __half_p       :   2
 //   __scale        :   2
-//   __relu         :  11
+//   __relu         :   9
 //   __bias_add     :   2
 //   __matvec       :   2
 //   __matmul       :   2
@@ -127,15 +127,14 @@ __scale:
 //   lt             -> [x_hi<t_hi, x]   (1 if positive, 0 if negative)
 //   mul            -> [result]          (x if positive, 0 if negative)
 //
-// 11 counted instructions.
+// 9 counted instructions.
+// split gives [hi, lo] with lo on top (st0). pop 1 removes lo directly.
 __relu:
     push 9223372034707292160
     split
-    swap 1
     pop 1
     dup 1
     split
-    swap 1
     pop 1
     lt
     mul
