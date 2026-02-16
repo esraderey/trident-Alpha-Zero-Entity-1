@@ -115,26 +115,38 @@ impl TIRBuilder {
 
     pub(crate) fn build_var_expr(&mut self, name: &str) {
         if name.contains('.') {
-            let dot_pos = name.rfind('.').unwrap();
-            let prefix = &name[..dot_pos];
-            let suffix = &name[dot_pos + 1..];
-            let var_depth_info = self.find_var_depth_and_width(prefix);
-            if let Some((base_depth, _var_width)) = var_depth_info {
-                let field_offset = self.find_field_offset_in_var(prefix, suffix);
-                if let Some((offset_from_top, field_width)) = field_offset {
-                    let real_depth = base_depth + offset_from_top;
-                    self.stack.ensure_space(field_width);
-                    self.flush_stack_effects();
-                    for _ in 0..field_width {
-                        self.ops.push(TIROp::Dup(real_depth + field_width - 1));
+            let parts: Vec<&str> = name.split('.').collect();
+
+            // Try increasingly long prefixes as the base variable.
+            let mut resolved = false;
+            for split in 1..parts.len() {
+                let var_name = parts[..split].join(".");
+                let var_depth_info = self.find_var_depth_and_width(&var_name);
+                if let Some((base_depth, _var_width)) = var_depth_info {
+                    let fields = &parts[split..];
+                    if let Some((combined_offset, field_width)) =
+                        self.resolve_nested_field_offset(&var_name, fields)
+                    {
+                        let real_depth = base_depth + combined_offset;
+                        self.stack.ensure_space(field_width);
+                        self.flush_stack_effects();
+                        for _ in 0..field_width {
+                            self.ops.push(TIROp::Dup(real_depth + field_width - 1));
+                        }
+                        self.stack.push_temp(field_width);
+                    } else {
+                        let depth = base_depth;
+                        self.emit_and_push(TIROp::Dup(depth), 1);
                     }
-                    self.stack.push_temp(field_width);
-                } else {
-                    let depth = base_depth;
-                    self.emit_and_push(TIROp::Dup(depth), 1);
+                    resolved = true;
+                    break;
                 }
-            } else {
-                // Module constant.
+            }
+
+            if !resolved {
+                // Module constant fallback.
+                let last_dot = name.rfind('.').unwrap();
+                let suffix = &name[last_dot + 1..];
                 if let Some(&val) = self.constants.get(name) {
                     self.emit_and_push(TIROp::Push(val), 1);
                 } else if let Some(&val) = self.constants.get(suffix) {

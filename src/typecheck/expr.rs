@@ -25,22 +25,11 @@ impl TypeChecker {
                 if self.constants.contains_key(name) {
                     return Ty::Field;
                 }
-                // Dotted name: could be field access (var.field) or module constant
-                if let Some(dot_pos) = name.rfind('.') {
-                    let prefix = &name[..dot_pos];
-                    let suffix = &name[dot_pos + 1..];
-                    // Check if prefix is a variable with struct type
-                    if let Some(info) = self.lookup_var(prefix) {
-                        if let Ty::Struct(sty) = &info.ty {
-                            if let Some((field_ty, _, _)) = sty.field_offset(suffix) {
-                                return field_ty;
-                            }
-                            self.error(
-                                format!("struct '{}' has no field '{}'", sty.name, suffix),
-                                span,
-                            );
-                            return Ty::Field;
-                        }
+                // Dotted name: could be nested field access (var.field.subfield)
+                // or module constant. Try resolving from the first dot outward.
+                if name.contains('.') {
+                    if let Some(ty) = self.resolve_nested_field_access(name, span) {
+                        return ty;
                     }
                 }
                 self.error_with_help(
@@ -444,5 +433,45 @@ impl TypeChecker {
                 lhs.clone()
             }
         }
+    }
+
+    /// Resolve nested field access from a dotted name like "st.s00.lo".
+    /// Tries every prefix that could be a variable, then walks the
+    /// remaining dot-separated fields through struct types.
+    fn resolve_nested_field_access(&mut self, name: &str, span: Span) -> Option<Ty> {
+        let parts: Vec<&str> = name.splitn(name.len(), '.').collect();
+        // Try increasingly long prefixes as the base variable.
+        // For "st.s00.lo", tries "st" first, then "st.s00".
+        for split in 1..parts.len() {
+            let var_name = parts[..split].join(".");
+            if let Some(info) = self.lookup_var(&var_name) {
+                let mut ty = info.ty.clone();
+                for field in &parts[split..] {
+                    if let Ty::Struct(ref sty) = ty {
+                        if let Some((field_ty, _, _)) = sty.field_offset(field) {
+                            ty = field_ty;
+                        } else {
+                            self.error(
+                                format!("struct '{}' has no field '{}'", sty.name, field),
+                                span,
+                            );
+                            return Some(Ty::Field);
+                        }
+                    } else {
+                        self.error(
+                            format!(
+                                "field access '.{}' on non-struct type {}",
+                                field,
+                                ty.display()
+                            ),
+                            span,
+                        );
+                        return Some(Ty::Field);
+                    }
+                }
+                return Some(ty);
+            }
+        }
+        None
     }
 }
