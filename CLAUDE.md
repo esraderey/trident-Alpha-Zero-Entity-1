@@ -338,6 +338,11 @@ Do not modify without explicit request:
 - `vm/*/target.toml` and `os/*/target.toml` (configuration, not code)
 - `LICENSE.md`
 
+Never read or modify:
+
+- `tree-sitter/src/` — auto-generated C/JSON (12k+ lines). Edit
+  `tree-sitter/grammar.js` instead, then run `tree-sitter generate`.
+
 ## Parallel Agents
 
 When a task touches many files across the repo (bold cleanup, renaming,
