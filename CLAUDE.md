@@ -256,9 +256,10 @@ verify/            ~5.6k LOC   Formal verification
     mod.rs           ~460         SMT encoding
     tests.rs          ~75         SMT tests
 
-lsp/               ~3.4k LOC   Language Server Protocol
-  mod.rs             ~500       LSP server (tower-lsp, capabilities, handlers)
-  project.rs         ~190       Project helpers (symbol index, exports, costs, workspace symbols)
+lsp/               ~3.7k LOC   Language Server Protocol
+  mod.rs             ~475       LSP server (tower-lsp, capabilities, handlers)
+  project.rs         ~230       Project helpers (symbol index, exports, costs, document/workspace symbols)
+  actions.rs         ~280       Code actions (remove unused import, add mut, remove redundant as_u32, insert field)
   references.rs      ~240       Find references, rename, document highlight
   hints.rs           ~180       Inlay hints (function/loop cost estimates)
   document.rs        ~100       Per-document state (tokens, comments, line_starts cache)

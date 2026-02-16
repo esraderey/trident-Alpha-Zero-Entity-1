@@ -4,8 +4,9 @@
 //! go-to-definition, hover, completion, signature help, semantic tokens
 //! (with incremental deltas), folding ranges, selection ranges,
 //! find references, rename, document highlight, workspace symbol,
-//! and inlay hints.
+//! inlay hints, and code actions.
 
+mod actions;
 mod builtins;
 mod document;
 mod folding;
@@ -26,13 +27,8 @@ use tower_lsp::jsonrpc::Result;
 use tower_lsp::lsp_types::*;
 use tower_lsp::{Client, LanguageServer, LspService, Server};
 
-use crate::ast::Item;
-
 use document::{compute_line_starts, DocumentState};
-use util::{
-    format_fn_signature, position_to_byte_offset, span_to_range, to_lsp_diagnostic,
-    word_at_position,
-};
+use util::{position_to_byte_offset, to_lsp_diagnostic, word_at_position};
 
 pub struct TridentLsp {
     client: Client,
@@ -69,6 +65,7 @@ impl LanguageServer for TridentLsp {
                         },
                     ),
                 ),
+                code_action_provider: Some(CodeActionProviderCapability::Simple(true)),
                 references_provider: Some(OneOf::Left(true)),
                 rename_provider: Some(OneOf::Left(true)),
                 document_highlight_provider: Some(OneOf::Left(true)),
@@ -206,45 +203,11 @@ impl LanguageServer for TridentLsp {
             Some(doc) => doc.source.clone(),
             None => return Ok(None),
         };
-
         let file = match crate::parse_source_silent(&source, uri.path()) {
             Ok(f) => f,
             Err(_) => return Ok(None),
         };
-
-        let mut symbols = Vec::new();
-        for item in &file.items {
-            let (name, kind, detail) = match &item.node {
-                Item::Fn(f) => {
-                    let sig = format_fn_signature(f);
-                    (f.name.node.clone(), SymbolKind::FUNCTION, Some(sig))
-                }
-                Item::Struct(s) => (s.name.node.clone(), SymbolKind::STRUCT, None),
-                Item::Const(c) => (c.name.node.clone(), SymbolKind::CONSTANT, None),
-                Item::Event(e) => (e.name.node.clone(), SymbolKind::EVENT, None),
-            };
-
-            let range = span_to_range(&source, item.span);
-            let selection_range = match &item.node {
-                Item::Fn(f) => span_to_range(&source, f.name.span),
-                Item::Struct(s) => span_to_range(&source, s.name.span),
-                Item::Const(c) => span_to_range(&source, c.name.span),
-                Item::Event(e) => span_to_range(&source, e.name.span),
-            };
-
-            #[allow(deprecated)]
-            symbols.push(DocumentSymbol {
-                name,
-                detail,
-                kind,
-                tags: None,
-                deprecated: None,
-                range,
-                selection_range,
-                children: None,
-            });
-        }
-
+        let symbols = self.document_symbols(&source, &file);
         Ok(Some(DocumentSymbolResponse::Nested(symbols)))
     }
 
@@ -399,6 +362,21 @@ impl LanguageServer for TridentLsp {
             &file,
             &params.positions,
         )))
+    }
+
+    async fn code_action(&self, params: CodeActionParams) -> Result<Option<CodeActionResponse>> {
+        let uri = &params.text_document.uri;
+        let source = match self.documents.lock().unwrap().get(uri) {
+            Some(doc) => doc.source.clone(),
+            None => return Ok(None),
+        };
+        let diags: Vec<_> = params.context.diagnostics;
+        let result = actions::code_actions(&source, &diags, uri);
+        Ok(if result.is_empty() {
+            None
+        } else {
+            Some(result)
+        })
     }
 
     async fn references(&self, params: ReferenceParams) -> Result<Option<Vec<Location>>> {
