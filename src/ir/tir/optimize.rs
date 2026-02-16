@@ -307,14 +307,15 @@ fn collapse_swap_pop_chains(ops: Vec<TIROp>) -> Vec<TIROp> {
 
 /// Collapse sequential `Swap(N); Pop(1)` cleanup chains.
 ///
-/// When clearing dead elements from below the return value, the builder
-/// emits `swap N; pop 1; swap N-1; pop 1; ...` chains. Each pair brings
-/// one dead element to the top and discards it. When consecutive pairs
-/// clear a contiguous block with decreasing depths, the chain reduces
-/// to `swap first_D; pop count`.
+/// Two sub-patterns are handled:
 ///
-/// Two triggers: (a) chain ends with Return (function epilogue), or
-/// (b) chain has 3+ pairs anywhere (mid-function cleanup).
+/// **Constant-depth chains**: N consecutive `swap 1; pop 1` pairs each remove
+/// one element below the top. Net effect: keep top, discard N elements below.
+/// Collapsed to `swap min(N,15); pop min(N,15)` in chunks (swap max is 15).
+///
+/// **Decreasing-depth chains**: `swap D; pop 1; swap D-1; pop 1; ...` chains
+/// where each pair brings a deeper dead element to the top. Collapsed to
+/// `swap first_D; pop count`.
 fn collapse_epilogue_cleanup(ops: Vec<TIROp>) -> Vec<TIROp> {
     let mut out: Vec<TIROp> = Vec::with_capacity(ops.len());
     let mut i = 0;
@@ -322,23 +323,52 @@ fn collapse_epilogue_cleanup(ops: Vec<TIROp>) -> Vec<TIROp> {
         if i + 3 < ops.len() {
             if let (TIROp::Swap(d), TIROp::Pop(1)) = (&ops[i], &ops[i + 1]) {
                 let first_d = *d;
-                if first_d >= 2 {
-                    let mut count = 1u32;
-                    let mut j = i + 2;
-                    while j + 1 < ops.len() {
-                        if let (TIROp::Swap(dd), TIROp::Pop(1)) = (&ops[j], &ops[j + 1]) {
-                            // Accept pairs with decreasing or nearby depths.
-                            if *dd + count == first_d || *dd < first_d {
+
+                // Count consecutive swap(D); pop(1) pairs.
+                let mut count = 1u32;
+                let mut j = i + 2;
+                while j + 1 < ops.len() {
+                    if let (TIROp::Swap(dd), TIROp::Pop(1)) = (&ops[j], &ops[j + 1]) {
+                        if first_d == 1 {
+                            // Constant-depth chain: all pairs must be swap(1).
+                            if *dd == 1 {
                                 count += 1;
                                 j += 2;
                             } else {
                                 break;
                             }
                         } else {
-                            break;
+                            // Decreasing-depth chain: accept nearby depths.
+                            if *dd + count == first_d || *dd < first_d {
+                                count += 1;
+                                j += 2;
+                            } else {
+                                break;
+                            }
                         }
+                    } else {
+                        break;
                     }
-                    if count >= 3 {
+                }
+
+                if count >= 3 {
+                    if first_d == 1 {
+                        // Constant-depth: keep top, discard `count` elements
+                        // below. Emit in chunks of 15 (max swap depth).
+                        let mut remaining = count;
+                        while remaining > 0 {
+                            let chunk = remaining.min(15);
+                            out.push(TIROp::Swap(chunk));
+                            let mut pop_left = chunk;
+                            while pop_left > 0 {
+                                let batch = pop_left.min(5);
+                                out.push(TIROp::Pop(batch));
+                                pop_left -= batch;
+                            }
+                            remaining -= chunk;
+                        }
+                    } else {
+                        // Decreasing-depth chain.
                         out.push(TIROp::Swap(first_d));
                         let mut remaining = count;
                         while remaining > 0 {
@@ -346,9 +376,9 @@ fn collapse_epilogue_cleanup(ops: Vec<TIROp>) -> Vec<TIROp> {
                             out.push(TIROp::Pop(batch));
                             remaining -= batch;
                         }
-                        i = j;
-                        continue;
                     }
+                    i = j;
+                    continue;
                 }
             }
         }
@@ -539,6 +569,46 @@ mod tests {
         assert!(matches!(result[0], TIROp::Swap(5)));
         assert!(matches!(result[1], TIROp::Pop(3)));
         assert!(matches!(result[2], TIROp::Return));
+    }
+
+    #[test]
+    fn collapse_constant_depth_swap1_pop1_chain() {
+        // 10× swap 1; pop 1 → swap 10; pop 5; pop 5
+        let mut ops = Vec::new();
+        for _ in 0..10 {
+            ops.push(TIROp::Swap(1));
+            ops.push(TIROp::Pop(1));
+        }
+        ops.push(TIROp::Return);
+        let result = optimize(ops);
+        assert!(matches!(result[0], TIROp::Swap(10)));
+        assert!(matches!(result[1], TIROp::Pop(5)));
+        assert!(matches!(result[2], TIROp::Pop(5)));
+        assert!(matches!(result[3], TIROp::Return));
+        assert_eq!(result.len(), 4);
+    }
+
+    #[test]
+    fn collapse_large_constant_depth_chain() {
+        // 24× swap 1; pop 1 → swap 15; pop 5; pop 5; pop 5; swap 9; pop 5; pop 4
+        let mut ops = Vec::new();
+        for _ in 0..24 {
+            ops.push(TIROp::Swap(1));
+            ops.push(TIROp::Pop(1));
+        }
+        ops.push(TIROp::Return);
+        let result = optimize(ops);
+        // First chunk: swap 15; pop 5; pop 5; pop 5
+        assert!(matches!(result[0], TIROp::Swap(15)));
+        assert!(matches!(result[1], TIROp::Pop(5)));
+        assert!(matches!(result[2], TIROp::Pop(5)));
+        assert!(matches!(result[3], TIROp::Pop(5)));
+        // Second chunk: swap 9; pop 5; pop 4
+        assert!(matches!(result[4], TIROp::Swap(9)));
+        assert!(matches!(result[5], TIROp::Pop(5)));
+        assert!(matches!(result[6], TIROp::Pop(4)));
+        assert!(matches!(result[7], TIROp::Return));
+        assert_eq!(result.len(), 8);
     }
 
     #[test]

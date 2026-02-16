@@ -346,31 +346,130 @@ impl TIRBuilder {
         }
 
         let body = func.body.as_ref().expect("caller checked body.is_some()");
-        self.build_block(&body.node);
-
-        // Clean up: pop everything except return value (if any).
         let has_return = func.return_ty.is_some();
-        let total_width = self.stack.stack_depth();
 
-        if has_return && total_width > 0 {
-            let to_pop = total_width.saturating_sub(ret_width);
-            if to_pop > 0 && to_pop <= 15 && ret_width <= 1 {
-                // Swap return value past all dead locals, then bulk pop.
-                // swap N; pop N is 1 + ceil(N/5) vs swap 1; pop 1 × N = 2N.
-                self.ops.push(TIROp::Swap(to_pop));
-                self.emit_pop(to_pop);
-            } else {
-                for _ in 0..to_pop {
-                    self.ops.push(TIROp::Swap(1));
-                    self.ops.push(TIROp::Pop(1));
+        if has_return && ret_width > 1 {
+            // Multi-element return: build statements first, then handle
+            // the tail expression specially to avoid unnecessary copies.
+            for stmt in &body.node.stmts {
+                self.build_stmt(&stmt.node);
+            }
+
+            if let Some(tail) = &body.node.tail_expr {
+                let depth_before_tail = self.stack.stack_depth();
+
+                // Check if tail is a simple variable reference at the top.
+                let var_name = match &tail.node {
+                    Expr::Var(v) => Some(v.clone()),
+                    _ => None,
+                };
+                let var_info = var_name.as_ref().and_then(|v| {
+                    self.stack.access_var(v);
+                    self.flush_stack_effects();
+                    self.find_var_depth_and_width(v)
+                });
+
+                if let Some((depth, width)) = var_info {
+                    if width == ret_width && depth == 0 {
+                        // Return variable is already at the top of the stack.
+                        // Just pop dead elements below it.
+                        let dead = depth_before_tail - ret_width;
+                        if dead > 0 {
+                            self.emit_multi_ret_cleanup(ret_width, dead);
+                        }
+                        // Skip building the tail expr (no dup needed).
+                    } else {
+                        self.build_expr(&tail.node);
+                        let to_pop = self.stack.stack_depth().saturating_sub(ret_width);
+                        if to_pop > 0 {
+                            self.emit_multi_ret_cleanup(ret_width, to_pop);
+                        }
+                    }
+                } else if depth_before_tail == ret_width {
+                    // Stack already has exactly ret_width elements —
+                    // the tail expression would just reconstruct what's
+                    // already in place. Skip it entirely.
+                } else {
+                    self.build_expr(&tail.node);
+                    let to_pop = self.stack.stack_depth().saturating_sub(ret_width);
+                    if to_pop > 0 {
+                        self.emit_multi_ret_cleanup(ret_width, to_pop);
+                    }
                 }
             }
-        } else if !has_return {
-            self.emit_pop(total_width);
+        } else {
+            // Single-element or void return: use the standard path.
+            self.build_block(&body.node);
+            let total_width = self.stack.stack_depth();
+
+            if has_return && total_width > 0 {
+                let to_pop = total_width.saturating_sub(ret_width);
+                if to_pop > 0 && to_pop <= 15 {
+                    self.ops.push(TIROp::Swap(to_pop));
+                    self.emit_pop(to_pop);
+                } else if to_pop > 0 {
+                    for _ in 0..to_pop {
+                        self.ops.push(TIROp::Swap(1));
+                        self.ops.push(TIROp::Pop(1));
+                    }
+                }
+            } else if !has_return {
+                self.emit_pop(total_width);
+            }
         }
 
         self.ops.push(TIROp::Return);
         self.ops.push(TIROp::FnEnd);
         self.stack.clear();
+    }
+
+    /// Emit cleanup for multi-element returns: remove `dead` elements below
+    /// the `ret_width`-wide return value at the top of the stack.
+    ///
+    /// When `dead` is a multiple of `ret_width`, uses `swap K; pop 1` × M
+    /// which rotates the return block by M positions — a multiple of K means
+    /// the rotation cancels and the original order is preserved.
+    ///
+    /// Otherwise, saves the return value to scratch RAM via bulk write_mem,
+    /// pops dead elements, and restores via bulk read_mem.
+    fn emit_multi_ret_cleanup(&mut self, ret_width: u32, dead: u32) {
+        let k = ret_width;
+        if dead % k == 0 {
+            // Rotation-free: M removals = M/K full rotations.
+            for _ in 0..dead {
+                self.ops.push(TIROp::Swap(k));
+                self.ops.push(TIROp::Pop(1));
+            }
+        } else if k <= 5 {
+            // Bulk save to RAM, pop dead, bulk restore.
+            // Uses write_mem K / read_mem K to avoid triggering spill elimination.
+            let scratch = self.stack.alloc_scratch(k);
+            // Move address below the K return elements.
+            self.ops.push(TIROp::Push(scratch));
+            for d in 1..=k {
+                self.ops.push(TIROp::Swap(d));
+            }
+            // Write K elements: [val_K, ..., val_1, addr] → [addr+K]
+            self.ops.push(TIROp::WriteMem(k));
+            self.ops.push(TIROp::Pop(1));
+            // Pop dead elements.
+            self.emit_pop(dead);
+            // Restore: read_mem K reads from [addr] → [val_1, ..., val_K, addr-K]
+            self.ops.push(TIROp::Push(scratch + k as u64 - 1));
+            self.ops.push(TIROp::ReadMem(k));
+            self.ops.push(TIROp::Pop(1));
+        } else {
+            // K > 5: fall back to element-by-element swap.
+            for _ in 0..dead {
+                self.ops.push(TIROp::Swap(k));
+                self.ops.push(TIROp::Pop(1));
+            }
+            let rotation = (k - (dead % k)) % k;
+            for _ in 0..rotation {
+                for d in 1..k {
+                    self.ops.push(TIROp::Swap(d));
+                }
+            }
+        }
     }
 }

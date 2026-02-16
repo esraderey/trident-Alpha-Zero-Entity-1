@@ -116,6 +116,15 @@ impl StackManager {
         self.on_stack.iter().map(|v| v.width).sum()
     }
 
+    /// Allocate `n` contiguous RAM addresses for scratch use.
+    /// Returns the base address. Advances the spill pointer so these
+    /// addresses won't conflict with future spills.
+    pub(crate) fn alloc_scratch(&mut self, n: u32) -> u64 {
+        let base = self.next_spill_addr;
+        self.next_spill_addr += n as u64;
+        base
+    }
+
     /// Number of entries on the operand stack.
     pub(crate) fn stack_len(&self) -> usize {
         self.on_stack.len()
