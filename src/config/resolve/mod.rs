@@ -77,10 +77,19 @@ fn find_lib_dir(env_var: &str, dir_name: &str) -> Option<PathBuf> {
         }
     }
 
-    // 3. Current working directory
-    let cwd_path = PathBuf::from(dir_name);
-    if cwd_path.is_dir() {
-        return Some(cwd_path);
+    // 3. Current working directory and ancestors
+    if let Ok(cwd) = std::env::current_dir() {
+        let mut dir = cwd.as_path();
+        loop {
+            let candidate = dir.join(dir_name);
+            if candidate.is_dir() {
+                return Some(candidate);
+            }
+            match dir.parent() {
+                Some(parent) => dir = parent,
+                None => break,
+            }
+        }
     }
 
     None
