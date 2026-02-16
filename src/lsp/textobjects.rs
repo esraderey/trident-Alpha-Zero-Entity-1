@@ -62,7 +62,8 @@ pub fn text_objects_at(file: &File, comments: &[Comment], offset: u32) -> Vec<Te
 
                 // Parameter text objects
                 for p in &f.params {
-                    let param_span = Span::new(0, p.name.span.start, p.ty.span.end);
+                    let param_span =
+                        Span::new(p.name.span.file_id, p.name.span.start, p.ty.span.end);
                     if contains(param_span, offset) {
                         objects.push(TextObject {
                             kind: TextObjectKind::Parameter,
@@ -164,7 +165,11 @@ fn collect_block_objects(block: &Block, offset: u32, objects: &mut Vec<TextObjec
                     inside: stmt.span,
                 });
                 for arm in arms {
-                    let arm_span = Span::new(0, arm.pattern.span.start, arm.body.span.end);
+                    let arm_span = Span::new(
+                        arm.pattern.span.file_id,
+                        arm.pattern.span.start,
+                        arm.body.span.end,
+                    );
                     if contains(arm_span, offset) {
                         objects.push(TextObject {
                             kind: TextObjectKind::MatchArm,
@@ -187,7 +192,7 @@ fn collect_block_objects(block: &Block, offset: u32, objects: &mut Vec<TextObjec
 /// inner contents (excluding `{` and `}`).
 fn shrink_braces(span: Span) -> Span {
     if span.end - span.start >= 2 {
-        Span::new(0, span.start + 1, span.end - 1)
+        Span::new(span.file_id, span.start + 1, span.end - 1)
     } else {
         span
     }

@@ -2,6 +2,7 @@ use crate::syntax::span::Span;
 
 /// Token type indices (must match mod.rs constants).
 const TT_KEYWORD: u32 = 0;
+const TT_VARIABLE: u32 = 3;
 const TT_NUMBER: u32 = 6;
 const TT_COMMENT: u32 = 7;
 const TT_NAMESPACE: u32 = 9;
@@ -92,7 +93,7 @@ pub(super) fn expand_asm_tokens(
     // 1. `asm` keyword (always first 3 bytes)
     if region.len() >= 3 && &region[..3] == b"asm" {
         tokens.push((
-            Span::new(0, block_span.start, block_span.start + 3),
+            Span::new(block_span.file_id, block_span.start, block_span.start + 3),
             TT_KEYWORD,
             0,
         ));
@@ -116,7 +117,7 @@ pub(super) fn expand_asm_tokens(
                 pos += 1;
             }
             tokens.push((
-                span_at(block_span.start, start + word_start, start + pos),
+                span_at(block_span.file_id, start + word_start, start + pos),
                 TT_NAMESPACE,
                 0,
             ));
@@ -126,11 +127,11 @@ pub(super) fn expand_asm_tokens(
             if pos < region.len() && region[pos] == b',' {
                 pos += 1;
                 skip_ws(region, &mut pos);
-                scan_effect_token(region, &mut pos, block_span.start, start, &mut tokens);
+                scan_effect_token(region, &mut pos, block_span.file_id, start, &mut tokens);
             }
         } else {
             // Effect number directly
-            scan_effect_token(region, &mut pos, block_span.start, start, &mut tokens);
+            scan_effect_token(region, &mut pos, block_span.file_id, start, &mut tokens);
         }
 
         // Skip to closing ')'
@@ -155,7 +156,14 @@ pub(super) fn expand_asm_tokens(
         };
 
         // Tokenize the body
-        tokenize_asm_body(region, pos, body_end, block_span.start, start, &mut tokens);
+        tokenize_asm_body(
+            region,
+            pos,
+            body_end,
+            block_span.file_id,
+            start,
+            &mut tokens,
+        );
     }
 
     tokens
@@ -166,7 +174,7 @@ fn tokenize_asm_body(
     region: &[u8],
     mut pos: usize,
     end: usize,
-    span_base: u32,
+    file_id: u16,
     abs_start: usize,
     tokens: &mut Vec<(Span, u32, u32)>,
 ) {
@@ -184,7 +192,7 @@ fn tokenize_asm_body(
                 pos += 1;
             }
             tokens.push((
-                span_at(span_base, abs_start + comment_start, abs_start + pos),
+                span_at(file_id, abs_start + comment_start, abs_start + pos),
                 TT_COMMENT,
                 0,
             ));
@@ -203,7 +211,7 @@ fn tokenize_asm_body(
                 pos += 1;
             }
             tokens.push((
-                span_at(span_base, abs_start + num_start, abs_start + pos),
+                span_at(file_id, abs_start + num_start, abs_start + pos),
                 TT_NUMBER,
                 0,
             ));
@@ -220,10 +228,10 @@ fn tokenize_asm_body(
             let (tt, mods) = if TRITON_INSTRUCTIONS.contains(&word) {
                 (TT_KEYWORD, MOD_DEFAULT_LIBRARY)
             } else {
-                (TT_KEYWORD, MOD_DEFAULT_LIBRARY)
+                (TT_VARIABLE, 0)
             };
             tokens.push((
-                span_at(span_base, abs_start + word_start, abs_start + pos),
+                span_at(file_id, abs_start + word_start, abs_start + pos),
                 tt,
                 mods,
             ));
@@ -238,7 +246,7 @@ fn tokenize_asm_body(
 fn scan_effect_token(
     region: &[u8],
     pos: &mut usize,
-    _span_base: u32,
+    file_id: u16,
     abs_start: usize,
     tokens: &mut Vec<(Span, u32, u32)>,
 ) {
@@ -254,7 +262,11 @@ fn scan_effect_token(
     }
     if *pos > eff_start {
         tokens.push((
-            Span::new(0, (abs_start + eff_start) as u32, (abs_start + *pos) as u32),
+            Span::new(
+                file_id,
+                (abs_start + eff_start) as u32,
+                (abs_start + *pos) as u32,
+            ),
             TT_NUMBER,
             0,
         ));
@@ -271,6 +283,6 @@ fn is_ident_char(b: u8) -> bool {
     b.is_ascii_alphanumeric() || b == b'_'
 }
 
-fn span_at(_span_base: u32, abs_start: usize, abs_end: usize) -> Span {
-    Span::new(0, abs_start as u32, abs_end as u32)
+fn span_at(file_id: u16, abs_start: usize, abs_end: usize) -> Span {
+    Span::new(file_id, abs_start as u32, abs_end as u32)
 }

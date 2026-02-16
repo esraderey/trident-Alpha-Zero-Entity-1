@@ -3,7 +3,7 @@ use tower_lsp::lsp_types::*;
 use crate::syntax::lexeme::Lexeme;
 use crate::syntax::span::Spanned;
 
-use super::util::position_to_byte_offset;
+use super::util::{byte_offset_to_position, position_to_byte_offset};
 
 const INDENT: &str = "    ";
 
@@ -48,8 +48,8 @@ fn indent_new_line(
 
     Some(vec![TextEdit {
         range: Range::new(
-            byte_to_position(source, line_start),
-            byte_to_position(source, existing_ws_end),
+            byte_offset_to_position(source, line_start),
+            byte_offset_to_position(source, existing_ws_end),
         ),
         new_text: indent,
     }])
@@ -82,8 +82,8 @@ fn outdent_closing_brace(
     let brace_end = offset;
     Some(vec![TextEdit {
         range: Range::new(
-            byte_to_position(source, line_start),
-            byte_to_position(source, brace_end.saturating_sub(1)),
+            byte_offset_to_position(source, line_start),
+            byte_offset_to_position(source, brace_end.saturating_sub(1)),
         ),
         new_text: indent,
     }])
@@ -114,15 +114,6 @@ fn brace_depth_at(tokens: &[Spanned<Lexeme>], offset: usize) -> u32 {
 /// Find the byte offset of the start of the line containing `offset`.
 fn line_start_offset(source: &str, offset: usize) -> usize {
     source[..offset].rfind('\n').map(|i| i + 1).unwrap_or(0)
-}
-
-/// Convert a byte offset to an LSP Position.
-fn byte_to_position(source: &str, offset: usize) -> Position {
-    let offset = offset.min(source.len());
-    let before = &source[..offset];
-    let line = before.matches('\n').count() as u32;
-    let col = before.len() - before.rfind('\n').map(|i| i + 1).unwrap_or(0);
-    Position::new(line, col as u32)
 }
 
 #[cfg(test)]
