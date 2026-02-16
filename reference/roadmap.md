@@ -72,7 +72,6 @@ TIR       Per-function benchmarks < 1.2x vs hand-written baselines
 compiler  Pipeline fully in Trident — compiler compiles itself
 std.*     #[requires]/#[ensures] contracts on all public functions
 os.*      Per-OS namespace governance established
-tooling   ZK coprocessor integrations (Axiom, Brevis, Herodotus)
 AI        Proven training: gradient computation inside proof
 Privacy   FHE + ZK: prove correctness of encrypted computation
 Quantum   Quantum error correction in std.quantum
@@ -87,7 +86,7 @@ TIR       Cost-driven optimization passes land
 compiler  Each compilation produces a proof certificate (self-proving)
 std.*     std.crypto.* formally verified (poseidon, merkle, ecdsa)
 os.*      os.neptune.* frozen
-tooling   GPU-accelerated proving
+tooling   GPU proving, ZK coprocessor integrations
 AI        GPT-class proven inference (billion+ parameters)
 Privacy   Multi-party FHE: N parties compute, none sees others' data
 Quantum   Real hardware backends (IBM, Google, IonQ)
