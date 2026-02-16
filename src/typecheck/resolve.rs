@@ -48,11 +48,7 @@ impl TypeChecker {
 
     /// Recursively match an AST type pattern against a concrete Ty to extract
     /// size parameter bindings. E.g. `[Field; N]` vs `[Field; 5]` -> N=5.
-    pub(super) fn unify_sizes(
-        pattern: &Type,
-        concrete: &Ty,
-        subs: &mut BTreeMap<String, u64>,
-    ) {
+    pub(super) fn unify_sizes(pattern: &Type, concrete: &Ty, subs: &mut BTreeMap<String, u64>) {
         match (pattern, concrete) {
             (Type::Array(inner_pat, ArraySize::Param(name)), Ty::Array(inner_ty, size)) => {
                 subs.insert(name.clone(), *size);
@@ -70,16 +66,12 @@ impl TypeChecker {
         }
     }
 
-    pub(super) fn resolve_type(&self, ty: &Type) -> Ty {
+    pub(super) fn resolve_type(&mut self, ty: &Type) -> Ty {
         self.resolve_type_with_subs(ty, &BTreeMap::new())
     }
 
     /// Resolve an AST type to a semantic type, substituting size parameters.
-    pub(super) fn resolve_type_with_subs(
-        &self,
-        ty: &Type,
-        subs: &BTreeMap<String, u64>,
-    ) -> Ty {
+    pub(super) fn resolve_type_with_subs(&mut self, ty: &Type, subs: &BTreeMap<String, u64>) -> Ty {
         match ty {
             Type::Field => Ty::Field,
             Type::XField => Ty::XField(self.target_config.xfield_width),
@@ -90,17 +82,19 @@ impl TypeChecker {
                 let size = n.eval(subs);
                 Ty::Array(Box::new(self.resolve_type_with_subs(inner, subs)), size)
             }
-            Type::Tuple(elems) => Ty::Tuple(
-                elems
+            Type::Tuple(elems) => {
+                let resolved: Vec<Ty> = elems
                     .iter()
                     .map(|t| self.resolve_type_with_subs(t, subs))
-                    .collect(),
-            ),
+                    .collect();
+                Ty::Tuple(resolved)
+            }
             Type::Named(path) => {
                 let name = path.as_dotted();
                 if let Some(sty) = self.structs.get(&name) {
                     Ty::Struct(sty.clone())
                 } else {
+                    self.error(format!("unknown type '{}'", name), Span::dummy());
                     Ty::Field
                 }
             }
