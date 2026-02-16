@@ -335,6 +335,53 @@ pub fn run_tests(
     Ok(report)
 }
 
+/// Compile a module and emit TASM for all its functions (no linking, no DCE).
+/// Dependencies are resolved and type-checked, but only the target module's
+/// TASM is returned. Labels use the raw `__funcname:` format.
+pub fn compile_module(
+    module_path: &Path,
+    options: &CompileOptions,
+) -> Result<String, Vec<Diagnostic>> {
+    use crate::pipeline::PreparedProject;
+
+    let project = PreparedProject::build(module_path, options)?;
+
+    let intrinsic_map = project.intrinsic_map();
+    let module_aliases = project.module_aliases();
+    let external_constants = project.external_constants();
+
+    // Emit TASM for only the target module (last in topological order)
+    if let Some((i, pm)) = project.modules.iter().enumerate().last() {
+        let mono = project
+            .exports
+            .get(i)
+            .map(|e| e.mono_instances.clone())
+            .unwrap_or_default();
+        let call_res = project
+            .exports
+            .get(i)
+            .map(|e| e.call_resolutions.clone())
+            .unwrap_or_default();
+        let ir = TIRBuilder::new(options.target_config.clone())
+            .with_cfg_flags(options.cfg_flags.clone())
+            .with_intrinsics(intrinsic_map)
+            .with_module_aliases(module_aliases)
+            .with_constants(external_constants)
+            .with_mono_instances(mono)
+            .with_call_resolutions(call_res)
+            .build_file(&pm.file);
+        let ir = optimize_tir(ir);
+        let lowering = create_stack_lowering(&options.target_config.name);
+        let tasm = lowering.lower(&ir).join("\n");
+        Ok(tasm)
+    } else {
+        Err(vec![Diagnostic::error(
+            "no module found".to_string(),
+            span::Span::dummy(),
+        )])
+    }
+}
+
 pub(crate) mod doc;
 pub(crate) mod pipeline;
 mod tools;

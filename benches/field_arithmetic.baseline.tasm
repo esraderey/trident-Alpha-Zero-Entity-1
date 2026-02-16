@@ -1,9 +1,0 @@
-// Hand-written TASM: field arithmetic
-// a + b, a * b, sum + prod
-    read_io 1
-    read_io 1
-    dup 1 dup 1 add
-    dup 2 dup 2 mul
-    add
-    write_io 1
-    halt

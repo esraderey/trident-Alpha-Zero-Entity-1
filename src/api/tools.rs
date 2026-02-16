@@ -65,118 +65,179 @@ pub fn count_tasm_instructions(tasm: &str) -> usize {
         .count()
 }
 
-/// Benchmark result for a single program.
-#[derive(Clone, Debug)]
-pub struct BenchmarkResult {
-    pub name: String,
-    pub trident_instructions: usize,
-    pub baseline_instructions: usize,
-    pub overhead_ratio: f64,
-    pub trident_padded_height: u64,
-    pub baseline_padded_height: u64,
+/// Parse TASM into per-function instruction counts.
+/// Returns a BTreeMap from function name (without `__` prefix) to instruction count.
+/// Only counts labeled functions; unlabeled preamble code is ignored.
+pub fn parse_tasm_functions(tasm: &str) -> BTreeMap<String, usize> {
+    let mut functions = BTreeMap::new();
+    let mut current_label: Option<String> = None;
+    let mut current_count: usize = 0;
+
+    for line in tasm.lines() {
+        let trimmed = line.trim();
+        if trimmed.is_empty() || trimmed.starts_with("//") {
+            continue;
+        }
+        if trimmed.ends_with(':') {
+            if let Some(label) = current_label.take() {
+                if current_count > 0 {
+                    functions.insert(label, current_count);
+                }
+            }
+            let raw = trimmed.trim_end_matches(':');
+            // Normalize label: strip `__` prefix or module-mangled prefix.
+            // `__funcname` -> `funcname`
+            // `std_crypto_mod__funcname` -> `funcname`
+            // `__then__0` -> skip (compiler-internal deferred block)
+            let name = if let Some(pos) = raw.rfind("__") {
+                let suffix = &raw[pos + 2..];
+                if suffix.is_empty() || suffix.chars().all(|c| c.is_ascii_digit()) {
+                    // Deferred block (then/else/while + numeric id) — skip
+                    current_label = None;
+                    current_count = 0;
+                    continue;
+                }
+                suffix
+            } else {
+                raw
+            };
+            current_label = Some(name.to_string());
+            current_count = 0;
+            continue;
+        }
+        if trimmed == "halt" {
+            continue;
+        }
+        if current_label.is_some() {
+            current_count += 1;
+        }
+    }
+    if let Some(label) = current_label {
+        if current_count > 0 {
+            functions.insert(label, current_count);
+        }
+    }
+    functions
 }
 
-impl BenchmarkResult {
-    /// Format a number with comma separators (e.g. 2097152 -> "2,097,152").
-    fn fmt_num(n: u64) -> String {
-        if n == 0 {
-            return "\u{2014}".to_string(); // em dash for zero/missing
-        }
-        let s = n.to_string();
-        let mut result = String::with_capacity(s.len() + s.len() / 3);
-        for (i, ch) in s.chars().enumerate() {
-            if i > 0 && (s.len() - i) % 3 == 0 {
-                result.push(',');
-            }
-            result.push(ch);
-        }
-        result
-    }
+/// Per-function benchmark comparison.
+#[derive(Clone, Debug)]
+pub struct FunctionBenchmark {
+    pub name: String,
+    pub compiled_instructions: usize,
+    pub baseline_instructions: usize,
+    pub overhead_ratio: f64,
+}
 
-    /// Format the ratio column with color hint.
-    fn fmt_ratio(&self) -> String {
-        if self.baseline_instructions == 0 {
-            "\u{2014}".to_string()
-        } else if self.overhead_ratio <= 1.0 {
-            format!("{:.2}x", self.overhead_ratio)
-        } else {
-            format!("{:.2}x", self.overhead_ratio)
+/// Module-level benchmark result with per-function comparisons.
+#[derive(Clone, Debug)]
+pub struct ModuleBenchmarkResult {
+    pub module_path: String,
+    pub functions: Vec<FunctionBenchmark>,
+    pub total_compiled: usize,
+    pub total_baseline: usize,
+    pub overall_ratio: f64,
+}
+
+/// Format a number with comma separators (e.g. 2097152 -> "2,097,152").
+fn fmt_num(n: usize) -> String {
+    if n == 0 {
+        return "\u{2014}".to_string();
+    }
+    let s = n.to_string();
+    let mut result = String::with_capacity(s.len() + s.len() / 3);
+    for (i, ch) in s.chars().enumerate() {
+        if i > 0 && (s.len() - i) % 3 == 0 {
+            result.push(',');
         }
+        result.push(ch);
     }
+    result
+}
 
-    /// Format the status indicator.
-    fn status(&self) -> &'static str {
-        if self.baseline_instructions == 0 {
-            " "
-        } else if self.overhead_ratio <= 1.0 {
-            "\u{2713}" // checkmark — compiler beats hand
-        } else if self.overhead_ratio <= 2.0 {
-            "\u{2713}" // checkmark — within 2x target
-        } else {
-            "\u{25b3}" // triangle — above target
-        }
+fn fmt_ratio(ratio: f64) -> String {
+    if ratio <= 0.0 {
+        "\u{2014}".to_string()
+    } else {
+        format!("{:.2}x", ratio)
     }
+}
 
-    pub fn format(&self) -> String {
-        format!(
-            "\u{2502} {:<16} \u{2502} {:>8} \u{2502} {:>8} \u{2502} {:>7} \u{2502} {:>10} \u{2502} {:>10} \u{2502} {} \u{2502}",
-            self.name,
-            Self::fmt_num(self.trident_instructions as u64),
-            Self::fmt_num(self.baseline_instructions as u64),
-            self.fmt_ratio(),
-            Self::fmt_num(self.trident_padded_height),
-            Self::fmt_num(self.baseline_padded_height),
-            self.status(),
-        )
+fn status_icon(ratio: f64) -> &'static str {
+    if ratio <= 0.0 {
+        " "
+    } else if ratio <= 2.0 {
+        "\u{2713}"
+    } else {
+        "\u{25b3}"
     }
+}
 
+impl ModuleBenchmarkResult {
     pub fn format_header() -> String {
         let top = format!(
-            "\u{250c}{}\u{252c}{}\u{252c}{}\u{252c}{}\u{252c}{}\u{252c}{}\u{252c}{}\u{2510}",
-            "\u{2500}".repeat(18),
+            "\u{250c}{}\u{252c}{}\u{252c}{}\u{252c}{}\u{252c}{}\u{2510}",
+            "\u{2500}".repeat(30),
             "\u{2500}".repeat(10),
             "\u{2500}".repeat(10),
             "\u{2500}".repeat(9),
-            "\u{2500}".repeat(12),
-            "\u{2500}".repeat(12),
             "\u{2500}".repeat(3),
         );
         let header = format!(
-            "\u{2502} {:<16} \u{2502} {:>8} \u{2502} {:>8} \u{2502} {:>7} \u{2502} {:>10} \u{2502} {:>10} \u{2502}   \u{2502}",
-            "Benchmark", "Tri", "Hand", "Ratio", "TriPad", "HandPad"
+            "\u{2502} {:<28} \u{2502} {:>8} \u{2502} {:>8} \u{2502} {:>7} \u{2502}   \u{2502}",
+            "Function", "Tri", "Hand", "Ratio"
         );
         let mid = format!(
-            "\u{251c}{}\u{253c}{}\u{253c}{}\u{253c}{}\u{253c}{}\u{253c}{}\u{253c}{}\u{2524}",
-            "\u{2500}".repeat(18),
+            "\u{251c}{}\u{253c}{}\u{253c}{}\u{253c}{}\u{253c}{}\u{2524}",
+            "\u{2500}".repeat(30),
             "\u{2500}".repeat(10),
             "\u{2500}".repeat(10),
             "\u{2500}".repeat(9),
-            "\u{2500}".repeat(12),
-            "\u{2500}".repeat(12),
             "\u{2500}".repeat(3),
         );
         format!("{}\n{}\n{}", top, header, mid)
     }
 
-    pub fn format_separator() -> String {
+    pub fn format_module_header(&self) -> String {
         format!(
-            "\u{2514}{}\u{2534}{}\u{2534}{}\u{2534}{}\u{2534}{}\u{2534}{}\u{2534}{}\u{2518}",
-            "\u{2500}".repeat(18),
+            "\u{251c}{}\u{253c}{}\u{253c}{}\u{253c}{}\u{253c}{}\u{2524}\n\u{2502} {:<28} \u{2502} {:>8} \u{2502} {:>8} \u{2502} {:>7} \u{2502} {} \u{2502}",
+            "\u{2500}".repeat(30),
             "\u{2500}".repeat(10),
             "\u{2500}".repeat(10),
             "\u{2500}".repeat(9),
-            "\u{2500}".repeat(12),
-            "\u{2500}".repeat(12),
+            "\u{2500}".repeat(3),
+            self.module_path,
+            fmt_num(self.total_compiled),
+            fmt_num(self.total_baseline),
+            fmt_ratio(self.overall_ratio),
+            status_icon(self.overall_ratio),
+        )
+    }
+
+    pub fn format_function(&self, f: &FunctionBenchmark) -> String {
+        format!(
+            "\u{2502}   {:<26} \u{2502} {:>8} \u{2502} {:>8} \u{2502} {:>7} \u{2502} {} \u{2502}",
+            f.name,
+            fmt_num(f.compiled_instructions),
+            fmt_num(f.baseline_instructions),
+            fmt_ratio(f.overhead_ratio),
+            status_icon(f.overhead_ratio),
+        )
+    }
+
+    pub fn format_separator() -> String {
+        format!(
+            "\u{2514}{}\u{2534}{}\u{2534}{}\u{2534}{}\u{2534}{}\u{2518}",
+            "\u{2500}".repeat(30),
+            "\u{2500}".repeat(10),
+            "\u{2500}".repeat(10),
+            "\u{2500}".repeat(9),
             "\u{2500}".repeat(3),
         )
     }
 
-    /// Format the summary line with box drawing.
     pub fn format_summary(avg: f64, max: f64, count: usize) -> String {
-        format!(
-            "  Avg: {:.2}x  Max: {:.2}x  ({} with baselines)",
-            avg, max, count
-        )
+        format!("  Avg: {:.2}x  Max: {:.2}x  ({} modules)", avg, max, count)
     }
 }
 
