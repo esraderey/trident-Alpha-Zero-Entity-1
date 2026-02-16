@@ -1,6 +1,6 @@
 # Roadmap
 
-Trident exists to write CORE — Conserved Observable Reduction
+Trident exists to write [CORE](https://cyber.page/core-spec/) — Conserved Observable Reduction
 Equilibrium, a self-verifying substrate for planetary collective
 intelligence. 16 reduction patterns, field-first arithmetic, BBG
 state, focus dynamics — all written in Trident, all provable.
@@ -37,9 +37,13 @@ Quantum         256K        128K
 
 ```
 CORE      16 patterns implemented in Trident (reference evaluator)
-AI        Tensor operations in TIR (matmul, conv, attention)
-Privacy   FHE primitives in std.crypto (TFHE, BGV, CKKS)
-Quantum   Quantum gate set in TIR (Hadamard, CNOT, Toffoli, measure)
+AI        Tensor operations (dot, matmul, relu, dense) — DONE: std.nn.tensor
+Privacy   Polynomial ops and NTT for FHE — DONE: std.private.poly
+Quantum   Quantum gate set (H, X, Y, Z, S, T, CNOT, CZ, SWAP) — DONE: std.quantum.gates
+tooling   Amazing cli
+tooling   Integration tests and formal verification
+tooling   Beatiful website
+tooling   Complete behcmark coverage
 ```
 
 ## 128K — the machine assembles
@@ -50,7 +54,6 @@ TIR       Lowering works for stack, register, and tree targets
 compiler  Lexer + parser rewritten in .tri
 std.*     std.token, std.coin, std.card shipped
 os.*      os.neptune.* complete, Atlas on-chain registry live
-tooling   beatiful website
 AI        Small model inference compiles to provable Trident
 Privacy   Trident programs compile to FHE circuits
 Quantum   Quantum circuit simulation backend
