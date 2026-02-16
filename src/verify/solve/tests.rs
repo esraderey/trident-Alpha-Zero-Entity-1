@@ -85,7 +85,8 @@ fn test_field_operations() {
     assert_eq!(field_sub(0, 1), GOLDILOCKS_P - 1);
     assert_eq!(field_neg(0), 0);
     assert_eq!(field_neg(1), GOLDILOCKS_P - 1);
-    assert_eq!(field_mul(field_inv(7), 7), 1);
+    assert_eq!(field_mul(field_inv(7).expect("7 is nonzero"), 7), 1);
+    assert!(field_inv(0).is_none());
 }
 
 #[test]

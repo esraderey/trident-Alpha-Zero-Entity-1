@@ -43,9 +43,12 @@ pub(crate) fn field_pow(base: u64, mut exp: u64) -> u64 {
 }
 
 /// Multiplicative inverse: a^(p-2) mod p (Fermat's little theorem).
-pub(crate) fn field_inv(a: u64) -> u64 {
-    assert!(a != 0, "inverse of zero");
-    field_pow(a, GOLDILOCKS_P - 2)
+/// Returns `None` for zero (which has no inverse).
+pub(crate) fn field_inv(a: u64) -> Option<u64> {
+    if a == 0 {
+        return None;
+    }
+    Some(field_pow(a, GOLDILOCKS_P - 2))
 }
 
 // ─── Pseudo-Random Number Generator ────────────────────────────────
@@ -129,11 +132,7 @@ impl<'a> Evaluator<'a> {
             }
             SymValue::Inv(a) => {
                 let a = self.eval(a)?;
-                if a == 0 {
-                    None // Division by zero
-                } else {
-                    Some(field_inv(a))
-                }
+                field_inv(a)
             }
             SymValue::Eq(a, b) => {
                 let a = self.eval(a)?;
