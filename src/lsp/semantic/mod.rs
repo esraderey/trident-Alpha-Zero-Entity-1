@@ -62,7 +62,7 @@ pub fn token_legend() -> SemanticTokensLegend {
 
 /// Generate semantic tokens from cached document state (no re-lex).
 pub(super) fn semantic_tokens_from_cache(doc: &DocumentState) -> Vec<SemanticToken> {
-    let builtin_names: std::collections::HashSet<String> =
+    let builtin_names: std::collections::BTreeSet<String> =
         builtin_completions().into_iter().map(|(n, _)| n).collect();
 
     let raw = classify_all(
@@ -85,7 +85,7 @@ fn semantic_tokens(source: &str, _file_path: &std::path::Path) -> Vec<SemanticTo
         Err(_) => BTreeMap::new(),
     };
 
-    let builtin_names: std::collections::HashSet<String> =
+    let builtin_names: std::collections::BTreeSet<String> =
         builtin_completions().into_iter().map(|(n, _)| n).collect();
 
     let raw = classify_all(source, &tokens, &comments, &name_kinds, &builtin_names);
@@ -99,7 +99,7 @@ fn classify_all(
     tokens: &[Spanned<Lexeme>],
     comments: &[Comment],
     name_kinds: &BTreeMap<String, (NameKind, u32)>,
-    builtins: &std::collections::HashSet<String>,
+    builtins: &std::collections::BTreeSet<String>,
 ) -> Vec<(crate::syntax::span::Span, u32, u32)> {
     let mut raw = Vec::new();
 
@@ -174,7 +174,7 @@ fn semantic_token_eq(a: &SemanticToken, b: &SemanticToken) -> bool {
 fn classify_lexeme(
     lexeme: &Lexeme,
     name_kinds: &BTreeMap<String, (NameKind, u32)>,
-    builtins: &std::collections::HashSet<String>,
+    builtins: &std::collections::BTreeSet<String>,
 ) -> Option<(u32, u32)> {
     match lexeme {
         Lexeme::Program

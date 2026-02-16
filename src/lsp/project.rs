@@ -1,6 +1,6 @@
 //! Project-level helpers: symbol index, exports, function costs.
 
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 use tower_lsp::lsp_types::*;
@@ -27,8 +27,8 @@ pub(super) fn find_project_entry(file_path: &Path) -> PathBuf {
 
 impl TridentLsp {
     /// Build a symbol index mapping names to (uri, range) for go-to-definition.
-    pub(super) fn build_symbol_index(&self, file_path: &Path) -> HashMap<String, (Url, Range)> {
-        let mut index = HashMap::new();
+    pub(super) fn build_symbol_index(&self, file_path: &Path) -> BTreeMap<String, (Url, Range)> {
+        let mut index = BTreeMap::new();
         let entry = find_project_entry(file_path);
 
         let modules = match resolve_modules(&entry) {
