@@ -23,7 +23,7 @@ pub fn cmd_bench(args: BenchArgs) {
         .unwrap_or_else(|| std::path::Path::new("."));
 
     // Recursively find all .baseline.tasm files
-    let mut baselines = find_baseline_files(&bench_dir);
+    let mut baselines = find_baseline_files(&bench_dir, 0);
     baselines.sort();
 
     if baselines.is_empty() {
@@ -158,14 +158,17 @@ pub fn cmd_bench(args: BenchArgs) {
     eprintln!();
 }
 
-/// Recursively find all .baseline.tasm files in a directory.
-fn find_baseline_files(dir: &std::path::Path) -> Vec<PathBuf> {
+/// Recursively find all .baseline.tasm files in a directory (depth-limited).
+fn find_baseline_files(dir: &std::path::Path, depth: usize) -> Vec<PathBuf> {
+    if depth >= 64 {
+        return Vec::new();
+    }
     let mut files = Vec::new();
     if let Ok(entries) = std::fs::read_dir(dir) {
         for entry in entries.flatten() {
             let path = entry.path();
             if path.is_dir() {
-                files.extend(find_baseline_files(&path));
+                files.extend(find_baseline_files(&path, depth + 1));
             } else if path
                 .file_name()
                 .is_some_and(|n| n.to_string_lossy().ends_with(".baseline.tasm"))

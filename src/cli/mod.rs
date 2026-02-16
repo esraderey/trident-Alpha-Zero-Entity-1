@@ -334,12 +334,18 @@ pub fn resolve_tri_files(input: &Path) -> Vec<PathBuf> {
 
 fn collect_tri_files(dir: &Path) -> Vec<PathBuf> {
     let mut result = Vec::new();
-    collect_tri_files_recursive(dir, &mut result);
+    collect_tri_files_recursive(dir, &mut result, 0);
     result.sort();
     result
 }
 
-fn collect_tri_files_recursive(dir: &Path, result: &mut Vec<PathBuf>) {
+const MAX_DIR_DEPTH: usize = 64;
+
+fn collect_tri_files_recursive(dir: &Path, result: &mut Vec<PathBuf>, depth: usize) {
+    if depth >= MAX_DIR_DEPTH {
+        return;
+    }
+
     let entries = match std::fs::read_dir(dir) {
         Ok(e) => e,
         Err(_) => return,
@@ -356,7 +362,7 @@ fn collect_tri_files_recursive(dir: &Path, result: &mut Vec<PathBuf>) {
         }
 
         if path.is_dir() {
-            collect_tri_files_recursive(&path, result);
+            collect_tri_files_recursive(&path, result, depth + 1);
         } else if path.extension().is_some_and(|e| e == "tri") {
             result.push(path);
         }
