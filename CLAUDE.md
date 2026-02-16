@@ -368,6 +368,8 @@ Recommended agent partitions for full-repo work:
   ask before committing.
 - Conventional commits. Use prefixes: `feat:`, `fix:`, `refactor:`,
   `docs:`, `test:`, `chore:`.
+- Rebuild after commit. Run `cargo install --path . --force` after
+  every commit so the installed `trident` binary stays current.
 
 ## Agent Audit Workspace
 
