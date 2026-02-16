@@ -128,8 +128,9 @@ impl Parser {
                 // Check for generic args: name<3>(...) or name<N>(...)
                 let generic_args = self.parse_call_generic_args();
 
-                if self.at(&Lexeme::LParen) {
-                    // Function call
+                if self.at(&Lexeme::LParen) && self.same_line(self.prev_span(), self.current_span())
+                {
+                    // Function call (only if `(` is on the same line as the identifier)
                     self.advance();
                     let args = self.parse_call_args();
                     self.expect(&Lexeme::RParen);

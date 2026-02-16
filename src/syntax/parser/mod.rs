@@ -18,6 +18,8 @@ pub(crate) struct Parser {
     pos: usize,
     diagnostics: Vec<Diagnostic>,
     depth: u32,
+    /// Source bytes for newline detection (empty if unavailable).
+    source: Vec<u8>,
 }
 
 impl Parser {
@@ -27,7 +29,32 @@ impl Parser {
             pos: 0,
             diagnostics: Vec::new(),
             depth: 0,
+            source: Vec::new(),
         }
+    }
+
+    pub(crate) fn new_with_source(tokens: Vec<Spanned<Lexeme>>, source: &str) -> Self {
+        Self {
+            tokens,
+            pos: 0,
+            diagnostics: Vec::new(),
+            depth: 0,
+            source: source.as_bytes().to_vec(),
+        }
+    }
+
+    /// Check if two spans are on the same line (no newline between them).
+    /// Returns true if source is unavailable (conservative: assume same line).
+    fn same_line(&self, a: Span, b: Span) -> bool {
+        if self.source.is_empty() {
+            return true;
+        }
+        let start = a.end as usize;
+        let end = (b.start as usize).min(self.source.len());
+        if start >= end {
+            return true;
+        }
+        !self.source[start..end].contains(&b'\n')
     }
 
     pub(crate) fn parse_file(mut self) -> Result<File, Vec<Diagnostic>> {

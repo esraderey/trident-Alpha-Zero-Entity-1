@@ -53,7 +53,7 @@ pub(crate) fn parse_source(source: &str, filename: &str) -> Result<ast::File, Ve
         return Err(lex_errors);
     }
 
-    match Parser::new(tokens).parse_file() {
+    match Parser::new_with_source(tokens, source).parse_file() {
         Ok(file) => Ok(file),
         Err(errors) => {
             render_diagnostics(&errors, filename, source);
@@ -67,5 +67,5 @@ pub fn parse_source_silent(source: &str, _filename: &str) -> Result<ast::File, V
     if !lex_errors.is_empty() {
         return Err(lex_errors);
     }
-    Parser::new(tokens).parse_file()
+    Parser::new_with_source(tokens, source).parse_file()
 }
