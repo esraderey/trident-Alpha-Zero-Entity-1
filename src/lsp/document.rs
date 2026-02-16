@@ -11,7 +11,7 @@ use crate::syntax::span::Spanned;
 
 /// Name classification for identifier highlighting.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(super) enum NameKind {
+pub(crate) enum NameKind {
     Function,
     Type,
     Parameter,
@@ -22,7 +22,7 @@ pub(super) enum NameKind {
 }
 
 /// Cached state for a single open document.
-pub(super) struct DocumentState {
+pub(crate) struct DocumentState {
     /// Current full source text.
     pub source: String,
     /// Cached lexer output: tokens sorted by byte offset.
