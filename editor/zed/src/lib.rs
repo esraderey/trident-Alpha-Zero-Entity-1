@@ -13,22 +13,23 @@ impl zed::Extension for TridentExtension {
         worktree: &zed::Worktree,
     ) -> Result<zed::Command> {
         let env = worktree.shell_env();
-        let home_bin = || {
-            env.iter()
-                .find(|(k, _)| k == "HOME")
-                .map(|(_, home)| format!("{}/.cargo/bin", home))
-        };
+        let cargo_bin = env
+            .iter()
+            .find(|(k, _)| k == "HOME")
+            .map(|(_, home)| format!("{}/.cargo/bin/trident-lsp", home));
 
-        if let Some(path) = worktree.which("trident-lsp") {
+        // Prefer the installed release binary — worktree.which() can find
+        // target/debug/trident-lsp when editing the trident repo itself,
+        // which is a debug build and may fail to spawn.
+        if let Some(ref path) = cargo_bin {
             return Ok(zed::Command {
-                command: path,
+                command: path.clone(),
                 args: vec![],
                 env,
             });
         }
 
-        if let Some(bin) = home_bin() {
-            let path = format!("{}/trident-lsp", bin);
+        if let Some(path) = worktree.which("trident-lsp") {
             return Ok(zed::Command {
                 command: path,
                 args: vec![],
