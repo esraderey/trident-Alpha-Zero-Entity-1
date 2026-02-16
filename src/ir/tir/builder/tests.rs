@@ -652,3 +652,102 @@ fn pass_through_user_call_emits_call_and_return() {
     );
     assert!(matches!(wrapper_ops[1], TIROp::Call(ref n) if n == "target"));
 }
+
+// ── Test: multi-width pass-through (Digest params) ──
+
+#[test]
+fn pass_through_multi_width_params_emits_minimal_ops() {
+    // fn wrapper(a: Digest, b: Digest) -> Digest { target(a, b) }
+    // Digest is 5 elements wide. Without multi-width pass-through, the
+    // compiler would dup/register all 10 stack elements, then rebuild them
+    // for the call. With the optimization, it emits just Call + Return.
+    let file = File {
+        kind: FileKind::Module,
+        name: sp("test".to_string()),
+        uses: vec![],
+        declarations: vec![],
+        items: vec![
+            sp(Item::Fn(FnDef {
+                is_pub: true,
+                cfg: None,
+                intrinsic: None,
+                is_test: false,
+                is_pure: false,
+                requires: vec![],
+                ensures: vec![],
+                name: sp("target".to_string()),
+                type_params: vec![],
+                params: vec![
+                    Param {
+                        name: sp("a".to_string()),
+                        ty: sp(Type::Digest),
+                    },
+                    Param {
+                        name: sp("b".to_string()),
+                        ty: sp(Type::Digest),
+                    },
+                ],
+                return_ty: Some(sp(Type::Digest)),
+                body: Some(sp(Block {
+                    stmts: vec![],
+                    tail_expr: Some(Box::new(sp(Expr::Var("a".to_string())))),
+                })),
+            })),
+            sp(Item::Fn(FnDef {
+                is_pub: true,
+                cfg: None,
+                intrinsic: None,
+                is_test: false,
+                is_pure: false,
+                requires: vec![],
+                ensures: vec![],
+                name: sp("wrapper".to_string()),
+                type_params: vec![],
+                params: vec![
+                    Param {
+                        name: sp("a".to_string()),
+                        ty: sp(Type::Digest),
+                    },
+                    Param {
+                        name: sp("b".to_string()),
+                        ty: sp(Type::Digest),
+                    },
+                ],
+                return_ty: Some(sp(Type::Digest)),
+                body: Some(sp(Block {
+                    stmts: vec![],
+                    tail_expr: Some(Box::new(sp(Expr::Call {
+                        path: sp(ModulePath::single("target".to_string())),
+                        generic_args: vec![],
+                        args: vec![
+                            sp(Expr::Var("a".to_string())),
+                            sp(Expr::Var("b".to_string())),
+                        ],
+                    }))),
+                })),
+            })),
+        ],
+    };
+
+    let ops = make_builder().build_file(&file);
+
+    let wrapper_start = ops
+        .iter()
+        .position(|op| matches!(op, TIROp::FnStart(n) if n == "wrapper"))
+        .expect("expected FnStart(wrapper)");
+    let wrapper_end = ops[wrapper_start..]
+        .iter()
+        .position(|op| matches!(op, TIROp::FnEnd))
+        .map(|i| i + wrapper_start)
+        .expect("expected FnEnd after wrapper");
+    let wrapper_ops = &ops[wrapper_start..=wrapper_end];
+
+    // Should be: FnStart, Call(target), Return, FnEnd — 4 ops.
+    assert_eq!(
+        wrapper_ops.len(),
+        4,
+        "expected 4 ops for multi-width pass-through, got: {:?}",
+        wrapper_ops
+    );
+    assert!(matches!(wrapper_ops[1], TIROp::Call(ref n) if n == "target"));
+}
