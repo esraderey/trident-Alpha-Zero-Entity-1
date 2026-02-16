@@ -13,7 +13,12 @@ use super::TridentLsp;
 
 impl TridentLsp {
     pub(super) async fn do_hover(&self, uri: &Url, pos: Position) -> Result<Option<Hover>> {
-        let source = match self.documents.lock().unwrap().get(uri) {
+        let source = match self
+            .documents
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .get(uri)
+        {
             Some(doc) => doc.source.clone(),
             None => return Ok(None),
         };
@@ -126,7 +131,12 @@ impl TridentLsp {
         uri: &Url,
         pos: Position,
     ) -> Result<Option<CompletionResponse>> {
-        let source = match self.documents.lock().unwrap().get(uri) {
+        let source = match self
+            .documents
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .get(uri)
+        {
             Some(doc) => doc.source.clone(),
             None => return Ok(None),
         };
@@ -247,7 +257,12 @@ impl TridentLsp {
         uri: &Url,
         pos: Position,
     ) -> Result<Option<SignatureHelp>> {
-        let source = match self.documents.lock().unwrap().get(uri) {
+        let source = match self
+            .documents
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .get(uri)
+        {
             Some(doc) => doc.source.clone(),
             None => return Ok(None),
         };

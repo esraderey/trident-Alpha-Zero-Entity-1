@@ -98,7 +98,10 @@ impl LanguageServer for TridentLsp {
         }
 
         let diag_source = doc.source.clone();
-        self.documents.lock().unwrap().insert(uri.clone(), doc);
+        self.documents
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .insert(uri.clone(), doc);
         self.publish_diagnostics(uri, &diag_source).await;
     }
 
@@ -106,7 +109,7 @@ impl LanguageServer for TridentLsp {
         let uri = params.text_document.uri.clone();
 
         let diag_source = {
-            let mut docs = self.documents.lock().unwrap();
+            let mut docs = self.documents.lock().unwrap_or_else(|e| e.into_inner());
             let doc = match docs.get_mut(&uri) {
                 Some(d) => d,
                 None => return,
@@ -172,7 +175,12 @@ impl LanguageServer for TridentLsp {
 
     async fn formatting(&self, params: DocumentFormattingParams) -> Result<Option<Vec<TextEdit>>> {
         let uri = &params.text_document.uri;
-        let source = match self.documents.lock().unwrap().get(uri) {
+        let source = match self
+            .documents
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .get(uri)
+        {
             Some(doc) => doc.source.clone(),
             None => return Ok(None),
         };
@@ -202,7 +210,7 @@ impl LanguageServer for TridentLsp {
         params: DocumentOnTypeFormattingParams,
     ) -> Result<Option<Vec<TextEdit>>> {
         let uri = &params.text_document_position.text_document.uri;
-        let docs = self.documents.lock().unwrap();
+        let docs = self.documents.lock().unwrap_or_else(|e| e.into_inner());
         let doc = match docs.get(uri) {
             Some(d) => d,
             None => return Ok(None),
@@ -220,7 +228,7 @@ impl LanguageServer for TridentLsp {
         params: DocumentSymbolParams,
     ) -> Result<Option<DocumentSymbolResponse>> {
         let uri = &params.text_document.uri;
-        let docs = self.documents.lock().unwrap();
+        let docs = self.documents.lock().unwrap_or_else(|e| e.into_inner());
         let doc = match docs.get(uri) {
             Some(d) => d,
             None => return Ok(None),
@@ -240,7 +248,12 @@ impl LanguageServer for TridentLsp {
         let uri = &params.text_document_position_params.text_document.uri;
         let pos = params.text_document_position_params.position;
 
-        let source = match self.documents.lock().unwrap().get(uri) {
+        let source = match self
+            .documents
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .get(uri)
+        {
             Some(doc) => doc.source.clone(),
             None => return Ok(None),
         };
@@ -295,7 +308,7 @@ impl LanguageServer for TridentLsp {
         params: SemanticTokensParams,
     ) -> Result<Option<SemanticTokensResult>> {
         let uri = &params.text_document.uri;
-        let mut docs = self.documents.lock().unwrap();
+        let mut docs = self.documents.lock().unwrap_or_else(|e| e.into_inner());
         let doc = match docs.get_mut(uri) {
             Some(d) => d,
             None => return Ok(None),
@@ -316,7 +329,7 @@ impl LanguageServer for TridentLsp {
         params: SemanticTokensDeltaParams,
     ) -> Result<Option<SemanticTokensFullDeltaResult>> {
         let uri = &params.text_document.uri;
-        let mut docs = self.documents.lock().unwrap();
+        let mut docs = self.documents.lock().unwrap_or_else(|e| e.into_inner());
         let doc = match docs.get_mut(uri) {
             Some(d) => d,
             None => return Ok(None),
@@ -350,7 +363,7 @@ impl LanguageServer for TridentLsp {
 
     async fn folding_range(&self, params: FoldingRangeParams) -> Result<Option<Vec<FoldingRange>>> {
         let uri = &params.text_document.uri;
-        let docs = self.documents.lock().unwrap();
+        let docs = self.documents.lock().unwrap_or_else(|e| e.into_inner());
         let doc = match docs.get(uri) {
             Some(d) => d,
             None => return Ok(None),
@@ -371,7 +384,7 @@ impl LanguageServer for TridentLsp {
         params: SelectionRangeParams,
     ) -> Result<Option<Vec<SelectionRange>>> {
         let uri = &params.text_document.uri;
-        let docs = self.documents.lock().unwrap();
+        let docs = self.documents.lock().unwrap_or_else(|e| e.into_inner());
         let doc = match docs.get(uri) {
             Some(d) => d,
             None => return Ok(None),
@@ -389,7 +402,12 @@ impl LanguageServer for TridentLsp {
 
     async fn code_action(&self, params: CodeActionParams) -> Result<Option<CodeActionResponse>> {
         let uri = &params.text_document.uri;
-        let source = match self.documents.lock().unwrap().get(uri) {
+        let source = match self
+            .documents
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .get(uri)
+        {
             Some(doc) => doc.source.clone(),
             None => return Ok(None),
         };
@@ -440,7 +458,7 @@ impl LanguageServer for TridentLsp {
         &self,
         params: WorkspaceSymbolParams,
     ) -> Result<Option<Vec<SymbolInformation>>> {
-        let docs = self.documents.lock().unwrap();
+        let docs = self.documents.lock().unwrap_or_else(|e| e.into_inner());
         let symbols = self.workspace_symbols(&params.query, &docs);
         Ok(if symbols.is_empty() {
             None
@@ -451,7 +469,12 @@ impl LanguageServer for TridentLsp {
 
     async fn inlay_hint(&self, params: InlayHintParams) -> Result<Option<Vec<InlayHint>>> {
         let uri = &params.text_document.uri;
-        let source = match self.documents.lock().unwrap().get(uri) {
+        let source = match self
+            .documents
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .get(uri)
+        {
             Some(doc) => doc.source.clone(),
             None => return Ok(None),
         };

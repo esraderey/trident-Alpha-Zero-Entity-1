@@ -89,7 +89,12 @@ fn is_ident_byte(b: u8) -> bool {
 
 impl TridentLsp {
     pub(super) fn do_references(&self, uri: &Url, pos: Position) -> Vec<Location> {
-        let source = match self.documents.lock().unwrap().get(uri) {
+        let source = match self
+            .documents
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .get(uri)
+        {
             Some(doc) => doc.source.clone(),
             None => return Vec::new(),
         };
@@ -106,7 +111,12 @@ impl TridentLsp {
     }
 
     pub(super) fn do_document_highlight(&self, uri: &Url, pos: Position) -> Vec<DocumentHighlight> {
-        let source = match self.documents.lock().unwrap().get(uri) {
+        let source = match self
+            .documents
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .get(uri)
+        {
             Some(doc) => doc.source.clone(),
             None => return Vec::new(),
         };
@@ -150,7 +160,12 @@ impl TridentLsp {
         uri: &Url,
         pos: Position,
     ) -> Option<PrepareRenameResponse> {
-        let source = match self.documents.lock().unwrap().get(uri) {
+        let source = match self
+            .documents
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .get(uri)
+        {
             Some(doc) => doc.source.clone(),
             None => return None,
         };
@@ -168,7 +183,12 @@ impl TridentLsp {
         pos: Position,
         new_name: &str,
     ) -> Option<WorkspaceEdit> {
-        let source = match self.documents.lock().unwrap().get(uri) {
+        let source = match self
+            .documents
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .get(uri)
+        {
             Some(doc) => doc.source.clone(),
             None => return None,
         };
