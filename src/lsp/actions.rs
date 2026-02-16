@@ -1,6 +1,6 @@
 //! LSP code actions: quick fixes triggered by diagnostics.
 
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 use tower_lsp::lsp_types::*;
 
@@ -155,8 +155,10 @@ fn insert_missing_field(source: &str, diag: &Diagnostic, uri: &Url) -> Option<Co
 
 /// Build a quickfix CodeAction.
 fn make_quickfix(title: String, uri: &Url, edits: Vec<TextEdit>, diag: &Diagnostic) -> CodeAction {
-    let mut changes = HashMap::new();
+    let mut changes = BTreeMap::new();
     changes.insert(uri.clone(), edits);
+    // Convert BTreeMap to HashMap for WorkspaceEdit
+    let changes: std::collections::HashMap<Url, Vec<TextEdit>> = changes.into_iter().collect();
 
     CodeAction {
         title,
