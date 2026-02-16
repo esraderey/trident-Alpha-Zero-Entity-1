@@ -16,6 +16,7 @@ use cli::package::PackageArgs;
 use cli::registry::RegistryAction;
 use cli::store::StoreAction;
 use cli::test::TestArgs;
+use cli::tree_sitter::TreeSitterArgs;
 use cli::verify::{EquivArgs, VerifyArgs};
 use cli::view::ViewArgs;
 
@@ -75,6 +76,8 @@ enum Command {
     Package(PackageArgs),
     /// Deploy a program to a registry server or blockchain node
     Deploy(DeployArgs),
+    /// Generate tree-sitter grammar.json from the Rust grammar definition
+    TreeSitter(TreeSitterArgs),
     /// Start the Language Server Protocol server
     Lsp,
 }
@@ -100,6 +103,7 @@ fn main() {
         Command::Deps { action } => cli::deps::cmd_deps(action),
         Command::Package(args) => cli::package::cmd_package(args),
         Command::Deploy(args) => cli::deploy::cmd_deploy(args),
+        Command::TreeSitter(args) => cli::tree_sitter::cmd_tree_sitter(args),
         Command::Lsp => cmd_lsp(),
     }
 }

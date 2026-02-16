@@ -12,6 +12,7 @@ pub mod package;
 pub mod registry;
 pub mod store;
 pub mod test;
+pub mod tree_sitter;
 pub mod verify;
 pub mod view;
 
