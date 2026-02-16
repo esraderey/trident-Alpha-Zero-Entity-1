@@ -23,11 +23,6 @@ pub(crate) trait CostModel {
     /// Short display names for compact annotations (e.g. ["cc", "hash", "u32", ...]).
     fn table_short_names(&self) -> &[&str];
 
-    /// Number of active tables for this target.
-    fn table_count(&self) -> u8 {
-        self.table_names().len() as u8
-    }
-
     /// Cost of a builtin function call by name.
     fn builtin_cost(&self, name: &str) -> TableCost;
 
@@ -64,7 +59,7 @@ pub(crate) trait CostModel {
 pub struct TableCost {
     /// Cost values indexed by table position.
     pub values: [u64; MAX_TABLES],
-    /// Number of active tables (from CostModel::table_count()).
+    /// Number of active tables.
     pub count: u8,
 }
 

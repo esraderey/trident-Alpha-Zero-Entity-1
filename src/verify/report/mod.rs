@@ -5,7 +5,9 @@
 //! (no serde) following the same pattern as `cost.rs`.
 
 use crate::solve::{format_constraint, Counterexample, Verdict, VerificationReport};
-use crate::sym::{Constraint, ConstraintSystem, SymValue};
+#[cfg(test)]
+use crate::sym::SymValue;
+use crate::sym::{Constraint, ConstraintSystem};
 
 // ─── Data Structures ───────────────────────────────────────────────
 
