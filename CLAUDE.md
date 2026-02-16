@@ -289,6 +289,9 @@ deploy/            ~560        Artifact deployment
   tests.rs         ~170          Deploy tests
 
 main.rs            ~110        Binary entry point (clap dispatch)
+
+bin/
+  trident-lsp.rs      ~4        Standalone LSP binary (delegates to lsp::run_server)
 ```
 
 ## File Size Limit
