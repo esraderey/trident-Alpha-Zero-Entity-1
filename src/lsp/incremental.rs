@@ -162,6 +162,103 @@ fn shift_comment(comment: &Comment, delta: i64) -> Comment {
     }
 }
 
+/// Result of classifying whether an edit is contained within a single
+/// top-level item (function, struct, event, const) or crosses boundaries.
+#[derive(Debug, PartialEq, Eq)]
+#[allow(dead_code)] // infrastructure for Phase 2 incremental parsing
+pub(super) enum EditScope {
+    /// Edit falls entirely within a single top-level item body.
+    /// The pair gives the token indices `[start, end)` of that item.
+    SingleItem(usize, usize),
+    /// Edit crosses item boundaries or is in the file header.
+    Full,
+}
+
+/// Classify an edit by scanning tokens for top-level brace pairs.
+///
+/// Walks the token list at brace depth 0 to find item boundaries. If the
+/// edit region is entirely inside one item's brace pair, returns
+/// `SingleItem`; otherwise returns `Full`.
+#[allow(dead_code)] // infrastructure for Phase 2 incremental parsing
+pub(super) fn classify_edit_scope(
+    tokens: &[Spanned<Lexeme>],
+    edit_start: usize,
+    edit_new_end: usize,
+) -> EditScope {
+    // Find top-level items by tracking brace depth.
+    // An item starts at the token before a depth-0 LBrace and ends at
+    // the matching RBrace (when depth returns to 0).
+    let mut depth: u32 = 0;
+    let mut item_start: Option<usize> = None;
+    let mut brace_open_byte: usize = 0;
+
+    // Walk backwards from the first LBrace to find the item's leading keyword.
+    // For simplicity, track the token index where depth goes from 0→1.
+    for (i, tok) in tokens.iter().enumerate() {
+        match &tok.node {
+            Lexeme::LBrace => {
+                if depth == 0 {
+                    // Find the item start: scan backwards past identifiers,
+                    // keywords, parens, types, attributes to find the leading
+                    // keyword (fn, struct, event).
+                    let mut start_idx = i;
+                    while start_idx > 0 {
+                        let prev = &tokens[start_idx - 1].node;
+                        match prev {
+                            Lexeme::Fn
+                            | Lexeme::Struct
+                            | Lexeme::Event
+                            | Lexeme::Pub
+                            | Lexeme::Sec
+                            | Lexeme::Const
+                            | Lexeme::Hash
+                            | Lexeme::Ident(_)
+                            | Lexeme::LParen
+                            | Lexeme::RParen
+                            | Lexeme::Comma
+                            | Lexeme::Colon
+                            | Lexeme::Arrow
+                            | Lexeme::FieldTy
+                            | Lexeme::XFieldTy
+                            | Lexeme::BoolTy
+                            | Lexeme::U32Ty
+                            | Lexeme::DigestTy
+                            | Lexeme::LBracket
+                            | Lexeme::RBracket
+                            | Lexeme::Semicolon
+                            | Lexeme::Integer(_) => {
+                                start_idx -= 1;
+                            }
+                            _ => break,
+                        }
+                    }
+                    item_start = Some(start_idx);
+                    brace_open_byte = tok.span.start as usize;
+                }
+                depth += 1;
+            }
+            Lexeme::RBrace => {
+                if depth > 0 {
+                    depth -= 1;
+                }
+                if depth == 0 {
+                    if let Some(si) = item_start {
+                        let brace_close_byte = tok.span.end as usize;
+                        // Check if edit is entirely within this item's braces
+                        if edit_start > brace_open_byte && edit_new_end < brace_close_byte {
+                            return EditScope::SingleItem(si, i + 1);
+                        }
+                    }
+                    item_start = None;
+                }
+            }
+            _ => {}
+        }
+    }
+
+    EditScope::Full
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -255,5 +352,36 @@ mod tests {
 
         assert_eq!(result.comments.len(), 1);
         assert_eq!(result.comments[0].text, "// header");
+    }
+
+    #[test]
+    fn edit_scope_within_function_body() {
+        let source = "program test\nfn main() {\n    let x: Field = 42\n}\n";
+        let (tokens, _) = full_lex(source);
+        // Edit inside the function body (e.g., changing "42" to "99")
+        let scope = classify_edit_scope(&tokens, 40, 42);
+        assert!(
+            matches!(scope, EditScope::SingleItem(_, _)),
+            "edit inside fn body should be SingleItem, got {:?}",
+            scope
+        );
+    }
+
+    #[test]
+    fn edit_scope_in_file_header() {
+        let source = "program test\nuse vm.io\nfn main() {}\n";
+        let (tokens, _) = full_lex(source);
+        // Edit in the program declaration (changing "test")
+        let scope = classify_edit_scope(&tokens, 8, 12);
+        assert_eq!(scope, EditScope::Full);
+    }
+
+    #[test]
+    fn edit_scope_crossing_functions() {
+        let source = "program test\nfn foo() {\n    let x: Field = 1\n}\nfn bar() {\n    let y: Field = 2\n}\n";
+        let (tokens, _) = full_lex(source);
+        // Edit spanning from inside foo to inside bar
+        let scope = classify_edit_scope(&tokens, 30, 70);
+        assert_eq!(scope, EditScope::Full);
     }
 }

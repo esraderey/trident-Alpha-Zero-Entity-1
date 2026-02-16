@@ -1,10 +1,4 @@
 //! Trident Language Server Protocol implementation.
-//!
-//! Provides IDE features: diagnostics, formatting, document symbols,
-//! go-to-definition, hover, completion, signature help, semantic tokens
-//! (with incremental deltas), folding ranges, selection ranges,
-//! find references, rename, document highlight, workspace symbol,
-//! inlay hints, and code actions.
 
 mod actions;
 mod builtins;
@@ -18,6 +12,7 @@ mod project;
 mod references;
 mod selection;
 mod semantic;
+#[allow(dead_code)] // library API for Rust editor embedding
 mod textobjects;
 pub mod util;
 
@@ -96,9 +91,10 @@ impl LanguageServer for TridentLsp {
         let source = params.text_document.text;
         let mut doc = DocumentState::new(source);
 
-        // Initial name_kinds from parse
+        // Initial parse: cache AST and name_kinds
         if let Ok(file) = crate::parse_source_silent(&doc.source, "") {
             doc.name_kinds = semantic::build_name_kinds(&file);
+            doc.cached_ast = Some(file);
         }
 
         let diag_source = doc.source.clone();
@@ -155,9 +151,10 @@ impl LanguageServer for TridentLsp {
                 }
             }
 
-            // Re-parse for name_kinds (cheap for contract-sized files)
+            // Re-parse and cache AST (cheap for contract-sized files)
             if let Ok(file) = crate::parse_source_silent(&doc.source, "") {
                 doc.name_kinds = semantic::build_name_kinds(&file);
+                doc.cached_ast = Some(file);
             }
 
             doc.source.clone()

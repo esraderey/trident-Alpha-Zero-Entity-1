@@ -4,6 +4,7 @@ use std::collections::BTreeMap;
 
 use tower_lsp::lsp_types::SemanticToken;
 
+use crate::ast::File;
 use crate::syntax::lexeme::Lexeme;
 use crate::syntax::lexer::{Comment, Lexer};
 use crate::syntax::span::Spanned;
@@ -32,6 +33,8 @@ pub(super) struct DocumentState {
     pub line_starts: Vec<usize>,
     /// Classified name kinds from last successful parse.
     pub name_kinds: BTreeMap<String, (NameKind, u32)>,
+    /// Cached AST from last successful parse.
+    pub cached_ast: Option<File>,
     /// Last emitted semantic token array (for delta computation).
     pub last_semantic_tokens: Vec<SemanticToken>,
     /// Monotonically increasing result ID for delta tracking.
@@ -48,6 +51,7 @@ impl DocumentState {
             comments,
             line_starts,
             name_kinds: BTreeMap::new(),
+            cached_ast: None,
             last_semantic_tokens: Vec::new(),
             result_version: 0,
         }
