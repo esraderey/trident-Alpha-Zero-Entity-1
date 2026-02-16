@@ -90,7 +90,6 @@ pub fn cmd_bench(args: BenchArgs) {
     // Print results table
     eprintln!();
     eprintln!("{}", trident::BenchmarkResult::format_header());
-    eprintln!("{}", trident::BenchmarkResult::format_separator());
     for result in &results {
         eprintln!("{}", result.format());
     }
@@ -109,10 +108,8 @@ pub fn cmd_bench(args: BenchArgs) {
             .map(|r| r.overhead_ratio)
             .fold(0.0f64, f64::max);
         eprintln!(
-            "Average overhead: {:.2}x  Max: {:.2}x  ({} benchmarks with baselines)",
-            avg_ratio,
-            max_ratio,
-            with_baseline.len()
+            "{}",
+            trident::BenchmarkResult::format_summary(avg_ratio, max_ratio, with_baseline.len())
         );
     }
     eprintln!();

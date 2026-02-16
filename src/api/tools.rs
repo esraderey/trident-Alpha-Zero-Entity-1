@@ -77,27 +77,106 @@ pub struct BenchmarkResult {
 }
 
 impl BenchmarkResult {
+    /// Format a number with comma separators (e.g. 2097152 -> "2,097,152").
+    fn fmt_num(n: u64) -> String {
+        if n == 0 {
+            return "\u{2014}".to_string(); // em dash for zero/missing
+        }
+        let s = n.to_string();
+        let mut result = String::with_capacity(s.len() + s.len() / 3);
+        for (i, ch) in s.chars().enumerate() {
+            if i > 0 && (s.len() - i) % 3 == 0 {
+                result.push(',');
+            }
+            result.push(ch);
+        }
+        result
+    }
+
+    /// Format the ratio column with color hint.
+    fn fmt_ratio(&self) -> String {
+        if self.baseline_instructions == 0 {
+            "\u{2014}".to_string()
+        } else if self.overhead_ratio <= 1.0 {
+            format!("{:.2}x", self.overhead_ratio)
+        } else {
+            format!("{:.2}x", self.overhead_ratio)
+        }
+    }
+
+    /// Format the status indicator.
+    fn status(&self) -> &'static str {
+        if self.baseline_instructions == 0 {
+            " "
+        } else if self.overhead_ratio <= 1.0 {
+            "\u{2713}" // checkmark — compiler beats hand
+        } else if self.overhead_ratio <= 2.0 {
+            "\u{2713}" // checkmark — within 2x target
+        } else {
+            "\u{25b3}" // triangle — above target
+        }
+    }
+
     pub fn format(&self) -> String {
         format!(
-            "{:<24} {:>6} {:>6}  {:>5.2}x  {:>6} {:>6}",
+            "\u{2502} {:<16} \u{2502} {:>8} \u{2502} {:>8} \u{2502} {:>7} \u{2502} {:>10} \u{2502} {:>10} \u{2502} {} \u{2502}",
             self.name,
-            self.trident_instructions,
-            self.baseline_instructions,
-            self.overhead_ratio,
-            self.trident_padded_height,
-            self.baseline_padded_height,
+            Self::fmt_num(self.trident_instructions as u64),
+            Self::fmt_num(self.baseline_instructions as u64),
+            self.fmt_ratio(),
+            Self::fmt_num(self.trident_padded_height),
+            Self::fmt_num(self.baseline_padded_height),
+            self.status(),
         )
     }
 
     pub fn format_header() -> String {
-        format!(
-            "{:<24} {:>6} {:>6}  {:>6}  {:>6} {:>6}",
+        let top = format!(
+            "\u{250c}{}\u{252c}{}\u{252c}{}\u{252c}{}\u{252c}{}\u{252c}{}\u{252c}{}\u{2510}",
+            "\u{2500}".repeat(18),
+            "\u{2500}".repeat(10),
+            "\u{2500}".repeat(10),
+            "\u{2500}".repeat(9),
+            "\u{2500}".repeat(12),
+            "\u{2500}".repeat(12),
+            "\u{2500}".repeat(3),
+        );
+        let header = format!(
+            "\u{2502} {:<16} \u{2502} {:>8} \u{2502} {:>8} \u{2502} {:>7} \u{2502} {:>10} \u{2502} {:>10} \u{2502}   \u{2502}",
             "Benchmark", "Tri", "Hand", "Ratio", "TriPad", "HandPad"
-        )
+        );
+        let mid = format!(
+            "\u{251c}{}\u{253c}{}\u{253c}{}\u{253c}{}\u{253c}{}\u{253c}{}\u{253c}{}\u{2524}",
+            "\u{2500}".repeat(18),
+            "\u{2500}".repeat(10),
+            "\u{2500}".repeat(10),
+            "\u{2500}".repeat(9),
+            "\u{2500}".repeat(12),
+            "\u{2500}".repeat(12),
+            "\u{2500}".repeat(3),
+        );
+        format!("{}\n{}\n{}", top, header, mid)
     }
 
     pub fn format_separator() -> String {
-        "-".repeat(72)
+        format!(
+            "\u{2514}{}\u{2534}{}\u{2534}{}\u{2534}{}\u{2534}{}\u{2534}{}\u{2534}{}\u{2518}",
+            "\u{2500}".repeat(18),
+            "\u{2500}".repeat(10),
+            "\u{2500}".repeat(10),
+            "\u{2500}".repeat(9),
+            "\u{2500}".repeat(12),
+            "\u{2500}".repeat(12),
+            "\u{2500}".repeat(3),
+        )
+    }
+
+    /// Format the summary line with box drawing.
+    pub fn format_summary(avg: f64, max: f64, count: usize) -> String {
+        format!(
+            "  Avg: {:.2}x  Max: {:.2}x  ({} with baselines)",
+            avg, max, count
+        )
     }
 }
 
