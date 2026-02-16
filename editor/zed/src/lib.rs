@@ -13,20 +13,30 @@ impl zed::Extension for TridentExtension {
         worktree: &zed::Worktree,
     ) -> Result<zed::Command> {
         let env = worktree.shell_env();
-        let path = worktree.which("trident").or_else(|| {
+        let home_bin = || {
             env.iter()
                 .find(|(k, _)| k == "HOME")
-                .map(|(_, home)| format!("{}/.cargo/bin/trident", home))
-        });
+                .map(|(_, home)| format!("{}/.cargo/bin", home))
+        };
 
-        let path = path
-            .ok_or_else(|| "trident not found in PATH. Run: cargo install --path <trident-repo>")?;
+        if let Some(path) = worktree.which("trident-lsp") {
+            return Ok(zed::Command {
+                command: path,
+                args: vec![],
+                env,
+            });
+        }
 
-        Ok(zed::Command {
-            command: path,
-            args: vec!["lsp".into()],
-            env,
-        })
+        if let Some(bin) = home_bin() {
+            let path = format!("{}/trident-lsp", bin);
+            return Ok(zed::Command {
+                command: path,
+                args: vec![],
+                env,
+            });
+        }
+
+        Err("trident-lsp not found. Run: cargo install --path <trident-repo>".into())
     }
 }
 
