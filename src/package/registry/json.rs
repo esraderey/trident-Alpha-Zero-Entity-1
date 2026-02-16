@@ -1,5 +1,11 @@
 use super::types::*;
 
+/// Maximum length for a single JSON string value (1 MB).
+const MAX_STRING_LEN: usize = 1_000_000;
+
+/// Maximum number of items in a JSON array.
+const MAX_ARRAY_ITEMS: usize = 10_000;
+
 pub(super) fn json_escape(s: &str) -> String {
     let mut out = String::from("\"");
     for ch in s.chars() {
@@ -89,6 +95,9 @@ pub(super) fn extract_json_string(json: &str, key: &str) -> String {
                 } else {
                     result.push(ch);
                 }
+                if result.len() > MAX_STRING_LEN {
+                    return String::new();
+                }
             }
             return result;
         }
@@ -116,9 +125,16 @@ pub(super) fn extract_json_array_strings(json: &str, key: &str) -> Vec<String> {
             let bracket_end = find_matching_bracket(after);
             let inner = &after[1..bracket_end];
             for item in inner.split(',') {
+                if results.len() >= MAX_ARRAY_ITEMS {
+                    break;
+                }
                 let item = item.trim();
                 if item.starts_with('"') && item.ends_with('"') {
-                    results.push(item[1..item.len() - 1].to_string());
+                    let value = &item[1..item.len() - 1];
+                    if value.len() > MAX_STRING_LEN {
+                        continue;
+                    }
+                    results.push(value.to_string());
                 }
             }
         }
@@ -258,6 +274,9 @@ pub(super) fn extract_params_array(json: &str) -> Vec<(String, String)> {
             let bracket_end = find_matching_bracket(after);
             let inner = &after[1..bracket_end];
             for obj in inner.split("},") {
+                if results.len() >= MAX_ARRAY_ITEMS {
+                    break;
+                }
                 let name = extract_json_string(obj, "name");
                 let ty = extract_json_string(obj, "type");
                 if !name.is_empty() {
@@ -298,6 +317,9 @@ pub(super) fn parse_search_response(body: &str) -> Vec<SearchResult> {
         let inner = &after[1..bracket_end];
 
         for obj in inner.split("},{") {
+            if results.len() >= MAX_ARRAY_ITEMS {
+                break;
+            }
             let name = extract_json_string(obj, "name");
             let hash = extract_json_string(obj, "hash");
             let module = extract_json_string(obj, "module");

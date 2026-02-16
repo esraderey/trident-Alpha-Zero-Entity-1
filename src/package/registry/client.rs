@@ -1,3 +1,8 @@
+/// Maximum allowed HTTP response body size (10 MiB).
+/// Responses exceeding this limit are rejected to prevent memory exhaustion
+/// from malicious or misconfigured servers.
+const MAX_RESPONSE_SIZE: usize = 10 * 1024 * 1024;
+
 use std::io::{BufRead, BufReader, Write};
 use std::net::TcpStream;
 
@@ -260,6 +265,13 @@ fn read_response(stream: &TcpStream) -> Result<ClientResponse, String> {
         }
     }
 
+    if content_length > MAX_RESPONSE_SIZE {
+        return Err(format!(
+            "response too large: Content-Length {} exceeds limit of {} bytes",
+            content_length, MAX_RESPONSE_SIZE,
+        ));
+    }
+
     let body = if content_length > 0 {
         let mut buf = vec![0u8; content_length];
         std::io::Read::read_exact(&mut reader, &mut buf)
@@ -276,6 +288,12 @@ fn read_response(stream: &TcpStream) -> Result<ClientResponse, String> {
             if chunk_size == 0 {
                 break;
             }
+            if body.len() + chunk_size > MAX_RESPONSE_SIZE {
+                return Err(format!(
+                    "chunked response too large: exceeds limit of {} bytes",
+                    MAX_RESPONSE_SIZE,
+                ));
+            }
             let mut chunk = vec![0u8; chunk_size];
             std::io::Read::read_exact(&mut reader, &mut chunk)
                 .map_err(|e| format!("read chunk: {}", e))?;
@@ -285,9 +303,23 @@ fn read_response(stream: &TcpStream) -> Result<ClientResponse, String> {
         }
         body
     } else {
-        let mut body = String::new();
-        let _ = std::io::Read::read_to_string(&mut reader, &mut body);
-        body
+        let mut body = Vec::new();
+        let mut buf = [0u8; 8192];
+        loop {
+            let n = std::io::Read::read(&mut reader, &mut buf)
+                .map_err(|e| format!("read body: {}", e))?;
+            if n == 0 {
+                break;
+            }
+            if body.len() + n > MAX_RESPONSE_SIZE {
+                return Err(format!(
+                    "response too large: exceeds limit of {} bytes",
+                    MAX_RESPONSE_SIZE,
+                ));
+            }
+            body.extend_from_slice(&buf[..n]);
+        }
+        String::from_utf8(body).unwrap_or_default()
     };
 
     Ok(ClientResponse { status, body })
