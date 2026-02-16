@@ -73,12 +73,12 @@ and its output (does the next stage still accept it?).
 Update this map when files are added, removed, renamed, or modules are
 reorganized. Do NOT update for line count changes or content-only edits.
 
-~153 files, ~36k lines. Modules listed in pipeline order, then support.
+~160 files, ~37k lines. Modules listed in pipeline order, then support.
 
 **Pipeline stages:**
 
 ```
-syntax/            ~4.5k LOC   Lexer, parser, formatter, spans
+syntax/            ~5.5k LOC   Lexer, parser, formatter, grammar, spans
   span.rs             ~60       Source span tracking (Span, Spanned<T>)
   lexer/             ~800       Tokenizer
     mod.rs           ~440         Keywords, operators, literals
@@ -93,6 +93,11 @@ syntax/            ~4.5k LOC   Lexer, parser, formatter, spans
     tests/           ~700         Parser tests
       basics.rs      ~340           Core parsing tests
       advanced.rs    ~350           Error recovery, edge cases
+  grammar/         ~1.0k       Tree-sitter grammar generator (trident tree-sitter)
+    mod.rs           ~285         Grammar/Node types, JSON serialization
+    dsl.rs            ~75         Builder functions (seq, choice, field, prec_left)
+    trident.rs       ~595         Trident grammar definition (59 rules)
+    tests.rs          ~60         Roundtrip test vs existing grammar.json
   format/          ~1.3k       Code formatter (trident fmt)
     mod.rs           ~220         Formatter core + indent tracking
     expr.rs          ~100         Expression formatting
@@ -193,6 +198,7 @@ cli/               ~2.3k LOC   Command-line interface
   store.rs           ~190       trident store
   test.rs             ~40       trident test
   verify.rs          ~220       trident verify
+  tree_sitter.rs      ~55       trident tree-sitter (grammar.json generation)
   view.rs            ~380       trident view (AST/TIR inspector)
 
 package/           ~5.3k LOC   Package management
@@ -341,7 +347,8 @@ Do not modify without explicit request:
 Never read or modify:
 
 - `tree-sitter/src/` — auto-generated C/JSON (12k+ lines). Edit
-  `tree-sitter/grammar.js` instead, then run `tree-sitter generate`.
+  `src/syntax/grammar/trident.rs` instead, then run
+  `trident tree-sitter --generate`.
 
 ## Parallel Agents
 
