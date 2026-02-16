@@ -77,10 +77,7 @@ impl Diagnostic {
             report = report.with_help(help);
         }
 
-        report
-            .finish()
-            .eprint((filename, Source::from(source)))
-            .unwrap();
+        let _ = report.finish().eprint((filename, Source::from(source)));
     }
 }
 

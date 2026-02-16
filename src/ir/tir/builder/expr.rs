@@ -145,7 +145,7 @@ impl TIRBuilder {
 
             if !resolved {
                 // Module constant fallback.
-                let last_dot = name.rfind('.').unwrap();
+                let last_dot = name.rfind('.').expect("dot guaranteed by contains check");
                 let suffix = &name[last_dot + 1..];
                 if let Some(&val) = self.constants.get(name) {
                     self.emit_and_push(TIROp::Push(val), 1);

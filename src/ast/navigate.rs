@@ -42,7 +42,12 @@ pub fn find_function_by_hash<'a>(
     }
 
     if matches.len() == 1 {
-        Some(matches.into_iter().next().unwrap())
+        Some(
+            matches
+                .into_iter()
+                .next()
+                .expect("guarded by len == 1 check"),
+        )
     } else {
         None
     }

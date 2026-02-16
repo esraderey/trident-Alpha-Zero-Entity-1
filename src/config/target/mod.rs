@@ -244,7 +244,9 @@ impl TargetConfig {
                     _ => {
                         // Parse [emulated_field.NAME] sections
                         if section.starts_with("emulated_field.") {
-                            let ef_name = section.strip_prefix("emulated_field.").unwrap();
+                            let ef_name = section
+                                .strip_prefix("emulated_field.")
+                                .expect("guarded by starts_with check");
                             // Find or create the entry
                             let entry = emulated_fields.iter_mut().find(|ef| ef.name == ef_name);
                             let entry = if let Some(e) = entry {
@@ -255,7 +257,7 @@ impl TargetConfig {
                                     bits: 0,
                                     limbs: 0,
                                 });
-                                emulated_fields.last_mut().unwrap()
+                                emulated_fields.last_mut().expect("just pushed")
                             };
                             match key {
                                 "bits" => {
@@ -331,7 +333,6 @@ impl TargetConfig {
         })
     }
 }
-
 
 mod os;
 pub use os::*;

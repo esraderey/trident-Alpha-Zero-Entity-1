@@ -6,7 +6,6 @@ use crate::types::Ty;
 
 use super::TypeChecker;
 
-
 impl TypeChecker {
     pub(super) fn check_fn(&mut self, func: &FnDef) {
         if func.body.is_none() {
@@ -49,7 +48,7 @@ impl TypeChecker {
             self.define_var(&param.name.node, ty, false);
         }
 
-        let body = func.body.as_ref().unwrap();
+        let body = func.body.as_ref().expect("guarded by is_none check above");
         self.check_block(&body.node);
 
         self.pop_scope();
@@ -109,7 +108,6 @@ impl TypeChecker {
             _ => false,
         }
     }
-
 
     pub(super) fn check_event_stmt(
         &mut self,
