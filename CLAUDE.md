@@ -256,15 +256,20 @@ verify/            ~5.6k LOC   Formal verification
     mod.rs           ~460         SMT encoding
     tests.rs          ~75         SMT tests
 
-lsp/               ~3.7k LOC   Language Server Protocol
-  mod.rs             ~475       LSP server (tower-lsp, capabilities, handlers)
+lsp/               ~4.8k LOC   Language Server Protocol
+  mod.rs             ~500       LSP server (tower-lsp, capabilities, handlers)
   project.rs         ~230       Project helpers (symbol index, exports, costs, document/workspace symbols)
   actions.rs         ~280       Code actions (remove unused import, add mut, remove redundant as_u32, insert field)
   references.rs      ~240       Find references, rename, document highlight
   hints.rs           ~180       Inlay hints (function/loop cost estimates)
-  document.rs        ~100       Per-document state (tokens, comments, line_starts cache)
-  incremental.rs     ~160       Incremental lexing (re-lex dirty region, splice)
-  semantic.rs        ~380       Semantic tokens + delta computation
+  indent.rs          ~190       On-type formatting (auto-indent via brace counting)
+  textobjects.rs     ~260       Text object spans (function/loop/struct/etc.)
+  document.rs         ~75       Per-document state (tokens, comments, line_starts, cached_ast)
+  incremental.rs     ~390       Incremental lexing + edit scope classification
+  semantic/          ~840       Semantic tokens
+    mod.rs           ~390         Token classification + delta computation
+    asm.rs           ~280         Asm block instruction-level sub-tokens
+    tests.rs         ~180         Semantic token tests
   folding.rs         ~165       Folding ranges (code folding)
   selection.rs       ~170       Selection ranges (expand/shrink selection)
   intelligence.rs    ~340       Hover, completion, signature help
@@ -355,7 +360,7 @@ Do not modify without explicit request:
 
 Never read or modify:
 
-- `tree-sitter/src/` — auto-generated C/JSON (12k+ lines). Edit
+- `tree-sitter/src/` — auto-generated C/JSON (if present). Edit
   `src/syntax/grammar/trident.rs` instead, then run
   `trident tree-sitter --generate`.
 
