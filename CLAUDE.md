@@ -104,6 +104,9 @@ implementation.
 - Conventional prefixes: `feat:`, `fix:`, `refactor:`, `docs:`,
   `test:`, `chore:`.
 - Rebuild after commit: `cargo install --path . --force`.
+- After every commit, check if the change moves any layer in
+  `reference/roadmap.md` closer to 0K. If it does, update the
+  current temperature in the stack table.
 
 ## Agent Cortex
 
