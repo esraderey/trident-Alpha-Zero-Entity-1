@@ -331,6 +331,39 @@ impl TIRBuilder {
         self.current_subs.clear();
     }
 
+    /// Detect a pass-through function: body is a single call with all
+    /// width-1 params forwarded in declaration order.
+    fn detect_pass_through(&self, func: &FnDef, param_widths: &[u32]) -> bool {
+        if param_widths.iter().any(|&w| w != 1) {
+            return false;
+        }
+        let body = match &func.body {
+            Some(b) => b,
+            None => return false,
+        };
+        if !body.node.stmts.is_empty() {
+            return false;
+        }
+        let tail = match &body.node.tail_expr {
+            Some(t) => t,
+            None => return false,
+        };
+        let args = match &tail.node {
+            Expr::Call { args, .. } => args,
+            _ => return false,
+        };
+        if args.len() != func.params.len() {
+            return false;
+        }
+        for (arg, param) in args.iter().zip(func.params.iter()) {
+            match &arg.node {
+                Expr::Var(name) if name == &param.name.node => {}
+                _ => return false,
+            }
+        }
+        true
+    }
+
     /// Shared body for `build_fn` and `build_mono_fn`.
     ///
     /// Emits FnStart, registers parameters, compiles the body, cleans up
@@ -338,6 +371,27 @@ impl TIRBuilder {
     fn build_fn_body(&mut self, name: &str, func: &FnDef, param_widths: &[u32], ret_width: u32) {
         self.ops.push(TIROp::FnStart(name.to_string()));
         self.stack.clear();
+
+        // Pass-through optimization: if the body is a single call that
+        // forwards all width-1 params in order, skip variable registration
+        // and emit only the call instruction.
+        if self.detect_pass_through(func, param_widths) {
+            let body = func.body.as_ref().unwrap();
+            let tail = body.node.tail_expr.as_ref().unwrap();
+            if let Expr::Call {
+                path,
+                generic_args,
+                args,
+            } = &tail.node
+            {
+                let call_name = path.node.as_dotted();
+                self.emit_call_only(&call_name, generic_args, args.len());
+            }
+            self.ops.push(TIROp::Return);
+            self.ops.push(TIROp::FnEnd);
+            self.stack.clear();
+            return;
+        }
 
         // Parameters are already on the real stack. Register them in the model.
         for (param, &width) in func.params.iter().zip(param_widths) {

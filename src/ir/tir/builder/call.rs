@@ -220,11 +220,61 @@ impl TIRBuilder {
         }
     }
 
-    /// Emit a call to a user-defined (non-intrinsic) function.
-    fn build_user_call(&mut self, name: &str, generic_args: &[Spanned<ArraySize>]) {
+    /// Emit only the call/intrinsic opcode for a pass-through function.
+    /// Does NOT evaluate arguments or touch the stack model — the caller's
+    /// params are already in place on the real stack.
+    pub(crate) fn emit_call_only(
+        &mut self,
+        name: &str,
+        generic_args: &[Spanned<ArraySize>],
+        _arg_count: usize,
+    ) {
+        let resolved_name = self.intrinsic_map.get(name).cloned().or_else(|| {
+            name.rsplit('.')
+                .next()
+                .and_then(|short| self.intrinsic_map.get(short).cloned())
+        });
+        let effective_name = resolved_name.as_deref().unwrap_or(name);
+
+        match effective_name {
+            "hash" => {
+                self.ops.push(TIROp::Hash {
+                    width: self.target_config.digest_width,
+                });
+            }
+            "sponge_init" => self.ops.push(TIROp::SpongeInit),
+            "sponge_absorb" => self.ops.push(TIROp::SpongeAbsorb),
+            "sponge_squeeze" => self.ops.push(TIROp::SpongeSqueeze),
+            "sponge_absorb_mem" => self.ops.push(TIROp::SpongeLoad),
+            "assert" => self.ops.push(TIROp::Assert(1)),
+            "assert_eq" => {
+                self.ops.push(TIROp::Eq);
+                self.ops.push(TIROp::Assert(1));
+            }
+            "pub_read" => self.ops.push(TIROp::ReadIo(1)),
+            "pub_write" => self.ops.push(TIROp::WriteIo(1)),
+            "split" => self.ops.push(TIROp::Split),
+            "inv" => self.ops.push(TIROp::Invert),
+            "neg" => self.ops.push(TIROp::Neg),
+            "sub" => self.ops.push(TIROp::Sub),
+            "field_add" => self.ops.push(TIROp::Add),
+            "field_mul" => self.ops.push(TIROp::Mul),
+            _ => {
+                // User-defined call — resolve label the same way as
+                // build_user_call but skip stack model updates.
+                let call_label = self.resolve_call_label(name, generic_args);
+                self.ops.push(TIROp::Call(call_label));
+            }
+        }
+    }
+
+    /// Resolve a user-defined call name to its TASM label.
+    /// Returns `(call_label, base_name)` where `base_name` is used for
+    /// return width lookup.
+    fn resolve_call_label(&mut self, name: &str, generic_args: &[Spanned<ArraySize>]) -> String {
         let is_generic = self.generic_fn_defs.contains_key(name);
 
-        let (call_label, base_name) = if is_generic {
+        if is_generic {
             let size_args: Vec<u64> = if !generic_args.is_empty() {
                 generic_args
                     .iter()
@@ -260,10 +310,8 @@ impl TIRBuilder {
                 name: name.to_string(),
                 size_args,
             };
-            let base = inst.mangled_name();
-            (base.clone(), base)
+            inst.mangled_name()
         } else if name.contains('.') {
-            // Cross-module call.
             let parts: Vec<&str> = name.rsplitn(2, '.').collect();
             let fn_name = parts[0];
             let short_module = parts[1];
@@ -273,10 +321,21 @@ impl TIRBuilder {
                 .map(|s| s.as_str())
                 .unwrap_or(short_module);
             let mangled = full_module.replace('.', "_");
-            let base = format!("{}__{}", mangled, fn_name);
-            (base, fn_name.to_string())
+            format!("{}__{}", mangled, fn_name)
         } else {
-            (name.to_string(), name.to_string())
+            name.to_string()
+        }
+    }
+
+    /// Emit a call to a user-defined (non-intrinsic) function.
+    fn build_user_call(&mut self, name: &str, generic_args: &[Spanned<ArraySize>]) {
+        let call_label = self.resolve_call_label(name, generic_args);
+
+        // For return width lookup, use the base name (without module prefix).
+        let base_name = if name.contains('.') && !self.generic_fn_defs.contains_key(name) {
+            name.rsplitn(2, '.').next().unwrap_or(name).to_string()
+        } else {
+            call_label.clone()
         };
 
         let ret_width = self.fn_return_widths.get(&base_name).copied().unwrap_or(0);
