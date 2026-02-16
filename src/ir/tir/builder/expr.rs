@@ -281,6 +281,32 @@ impl TIRBuilder {
     // ── Index expression ──────────────────────────────────────────
 
     pub(crate) fn build_index(&mut self, inner: &Spanned<Expr>, index: &Spanned<Expr>) {
+        // Fast path: constant index into a named variable already on the stack.
+        // Instead of copying the whole array then extracting one element,
+        // directly dup the target element from the variable's position.
+        if let Expr::Literal(Literal::Integer(idx)) = &index.node {
+            if let Expr::Var(var_name) = &inner.node {
+                let var_info = self.stack.find_var_with_elem_width(var_name);
+                self.flush_stack_effects();
+                if let Some((var_depth, var_width, elem_width)) = var_info {
+                    let idx_u = *idx as u32;
+                    if (idx_u + 1) * elem_width <= var_width {
+                        let base_offset = var_width - (idx_u + 1) * elem_width;
+                        let target_depth = var_depth + base_offset;
+                        if target_depth + elem_width - 1 <= 15 {
+                            for i in 0..elem_width {
+                                self.ops
+                                    .push(TIROp::Dup(target_depth + (elem_width - 1 - i)));
+                            }
+                            self.stack.push_temp(elem_width);
+                            self.flush_stack_effects();
+                            return;
+                        }
+                    }
+                }
+            }
+        }
+
         self.build_expr(&inner.node);
         let inner_entry = self.stack.last().cloned();
 

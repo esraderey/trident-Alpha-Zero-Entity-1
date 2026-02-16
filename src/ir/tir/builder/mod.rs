@@ -354,9 +354,16 @@ impl TIRBuilder {
 
         if has_return && total_width > 0 {
             let to_pop = total_width.saturating_sub(ret_width);
-            for _ in 0..to_pop {
-                self.ops.push(TIROp::Swap(1));
-                self.ops.push(TIROp::Pop(1));
+            if to_pop > 0 && to_pop <= 15 && ret_width <= 1 {
+                // Swap return value past all dead locals, then bulk pop.
+                // swap N; pop N is 1 + ceil(N/5) vs swap 1; pop 1 × N = 2N.
+                self.ops.push(TIROp::Swap(to_pop));
+                self.emit_pop(to_pop);
+            } else {
+                for _ in 0..to_pop {
+                    self.ops.push(TIROp::Swap(1));
+                    self.ops.push(TIROp::Pop(1));
+                }
             }
         } else if !has_return {
             self.emit_pop(total_width);

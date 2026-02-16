@@ -77,6 +77,24 @@ impl TIRBuilder {
                                 self.stack.push_named(var_name, elem_width);
                                 self.flush_stack_effects();
                             }
+
+                            // Eagerly pop trailing wildcard bindings.
+                            // For `let (h1, _, _, _, _) = digest`, wildcards on top
+                            // of the stack are immediately discarded.
+                            let mut trailing_wildcards = 0u32;
+                            for name in names.iter().rev() {
+                                if name.node == "_" {
+                                    trailing_wildcards += elem_width;
+                                } else {
+                                    break;
+                                }
+                            }
+                            if trailing_wildcards > 0 {
+                                for _ in 0..(trailing_wildcards / elem_width) {
+                                    self.stack.pop();
+                                }
+                                self.emit_pop(trailing_wildcards);
+                            }
                         }
                     }
                 }

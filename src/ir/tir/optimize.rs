@@ -13,6 +13,7 @@ pub(crate) fn optimize(ops: Vec<TIROp>) -> Vec<TIROp> {
         ir = merge_pops(ir);
         ir = eliminate_nops(ir);
         ir = eliminate_dead_spills(ir);
+        ir = collapse_swap_pop_chains(ir);
         ir = optimize_nested(ir);
         if ir.len() == before {
             break;
@@ -169,6 +170,79 @@ fn eliminate_dead_spills(ops: Vec<TIROp>) -> Vec<TIROp> {
                 if pair_addrs.contains(addr) {
                     i += 3; // remove entirely
                     continue;
+                }
+            }
+        }
+        out.push(ops[i].clone());
+        i += 1;
+    }
+    out
+}
+
+/// Collapse `swap D; pop 1` chains used for stack cleanup.
+///
+/// Pattern 1: `swap 1; pop 1; return` means the top element is the return value
+/// and the element below it is garbage. This is already minimal (2 instructions).
+///
+/// Pattern 2: Multiple consecutive `swap D; pop 1` pairs with decreasing D
+/// right before `return` — these remove locals from below the return value.
+/// When the return value width is 1 and all elements below it are being removed,
+/// we can sometimes replace the entire chain with `swap N; pop N` followed by return.
+///
+/// Pattern 3: `dup D; dup D; ... (K times); swap K; pop K` — this duplicates
+/// K elements from depth D, then removes the originals. If the originals aren't
+/// needed after, this is just copying. When the dups reference a contiguous block
+/// that is immediately popped, the net effect is a no-op (elements stay in place).
+fn collapse_swap_pop_chains(ops: Vec<TIROp>) -> Vec<TIROp> {
+    let mut out: Vec<TIROp> = Vec::with_capacity(ops.len());
+    let mut i = 0;
+    while i < ops.len() {
+        // Pattern: dup D, dup D, ..., dup D (N times), swap N, pop N₁, pop N₂, ...
+        // where the total popped equals N and D == N-1.
+        // This is "extract copy of block at depth D, discard original."
+        // Net: the N elements stay on the stack without the dup+pop round trip.
+        if let TIROp::Dup(d) = &ops[i] {
+            let d_val = *d;
+            // Count consecutive dup D instructions with the same D value.
+            let mut dup_count = 0u32;
+            let mut j = i;
+            while j < ops.len() {
+                if let TIROp::Dup(dd) = &ops[j] {
+                    if *dd == d_val {
+                        dup_count += 1;
+                        j += 1;
+                    } else {
+                        break;
+                    }
+                } else {
+                    break;
+                }
+            }
+            // After the dups, check for swap(dup_count) followed by pop totaling dup_count.
+            if dup_count >= 2 && j < ops.len() {
+                if let TIROp::Swap(s) = &ops[j] {
+                    if *s == dup_count {
+                        let after_swap = j + 1;
+                        let mut total_popped = 0u32;
+                        let mut k = after_swap;
+                        while k < ops.len() {
+                            if let TIROp::Pop(p) = &ops[k] {
+                                total_popped += p;
+                                k += 1;
+                                if total_popped >= dup_count {
+                                    break;
+                                }
+                            } else {
+                                break;
+                            }
+                        }
+                        if total_popped == dup_count && d_val + 1 == dup_count {
+                            // The dup+swap+pop sequence is a no-op: elements are
+                            // already in the right position. Skip everything.
+                            i = k;
+                            continue;
+                        }
+                    }
                 }
             }
         }
