@@ -59,12 +59,12 @@ tooling          64K
 ```
  128K  Lexer + parser rewritten in .tri
   64K  Type checker rewritten in .tri
-  32K  TIR builder rewritten in .tri (pipeline fully in Trident)
-  16K  Compiler compiles itself (self-hosting)
-   8K  Each compilation produces a proof certificate (self-proving)
-   4K  Incremental proving (per-module proofs, composed)
-   2K  Proof verified on-chain, src/ deleted
-   0K  Compiler proven correct forever
+  32K  Pipeline fully in Trident — compiler compiles itself
+  16K  Each compilation produces a proof certificate (self-proving)
+   8K  Incremental proving (per-module proofs, composed)
+   4K  Proof verified on-chain, src/ deleted
+   2K  Compiler proves its own correctness
+   0K  Compiler sealed forever
 ```
 
 Only the pipeline (lexer, parser, typecheck, TIR, lowering) needs to
@@ -196,17 +196,18 @@ AI inference (GPT-class). Encrypted smart contracts. Hybrid
 classical-quantum programs. Web playground. Each revolution has a
 working product.
 
-## 32K — self-hosting
+## 32K — self-hosting (first release)
 
 Compiler compiles itself in Trident. Contracts on all public
 functions. 3+ OS namespaces. Proven training. FHE + ZK composed.
-Quantum error correction. The foundation proves itself.
+Quantum error correction. The foundation proves itself. This is
+the first public release — the compiler that compiles itself.
 
 ## 16K — the industries fall
 
-Self-hosting compiler. Verified crypto. GPU-accelerated proving.
-On-chain model registry kills HuggingFace. Multi-party FHE kills
-cloud computing. Real quantum hardware backends. No incumbent is safe.
+Verified crypto. GPU-accelerated proving. On-chain model registry
+kills HuggingFace. Multi-party FHE kills cloud computing. Real
+quantum hardware backends. No incumbent is safe.
 
 ## 8K — proven everything
 
