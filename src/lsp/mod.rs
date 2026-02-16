@@ -12,6 +12,7 @@ mod document;
 mod folding;
 mod hints;
 mod incremental;
+mod indent;
 mod intelligence;
 mod project;
 mod references;
@@ -73,6 +74,10 @@ impl LanguageServer for TridentLsp {
                 inlay_hint_provider: Some(OneOf::Left(true)),
                 folding_range_provider: Some(FoldingRangeProviderCapability::Simple(true)),
                 selection_range_provider: Some(SelectionRangeProviderCapability::Simple(true)),
+                document_on_type_formatting_provider: Some(DocumentOnTypeFormattingOptions {
+                    first_trigger_character: "\n".to_string(),
+                    more_trigger_character: Some(vec!["}".to_string()]),
+                }),
                 ..Default::default()
             },
             ..Default::default()
@@ -192,6 +197,24 @@ impl LanguageServer for TridentLsp {
             }
             Err(_) => Ok(None),
         }
+    }
+
+    async fn on_type_formatting(
+        &self,
+        params: DocumentOnTypeFormattingParams,
+    ) -> Result<Option<Vec<TextEdit>>> {
+        let uri = &params.text_document_position.text_document.uri;
+        let docs = self.documents.lock().unwrap();
+        let doc = match docs.get(uri) {
+            Some(d) => d,
+            None => return Ok(None),
+        };
+        Ok(indent::on_type_formatting(
+            &doc.source,
+            &doc.tokens,
+            params.text_document_position.position,
+            &params.ch,
+        ))
     }
 
     async fn document_symbol(
