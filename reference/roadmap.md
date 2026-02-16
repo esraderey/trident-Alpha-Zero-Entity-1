@@ -10,16 +10,16 @@ for provable computation.
 ```
 Layer           Current
 ───────────────────────
-vm spec          64K
+vm spec          32K
 language         64K
 TIR              64K
-compiler        256K
-std.*           256K
-os.*            256K
-tooling         256K
+compiler        128K
+std.*           128K
+os.*            128K
+tooling          64K
 ```
 
-## vm spec — 64K → 0K
+## vm spec — 32K → 0K
 
 ```
   32K  Intrinsic set stable (no new vm.* builtins)
@@ -54,7 +54,7 @@ tooling         256K
    0K  IR spec sealed forever
 ```
 
-## compiler — 256K → 0K
+## compiler — 128K → 0K
 
 ```
  128K  Lexer + parser rewritten in .tri
@@ -70,7 +70,7 @@ tooling         256K
 Only the pipeline (lexer, parser, typecheck, TIR, lowering) needs to
 be provable. LSP, CLI, pretty-printing run outside the proof.
 
-## std.* — 256K → 0K
+## std.* — 128K → 0K
 
 ```
  128K  std.token, std.coin, std.card shipped
@@ -83,7 +83,7 @@ be provable. LSP, CLI, pretty-printing run outside the proof.
    0K  Standard library sealed forever
 ```
 
-## os.* — 256K → 0K
+## os.* — 128K → 0K
 
 ```
  128K  os.neptune.* complete (reference OS implementation)
@@ -96,10 +96,9 @@ be provable. LSP, CLI, pretty-printing run outside the proof.
    0K  OS layer sealed forever
 ```
 
-## tooling — 256K → 0K
+## tooling — 64K → 0K
 
 ```
- 128K  LSP feature-complete, editor extensions published
   64K  Web playground (compile .tri in browser)
   32K  ZK coprocessor integrations (Axiom, Brevis, Herodotus)
   16K  Hardware acceleration (FPGA, ASIC, GPU proving)
@@ -108,6 +107,8 @@ be provable. LSP, CLI, pretty-printing run outside the proof.
    2K  Every tool output reproducible and verifiable
    0K  Tooling sealed forever
 ```
+
+LSP and editor extensions already shipped (past 128K).
 
 ## 0K
 
