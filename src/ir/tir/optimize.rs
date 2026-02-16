@@ -13,7 +13,10 @@ pub(crate) fn optimize(ops: Vec<TIROp>) -> Vec<TIROp> {
         ir = merge_pops(ir);
         ir = eliminate_nops(ir);
         ir = eliminate_dead_spills(ir);
+        ir = eliminate_dup_pop_nops(ir);
+        ir = eliminate_double_swaps(ir);
         ir = collapse_swap_pop_chains(ir);
+        ir = collapse_epilogue_cleanup(ir);
         ir = optimize_nested(ir);
         if ir.len() == before {
             break;
@@ -179,6 +182,56 @@ fn eliminate_dead_spills(ops: Vec<TIROp>) -> Vec<TIROp> {
     out
 }
 
+/// Eliminate `Dup(0); Pop(1)` and `Dup(0); Swap(1); Pop(1)` no-ops.
+///
+/// `dup 0; pop 1` duplicates the top element then immediately discards it.
+/// `dup 0; swap 1; pop 1` copies top, swaps with element below, pops — net
+/// effect is identity (the original value below is replaced by an identical copy).
+fn eliminate_dup_pop_nops(ops: Vec<TIROp>) -> Vec<TIROp> {
+    let mut out: Vec<TIROp> = Vec::with_capacity(ops.len());
+    let mut i = 0;
+    while i < ops.len() {
+        // Pattern: Dup(0), Swap(1), Pop(1) → skip all three
+        if i + 2 < ops.len() {
+            if let (TIROp::Dup(0), TIROp::Swap(1), TIROp::Pop(1)) =
+                (&ops[i], &ops[i + 1], &ops[i + 2])
+            {
+                i += 3;
+                continue;
+            }
+        }
+        // Pattern: Dup(0), Pop(1) → skip both
+        if i + 1 < ops.len() {
+            if let (TIROp::Dup(0), TIROp::Pop(1)) = (&ops[i], &ops[i + 1]) {
+                i += 2;
+                continue;
+            }
+        }
+        out.push(ops[i].clone());
+        i += 1;
+    }
+    out
+}
+
+/// Eliminate consecutive `Swap(N); Swap(N)` pairs (double swap is identity).
+fn eliminate_double_swaps(ops: Vec<TIROp>) -> Vec<TIROp> {
+    let mut out: Vec<TIROp> = Vec::with_capacity(ops.len());
+    let mut i = 0;
+    while i < ops.len() {
+        if i + 1 < ops.len() {
+            if let (TIROp::Swap(a), TIROp::Swap(b)) = (&ops[i], &ops[i + 1]) {
+                if a == b {
+                    i += 2;
+                    continue;
+                }
+            }
+        }
+        out.push(ops[i].clone());
+        i += 1;
+    }
+    out
+}
+
 /// Collapse `swap D; pop 1` chains used for stack cleanup.
 ///
 /// Pattern 1: `swap 1; pop 1; return` means the top element is the return value
@@ -252,6 +305,59 @@ fn collapse_swap_pop_chains(ops: Vec<TIROp>) -> Vec<TIROp> {
     out
 }
 
+/// Collapse sequential `Swap(N); Pop(1)` cleanup chains.
+///
+/// When clearing dead elements from below the return value, the builder
+/// emits `swap N; pop 1; swap N-1; pop 1; ...` chains. Each pair brings
+/// one dead element to the top and discards it. When consecutive pairs
+/// clear a contiguous block with decreasing depths, the chain reduces
+/// to `swap first_D; pop count`.
+///
+/// Two triggers: (a) chain ends with Return (function epilogue), or
+/// (b) chain has 3+ pairs anywhere (mid-function cleanup).
+fn collapse_epilogue_cleanup(ops: Vec<TIROp>) -> Vec<TIROp> {
+    let mut out: Vec<TIROp> = Vec::with_capacity(ops.len());
+    let mut i = 0;
+    while i < ops.len() {
+        if i + 3 < ops.len() {
+            if let (TIROp::Swap(d), TIROp::Pop(1)) = (&ops[i], &ops[i + 1]) {
+                let first_d = *d;
+                if first_d >= 2 {
+                    let mut count = 1u32;
+                    let mut j = i + 2;
+                    while j + 1 < ops.len() {
+                        if let (TIROp::Swap(dd), TIROp::Pop(1)) = (&ops[j], &ops[j + 1]) {
+                            // Accept pairs with decreasing or nearby depths.
+                            if *dd + count == first_d || *dd < first_d {
+                                count += 1;
+                                j += 2;
+                            } else {
+                                break;
+                            }
+                        } else {
+                            break;
+                        }
+                    }
+                    if count >= 3 {
+                        out.push(TIROp::Swap(first_d));
+                        let mut remaining = count;
+                        while remaining > 0 {
+                            let batch = remaining.min(5);
+                            out.push(TIROp::Pop(batch));
+                            remaining -= batch;
+                        }
+                        i = j;
+                        continue;
+                    }
+                }
+            }
+        }
+        out.push(ops[i].clone());
+        i += 1;
+    }
+    out
+}
+
 /// Recursively optimize nested bodies (IfElse, IfOnly, Loop, ProofBlock).
 fn optimize_nested(ops: Vec<TIROp>) -> Vec<TIROp> {
     ops.into_iter()
@@ -304,7 +410,6 @@ mod tests {
     fn merge_consecutive_pops() {
         let ops = vec![TIROp::Pop(2), TIROp::Pop(3), TIROp::Pop(1)];
         let result = optimize(ops);
-        // 2+3+1 = 6, emitted as Pop(5) + Pop(1)
         assert_eq!(result.len(), 2);
         assert!(matches!(result[0], TIROp::Pop(5)));
         assert!(matches!(result[1], TIROp::Pop(1)));
@@ -321,23 +426,19 @@ mod tests {
 
     #[test]
     fn eliminate_spill_reload_pair() {
-        let addr = 1 << 30; // typical spill address
+        let addr = 1 << 30;
         let ops = vec![
             TIROp::Push(42),
-            // spill pattern
             TIROp::Push(addr),
             TIROp::Swap(1),
             TIROp::WriteMem(1),
             TIROp::Pop(1),
-            // some work
             TIROp::Add,
-            // reload pattern
             TIROp::Push(addr),
             TIROp::ReadMem(1),
             TIROp::Pop(1),
         ];
         let result = optimize(ops);
-        // spill and reload removed, only Push(42), Add remain
         assert_eq!(result.len(), 2);
         assert!(matches!(result[0], TIROp::Push(42)));
         assert!(matches!(result[1], TIROp::Add));
@@ -348,7 +449,6 @@ mod tests {
         let addr = 1 << 30;
         let ops = vec![
             TIROp::Push(42),
-            // dead write pattern (never read back)
             TIROp::Push(addr),
             TIROp::Swap(1),
             TIROp::WriteMem(1),
@@ -356,9 +456,7 @@ mod tests {
             TIROp::Add,
         ];
         let result = optimize(ops);
-        // write replaced with pop 1, then merged with surrounding
         assert!(result.iter().any(|op| matches!(op, TIROp::Pop(_))));
-        // write_mem should be gone
         assert!(!result.iter().any(|op| matches!(op, TIROp::WriteMem(_))));
     }
 
@@ -378,8 +476,69 @@ mod tests {
             TIROp::Pop(1),
         ];
         let result = optimize(ops);
-        // 2 reads → not eliminated
         assert_eq!(result.len(), 10);
+    }
+
+    #[test]
+    fn eliminate_dup0_pop1_nop() {
+        let ops = vec![TIROp::Push(42), TIROp::Dup(0), TIROp::Pop(1), TIROp::Add];
+        let result = optimize(ops);
+        assert_eq!(result.len(), 2);
+        assert!(matches!(result[0], TIROp::Push(42)));
+        assert!(matches!(result[1], TIROp::Add));
+    }
+
+    #[test]
+    fn eliminate_dup0_swap1_pop1_nop() {
+        let ops = vec![
+            TIROp::Push(42),
+            TIROp::Dup(0),
+            TIROp::Swap(1),
+            TIROp::Pop(1),
+            TIROp::Add,
+        ];
+        let result = optimize(ops);
+        assert_eq!(result.len(), 2);
+        assert!(matches!(result[0], TIROp::Push(42)));
+        assert!(matches!(result[1], TIROp::Add));
+    }
+
+    #[test]
+    fn eliminate_double_swap() {
+        let ops = vec![TIROp::Push(1), TIROp::Swap(15), TIROp::Swap(15), TIROp::Add];
+        let result = optimize(ops);
+        assert_eq!(result.len(), 2);
+        assert!(matches!(result[0], TIROp::Push(1)));
+        assert!(matches!(result[1], TIROp::Add));
+    }
+
+    #[test]
+    fn eliminate_many_double_swaps() {
+        let mut ops = Vec::new();
+        for _ in 0..12 {
+            ops.push(TIROp::Swap(15));
+        }
+        ops.push(TIROp::Return);
+        let result = optimize(ops);
+        assert_eq!(result.len(), 1);
+        assert!(matches!(result[0], TIROp::Return));
+    }
+
+    #[test]
+    fn collapse_epilogue_swap_pop_chain() {
+        let ops = vec![
+            TIROp::Swap(5),
+            TIROp::Pop(1),
+            TIROp::Swap(4),
+            TIROp::Pop(1),
+            TIROp::Swap(3),
+            TIROp::Pop(1),
+            TIROp::Return,
+        ];
+        let result = optimize(ops);
+        assert!(matches!(result[0], TIROp::Swap(5)));
+        assert!(matches!(result[1], TIROp::Pop(3)));
+        assert!(matches!(result[2], TIROp::Return));
     }
 
     #[test]
@@ -396,7 +555,7 @@ mod tests {
         {
             assert_eq!(then_body.len(), 1);
             assert!(matches!(then_body[0], TIROp::Hint(2)));
-            assert!(else_body.is_empty()); // Pop(0) eliminated
+            assert!(else_body.is_empty());
         } else {
             panic!("expected IfElse");
         }
