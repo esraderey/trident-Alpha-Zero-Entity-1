@@ -86,13 +86,13 @@ be provable. LSP, CLI, pretty-printing run outside the proof.
 ## os.* — 128K → 0K
 
 ```
- 128K  os.neptune.* complete (reference OS implementation)
-  64K  Atlas on-chain registry live (TSP-2 Cards)
-  32K  3+ OS namespaces operational
-  16K  Per-OS namespace governance established
-   8K  os.neptune.* frozen
-   4K  All active OS namespaces frozen
-   2K  Cross-OS portability proven (same .tri runs on any OS)
+ 128K  os.neptune.* complete, Atlas on-chain registry live
+  64K  3+ OS namespaces operational
+  32K  Per-OS namespace governance established
+  16K  os.neptune.* frozen
+   8K  All active OS namespaces frozen
+   4K  Cross-OS portability proven (same .tri runs on any OS)
+   2K  Every OS binding formally verified
    0K  OS layer sealed forever
 ```
 
@@ -124,10 +124,10 @@ provable. Every model weight auditable. No trust required.
 
 ```
  256K  Tensor operations in TIR (matmul, conv, attention)
- 128K  Model inference compiles to provable Trident
-  64K  Proven inference: GPT-class model with proof of output
+ 128K  Small model inference compiles to provable Trident
+  64K  On-chain model registry — verified accuracy, no trust
   32K  Proven training: gradient computation inside proof
-  16K  On-chain model registry — verified accuracy, no trust
+  16K  GPT-class proven inference (billion+ parameters)
    8K  Federated learning with proven aggregation
    4K  Autonomous agents that prove every decision they make
    2K  Any model, any size — proving scales linearly
@@ -185,16 +185,15 @@ revolutions have raw building blocks but no integration.
 ## 128K — the machine assembles
 
 Compiler pipeline rewritten in .tri. std.* ships core modules.
-os.neptune.* complete. Model inference compiles to provable Trident.
-FHE circuits compile. Quantum simulation works. Each revolution can
-demo but not ship.
+os.neptune.* complete. Atlas live on-chain. Small model inference
+compiles to provable Trident. FHE circuits compile. Quantum
+simulation works. Each revolution can demo but not ship.
 
 ## 64K — proof of concept
 
-Language features complete. TIR stable. Atlas live on-chain. Proven
-AI inference (GPT-class). Encrypted smart contracts. Hybrid
-classical-quantum programs. Web playground. Each revolution has a
-working product.
+Language features complete. TIR stable. On-chain model registry.
+Encrypted smart contracts. Hybrid classical-quantum programs. Web
+playground. Each revolution has a working product.
 
 ## 32K — self-hosting (first release)
 
@@ -205,9 +204,9 @@ the first public release — the compiler that compiles itself.
 
 ## 16K — the industries fall
 
-Verified crypto. GPU-accelerated proving. On-chain model registry
-kills HuggingFace. Multi-party FHE kills cloud computing. Real
-quantum hardware backends. No incumbent is safe.
+Verified crypto. GPU-accelerated proving. GPT-class proven inference
+kills cloud AI. Multi-party FHE kills cloud computing. Real quantum
+hardware backends. No incumbent is safe.
 
 ## 8K — proven everything
 
