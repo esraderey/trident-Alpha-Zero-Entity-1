@@ -1,0 +1,791 @@
+// Hand-optimized TASM baseline: std.private.poly
+//
+// Polynomial arithmetic over the Goldilocks field (p = 2^64 - 2^32 + 1)
+// for FHE polynomial ring operations R_q = F_p[X]/(X^N + 1).
+//
+// Polynomials stored in RAM as coefficient arrays: a[i] = coeff of X^i.
+// All operations use field-element addresses and field arithmetic.
+//
+// Triton VM memory semantics:
+//   read_mem 1:  st0=addr -> [mem[addr], addr-1, rest...]
+//   write_mem 1: st0=addr, st1=val -> [addr+1, rest...]
+//
+// Stack convention: arguments pushed left-to-right (first arg deepest).
+//   eval(coeff_addr, x, n):           st0=n, st1=x, st2=coeff_addr
+//   add(a_addr, b_addr, out_addr, n): st0=n, st1=out_addr, st2=b_addr, st3=a_addr
+//   sub(a_addr, b_addr, out_addr, n): same layout as add
+//   pointwise_mul(a, b, out, n):      same layout as add
+//   scale(a_addr, s, out_addr, n):    st0=n, st1=out_addr, st2=s, st3=a_addr
+//   ntt(a_addr, omega, log_n):        st0=log_n, st1=omega, st2=a_addr
+//   intt(a_addr, omega_inv, n_inv, log_n):
+//     st0=log_n, st1=n_inv, st2=omega_inv, st3=a_addr
+//   poly_mul(a, b, out, tmp, omega, omega_inv, n_inv, log_n):
+//     st0=log_n, st1=n_inv, st2=omega_inv, st3=omega,
+//     st4=tmp_addr, st5=out_addr, st6=b_addr, st7=a_addr
+//
+// Optimization highlights vs compiler output:
+//   - eval: Horner loop uses decremented counter directly as array index,
+//     eliminating the 7-op index recomputation the compiler emits each
+//     iteration (idx = n + neg(i) + neg(1)).
+//   - add/sub/pointwise_mul/scale: Descending-counter loops use the
+//     counter as the index, removing separate index tracking.
+//   - ntt: Three separate loop subroutines (stage, j, butterfly) with
+//     tight bodies replace the compiler's deeply-nested single function.
+//     Butterfly loop uses lt (U32 comparison) for termination instead of
+//     a counted loop, avoiding the need to precompute group counts.
+//   - intt: Calls ntt then scale with dup-based argument forwarding.
+//   - poly_mul: Streamlined copy loop and argument setup for the
+//     NTT/pointwise/INTT pipeline.
+//
+// Instruction count rules:
+//   - Comments (// ...) are NOT counted
+//   - Labels (ending with :) are NOT counted
+//   - halt is NOT counted
+//   - Blank lines are NOT counted
+//   - Everything else IS counted (including return)
+//
+// Static instruction count summary (compiler counts in parens):
+//   __eval               :  10   (4)
+//   __eval_loop          :  18   (-)
+//   __add                :   6   (3)
+//   __add_loop           :  25   (-)
+//   __sub                :   6   (3)
+//   __sub_loop           :  27   (-)
+//   __pointwise_mul      :   6   (3)
+//   __pw_mul_loop        :  25   (-)
+//   __scale              :   6   (3)
+//   __scale_loop         :  21   (-)
+//   __ntt                :  13   (4)
+//   __ntt_size           :  12   (-)
+//   __ntt_stage          :  22   (-)
+//   __ntt_j              :  19   (-)
+//   __ntt_bfly           :  43   (-)
+//   __intt               :  15   (8)
+//   __intt_size          :  12   (-)
+//   __poly_mul           :  33   (4)
+//   __pm_size            :  12   (-)
+//   __pm_copy            :  30   (-)
+//   ----------------------------------------
+//   Baseline total       : 361
+//   Compiler total       :  32
+
+
+// ===========================================================================
+// EVAL -- Horner evaluation
+// ===========================================================================
+// P(x) = a[n-1]*x^(n-1) + ... + a[1]*x + a[0]
+//
+// Entry: [n, x, coeff_addr]
+// Exit:  [result]
+//
+// The loop counter counts down from n. After decrementing, the counter
+// equals n-1, n-2, ..., 0 -- the Horner index (highest coefficient
+// first). The compiler recomputes idx = n - 1 - i from the loop
+// variable each iteration using 7 ops. We skip that entirely.
+//
+// Loop stack: [counter, result, coeff_addr, x]
+//
+// 10 counted instructions.
+__eval:
+    // Entry: [n, x, coeff_addr]
+    // Rearrange to [n, result=0, coeff_addr, x]
+    swap 1
+    swap 2
+    swap 1
+    // [n, coeff_addr, x] -> need [n, 0, coeff_addr, x]
+    push 0
+    swap 1
+    // [n, 0, coeff_addr, x]
+    call __eval_loop
+    // [0, result, coeff_addr, x]
+    pop 1
+    swap 2
+    pop 2
+    return
+
+// ---------------------------------------------------------------------------
+// Eval loop body.
+// Stack: [counter, result, coeff_addr, x]
+//
+// Decrement counter to get idx, read coeff at coeff_addr + idx,
+// compute result = result * x + coeff.
+//
+// 18 counted instructions.
+// ---------------------------------------------------------------------------
+__eval_loop:
+    dup 0
+    push 0
+    eq
+    skiz
+    return
+    push -1
+    add
+    // [idx, result, coeff_addr, x]
+    swap 1
+    dup 3
+    mul
+    // [result*x, idx, coeff_addr, x]
+    dup 1
+    dup 3
+    add
+    // [coeff_addr+idx, result*x, idx, coeff_addr, x]
+    read_mem 1
+    pop 1
+    // [coeff, result*x, idx, coeff_addr, x]
+    add
+    swap 1
+    // [idx, new_result, coeff_addr, x]
+    recurse
+
+
+// ===========================================================================
+// ADD -- Coefficient-wise addition: out[i] = a[i] + b[i]
+// ===========================================================================
+// Entry: [n, out_addr, b_addr, a_addr]
+// Exit:  [] (stack cleaned)
+//
+// Loop stack: [counter, a_addr, b_addr, out_addr]
+//
+// 6 counted instructions.
+__add:
+    // Rearrange [n, out, b, a] -> [n, a, b, out]
+    swap 3
+    swap 1
+    swap 3
+    call __add_loop
+    pop 4
+    return
+
+// ---------------------------------------------------------------------------
+// Add loop body.
+// Stack: [counter, a_addr, b_addr, out_addr]
+//
+// 25 counted instructions.
+// ---------------------------------------------------------------------------
+__add_loop:
+    dup 0
+    push 0
+    eq
+    skiz
+    return
+    push -1
+    add
+    // [idx, a_addr, b_addr, out_addr]
+    dup 0
+    dup 2
+    add
+    read_mem 1
+    pop 1
+    // [a_val, idx, a_addr, b_addr, out_addr]
+    dup 1
+    dup 4
+    add
+    read_mem 1
+    pop 1
+    // [b_val, a_val, idx, a_addr, b_addr, out_addr]
+    add
+    // [sum, idx, a_addr, b_addr, out_addr]
+    dup 1
+    dup 5
+    add
+    swap 1
+    write_mem 1
+    pop 1
+    // [idx, a_addr, b_addr, out_addr]
+    recurse
+
+
+// ===========================================================================
+// SUB -- Coefficient-wise subtraction: out[i] = a[i] - b[i]
+// ===========================================================================
+// Entry: [n, out_addr, b_addr, a_addr]
+// Exit:  [] (stack cleaned)
+//
+// Loop stack: [counter, a_addr, b_addr, out_addr]
+//
+// 6 counted instructions.
+__sub:
+    swap 3
+    swap 1
+    swap 3
+    call __sub_loop
+    pop 4
+    return
+
+// ---------------------------------------------------------------------------
+// Sub loop body.
+// Stack: [counter, a_addr, b_addr, out_addr]
+//
+// 27 counted instructions.
+// ---------------------------------------------------------------------------
+__sub_loop:
+    dup 0
+    push 0
+    eq
+    skiz
+    return
+    push -1
+    add
+    dup 0
+    dup 2
+    add
+    read_mem 1
+    pop 1
+    // [a_val, idx, a_addr, b_addr, out_addr]
+    dup 1
+    dup 4
+    add
+    read_mem 1
+    pop 1
+    // [b_val, a_val, idx, a_addr, b_addr, out_addr]
+    push -1
+    mul
+    add
+    // [a-b, idx, a_addr, b_addr, out_addr]
+    dup 1
+    dup 5
+    add
+    swap 1
+    write_mem 1
+    pop 1
+    recurse
+
+
+// ===========================================================================
+// POINTWISE_MUL -- Coefficient-wise multiplication: out[i] = a[i] * b[i]
+// ===========================================================================
+// Entry: [n, out_addr, b_addr, a_addr]
+// Exit:  [] (stack cleaned)
+//
+// Loop stack: [counter, a_addr, b_addr, out_addr]
+//
+// 6 counted instructions.
+__pointwise_mul:
+    swap 3
+    swap 1
+    swap 3
+    call __pw_mul_loop
+    pop 4
+    return
+
+// ---------------------------------------------------------------------------
+// Pointwise-mul loop body.
+// Stack: [counter, a_addr, b_addr, out_addr]
+//
+// 25 counted instructions.
+// ---------------------------------------------------------------------------
+__pw_mul_loop:
+    dup 0
+    push 0
+    eq
+    skiz
+    return
+    push -1
+    add
+    dup 0
+    dup 2
+    add
+    read_mem 1
+    pop 1
+    dup 1
+    dup 4
+    add
+    read_mem 1
+    pop 1
+    mul
+    dup 1
+    dup 5
+    add
+    swap 1
+    write_mem 1
+    pop 1
+    recurse
+
+
+// ===========================================================================
+// SCALE -- Scalar multiply: out[i] = a[i] * s
+// ===========================================================================
+// Entry: [n, out_addr, s, a_addr]
+// Exit:  [] (stack cleaned)
+//
+// Loop stack: [counter, a_addr, s, out_addr]
+//
+// 6 counted instructions.
+__scale:
+    // Rearrange [n, out, s, a] -> [n, a, s, out]
+    swap 3
+    swap 1
+    swap 3
+    call __scale_loop
+    pop 4
+    return
+
+// ---------------------------------------------------------------------------
+// Scale loop body.
+// Stack: [counter, a_addr, s, out_addr]
+//
+// 21 counted instructions.
+// ---------------------------------------------------------------------------
+__scale_loop:
+    dup 0
+    push 0
+    eq
+    skiz
+    return
+    push -1
+    add
+    // [idx, a_addr, s, out_addr]
+    dup 0
+    dup 2
+    add
+    read_mem 1
+    pop 1
+    // [val, idx, a_addr, s, out_addr]
+    dup 3
+    mul
+    // [val*s, idx, a_addr, s, out_addr]
+    dup 1
+    dup 5
+    add
+    swap 1
+    write_mem 1
+    pop 1
+    recurse
+
+
+// ===========================================================================
+// NTT -- Number Theoretic Transform (iterative Cooley-Tukey, in-place)
+// ===========================================================================
+// Entry: [log_n, omega, a_addr]
+// Exit:  [] (stack cleaned)
+//
+// Algorithm:
+//   n = 2^log_n
+//   len = 1, w_step = omega
+//   for stage in 0..log_n:
+//     w = 1
+//     for j in 0..len:
+//       k = j
+//       while k < n:                    (uses lt for U32 comparison)
+//         butterfly at (a_addr+k, a_addr+k+len) with twiddle w
+//         k += 2*len
+//       w *= w_step
+//     len *= 2
+//     w_step *= w_step
+//
+// Three separate loop subroutines (stage, j, butterfly) replace the
+// compiler's deeply-nested single function.
+//
+// 13 counted instructions.
+__ntt:
+    // Compute n = 2^log_n while preserving log_n, omega, a_addr
+    dup 0
+    push 1
+    swap 1
+    // [log_n, 1, log_n, omega, a_addr]
+    call __ntt_size
+    // [0, n, log_n, omega, a_addr]
+    pop 1
+    // [n, log_n, omega, a_addr]
+    // Rearrange to stage loop stack: [log_n, 1, omega, a_addr, n]
+    swap 3
+    swap 2
+    swap 1
+    push 1
+    swap 1
+    // [log_n, 1, omega, a_addr, n]
+    call __ntt_stage
+    // [0, len_final, w_step_final, a_addr, n]
+    pop 5
+    return
+
+// ---------------------------------------------------------------------------
+// Size doubling loop: [counter, accum] -> [0, 2^counter * accum]
+//
+// 12 counted instructions.
+// ---------------------------------------------------------------------------
+__ntt_size:
+    dup 0
+    push 0
+    eq
+    skiz
+    return
+    push -1
+    add
+    swap 1
+    dup 0
+    add
+    swap 1
+    recurse
+
+// ---------------------------------------------------------------------------
+// Stage loop (outer loop).
+// Stack: [stage_counter, len, w_step, a_addr, n]
+//
+// Each stage sets up j-loop vars (j_counter=len, j=0, w=1), runs j-loop,
+// pops j-loop state, updates len and w_step.
+//
+// 22 counted instructions.
+// ---------------------------------------------------------------------------
+__ntt_stage:
+    dup 0
+    push 0
+    eq
+    skiz
+    return
+    push -1
+    add
+    // [stage_counter-1, len, w_step, a_addr, n]
+    // Set up j-loop: [j_counter, j, w, stage_counter, len, w_step, a_addr, n]
+    dup 1
+    push 0
+    push 1
+    swap 2
+    // [j_counter=len, j=0, w=1, stage_counter-1, len, w_step, a_addr, n]
+    call __ntt_j
+    // [0, j_final, w_final, stage_counter-1, len, w_step, a_addr, n]
+    pop 3
+    // [stage_counter-1, len, w_step, a_addr, n]
+    // len *= 2
+    swap 1
+    dup 0
+    add
+    swap 1
+    // w_step *= w_step
+    swap 2
+    dup 0
+    mul
+    swap 2
+    recurse
+
+// ---------------------------------------------------------------------------
+// J-loop (twiddle iteration within one stage).
+// Stack: [j_counter, j, w, stage_counter, len, w_step, a_addr, n]
+//
+// Positions: j_counter=0, j=1, w=2, stage_counter=3,
+//            len=4, w_step=5, a_addr=6, n=7
+//
+// For each j: push k=j, run butterfly loop, pop k, advance j, w *= w_step.
+//
+// 19 counted instructions.
+// ---------------------------------------------------------------------------
+__ntt_j:
+    dup 0
+    push 0
+    eq
+    skiz
+    return
+    push -1
+    add
+    // [j_counter-1, j, w, stage_counter, len, w_step, a_addr, n]
+    // Push k = j for butterfly loop
+    dup 1
+    // [k=j, j_counter-1, j, w, stage_counter, len, w_step, a_addr, n]
+    call __ntt_bfly
+    // [k_final, j_counter-1, j, w, stage_counter, len, w_step, a_addr, n]
+    pop 1
+    // j += 1
+    swap 1
+    push 1
+    add
+    swap 1
+    // w *= w_step
+    swap 2
+    dup 5
+    mul
+    swap 2
+    recurse
+
+// ---------------------------------------------------------------------------
+// Butterfly loop (innermost NTT loop).
+// Stack: [k, j_counter, j, w, stage_counter, len, w_step, a_addr, n]
+//
+// Positions: k=0, j_counter=1, j=2, w=3, stage_counter=4,
+//            len=5, w_step=6, a_addr=7, n=8
+//
+// While k < n: perform butterfly at positions (a_addr+k) and
+// (a_addr+k+len), then advance k by 2*len.
+// Uses lt (U32 comparison) for the loop condition.
+//
+// 43 counted instructions.
+// ---------------------------------------------------------------------------
+__ntt_bfly:
+    // Check k < n (n at depth 8, but dup 0 pushes k copy, shifting n to 9)
+    dup 0
+    dup 9
+    lt
+    push 0
+    eq
+    // k >= n means exit
+    skiz
+    return
+    // k < n: do butterfly
+    // lo_addr = a_addr + k (a_addr at depth 7)
+    dup 0
+    dup 8
+    add
+    // [lo_addr, k, j_ctr, j, w, sc, len, ws, a, n]
+    // hi_addr = lo_addr + len (len at depth 6, but with lo_addr pushed, depth is 7)
+    dup 0
+    dup 7
+    add
+    // [hi_addr, lo_addr, k, j_ctr, j, w, sc, len, ws, a, n]
+    // Read hi = mem[hi_addr]
+    dup 0
+    read_mem 1
+    pop 1
+    // [hi_val, hi_addr, lo_addr, k, j_ctr, j, w, sc, len, ws, a, n]
+    // t = hi_val * w (w at depth 6 in original, now at depth 8 after 2 pushes)
+    // Positions: 0=hi_val, 1=hi_addr, 2=lo_addr, 3=k, 4=j_ctr, 5=j, 6=w
+    dup 6
+    mul
+    // [t, hi_addr, lo_addr, k, j_ctr, j, w, sc, len, ws, a, n]
+    // Read lo = mem[lo_addr]
+    dup 2
+    read_mem 1
+    pop 1
+    // [lo_val, t, hi_addr, lo_addr, k, j_ctr, j, w, sc, len, ws, a, n]
+    // Write (lo + t) to lo_addr
+    dup 0
+    dup 2
+    add
+    // [lo+t, lo_val, t, hi_addr, lo_addr, k, ...]
+    dup 4
+    swap 1
+    write_mem 1
+    pop 1
+    // [lo_val, t, hi_addr, lo_addr, k, j_ctr, j, w, sc, len, ws, a, n]
+    // Compute lo - t
+    swap 1
+    push -1
+    mul
+    add
+    // [lo-t, hi_addr, lo_addr, k, j_ctr, j, w, sc, len, ws, a, n]
+    // Write (lo - t) to hi_addr
+    swap 1
+    swap 2
+    pop 1
+    // [hi_addr, lo-t, k, j_ctr, j, w, sc, len, ws, a, n]
+    swap 1
+    write_mem 1
+    pop 1
+    // [k, j_ctr, j, w, sc, len, ws, a, n]
+    // k += 2 * len (len at depth 5)
+    dup 5
+    dup 0
+    add
+    add
+    recurse
+
+
+// ===========================================================================
+// INTT -- Inverse NTT
+// ===========================================================================
+// Entry: [log_n, n_inv, omega_inv, a_addr]
+// Exit:  [] (stack cleaned)
+//
+// Algorithm: forward NTT with omega_inv, then scale all coefficients
+// by n_inv (= 1/N in the field).
+//
+// Uses dup-based argument forwarding: dup the original args to set up
+// ntt call args on top, then after ntt returns the original args remain
+// for the scale phase.
+//
+// 15 counted instructions.
+__intt:
+    // Entry: [log_n, n_inv, omega_inv, a_addr]
+    // Set up ntt(a_addr, omega_inv, log_n): need [log_n, omega_inv, a_addr]
+    // dup 3 -> a_addr, dup 3 -> omega_inv (shifted), dup 2 -> log_n (shifted)
+    dup 3
+    dup 3
+    dup 2
+    // [log_n, omega_inv, a_addr, log_n, n_inv, omega_inv, a_addr]
+    call __ntt
+    // [log_n, n_inv, omega_inv, a_addr]
+    // Compute size = 2^log_n
+    push 1
+    dup 1
+    // [log_n, 1, log_n, n_inv, omega_inv, a_addr]
+    call __intt_size
+    // [0, size, log_n, n_inv, omega_inv, a_addr]
+    pop 1
+    // [size, log_n, n_inv, omega_inv, a_addr]
+    // Set up scale(a_addr, n_inv, a_addr, size)
+    // scale entry: [n, out_addr, s, a_addr] = [size, a_addr, n_inv, a_addr]
+    dup 4
+    dup 3
+    dup 6
+    dup 3
+    // [size, a_addr, n_inv, a_addr, size, log_n, n_inv, omega_inv, a_addr]
+    call __scale
+    pop 5
+    return
+
+// ---------------------------------------------------------------------------
+// Size doubling loop for intt.
+// Stack: [counter, accum] -> [0, 2^counter * accum]
+//
+// 12 counted instructions.
+// ---------------------------------------------------------------------------
+__intt_size:
+    dup 0
+    push 0
+    eq
+    skiz
+    return
+    push -1
+    add
+    swap 1
+    dup 0
+    add
+    swap 1
+    recurse
+
+
+// ===========================================================================
+// POLY_MUL -- Polynomial multiplication via NTT
+// ===========================================================================
+// Entry: [log_n, n_inv, omega_inv, omega, tmp_addr, out_addr, b_addr, a_addr]
+// Exit:  [] (stack cleaned)
+//
+// Positions: 0=log_n, 1=n_inv, 2=omega_inv, 3=omega,
+//            4=tmp, 5=out, 6=b, 7=a
+//
+// Algorithm:
+//   1. size = 2^log_n
+//   2. Copy a[0..size) to out, b[0..size) to tmp (NTT is in-place)
+//   3. NTT(out, omega, log_n)
+//   4. NTT(tmp, omega, log_n)
+//   5. pointwise_mul(out, tmp, out, size)
+//   6. INTT(out, omega_inv, n_inv, log_n)
+//
+// 33 counted instructions.
+__poly_mul:
+    // Step 1: compute size = 2^log_n
+    dup 0
+    push 1
+    swap 1
+    // [log_n, 1, log_n, n_inv, omega_inv, omega, tmp, out, b, a]
+    call __pm_size
+    // [0, size, log_n, n_inv, omega_inv, omega, tmp, out, b, a]
+    pop 1
+    // [size, log_n, n_inv, omega_inv, omega, tmp, out, b, a]
+    // pos: 0=size, 1=log_n, 2=n_inv, 3=omega_inv, 4=omega,
+    //      5=tmp, 6=out, 7=b, 8=a
+
+    // Step 2: copy a->out, b->tmp
+    // pm_copy wants [counter, a_addr, b_addr, out_addr, tmp_addr]
+    dup 5
+    dup 7
+    dup 9
+    dup 11
+    dup 4
+    // [size, a, b, out, tmp, size, log_n, n_inv, omega_inv, omega, tmp, out, b, a]
+    call __pm_copy
+    pop 5
+    // [size, log_n, n_inv, omega_inv, omega, tmp, out, b, a]
+
+    // Step 3: ntt(out, omega, log_n)
+    // ntt wants [log_n, omega, addr]
+    dup 6
+    dup 5
+    dup 3
+    // [log_n, omega, out, size, log_n, n_inv, omega_inv, omega, tmp, out, b, a]
+    call __ntt
+    // [size, log_n, n_inv, omega_inv, omega, tmp, out, b, a]
+
+    // Step 4: ntt(tmp, omega, log_n)
+    dup 5
+    dup 5
+    dup 3
+    // [log_n, omega, tmp, size, ...]
+    call __ntt
+    // [size, log_n, n_inv, omega_inv, omega, tmp, out, b, a]
+
+    // Step 5: pointwise_mul(out, tmp, out, size)
+    // pw_mul wants [n, out_addr, b_addr, a_addr] = [size, out, tmp, out]
+    dup 6
+    dup 7
+    dup 8
+    dup 3
+    // [size, out, tmp, out, size, log_n, n_inv, omega_inv, omega, tmp, out, b, a]
+    call __pointwise_mul
+    // [size, log_n, n_inv, omega_inv, omega, tmp, out, b, a]
+
+    // Step 6: intt(out, omega_inv, n_inv, log_n)
+    // intt wants [log_n, n_inv, omega_inv, addr]
+    dup 6
+    dup 4
+    dup 4
+    dup 4
+    // [log_n, n_inv, omega_inv, out, size, ...]
+    call __intt
+    pop 5
+    pop 4
+    return
+
+// ---------------------------------------------------------------------------
+// Size doubling loop for poly_mul.
+// Stack: [counter, accum] -> [0, 2^counter * accum]
+//
+// 12 counted instructions.
+// ---------------------------------------------------------------------------
+__pm_size:
+    dup 0
+    push 0
+    eq
+    skiz
+    return
+    push -1
+    add
+    swap 1
+    dup 0
+    add
+    swap 1
+    recurse
+
+// ---------------------------------------------------------------------------
+// Copy loop: copies two arrays simultaneously.
+// Stack: [counter, a_addr, b_addr, out_addr, tmp_addr]
+// For i = counter-1 down to 0: out[i] = a[i], tmp[i] = b[i]
+//
+// 30 counted instructions.
+// ---------------------------------------------------------------------------
+__pm_copy:
+    dup 0
+    push 0
+    eq
+    skiz
+    return
+    push -1
+    add
+    // [idx, a_addr, b_addr, out_addr, tmp_addr]
+    // Copy a[idx] -> out[idx]
+    dup 0
+    dup 2
+    add
+    read_mem 1
+    pop 1
+    // [a_val, idx, a_addr, b_addr, out_addr, tmp_addr]
+    dup 1
+    dup 5
+    add
+    swap 1
+    write_mem 1
+    pop 1
+    // [idx, a_addr, b_addr, out_addr, tmp_addr]
+    // Copy b[idx] -> tmp[idx]
+    dup 0
+    dup 3
+    add
+    read_mem 1
+    pop 1
+    // [b_val, idx, a_addr, b_addr, out_addr, tmp_addr]
+    dup 1
+    dup 6
+    add
+    swap 1
+    write_mem 1
+    pop 1
+    // [idx, a_addr, b_addr, out_addr, tmp_addr]
+    recurse
