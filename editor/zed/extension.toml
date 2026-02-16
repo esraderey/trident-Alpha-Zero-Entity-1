@@ -6,9 +6,10 @@ schema_version = 1
 authors = ["mastercyb"]
 
 [grammars.trident]
-repository = "file:///Users/mastercyb/git/trident/tree-sitter"
-rev = "040e7d18f9141b6a96175821225f469c7e560d8b"
+repository = "https://github.com/mastercyb/trident"
+path = "tree-sitter"
+rev = "807d23f2c17a643b89234f5ce0a0fdce586134f5"
 
 [language_servers.trident-lsp]
 name = "Trident LSP"
-language = "Trident"
+languages = ["Trident"]

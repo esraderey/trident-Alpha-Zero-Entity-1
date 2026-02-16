@@ -446,10 +446,6 @@
           "named": true
         },
         {
-          "type": "emit_statement",
-          "named": true
-        },
-        {
           "type": "expression_statement",
           "named": true
         },
@@ -471,6 +467,10 @@
         },
         {
           "type": "return_statement",
+          "named": true
+        },
+        {
+          "type": "reveal_statement",
           "named": true
         },
         {
@@ -629,32 +629,6 @@
           }
         ]
       }
-    }
-  },
-  {
-    "type": "emit_statement",
-    "named": true,
-    "fields": {
-      "event": {
-        "multiple": false,
-        "required": true,
-        "types": [
-          {
-            "type": "identifier",
-            "named": true
-          }
-        ]
-      }
-    },
-    "children": {
-      "multiple": true,
-      "required": false,
-      "types": [
-        {
-          "type": "field_init",
-          "named": true
-        }
-      ]
     }
   },
   {
@@ -1217,6 +1191,10 @@
         {
           "type": "sec_io_declaration",
           "named": true
+        },
+        {
+          "type": "sec_ram_declaration",
+          "named": true
         }
       ]
     }
@@ -1579,6 +1557,44 @@
     }
   },
   {
+    "type": "ram_entry",
+    "named": true,
+    "fields": {
+      "address": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "integer_literal",
+            "named": true
+          }
+        ]
+      },
+      "type": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "array_type",
+            "named": true
+          },
+          {
+            "type": "named_type",
+            "named": true
+          },
+          {
+            "type": "primitive_type",
+            "named": true
+          },
+          {
+            "type": "tuple_type",
+            "named": true
+          }
+        ]
+      }
+    }
+  },
+  {
     "type": "return_statement",
     "named": true,
     "fields": {},
@@ -1624,6 +1640,32 @@
         },
         {
           "type": "tuple_expression",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "reveal_statement",
+    "named": true,
+    "fields": {
+      "event": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "identifier",
+            "named": true
+          }
+        ]
+      }
+    },
+    "children": {
+      "multiple": true,
+      "required": false,
+      "types": [
+        {
+          "type": "field_init",
           "named": true
         }
       ]
@@ -1691,6 +1733,21 @@
           }
         ]
       }
+    }
+  },
+  {
+    "type": "sec_ram_declaration",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": false,
+      "types": [
+        {
+          "type": "ram_entry",
+          "named": true
+        }
+      ]
     }
   },
   {
@@ -2064,10 +2121,6 @@
     "named": false
   },
   {
-    "type": "emit",
-    "named": false
-  },
-  {
     "type": "event",
     "named": false
   },
@@ -2132,7 +2185,15 @@
     "named": false
   },
   {
+    "type": "ram",
+    "named": false
+  },
+  {
     "type": "return",
+    "named": false
+  },
+  {
+    "type": "reveal",
     "named": false
   },
   {

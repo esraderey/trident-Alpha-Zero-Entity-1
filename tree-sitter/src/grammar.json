@@ -132,6 +132,10 @@
         {
           "type": "SYMBOL",
           "name": "sec_io_declaration"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "sec_ram_declaration"
         }
       ]
     },
@@ -170,23 +174,126 @@
       ]
     },
     "sec_io_declaration": {
+      "type": "PREC",
+      "value": 1,
+      "content": {
+        "type": "SEQ",
+        "members": [
+          {
+            "type": "STRING",
+            "value": "sec"
+          },
+          {
+            "type": "FIELD",
+            "name": "kind",
+            "content": {
+              "type": "ALIAS",
+              "content": {
+                "type": "SYMBOL",
+                "name": "identifier"
+              },
+              "named": true,
+              "value": "io_kind"
+            }
+          },
+          {
+            "type": "STRING",
+            "value": ":"
+          },
+          {
+            "type": "FIELD",
+            "name": "type",
+            "content": {
+              "type": "SYMBOL",
+              "name": "_type"
+            }
+          }
+        ]
+      }
+    },
+    "sec_ram_declaration": {
+      "type": "PREC",
+      "value": 2,
+      "content": {
+        "type": "SEQ",
+        "members": [
+          {
+            "type": "STRING",
+            "value": "sec"
+          },
+          {
+            "type": "STRING",
+            "value": "ram"
+          },
+          {
+            "type": "STRING",
+            "value": ":"
+          },
+          {
+            "type": "STRING",
+            "value": "{"
+          },
+          {
+            "type": "CHOICE",
+            "members": [
+              {
+                "type": "SEQ",
+                "members": [
+                  {
+                    "type": "SYMBOL",
+                    "name": "ram_entry"
+                  },
+                  {
+                    "type": "REPEAT",
+                    "content": {
+                      "type": "SEQ",
+                      "members": [
+                        {
+                          "type": "STRING",
+                          "value": ","
+                        },
+                        {
+                          "type": "SYMBOL",
+                          "name": "ram_entry"
+                        }
+                      ]
+                    }
+                  }
+                ]
+              },
+              {
+                "type": "BLANK"
+              }
+            ]
+          },
+          {
+            "type": "CHOICE",
+            "members": [
+              {
+                "type": "STRING",
+                "value": ","
+              },
+              {
+                "type": "BLANK"
+              }
+            ]
+          },
+          {
+            "type": "STRING",
+            "value": "}"
+          }
+        ]
+      }
+    },
+    "ram_entry": {
       "type": "SEQ",
       "members": [
         {
-          "type": "STRING",
-          "value": "sec"
-        },
-        {
           "type": "FIELD",
-          "name": "kind",
+          "name": "address",
           "content": {
-            "type": "ALIAS",
-            "content": {
-              "type": "SYMBOL",
-              "name": "identifier"
-            },
-            "named": true,
-            "value": "io_kind"
+            "type": "SYMBOL",
+            "name": "integer_literal"
           }
         },
         {
@@ -877,7 +984,7 @@
         },
         {
           "type": "SYMBOL",
-          "name": "emit_statement"
+          "name": "reveal_statement"
         },
         {
           "type": "SYMBOL",
@@ -1484,12 +1591,12 @@
         }
       ]
     },
-    "emit_statement": {
+    "reveal_statement": {
       "type": "SEQ",
       "members": [
         {
           "type": "STRING",
-          "value": "emit"
+          "value": "reveal"
         },
         {
           "type": "FIELD",

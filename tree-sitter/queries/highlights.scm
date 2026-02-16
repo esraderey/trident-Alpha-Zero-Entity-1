@@ -23,6 +23,13 @@
   "seal"
 ] @keyword
 
+; RAM declarations
+(sec_ram_declaration
+  "ram" @keyword)
+
+(ram_entry
+  address: (integer_literal) @number)
+
 ; Builtin types
 (primitive_type) @type.builtin
 

@@ -17,7 +17,7 @@ editor/zed/target/
 
 # Tree-sitter grammar repos (managed separately)
 editor/tree-sitter-trident/
-editor/zed-trident/grammars/trident/
+editor/zed/grammars/
 
 # OS
 .DS_Store

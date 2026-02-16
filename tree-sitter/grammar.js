@@ -42,7 +42,11 @@ module.exports = grammar({
     // ---- I/O declarations ----
 
     io_declaration: ($) =>
-      choice($.pub_io_declaration, $.sec_io_declaration),
+      choice(
+        $.pub_io_declaration,
+        $.sec_io_declaration,
+        $.sec_ram_declaration,
+      ),
 
     pub_io_declaration: ($) =>
       seq(
@@ -53,9 +57,33 @@ module.exports = grammar({
       ),
 
     sec_io_declaration: ($) =>
+      prec(
+        1,
+        seq(
+          "sec",
+          field("kind", alias($.identifier, $.io_kind)),
+          ":",
+          field("type", $._type),
+        ),
+      ),
+
+    sec_ram_declaration: ($) =>
+      prec(
+        2,
+        seq(
+          "sec",
+          "ram",
+          ":",
+          "{",
+          optional(commaSep1($.ram_entry)),
+          optional(","),
+          "}",
+        ),
+      ),
+
+    ram_entry: ($) =>
       seq(
-        "sec",
-        field("kind", alias($.identifier, $.io_kind)),
+        field("address", $.integer_literal),
         ":",
         field("type", $._type),
       ),
