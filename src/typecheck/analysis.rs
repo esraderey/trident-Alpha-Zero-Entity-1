@@ -58,33 +58,49 @@ impl TypeChecker {
         }
     }
 
+    /// Iterative DFS cycle detection. Returns true if a cycle is found,
+    /// with `path` containing the cycle.
     fn dfs_cycle(
         &self,
-        node: &str,
+        start: &str,
         graph: &BTreeMap<String, Vec<String>>,
         visited: &mut BTreeMap<String, u8>,
         path: &mut Vec<String>,
     ) -> bool {
-        visited.insert(node.to_string(), 1); // in-stack
-        path.push(node.to_string());
+        // Stack frames: (node, callee_index)
+        let mut stack: Vec<(String, usize)> = Vec::new();
+        visited.insert(start.to_string(), 1);
+        path.push(start.to_string());
+        stack.push((start.to_string(), 0));
 
-        if let Some(callees) = graph.get(node) {
-            for callee in callees {
-                // Only check local functions (those in our graph)
-                let state = visited.get(callee).copied().unwrap_or(2);
-                if state == 1 {
-                    // Back-edge: cycle found
-                    path.push(callee.clone());
-                    return true;
-                }
-                if state == 0 && self.dfs_cycle(callee, graph, visited, path) {
-                    return true;
-                }
+        while let Some((node, idx)) = stack.last_mut() {
+            let callees = graph.get(node.as_str());
+            let len = callees.map_or(0, |c| c.len());
+
+            if *idx >= len {
+                // All callees explored — backtrack
+                visited.insert(node.clone(), 2);
+                path.pop();
+                stack.pop();
+                continue;
+            }
+
+            let callee = callees.expect("len > 0 implies Some")[*idx].clone();
+            *idx += 1;
+
+            let state = visited.get(&callee).copied().unwrap_or(2);
+            if state == 1 {
+                // Back-edge: cycle found
+                path.push(callee);
+                return true;
+            }
+            if state == 0 {
+                visited.insert(callee.clone(), 1);
+                path.push(callee.clone());
+                stack.push((callee, 0));
             }
         }
 
-        path.pop();
-        visited.insert(node.to_string(), 2); // done
         false
     }
 
