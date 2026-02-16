@@ -11,8 +11,8 @@ for provable computation.
 Layer           Current
 ───────────────────────
 vm spec          64K
-language        128K
-TIR             128K
+language         64K
+TIR              64K
 compiler        256K
 std.*           256K
 os.*            256K
@@ -30,7 +30,7 @@ tooling         256K
    0K  vm.* namespace sealed forever
 ```
 
-## language — 128K → 0K
+## language — 64K → 0K
 
 ```
   64K  Indexed assignment (arr[i] = val, s.field = val)
@@ -42,7 +42,7 @@ tooling         256K
    0K  Syntax and semantics sealed forever
 ```
 
-## TIR — 128K → 0K
+## TIR — 64K → 0K
 
 ```
   64K  TIROp set stable (no new variants without language change)
@@ -50,7 +50,7 @@ tooling         256K
   16K  Cost-driven optimization passes land
    8K  Stack effect contracts proven for all ops
    4K  Every lowering path formally verified
-   2K  No unproven TIR transformation remains
+   2K  TIR-to-target roundtrip proven equivalent
    0K  IR spec sealed forever
 ```
 
@@ -77,9 +77,9 @@ be provable. LSP, CLI, pretty-printing run outside the proof.
   64K  std.skill.* (23 skills) shipped
   32K  #[requires]/#[ensures] contracts on all public functions
   16K  std.crypto.* formally verified (poseidon, merkle, ecdsa)
-   8K  All modules verified, no unproven public function remains
-   4K  Public APIs frozen
-   2K  Every public function has a proven contract
+   8K  All modules verified — every public function proven
+   4K  Public APIs frozen, no new exports
+   2K  Cross-module composition proofs complete
    0K  Standard library sealed forever
 ```
 
