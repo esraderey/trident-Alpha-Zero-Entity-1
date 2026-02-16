@@ -45,18 +45,30 @@ impl GoldilocksField {
     /// Reduce a u128 value modulo P using 2^64 = 2^32 - 1 (mod P).
     #[inline]
     fn reduce128(x: u128) -> Self {
+        // Goldilocks: P = 2^64 - 2^32 + 1, so 2^64 ≡ 2^32 - 1 (mod P).
+        // Split x = lo + hi * 2^64, then x ≡ lo + hi * (2^32 - 1) (mod P).
         let lo = x as u64;
         let hi = (x >> 64) as u64;
         let hi_shifted = (hi as u128) * ((1u128 << 32) - 1);
         let sum = lo as u128 + hi_shifted;
+        // sum fits in ~97 bits max. Split again.
         let lo2 = sum as u64;
         let hi2 = (sum >> 64) as u64;
         if hi2 == 0 {
             Self(if lo2 >= P { lo2 - P } else { lo2 })
         } else {
+            // hi2 is at most ~2^32, so r fits in ~65 bits.
             let r = lo2 as u128 + (hi2 as u128) * ((1u128 << 32) - 1);
-            let r = r as u64;
-            Self(if r >= P { r - P } else { r })
+            // r may exceed 2^64, so one more split may be needed.
+            let lo3 = r as u64;
+            let hi3 = (r >> 64) as u64;
+            if hi3 == 0 {
+                Self(if lo3 >= P { lo3 - P } else { lo3 })
+            } else {
+                // hi3 is at most 1, so final value fits in u64.
+                let v = lo3.wrapping_add(hi3.wrapping_mul(u32::MAX as u64));
+                Self(if v >= P { v - P } else { v })
+            }
         }
     }
 
