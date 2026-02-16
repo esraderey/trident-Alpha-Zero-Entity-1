@@ -138,7 +138,8 @@ pub struct ModuleBenchmarkResult {
 }
 
 /// Format a number with comma separators (e.g. 2097152 -> "2,097,152").
-fn fmt_num(n: usize) -> String {
+/// Returns an em-dash for zero.
+pub fn fmt_num(n: usize) -> String {
     if n == 0 {
         return "\u{2014}".to_string();
     }
@@ -153,7 +154,9 @@ fn fmt_num(n: usize) -> String {
     result
 }
 
-fn fmt_ratio(num: usize, den: usize) -> String {
+/// Format a ratio as `N.NNx` using integer arithmetic.
+/// Returns an em-dash when `den` is zero.
+pub fn fmt_ratio(num: usize, den: usize) -> String {
     if den == 0 {
         "\u{2014}".to_string()
     } else {
@@ -163,7 +166,9 @@ fn fmt_ratio(num: usize, den: usize) -> String {
     }
 }
 
-fn status_icon(num: usize, den: usize) -> &'static str {
+/// Return a status icon: checkmark when `num <= 2*den`, warning triangle
+/// otherwise, space when `den` is zero.
+pub fn status_icon(num: usize, den: usize) -> &'static str {
     if den == 0 {
         " "
     } else if num <= 2 * den {

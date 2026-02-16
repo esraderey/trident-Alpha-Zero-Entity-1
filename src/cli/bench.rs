@@ -115,10 +115,10 @@ pub fn cmd_bench(args: BenchArgs) {
             eprintln!(
                 "\u{2502} {:<28} \u{2502} {:>8} \u{2502} {:>8} \u{2502} {:>7} \u{2502} {} \u{2502}",
                 result.module_path,
-                fmt_num(result.total_compiled),
-                fmt_num(result.total_baseline),
-                fmt_ratio(result.total_compiled, result.total_baseline),
-                status_icon(result.total_compiled, result.total_baseline),
+                trident::fmt_num(result.total_compiled),
+                trident::fmt_num(result.total_baseline),
+                trident::fmt_ratio(result.total_compiled, result.total_baseline),
+                trident::status_icon(result.total_compiled, result.total_baseline),
             );
         }
         for f in &result.functions {
@@ -156,40 +156,6 @@ pub fn cmd_bench(args: BenchArgs) {
         );
     }
     eprintln!();
-}
-
-fn fmt_num(n: usize) -> String {
-    if n == 0 {
-        return "\u{2014}".to_string();
-    }
-    let s = n.to_string();
-    let mut result = String::with_capacity(s.len() + s.len() / 3);
-    for (i, ch) in s.chars().enumerate() {
-        if i > 0 && (s.len() - i) % 3 == 0 {
-            result.push(',');
-        }
-        result.push(ch);
-    }
-    result
-}
-
-fn fmt_ratio(num: usize, den: usize) -> String {
-    if den == 0 {
-        "\u{2014}".to_string()
-    } else {
-        let ratio_100 = num * 100 / den;
-        format!("{}.{:02}x", ratio_100 / 100, ratio_100 % 100)
-    }
-}
-
-fn status_icon(num: usize, den: usize) -> &'static str {
-    if den == 0 {
-        " "
-    } else if num <= 2 * den {
-        "\u{2713}"
-    } else {
-        "\u{25b3}"
-    }
 }
 
 /// Recursively find all .baseline.tasm files in a directory.
