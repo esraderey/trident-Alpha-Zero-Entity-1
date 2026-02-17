@@ -6,92 +6,154 @@ Write once. Run anywhere.
 
 ---
 
-## The OS Model
+## Five-Layer Architecture
 
-An OS is a runtime that loads programs, manages I/O, enforces billing, and
-provides storage. A blockchain is one kind of OS. Linux is another.
+A full Trident target decomposes into five layers. Each layer has three
+naming registers: a technical name (geeky), a metaphorical name (gamy),
+and a code-level struct name.
 
-The VM is the CPU — the instruction set architecture. The OS is the
-runtime — storage, accounts, syscalls, billing. One VM can power multiple
-OSes, just as one CPU architecture runs multiple operating systems.
+| Layer | Geeky | Gamy | Code | What it is | Example |
+|-------|-------|------|------|------------|---------|
+| VM | engine | terrain | `TerrainConfig` | Instruction set | Triton, EVM, Cairo |
+| OS | network | union | `UnionConfig` | Protocol + nodes | Neptune, Ethereum, Solana |
+| Chain | vimputer | state | `StateConfig` | Sovereign instance | Mainnet, Optimism, Sepolia |
+| OS binary | client | warrior | `WarriorConfig` | Runtime binary | Trisha, Geth |
+| Full target | target | battlefield | — | Engine+Union+State | Triton+Neptune+Mainnet |
 
-| Concept | Range |
-|---------|-------|
-| CPU / ISA | X86-64, ARM64, RISCV, TRITON, MIDEN, CAIRO, EVM, WASM, SBPF, MOVEVM, TVM, CKB, POLKAVM, NOCK, SP1, OPENVM, RISCZERO, JOLT, AVM, AZTEC |
-| OS / Runtime | Linux, macOS, Android, WASI, Browser, Neptune, Polygon Miden, Starknet, Ethereum, Solana, Near, Cosmos, Sui, Aptos, Ton, Nervos, Polkadot, Aleo, Aztec, Boundless |
-| Word size | 32-bit, 64-bit, 256-bit (EVM), 257-bit (TVM), field elements (31-bit to 254-bit) |
-| System calls | POSIX (read, write, mmap), WASI (fd_read, fd_write), browser (fetch, DOM), provable (pub_read, pub_write, hint), blockchain (storage, cross-contract, IBC, XCM) |
-| Process model | Multi-threaded, sequential deterministic, parallel (Sui, Aptos), event loop (Browser) |
-| Billing | Wall-clock, cost tables (rows, cycles, steps, gates), gas, compute units, weight |
+The first two layers (engine and network) affect compilation. The
+compiler selects instructions based on the engine and links runtime
+bindings based on the network. The remaining three layers (chain,
+client, full target) are deployment-time concerns that do not change
+compiled output.
+
+Three naming registers coexist so that documentation, CLI flags, and
+casual conversation can each use the most natural vocabulary:
+
+- **Geeky** — precise technical terms for specs and architecture docs.
+- **Gamy** — metaphorical terms for tutorials, CLI help text, and the
+  warrior subsystem.
+- **Code** — the Rust struct name used in `src/config/target/`.
+
+---
+
+## The Engine/Union Model
+
+An engine (VM/terrain) is the instruction set architecture. A union
+(OS/network) is the runtime — storage, accounts, syscalls, billing.
+One engine can power multiple unions, just as one CPU architecture runs
+multiple operating systems.
+
+A union is a runtime that loads programs, manages I/O, enforces billing,
+and provides storage. A blockchain is one kind of union. Linux is another.
+
+| Layer | Geeky | Gamy | Range |
+|-------|-------|------|-------|
+| Engine | engine | terrain | X86-64, ARM64, RISCV, TRITON, MIDEN, CAIRO, EVM, WASM, SBPF, MOVEVM, TVM, CKB, POLKAVM, NOCK, SP1, OPENVM, RISCZERO, JOLT, AVM, AZTEC |
+| Union | network | union | Linux, macOS, Android, WASI, Browser, Neptune, Polygon Miden, Starknet, Ethereum, Solana, Near, Cosmos, Sui, Aptos, Ton, Nervos, Polkadot, Aleo, Aztec, Boundless |
+| Word size | — | — | 32-bit, 64-bit, 256-bit (EVM), 257-bit (TVM), field elements (31-bit to 254-bit) |
+| System calls | — | — | POSIX (read, write, mmap), WASI (fd_read, fd_write), browser (fetch, DOM), provable (pub_read, pub_write, hint), blockchain (storage, cross-contract, IBC, XCM) |
+| Process model | — | — | Multi-threaded, sequential deterministic, parallel (Sui, Aptos), event loop (Browser) |
+| Billing | — | — | Wall-clock, cost tables (rows, cycles, steps, gates), gas, compute units, weight |
 
 The compiler does two jobs, just like gcc:
 
-1. Instruction selection (VM/CPU) — translate IR ops to the target VM's
-   native instructions. This is the same job gcc does for x86-64 vs ARM64.
+1. Instruction selection (engine) — translate IR ops to the target
+   engine's native instructions. This is the same job gcc does for
+   x86-64 vs ARM64.
 
-2. Runtime binding (OS) — link against OS-specific modules
+2. Runtime binding (union) — link against union-specific modules
    (`os.<os>.*`) that provide transaction models, account structures,
    storage layouts, and syscall conventions. This is the same job libc
    does — it differs between Linux and macOS even on the same CPU.
 
 ### Target Resolution
 
-A target is either a VM or an OS. The compiler resolves `--target <name>`
-by checking OS configs first, then VM configs:
+The compiler accepts three register flags that correspond to the first
+three layers of the five-layer architecture. Each flag has two spellings
+(geeky / gamy) that are exact aliases:
 
-1. Is `<name>` an OS? → load `os/<name>.toml`, derive VM from `vm` field
-2. Is `<name>` a VM? → load `vm/<name>.toml`, no OS (bare compilation)
+| Flag (geeky) | Flag (gamy) | Layer | Selects |
+|--------------|-------------|-------|---------|
+| `--engine` | `--terrain` | VM | Instruction set (`TerrainConfig`) |
+| `--network` | `--union` | OS | Protocol + runtime (`UnionConfig`) |
+| `--vimputer` | `--state` | Chain | Sovereign instance (`StateConfig`) |
+
+The `--target` flag remains as the universal backward-compatible
+shorthand. When used alone, the compiler resolves it by checking union
+configs first, then engine configs:
+
+1. Is `<name>` a union? → load `os/<name>/target.toml`, derive engine from `vm` field
+2. Is `<name>` an engine? → load `vm/<name>/target.toml`, no union (bare compilation)
 3. Neither → error: unknown target
 
+When explicit register flags are provided, they take precedence over
+`--target` and allow independent selection of each layer:
+
 ```trident
-trident build --target neptune     # OS → derives vm="triton" → full compilation
-trident build --target ethereum    # OS → derives vm="evm" → EVM + Ethereum runtime
-trident build --target linux       # OS → derives vm="x86-64" → native + Linux runtime
-trident build --target wasi        # OS → derives vm="wasm" → WASM + WASI runtime
-trident build --target triton      # bare VM → TRITON, no OS
-trident build --target evm         # bare VM → EVM bytecode, no OS
-trident build --target wasm        # bare VM → generic WASM, no OS
+# Universal --target (backward-compatible)
+trident build --target neptune     # union → derives engine="triton" → full compilation
+trident build --target ethereum    # union → derives engine="evm" → EVM + Ethereum runtime
+trident build --target linux       # union → derives engine="x86-64" → native + Linux runtime
+trident build --target wasi        # union → derives engine="wasm" → WASM + WASI runtime
+trident build --target triton      # bare engine → TRITON, no union
+trident build --target evm         # bare engine → EVM bytecode, no union
+trident build --target wasm        # bare engine → generic WASM, no union
+
+# Explicit register flags (geeky spelling)
+trident build --engine triton --network neptune
+trident build --engine triton --network neptune --vimputer mainnet
+
+# Explicit register flags (gamy spelling)
+trident build --terrain triton --union neptune
+trident build --terrain triton --union neptune --state mainnet
+
+# Mixed spelling is valid (geeky and gamy are exact aliases)
+trident build --engine triton --union neptune --state mainnet
 ```
 
-When targeting an OS, `os.<os>.*` modules are automatically available.
-When targeting a bare VM, using `os.<os>.*` modules is a compile error —
-there is no OS to bind against.
+When targeting a union (OS), `os.<os>.*` modules are automatically
+available. When targeting a bare engine (VM), using `os.<os>.*` modules
+is a compile error — there is no union to bind against.
+
+The `--state` / `--vimputer` flag selects deployment metadata only.
+It does not affect compiled output — two builds differing only in state
+produce identical artifacts.
 
 ---
 
 ## Integration Levels
 
-### VM Levels (L0 -- L5)
+### Engine Levels (L0 -- L5)
 
 | Level | Name | Artifact | Example |
 |-------|------|----------|---------|
-| L0 | Declared | `vm/<vm>.toml` exists | All 20 VMs |
-| L1 | Documented | `reference/vm/<vm>.md` exists | All 20 VMs |
+| L0 | Declared | `vm/<engine>/target.toml` exists | All 20 engines |
+| L1 | Documented | `reference/vm/<engine>.md` exists | All 20 engines |
 | L2 | Scaffold | Legacy `StackBackend` in `src/legacy/backend/` | SP1, OPENVM, CAIRO |
 | L3 | Lowering | New-pipeline lowering trait in `src/tir/lower/`, `src/tree/lower/`, or `src/lir/lower/` | Triton, Miden, Nock, x86-64 |
 | L4 | Costed | `CostModel` in `src/cost/model/` | TRITON, MIDEN, SP1, OPENVM, CAIRO |
 | L5 | Tested | End-to-end compilation tests pass | Triton, Miden |
 
-L2 and L3 are not cumulative. Some VMs skip L2 and go straight to L3
+L2 and L3 are not cumulative. Some engines skip L2 and go straight to L3
 (e.g., Nock has TreeLowering but no legacy StackBackend). Levels
 describe what artifacts exist.
 
-### OS Levels (L0 -- L3)
+### Union Levels (L0 -- L3)
 
 | Level | Name | Artifact | Example |
 |-------|------|----------|---------|
-| L0 | Declared | `os/<os>.toml` exists, `vm` field references a VM | All 25 OSes |
-| L1 | Documented | `reference/os/<os>.md` exists | All 25 OSes |
-| L2 | Bound | `os/<os>/*.tri` runtime bindings exist | Neptune |
-| L3 | Tested | End-to-end OS-targeted compilation tests pass | None yet |
+| L0 | Declared | `os/<union>/target.toml` exists, `vm` field references an engine | All 25 unions |
+| L1 | Documented | `reference/os/<union>.md` exists | All 25 unions |
+| L2 | Bound | `os/<union>/*.tri` runtime bindings exist | Neptune |
+| L3 | Tested | End-to-end union-targeted compilation tests pass | None yet |
 
 ---
 
-## VM Integration Matrix
+## Engine (VM/Terrain) Integration Matrix
 
-20 VMs. Checkmarks indicate the level is complete.
+20 engines. Checkmarks indicate the level is complete.
 
-| VM | L0 | L1 | L2 | L3 | L4 | L5 | Path | Notes |
+| Engine | L0 | L1 | L2 | L3 | L4 | L5 | Path | Notes |
 |----|:--:|:--:|:--:|:--:|:--:|:--:|------|-------|
 | triton | Y | Y | Y | Y | Y | Y | tir (StackLowering) | Primary target. 6-table cost model. 30+ lowering tests. |
 | miden | Y | Y | Y | Y | Y | Y | tir (StackLowering) | 4-table cost model. 8+ Miden-specific tests. |
@@ -116,13 +178,13 @@ describe what artifacts exist.
 
 ### Lowering Path Summary
 
-| Path | Pipeline | VMs | Status |
+| Path | Pipeline | Engines | Status |
 |------|----------|-----|--------|
 | tir (StackLowering) | TIR -> stack instructions | triton, miden | Production |
 | tree (TreeLowering) | TIR -> Noun combinators | nock | Partial (jets stubbed) |
 | lir (RegisterLowering) | TIR -> LIR -> register instructions | x86-64, arm64, riscv | Scaffold (todo!() bodies) |
 | legacy (StackBackend) | Legacy emitter pipeline | sp1, openvm, cairo | Functional but deprecated |
-| none | Not started | 11 VMs | -- |
+| none | Not started | 11 engines | -- |
 
 Planned specialized lowering traits (not yet implemented):
 EvmLowering, WasmLowering, BpfLowering, MoveLowering, AcirLowering,
@@ -130,11 +192,11 @@ KernelLowering.
 
 ---
 
-## OS Integration Matrix
+## Union (OS/Network) Integration Matrix
 
-25 OSes. Each OS references exactly one VM.
+25 unions. Each union references exactly one engine.
 
-| OS | L0 | L1 | L2 | L3 | VM | ext/ modules | Notes |
+| Union | L0 | L1 | L2 | L3 | Engine | ext/ modules | Notes |
 |----|:--:|:--:|:--:|:--:|-----|:------------:|-------|
 | neptune | Y | Y | Y | -- | triton | 6 | kernel, proof, recursive, registry, utxo, xfield |
 | ethereum | Y | Y | -- | -- | evm | 0 | Account model. Deep doc. |
@@ -161,6 +223,67 @@ KernelLowering.
 | linux | Y | Y | -- | -- | x86-64 | 0 | POSIX native. |
 | macos | Y | Y | -- | -- | arm64 | 0 | Apple native (ARM64). |
 | wasi | Y | Y | -- | -- | wasm | 0 | WASM System Interface. |
+
+---
+
+## State Layer
+
+States are sovereign chain instances within a union (OS/network). Multiple
+states can share the same union protocol and engine (VM) but maintain
+independent ledgers, genesis blocks, and validator sets.
+
+For example, Ethereum mainnet, Sepolia, and Optimism are all states within
+the Ethereum union. They share the EVM engine and Ethereum protocol rules,
+but each has its own ledger and independent state root.
+
+### Compilation Impact
+
+State configuration has zero compilation impact. The compiler produces
+identical artifacts regardless of which state is selected. State metadata
+is used only at deployment time — it tells the warrior (runtime binary)
+which RPC endpoints to connect to, which chain ID to embed in
+transactions, and which currency denominations to use.
+
+Two builds that differ only in `--state` produce byte-identical output.
+
+### TOML Schema
+
+State configs live at `os/<union>/states/<name>.toml`:
+
+```toml
+[state]
+name = "mainnet"
+union = "neptune"
+chain_id = 1
+
+[endpoints]
+rpc = "https://rpc.neptune.cash"
+explorer = "https://explorer.neptune.cash"
+
+[currency]
+symbol = "NEPT"
+decimals = 18
+```
+
+| Section | Field | Type | Description |
+|---------|-------|------|-------------|
+| `[state]` | `name` | string | Human-readable state name |
+| `[state]` | `union` | string | Parent union (must match an `os/<union>/target.toml`) |
+| `[state]` | `chain_id` | u64 | Unique chain identifier |
+| `[endpoints]` | `rpc` | string | Primary RPC endpoint |
+| `[endpoints]` | `explorer` | string | Block explorer URL (optional) |
+| `[currency]` | `symbol` | string | Native currency ticker |
+| `[currency]` | `decimals` | u64 | Decimal places for display |
+
+### How to Add a New State
+
+1. Identify the parent union (e.g., `neptune`, `ethereum`).
+2. Create `os/<union>/states/<name>.toml` with the schema above.
+3. Fill in `[state]`, `[endpoints]`, and `[currency]` sections.
+4. The state is immediately available via `--state <name>` or
+   `--vimputer <name>`.
+5. No code changes, no recompilation, no config registration required.
+   The compiler discovers states by scanning `os/<union>/states/`.
 
 ---
 
@@ -198,33 +321,36 @@ Summary: 15 done, 1 placeholder, 2 stubs, 1 hardcoded.
 
 Trident is the weapon. **Warriors** wield it on specific battlefields.
 
-A **battlefield** is a target — a VM+OS combination where compiled code
-runs, proves, and deploys. Every battlefield has two dimensions:
+A **battlefield** is a full target — an engine+union+state combination
+where compiled code runs, proves, and deploys. Every battlefield has
+three dimensions from the five-layer architecture:
 
-- **Terrain** — the VM (instruction set architecture). Triton, Miden,
-  EVM, WASM, x86-64. The ground the warrior fights on.
-- **Region** — the OS (runtime environment). Neptune, Ethereum, Solana,
-  Linux. The jurisdiction that defines the rules of engagement.
+- **Terrain** (engine) — the VM (instruction set architecture). Triton,
+  Miden, EVM, WASM, x86-64. The ground the warrior fights on.
+- **Union** (network) — the OS (runtime environment). Neptune, Ethereum,
+  Solana, Linux. The jurisdiction that defines the rules of engagement.
+- **State** (vimputer) — the sovereign chain instance. Mainnet, Sepolia,
+  Optimism. The specific arena within the union.
 
-`--target neptune` selects a battlefield: Neptune region, Triton terrain.
-`--target triton` selects bare terrain — no region, just raw ground.
+`--target neptune` selects a battlefield: Neptune union, Triton terrain.
+`--target triton` selects bare terrain — no union, just raw ground.
 
-A warrior is an external binary trained for a specific terrain+region
+A warrior is an external binary trained for a specific terrain+union
 combination. It takes Trident's compiled output and handles execution,
 proving, and deployment. Trident stays clean — zero heavy dependencies.
-Warriors bring the VM runtime, the prover, the GPU acceleration, and
-the chain client.
+Warriors bring the engine runtime, the prover, the GPU acceleration,
+and the chain client.
 
 ### Why Warriors
 
 Adding triton-vm, neptune-core, and wgpu directly to Trident makes it a
-monolith. One VM's dependencies pollute every build. Twenty VMs would be
-unmanageable. Warriors solve this: each is a separate crate with its own
-dependency tree. Install only what you need.
+monolith. One engine's dependencies pollute every build. Twenty engines
+would be unmanageable. Warriors solve this: each is a separate crate
+with its own dependency tree. Install only what you need.
 
 ### The `[warrior]` Section
 
-VM target configs (`vm/<vm>/target.toml`) can declare a warrior:
+Engine configs (`vm/<engine>/target.toml`) can declare a warrior:
 
 ```toml
 [warrior]
@@ -250,7 +376,7 @@ Resolution order:
 
 1. `trident-<target>` on PATH (direct match)
 2. Target's `[warrior]` config → `trident-<warrior.name>` on PATH
-3. If target is an OS → underlying VM's warrior config
+3. If target is a union → underlying engine's warrior config
 
 If no warrior is found, Trident compiles the program and prints
 installation guidance.
@@ -261,7 +387,7 @@ Three CLI commands delegate to warriors:
 
 | Command | What the warrior does |
 |---------|----------------------|
-| `trident run` | Execute compiled program on the target VM |
+| `trident run` | Execute compiled program on the target engine |
 | `trident prove` | Generate a STARK/SNARK proof of execution |
 | `trident verify` | Verify a proof against its claim |
 
@@ -272,8 +398,8 @@ run locally in Trident with zero warrior involvement.
 
 | Trident provides | Warriors provide |
 |-------------------|------------------|
-| Compilation (.tri → assembly) | VM execution (run the assembly) |
-| PrimeField trait + field impls | VM-specific runtime (triton-vm, etc.) |
+| Compilation (.tri → assembly) | Engine execution (run the assembly) |
+| PrimeField trait + field impls | Engine-specific runtime (triton-vm, etc.) |
 | Generic Poseidon2 sponge | GPU-accelerated proving (wgpu, CUDA) |
 | Proof cost estimation | Actual proof generation |
 | ProgramBundle artifact format | Chain deployment (neptune-core, etc.) |
@@ -281,8 +407,8 @@ run locally in Trident with zero warrior involvement.
 
 ### Current Warriors
 
-| Warrior | Crate | VM | OS | Status |
-|---------|-------|----|----|--------|
+| Warrior | Crate | Engine (terrain) | Union (network) | Status |
+|---------|-------|------------------|-----------------|--------|
 | Trisha | `trident-trisha` | Triton | Neptune | Planned |
 
 ### How to Build a Warrior
@@ -292,7 +418,7 @@ A warrior is a Rust crate that depends on `trident-lang`:
 ```toml
 [dependencies]
 trident-lang = "0.1"    # compiler + field math + Poseidon2 + traits
-triton-vm = "0.42"      # VM-specific heavy dependency
+triton-vm = "0.42"      # engine-specific heavy dependency
 ```
 
 Implement the runtime traits (`Runner`, `Prover`, `Verifier`, `Deployer`)
@@ -304,30 +430,30 @@ Poseidon2 hashing, proof estimation — instead of reimplementing them.
 
 ---
 
-## How to Add a New VM
+## How to Add a New Engine (VM/Terrain)
 
 Step-by-step checklist with exact file paths.
 
 ### L0 — Declare
 
-- [ ] Create `vm/<vm>.toml` with all sections:
+- [ ] Create `vm/<engine>/target.toml` with all sections:
   `[target]`, `[field]`, `[stack]`, `[hash]`, `[extension_field]`, `[cost]`, `[status]`
 - [ ] Set `[status] level = 0`
-- [ ] Verify `--target <vm>` resolves (the compiler reads `vm/` at startup)
+- [ ] Verify `--engine <engine>` resolves (the compiler reads `vm/` at startup)
 
 ### L1 — Document
 
-- [ ] Create `reference/vm/<vm>.md` — include architecture, word size,
+- [ ] Create `reference/vm/<engine>.md` — include architecture, word size,
   instruction set summary, cost model parameters, and hash function
-- [ ] Add the VM to the VM Registry table in [vm.md](vm.md)
-- [ ] Update the VM Integration Matrix in this file
+- [ ] Add the engine to the Engine Registry table in [vm.md](vm.md)
+- [ ] Update the Engine Integration Matrix in this file
 - [ ] Set `[status] level = 1`
 
 ### L2 — Scaffold (optional, legacy path)
 
-Only if using the legacy emitter pipeline. New VMs should prefer L3.
+Only if using the legacy emitter pipeline. New engines should prefer L3.
 
-- [ ] Create `src/legacy/backend/<vm>.rs` implementing `StackBackend`
+- [ ] Create `src/legacy/backend/<engine>.rs` implementing `StackBackend`
 - [ ] Register in `src/legacy/backend/mod.rs` factory (`create_backend()`)
 - [ ] Set `[status] level = 2`, `lowering_path = "legacy"`
 
@@ -335,9 +461,9 @@ Only if using the legacy emitter pipeline. New VMs should prefer L3.
 
 | Path | Trait | Location | Factory |
 |------|-------|----------|---------|
-| Stack | `StackLowering` | `src/tir/lower/<vm>.rs` | `create_stack_lowering()` in `src/tir/lower/mod.rs` |
-| Register | `RegisterLowering` | `src/lir/lower/<vm>.rs` | `create_register_lowering()` in `src/lir/lower/mod.rs` |
-| Tree | `TreeLowering` | `src/tree/lower/<vm>.rs` | `create_tree_lowering()` in `src/tree/lower/mod.rs` |
+| Stack | `StackLowering` | `src/tir/lower/<engine>.rs` | `create_stack_lowering()` in `src/tir/lower/mod.rs` |
+| Register | `RegisterLowering` | `src/lir/lower/<engine>.rs` | `create_register_lowering()` in `src/lir/lower/mod.rs` |
+| Tree | `TreeLowering` | `src/tree/lower/<engine>.rs` | `create_tree_lowering()` in `src/tree/lower/mod.rs` |
 | Specialized | Dedicated trait | Dedicated module | Per-trait factory |
 
 - [ ] Implement the chosen lowering trait
@@ -346,7 +472,7 @@ Only if using the legacy emitter pipeline. New VMs should prefer L3.
 
 ### L4 — Cost
 
-- [ ] Create `src/cost/model/<vm>.rs` implementing `CostModel`
+- [ ] Create `src/cost/model/<engine>.rs` implementing `CostModel`
 - [ ] Register in `src/cost/model/mod.rs` factory (`create_cost_model()`)
 - [ ] Set `[status] level = 4`, `cost_model = true`
 
@@ -355,59 +481,59 @@ Only if using the legacy emitter pipeline. New VMs should prefer L3.
 - [ ] Add lowering tests (e.g., `src/tir/lower/tests.rs` or equivalent for
   tree/register paths)
 - [ ] Add end-to-end compilation tests
-- [ ] Verify `cargo test` passes with the new VM
+- [ ] Verify `cargo test` passes with the new engine
 - [ ] Set `[status] level = 5`, `tests = true`
 
 ### Finalize
 
-- [ ] Update `[status]` in `vm/<vm>.toml` to reflect completed level
-- [ ] Update the VM Integration Matrix in this file
+- [ ] Update `[status]` in `vm/<engine>/target.toml` to reflect completed level
+- [ ] Update the Engine Integration Matrix in this file
 
 ---
 
-## How to Add a New OS
+## How to Add a New Union (OS/Network)
 
 ### L0 — Declare
 
-- [ ] Create `os/<os>.toml` with sections:
+- [ ] Create `os/<union>/target.toml` with sections:
   `[os]`, `[runtime]`, `[cross_chain]`, `[status]`
-- [ ] The `vm` field in `[os]` must reference an existing VM in `vm/`
+- [ ] The `vm` field in `[os]` must reference an existing engine in `vm/`
 - [ ] Set `[status] level = 0`
 
 ### L1 — Document
 
-- [ ] Create `reference/os/<os>.md` — include programming model,
-  state model, `os.<os>.*` API surface, and deployment patterns
-- [ ] Add the OS to the OS Registry table in [os.md](os.md)
-- [ ] Update the OS Integration Matrix in this file
+- [ ] Create `reference/os/<union>.md` — include programming model,
+  state model, `os.<union>.*` API surface, and deployment patterns
+- [ ] Add the union to the Union Registry table in [os.md](os.md)
+- [ ] Update the Union Integration Matrix in this file
 - [ ] Set `[status] level = 1`
 
 ### L2 — Bind
 
-- [ ] Create `os/<os>/` directory
+- [ ] Create `os/<union>/` directory
 - [ ] Write `.tri` binding modules (one per concern: storage, account,
   transfer, events, etc.)
-- [ ] Each file declares `module os.<os>.<name>`
+- [ ] Each file declares `module os.<union>.<name>`
 - [ ] Set `[status] level = 2`, `ext_modules = <count>`,
   `notes = "<comma-separated module names>"`
 
 ### L3 — Test
 
-- [ ] Add end-to-end compilation tests targeting this OS
-- [ ] Verify `os.<os>.*` module resolution works
+- [ ] Add end-to-end compilation tests targeting this union
+- [ ] Verify `os.<union>.*` module resolution works
 - [ ] Set `[status] level = 3`, `tests = true`
 
 ### Finalize
 
-- [ ] Update `[status]` in `os/<os>.toml`
-- [ ] Update the OS Integration Matrix in this file
+- [ ] Update `[status]` in `os/<union>/target.toml`
+- [ ] Update the Union Integration Matrix in this file
 
 ---
 
 ## How to Add a std/ Module
 
 1. Create `std/<category>/<name>.tri` with `module std.<category>.<name>`
-2. Implement functions. Use `#[intrinsic]` for VM-native operations.
+2. Implement functions. Use `#[intrinsic]` for engine-native operations.
 3. Determine status: Done, Stub, Placeholder, or Hardcoded.
 4. Update the Standard Library Status table in this file.
 5. If the module is target-specific, document which targets support it
@@ -417,8 +543,8 @@ Only if using the legacy emitter pipeline. New VMs should prefer L3.
 
 ## 🔗 See Also
 
-- [VM Reference](vm.md) — VM registry, lowering paths, tier/type/builtin tables, cost models
-- [OS Reference](os.md) — OS concepts, `os.*` gold standard, extensions
+- [VM Reference](vm.md) — Engine registry, lowering paths, tier/type/builtin tables, cost models
+- [OS Reference](os.md) — Union concepts, `os.*` gold standard, extensions
 - [Standard Library](stdlib.md) — `std.*` modules
 - [Language Reference](language.md) — Types, operators, builtins, grammar, sponge, Merkle, extension field, proof composition
 - [IR Reference](ir.md) — 54 operations, 4 tiers, lowering paths

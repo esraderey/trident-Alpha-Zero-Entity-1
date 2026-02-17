@@ -70,7 +70,7 @@ See [ir.md](ir.md) for the full IR architecture and lowering paths.
 ## VM Registry
 
 Each VM is defined by a `.toml` configuration file in `vm/` specifying
-CPU parameters. `TargetConfig` is the compiler's hardware abstraction layer.
+CPU parameters. `TerrainConfig` is the compiler's hardware abstraction layer.
 
 Designed for 20 VMs across three categories (today: Triton VM):
 

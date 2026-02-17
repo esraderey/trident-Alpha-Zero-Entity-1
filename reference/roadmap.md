@@ -127,7 +127,7 @@ Quantum   Quantum advantage: problems classical can't touch
 
 ```
 CORE      BBG formally verified, all state transitions proven
-vm spec   TargetConfig / StackBackend / CostModel traits frozen
+vm spec   TerrainConfig / StackBackend / CostModel traits frozen
 language  Protocol system proven sound (composability without dispatch)
 TIR       Every lowering path formally verified
 compiler  Proof verified on-chain, src/ deleted

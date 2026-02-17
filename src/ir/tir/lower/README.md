@@ -26,7 +26,7 @@ Consumes `Vec<TIROp>` and produces Triton VM assembly (TASM).
 
 1. Create `new_target.rs` implementing [`StackLowering`](mod.rs:14) (one method: `fn lower(&self, ops: &[TIROp]) -> Vec<String>`)
 2. Register in [`create_stack_lowering`](mod.rs:20)
-3. Add a [`TargetConfig`](../../tools/target.rs:20) variant
+3. Add a [`TerrainConfig`](../../tools/target.rs:20) variant
 
 ## Dependencies
 

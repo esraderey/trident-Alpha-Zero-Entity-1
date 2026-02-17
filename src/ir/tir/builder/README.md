@@ -30,5 +30,5 @@ Walks a type-checked AST and produces `Vec<TIROp>`. Target-independent.
 
 - [`TIROp`](../mod.rs:18) — the IR operations this builder produces
 - [`StackManager`](../stack.rs:58) — stack depth tracking and spill/reload
-- [`TargetConfig`](../../tools/target.rs:20) — VM parameters (stack depth, field widths)
+- [`TerrainConfig`](../../tools/target.rs:20) — VM parameters (stack depth, field widths)
 - [`MonoInstance`](../../typecheck/mod.rs:32) — resolved generic instantiations

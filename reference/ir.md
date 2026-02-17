@@ -37,8 +37,10 @@ TIRBuilder → Vec<TIROp>              ← 54 ops, target-independent
 The pipeline boundary is ProgramBundle. Everything above it is Trident
 (the weapon). Everything below it is the warrior — an external binary
 that takes the compiled artifact and handles execution, proving, and
-deployment for a specific VM+OS. See [targets.md](targets.md#warriors)
-for warrior architecture.
+deployment for a specific VM+OS. State (chain configuration) is a
+deploy-time input, not a compilation-time concern — the compiler targets
+a terrain (VM) and union (OS), while the warrior resolves chain state at
+deploy time. See [targets.md](targets.md#warriors) for warrior architecture.
 
 ---
 
@@ -370,7 +372,7 @@ src/legacy/                        ← old emitter (deprecated, comparison tests
 1. Create `src/tir/lower/new_target.rs`
 2. Implement `StackLowering` — one method: `fn lower(&self, ops: &[TIROp]) -> Vec<String>`
 3. Register in `create_stack_lowering()`
-4. Add `TargetConfig`
+4. Add `TerrainConfig`
 
 ### Register target
 

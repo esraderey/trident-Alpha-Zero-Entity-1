@@ -165,7 +165,17 @@ xb_dot_step(acc, ptr_a, ptr_b) -> (XField, Field, Field)
 ### Warriors (Runtime Delegation)
 
 Trident is the weapon. Warriors wield it on specific battlefields.
-Battlefield = target (VM+OS). Terrain = VM. Region = OS.
+Three layers compose a target (engine + union + state):
+
+| Layer | Geeky | Gamy | Code |
+|-------|-------|------|------|
+| VM | engine | terrain | `TerrainConfig` |
+| OS | network | union | `UnionConfig` |
+| Chain | vimputer | state | `StateConfig` |
+| Binary | client | warrior | `WarriorConfig` |
+| Target | target | battlefield | — |
+
+Battlefield = target (VM+OS+chain). Terrain = VM. Union = OS. State = chain (deploy-time).
 
 ```text
 Trident (this crate)           Warrior (separate crate)

@@ -545,7 +545,10 @@ contracts without executing the program. It runs entirely within Trident.
 
 `verify` checks a proof file produced by `trident prove`. It delegates
 to a warrior binary that has the target-specific verifier (e.g. triton-vm's
-`verify()` function). See [targets.md](targets.md#warriors).
+`verify()` function). "Client" and "warrior" are two naming registers
+for the same concept — geeky and gamy respectively. Both refer to the
+external binary that handles execution, proving, and verification for a
+specific battlefield (target). See [targets.md](targets.md#warriors).
 
 ---
 

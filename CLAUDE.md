@@ -38,6 +38,16 @@ toward provable compilation on Triton VM.
 
 Use `tokei src/` or `find src/ -name '*.rs'` to explore module structure.
 
+## Five-Layer Architecture
+
+| Layer | Geeky | Gamy | Code | What it is |
+|-------|-------|------|------|------------|
+| VM | engine | terrain | `TerrainConfig` | Instruction set |
+| OS | network | union | `UnionConfig` | Protocol + nodes |
+| Chain | vimputer | state | `StateConfig` | Sovereign instance |
+| Binary | client | warrior | `WarriorConfig` | Runtime binary |
+| Target | target | battlefield | — | Full deploy destination |
+
 ## Pipeline Contract
 
 ```
@@ -70,8 +80,14 @@ runtime/           ~416 LOC   Warrior interface definitions
   mod.rs            ~96         Runner, Prover, Verifier, Deployer traits
   artifact.rs      ~320         ProgramBundle struct + JSON serialization
 
+config/target/     ~1.1k LOC  Target registry (VM + OS + state loading)
+  mod.rs           ~345         TerrainConfig, Arch, VM loading
+  os.rs            ~230         UnionConfig, ResolvedTarget
+  state.rs         ~220         StateConfig, TOML parsing
+  tests.rs         ~330         Target tests
+
 cli/               ~2.5k LOC  Command-line interface
-  mod.rs           ~360         Arg parsing, shared warrior helpers
+  mod.rs           ~480         Arg parsing, BattlefieldSelection, resolve_battlefield()
   run.rs            ~72         trident run (delegates to warrior)
   prove.rs          ~77         trident prove (delegates to warrior)
   verify.rs          ~36         trident verify (delegates to warrior)

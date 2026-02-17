@@ -25,6 +25,15 @@ the artifact, and deploys it to a registry server:
 # Compile + package + deploy to default registry (localhost:8090)
 trident deploy lock.tri --target neptune
 
+# Full deploy triple: engine + union + state
+trident deploy lock.tri --engine triton --union neptune --state mainnet
+
+# Deploy to testnet (same artifact, different state)
+trident deploy lock.tri --union neptune --state testnet
+
+# Deploy to devnet for local testing
+trident deploy lock.tri --union neptune --state devnet
+
 # Deploy to a specific registry
 trident deploy my_project/ --registry http://prod-registry:8090
 
@@ -37,6 +46,11 @@ trident deploy lock.deploy/
 # Dry run — see what would happen without deploying
 trident deploy lock.tri --dry-run
 ```
+
+The `--state` flag selects the network environment (mainnet, testnet, devnet).
+It does not affect compilation -- the same compiled artifact can be deployed to
+any state of the same union. State determines which chain endpoint, genesis
+parameters, and contract addresses the deployment targets.
 
 ### `trident package` — Build an Artifact
 
@@ -74,8 +88,10 @@ The `manifest.json` contains everything needed for integration:
   "program_digest": "a1b2c3...64hex",
   "source_hash": "d4e5f6...64hex",
   "target": {
-    "vm": "triton",
-    "os": "neptune",
+    "engine": "triton",
+    "terrain": "triton",
+    "union": "neptune",
+    "state": "mainnet",
     "architecture": "stack"
   },
   "cost": {
@@ -274,8 +290,9 @@ is the default and currently the only option that produces output.
 Programs that use only `std.*` modules are fully portable. They contain no
 target-specific instructions and will compile to any backend once it exists.
 
-Programs that import `os.<os>.*` modules (e.g., `os.neptune.kernel`) are bound to
-that specific backend. They will only compile for the named target.
+Programs that import `os.<union>.*` modules (e.g., `os.neptune.kernel`) are bound
+to that specific union. They will only compile when the matching `--union` is
+active.
 
 The `asm` block syntax enables target-specific code paths within otherwise
 portable programs:
@@ -294,15 +311,23 @@ fn efficient_hash(a: Field, b: Field) -> Field {
 }
 ```
 
-### The `--target` Flag
+### Target Selection Flags
 
 ```nu
-# Current (only supported target)
+# Backward-compatible universal flag
 trident build program.tri --target triton -o program.tasm
+
+# Explicit engine + union
+trident build program.tri --engine triton --union neptune
+
+# Full deploy triple with state
+trident deploy program.tri --engine triton --union neptune --state mainnet
 ```
 
-For the full multi-target design, see [Vision](../explanation/vision.md) and
-[Multi-Target Compilation](../explanation/multi-target.md).
+The `--target` flag remains as a backward-compatible universal register. For
+fine-grained control, use `--engine`, `--terrain`, `--union`, and `--state`.
+See [Multi-Target Compilation](../explanation/multi-target.md) for the full
+four-dimension model.
 
 ---
 

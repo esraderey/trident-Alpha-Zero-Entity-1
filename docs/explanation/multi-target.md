@@ -30,7 +30,48 @@ These properties emerged from ZK requirements. The discovery is that they define
 
 ---
 
-## 🏗️ Architecture: Three Levels
+## 🏗️ Architecture: Four Dimensions
+
+Trident target resolution has four orthogonal dimensions:
+
+| Dimension | Flag | Selects | Example |
+|-----------|------|---------|---------|
+| **Engine** | `--engine` | Execution VM (instruction set, field, stack) | `triton`, `miden`, `sp1` |
+| **Terrain** | `--terrain` | Hardware/VM profile (cost model, lowering) | `triton`, `evm`, `riscv` |
+| **Union** | `--union` | OS / network (runtime APIs, state model) | `neptune`, `solana`, `cosmos` |
+| **State** | `--state` | Network state (deploy-time: mainnet, testnet, devnet) | `mainnet`, `testnet`, `devnet` |
+
+Engine and terrain often coincide (e.g., `--engine triton --terrain triton`),
+but they separate when a single VM supports multiple hardware profiles or when
+a register-machine VM (SP1) runs on different silicon. Union selects the OS
+layer and its `os.<union>.*` extensions. State is a deploy-time dimension that
+selects the network environment -- it does not affect compilation but determines
+which chain endpoint, genesis parameters, and contract addresses the deployment
+targets.
+
+The backward-compatible `--target` flag still works as a universal register,
+setting engine, terrain, and union simultaneously when they share a name:
+
+```nu
+trident build main.tri --target triton
+# equivalent to: --engine triton --terrain triton --union neptune
+```
+
+The `--network` flag is an alias for `--union`, for familiarity:
+
+```nu
+trident build main.tri --network neptune
+# equivalent to: --union neptune
+```
+
+The `--vimputer` flag selects both engine and terrain together:
+
+```nu
+trident build main.tri --vimputer triton --union neptune
+# equivalent to: --engine triton --terrain triton --union neptune
+```
+
+### Three Code Levels
 
 ```text
 ┌─────────────────────────────────────────────────────────┐
@@ -47,18 +88,18 @@ These properties emerged from ZK requirements. The discovery is that they define
 │  ─────────────────────────────────────────────────────── │
 │  Targets: Triton VM, Miden, Cairo, SP1/RISC-V zkVMs     │
 ├─────────────────────────────────────────────────────────┤
-│            Level 3: OS Access                            │
-│  os.* (portable) + os.<os>.* (OS-specific)              │
+│            Level 3: Union (OS) Access                    │
+│  os.* (portable) + os.<union>.* (union-specific)        │
 │  ─────────────────────────────────────────────────────── │
 │  os.neuron: identity, authorization                      │
 │  os.signal: value transfer between neurons               │
 │  os.token: pay, lock, update, mint, burn (PLUMB)         │
 │  os.state: persistent storage                            │
-│  os.<os>.*: OS-specific extensions                       │
+│  os.<union>.*: union-specific extensions                 │
 └─────────────────────────────────────────────────────────┘
 ```
 
-A `.tri` file that uses only Level 1 constructs is designed to compile to every target. Level 2 imports restrict to ZK targets. Level 3 imports lock to a specific platform. The compiler enforces this statically — no runtime check, no silent failure.
+A `.tri` file that uses only Level 1 constructs is designed to compile to every target. Level 2 imports restrict to ZK targets. Level 3 imports lock to a specific union (OS). The compiler enforces this statically -- no runtime check, no silent failure.
 
 ### What each level means in practice
 
@@ -66,17 +107,22 @@ Level 1 is the business logic. The math, the state transitions, the validation r
 
 Level 2 adds cryptographic provability. Secret witness inputs, public I/O, sealed events, Merkle authentication. The same Level 1 logic now produces STARK proofs. Only available on ZK targets.
 
-Level 3 is the OS layer. Two tiers: `os.*` is the portable runtime
-(neuron identity, signals, tokens, state, time — designed for all 25
-OSes), and `os.<os>.*` provides OS-specific extensions (PDAs on Solana,
-UTXO authentication on Neptune, CPI on Sui). The compiler is designed to
-lower `os.*` calls to OS-native mechanisms based on `--target`. Importing `os.<os>.*`
-locks the program to that OS.
+Level 3 is the union (OS) layer. Two tiers: `os.*` is the portable runtime
+(neuron identity, signals, tokens, state, time -- designed for all 25
+unions), and `os.<union>.*` provides union-specific extensions (PDAs on Solana,
+UTXO authentication on Neptune, CPI on Sui). The compiler lowers `os.*`
+calls to union-native mechanisms based on `--union`. Importing `os.<union>.*`
+locks the program to that union.
+
+The fourth dimension -- state -- is orthogonal to code levels. It selects
+the deployment environment (mainnet, testnet, devnet) and affects only the
+deploy step, not compilation. The same compiled artifact can be deployed to
+different states of the same union.
 
 The key insight: `os.*` is thin. The entire blockchain design space reduces
-to three primitives — neurons (actors), signals (transactions), tokens
-(assets). The business logic — the part that's expensive to write, expensive
-to audit, and expensive to get wrong — lives entirely in Level 1.
+to three primitives -- neurons (actors), signals (transactions), tokens
+(assets). The business logic -- the part that's expensive to write, expensive
+to audit, and expensive to get wrong -- lives entirely in Level 1.
 
 ---
 
@@ -142,16 +188,16 @@ event Deposit { vault_id: Field, amount: Field }
 event Withdrawal { vault_id: Field, amount: Field }
 ```
 
-This program uses `os.state` and `os.neuron` — the portable OS API. It
+This program uses `os.state` and `os.neuron` -- the portable OS API. It
 is designed to compile to EVM bytecode, WASM for CosmWasm, BPF for Solana,
 TASM for Triton VM, and MASM for Miden. The developer writes it once. One
 audit covers all deployments.
 
-The compiler is designed to lower `os.state.read()` to `SLOAD` on EVM,
-`deps.storage` on CosmWasm, account data on Solana, RAM with Merkle
-authentication on Triton VM. `os.neuron.id()` becomes `msg.sender` on EVM,
+The compiler lowers `os.state.read()` to `SLOAD` on EVM, `deps.storage`
+on CosmWasm, account data on Solana, RAM with Merkle authentication on
+Triton VM. `os.neuron.id()` becomes `msg.sender` on EVM,
 `predecessor_account_id` on Near, `tx_context::sender` on Sui. Same source,
-target-optimal execution. No adapters to write.
+union-optimal execution. No adapters to write.
 
 ---
 
@@ -270,9 +316,17 @@ The `sender_bal - amount` and `assert(new_bal >= 0)` are pure Level 1 logic. The
 
 ---
 
-## ⚙️ TargetConfig
+## ⚙️ TerrainConfig
 
-Targets are defined as TOML files in `vm/<name>/target.toml`. Each declares architecture, field parameters, stack depth, hash function, and cost table names. The compiler loads them via `--target <name>`. See [Target Reference](../../reference/targets.md) for the schema, shipped configurations, and how to add new targets.
+Targets are defined as TOML files in `vm/<name>/target.toml`. Each declares
+architecture, field parameters, stack depth, hash function, and cost table
+names. The compiler loads them via `--engine <name>` (or the backward-compatible
+`--target <name>`). The union (OS) layer is defined in `os/<name>/target.toml`
+and loaded via `--union <name>`. Together, the `TerrainConfig` (engine + terrain)
+and `UnionConfig` (union + state) form the full deployment triple.
+
+See [Target Reference](../../reference/targets.md) for the schema, shipped
+configurations, and how to add new targets.
 
 ---
 
@@ -288,9 +342,9 @@ Three layers enable portability:
 
 - `std.core` -- Pure Trident, no VM dependencies. Compiles everywhere.
 - `std.io` / `std.crypto` -- Same API on every target. The compiler dispatches to target-native instructions.
-- `os.<os>.*` -- OS-specific extensions that lock to one target.
+- `os.<union>.*` -- Union-specific extensions that lock to one union (OS).
 
-Programs using only `std.*` compile to any backend. `std/target.tri` exposes compile-time constants (`DIGEST_WIDTH`, `FIELD_LIMBS`, `HASH_RATE`) derived from the active target, enabling polymorphic code without `#[cfg]` guards. See [Standard Library Reference](../../reference/stdlib.md) for the full module inventory.
+Programs using only `std.*` compile to any backend. `std/target.tri` exposes compile-time constants (`DIGEST_WIDTH`, `FIELD_LIMBS`, `HASH_RATE`) derived from the active terrain, enabling polymorphic code without `#[cfg]` guards. See [Standard Library Reference](../../reference/stdlib.md) for the full module inventory.
 
 ---
 
@@ -317,7 +371,7 @@ the body through as raw instructions.
 ### Multi-Target Programs
 
 A single source file can contain assembly blocks for multiple targets. Only the
-blocks matching the active `--target` are emitted:
+blocks matching the active engine (set via `--engine` or `--target`) are emitted:
 
 ```trident
 fn fast_double(a: Field) -> Field {
@@ -397,8 +451,8 @@ it in `create_cost_model()`.
 
 ### 4. Add extension modules
 
-If the target has unique capabilities (special types, native instructions, VM-
-specific APIs), add Trident library files under `os/<name>/`.
+If the target has unique capabilities (special types, native instructions,
+union-specific APIs), add Trident library files under `os/<name>/`.
 
 ### 5. Verify
 
@@ -418,7 +472,7 @@ Deploy where the economics are best. The same program runs on whichever chain of
 
 Prove where it matters. Level 1 logic can be deployed directly on conventional chains (fast, cheap, transparent execution) or wrapped in Level 2 for ZK targets (private, provable execution). The same business logic, different trust models. A lending protocol can run transparently on EVM while its risk engine runs privately on Triton VM, both from the same source.
 
-Reduce attack surface. Every rewrite is a chance to introduce bugs. Every new language is a chance to misunderstand semantics. Trident's constraints (bounded loops, no heap, no dynamic dispatch) eliminate entire classes of vulnerabilities that affect conventional smart contract languages: reentrancy (no callbacks without explicit `os.<os>.*` access), integer overflow (field arithmetic is modular by definition), unbounded gas consumption (loops are bounded).
+Reduce attack surface. Every rewrite is a chance to introduce bugs. Every new language is a chance to misunderstand semantics. Trident's constraints (bounded loops, no heap, no dynamic dispatch) eliminate entire classes of vulnerabilities that affect conventional smart contract languages: reentrancy (no callbacks without explicit `os.<union>.*` access), integer overflow (field arithmetic is modular by definition), unbounded gas consumption (loops are bounded).
 
 ---
 
@@ -463,7 +517,7 @@ This creates a spectrum of trust: deploy the same logic directly (transparent, a
 - Triton VM backend: Production-quality. Full type system, bounded loops, modules, cost analysis, 756 tests.
 - Miden VM backend: Lowering implemented. Inline `if.true/else/end` control flow, correct instruction set. Not validated against Miden runtime.
 - TIR pipeline: Operational. `TIRBuilder` produces `Vec<TIROp>` from AST. `TritonLowering` and `MidenLowering` produce assembly from TIR. Adding new lowerings is mechanical.
-- 20 VM + 25 OS configurations: TOML configs with field parameters, stack depth, cost tables. Each lives in `vm/{name}/target.toml` and `os/{name}/target.toml`.
+- 20 VM + 25 union configurations: TOML configs with field parameters, stack depth, cost tables. Each lives in `vm/{name}/target.toml` (engine/terrain) and `os/{name}/target.toml` (union).
 
 ---
 
@@ -481,7 +535,7 @@ Direct bytecode, no intermediate languages. Trident generates EVM bytecode, not 
 
 Levels are enforced, not suggested. The compiler rejects Level 2 constructs when targeting EVM. This is a compile error, not a warning. No surprises at deployment.
 
-Thin `os.<os>.*`, thick Level 1. Good programs have most logic in the portable Level 1 core. `os.*` is the portable runtime. `os.<os>.*` is OS-specific. The less OS-specific code, the more value from universal deployment.
+Thin `os.<union>.*`, thick Level 1. Good programs have most logic in the portable Level 1 core. `os.*` is the portable runtime. `os.<union>.*` is union-specific. The less union-specific code, the more value from universal deployment.
 
 Constraints are features. Bounded loops prevent runaways. No heap prevents memory exploits. No dynamic dispatch prevents reentrancy. These aren't limitations — they're safety guarantees that hold on every chain.
 
@@ -526,7 +580,7 @@ end-to-end proving and verification.
 ## 🔗 See Also
 
 - [IR Reference](../../reference/ir.md) — Lowering architecture
-- [Target Reference](../../reference/targets.md) — OS model, target profiles
-- [Programming Model](programming-model.md) — Execution model, OS abstraction
+- [Target Reference](../../reference/targets.md) — Terrain/union model, target profiles
+- [Programming Model](programming-model.md) — Execution model, union abstraction
 - [Language Reference](../../reference/language.md) — Syntax and semantics
-- [Compiling a Program](../guides/compiling-a-program.md) — `--target` flag
+- [Compiling a Program](../guides/compiling-a-program.md) — `--engine`, `--terrain`, `--union`, `--state` flags

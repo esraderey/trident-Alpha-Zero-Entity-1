@@ -197,7 +197,7 @@ When the compiler encounters a `use` statement, it resolves the module name to a
 | Module prefix | Search path | Example |
 |---|---|---|
 | `std.*` | Standard library directory (`std/`) | `use std.crypto.merkle` resolves to `std/crypto/merkle.tri` |
-| `os.<os>.*` | Extension library directory (`os/`) | `use os.neptune.xfield` resolves to `os/neptune/xfield.tri` |
+| `os.<union>.*` | Extension library directory (`os/`) | `use os.neptune.xfield` resolves to `os/neptune/xfield.tri` |
 | (no prefix) | Project root directory | `use helpers` resolves to `helpers.tri` |
 | (dotted) | Project root, nested | `use crypto.sponge` resolves to `crypto/sponge.tri` |
 
@@ -254,13 +254,38 @@ trident build . --profile release
 
 ## 🎯 Targeting VMs
 
-Trident's compiler is parameterized by a `TargetConfig` that defines every target-specific constant: stack depth, digest width, hash rate, field prime, cost tables, and output extension. The first target is Triton VM.
+Trident's compiler is parameterized by a `TerrainConfig` that defines every
+target-specific constant: stack depth, digest width, hash rate, field prime,
+cost tables, and output extension. The first target is Triton VM.
+
+### Target Selection Flags
+
+The compiler provides several flags for selecting the compilation target:
 
 ```nu
-trident build main.tri --target triton    # explicit (same as default)
+# Engine selects the execution VM (instruction set, field, stack model)
+trident build main.tri --engine triton
+
+# Terrain selects the hardware/VM profile (cost model, lowering path)
+trident build main.tri --terrain triton
+
+# Union selects the OS / network (runtime APIs, state model)
+trident build main.tri --network neptune
+# --network is an alias for --union:
+trident build main.tri --union neptune
+
+# Combine them for full control
+trident build main.tri --engine triton --terrain triton --union neptune
 ```
 
-The `--target` flag selects a `TargetConfig` by name. The built-in `triton` config sets:
+The `--target` flag still works as a backward-compatible universal register,
+setting engine, terrain, and union simultaneously when they share a name:
+
+```nu
+trident build main.tri --target triton    # equivalent to --engine triton --terrain triton --union neptune
+```
+
+The `--target` flag selects a `TerrainConfig` by name. The built-in `triton` config sets:
 
 | Parameter | Value |
 |---|---|
