@@ -43,9 +43,46 @@ pub fn cmd_verify(args: VerifyArgs) {
     let need_parse = verbose || smt_output.is_some() || run_z3 || json || synthesize;
     let (system, parsed_file) = if need_parse {
         let (_source, file) = load_and_parse(&entry);
-        let sys = trident::sym::analyze(&file);
+        // Analyze all functions (works for both programs and modules)
+        let per_fn = trident::sym::analyze_all(&file);
         if verbose {
-            eprintln!("\nConstraint system: {}", sys.summary());
+            if per_fn.is_empty() {
+                eprintln!("\n  No analyzable functions found.");
+            } else {
+                eprintln!();
+                for (fn_name, sys) in &per_fn {
+                    let violated = sys.violated_constraints().len();
+                    let status = if violated > 0 {
+                        format!("VIOLATED ({})", violated)
+                    } else if sys.constraints.is_empty() {
+                        "- (no constraints)".to_string()
+                    } else {
+                        "SAFE".to_string()
+                    };
+                    eprintln!(
+                        "  {:<30} {:>3} constraints, {:>3} variables  [{}]",
+                        fn_name,
+                        sys.active_constraints(),
+                        sys.num_variables,
+                        status,
+                    );
+                }
+            }
+        }
+        // Build combined constraint system
+        let mut sys = trident::sym::ConstraintSystem::new();
+        for (_, fn_sys) in &per_fn {
+            sys.constraints.extend(fn_sys.constraints.clone());
+            sys.num_variables += fn_sys.num_variables;
+            for (k, v) in &fn_sys.variables {
+                sys.variables.insert(k.clone(), *v);
+            }
+            sys.pub_inputs.extend(fn_sys.pub_inputs.clone());
+            sys.pub_outputs.extend(fn_sys.pub_outputs.clone());
+            sys.divine_inputs.extend(fn_sys.divine_inputs.clone());
+        }
+        if verbose {
+            eprintln!("\nCombined: {}", sys.summary());
         }
         (Some(sys), Some(file))
     } else {

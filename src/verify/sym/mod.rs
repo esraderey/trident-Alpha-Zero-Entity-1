@@ -274,9 +274,29 @@ impl ConstraintSystem {
 
 // ─── Analysis Functions ────────────────────────────────────────────
 
-/// Analyze a file and return its constraint system.
+/// Analyze a file and return its constraint system (main function only).
 pub fn analyze(file: &File) -> ConstraintSystem {
     SymExecutor::new().execute_file(file)
+}
+
+/// Analyze a single function by name, treating parameters as symbolic inputs.
+pub fn analyze_function(file: &File, fn_name: &str) -> ConstraintSystem {
+    SymExecutor::new().execute_function(file, fn_name)
+}
+
+/// Analyze all functions in a file, returning per-function constraint systems.
+/// For programs, analyzes `main`. For modules, analyzes every non-test function with a body.
+pub fn analyze_all(file: &File) -> Vec<(String, ConstraintSystem)> {
+    let mut results = Vec::new();
+    for item in &file.items {
+        if let Item::Fn(func) = &item.node {
+            if func.body.is_some() && !func.is_test && func.intrinsic.is_none() {
+                let system = SymExecutor::new().execute_function(file, &func.name.node);
+                results.push((func.name.node.clone(), system));
+            }
+        }
+    }
+    results
 }
 
 /// Verification result for a function or program.
@@ -325,6 +345,7 @@ impl VerificationResult {
 }
 
 /// Verify a file: analyze constraints and check for violations.
+/// For programs, checks `main`. For modules, checks all functions.
 pub fn verify_file(file: &File) -> VerificationResult {
     let system = analyze(file);
     let violated: Vec<String> = system

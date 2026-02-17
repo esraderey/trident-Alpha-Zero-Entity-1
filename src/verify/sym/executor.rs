@@ -42,18 +42,10 @@ impl SymExecutor {
         }
     }
 
-    /// Execute a file and produce its constraint system.
+    /// Execute a file and produce its constraint system (main function only).
     pub fn execute_file(mut self, file: &File) -> ConstraintSystem {
-        // Register all functions
-        for item in &file.items {
-            if let Item::Fn(func) = &item.node {
-                if func.body.is_some() && !func.is_test {
-                    self.functions.insert(func.name.node.clone(), func.clone());
-                }
-            }
-        }
+        self.register_functions(file);
 
-        // Execute the main function
         if let Some(main_fn) = self.functions.get("main").cloned() {
             if let Some(ref body) = main_fn.body {
                 self.execute_block(&body.node);
@@ -61,6 +53,35 @@ impl SymExecutor {
         }
 
         self.system
+    }
+
+    /// Execute a single function by name, treating its parameters as symbolic inputs.
+    pub fn execute_function(mut self, file: &File, fn_name: &str) -> ConstraintSystem {
+        self.register_functions(file);
+
+        if let Some(func) = self.functions.get(fn_name).cloned() {
+            // Create symbolic inputs for each parameter
+            for param in &func.params {
+                let var = self.fresh_var(&param.name.node);
+                self.env.insert(param.name.node.clone(), SymValue::Var(var));
+            }
+            if let Some(ref body) = func.body {
+                self.execute_block(&body.node);
+            }
+        }
+
+        self.system
+    }
+
+    /// Register all non-test functions from a file for inlining.
+    fn register_functions(&mut self, file: &File) {
+        for item in &file.items {
+            if let Item::Fn(func) = &item.node {
+                if func.body.is_some() && !func.is_test {
+                    self.functions.insert(func.name.node.clone(), func.clone());
+                }
+            }
+        }
     }
 
     /// Create a fresh symbolic variable.

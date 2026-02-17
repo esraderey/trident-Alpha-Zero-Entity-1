@@ -36,6 +36,7 @@ pub fn analyze_costs_project(
 
 /// Parse, type-check, and verify a project using symbolic execution + solver.
 ///
+/// Analyzes all functions across all modules, not just `main`.
 /// Returns a `VerificationReport` with static analysis, random testing (Schwartz-Zippel),
 /// and bounded model checking results.
 pub fn verify_project(entry_path: &Path) -> Result<solve::VerificationReport, Vec<Diagnostic>> {
@@ -43,15 +44,44 @@ pub fn verify_project(entry_path: &Path) -> Result<solve::VerificationReport, Ve
 
     let project = PreparedProject::build_default(entry_path)?;
 
-    if let Some(file) = project.last_file() {
-        let system = sym::analyze(file);
-        Ok(solve::verify(&system))
-    } else {
-        Err(vec![Diagnostic::error(
-            "no program file found".to_string(),
-            span::Span::dummy(),
-        )])
+    // Collect constraint systems from all functions in all modules
+    let mut combined = sym::ConstraintSystem::new();
+    for pm in &project.modules {
+        for (_, system) in sym::analyze_all(&pm.file) {
+            combined.constraints.extend(system.constraints);
+            combined.num_variables += system.num_variables;
+            for (k, v) in system.variables {
+                combined.variables.insert(k, v);
+            }
+            combined.pub_inputs.extend(system.pub_inputs);
+            combined.pub_outputs.extend(system.pub_outputs);
+            combined.divine_inputs.extend(system.divine_inputs);
+        }
     }
+
+    Ok(solve::verify(&combined))
+}
+
+/// Verify all functions in a project, returning per-function results.
+///
+/// Each entry in the returned vec is `(module_name, fn_name, report)`.
+pub fn verify_project_per_function(
+    entry_path: &Path,
+) -> Result<Vec<(String, String, solve::VerificationReport)>, Vec<Diagnostic>> {
+    use crate::pipeline::PreparedProject;
+
+    let project = PreparedProject::build_default(entry_path)?;
+
+    let mut results = Vec::new();
+    for pm in &project.modules {
+        let module_name = pm.file.name.node.clone();
+        for (fn_name, system) in sym::analyze_all(&pm.file) {
+            let report = solve::verify(&system);
+            results.push((module_name.clone(), fn_name, report));
+        }
+    }
+
+    Ok(results)
 }
 
 /// Count the number of TASM instructions in a compiled output string.
