@@ -84,6 +84,34 @@ pub trait Verifier {
     fn verify(&self, proof: &ProofData) -> Result<bool, String>;
 }
 
+/// Search for a nonce that satisfies a difficulty target.
+///
+/// Warriors implement this to find a nonce such that
+/// `hash(message ++ nonce) < target`. Used for proof-of-work
+/// mining and computational puzzles.
+pub trait Guesser {
+    /// Search for a valid nonce. Returns the nonce, digest, and
+    /// number of attempts if found within `max_attempts`.
+    fn guess(
+        &self,
+        bundle: &ProgramBundle,
+        input: &ProgramInput,
+        difficulty: u64,
+        max_attempts: u64,
+    ) -> Result<GuessResult, String>;
+}
+
+/// Result of a successful nonce search.
+#[derive(Clone, Debug)]
+pub struct GuessResult {
+    /// The winning nonce value.
+    pub nonce: u64,
+    /// The resulting digest elements.
+    pub digest: Vec<u64>,
+    /// Total nonces attempted before finding the solution.
+    pub attempts: u64,
+}
+
 /// Deploy a program to a chain or runtime.
 ///
 /// Warriors implement this for chain-specific deployment (e.g.,
