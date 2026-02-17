@@ -13,11 +13,14 @@ use cli::generate::GenerateArgs;
 use cli::hash::HashArgs;
 use cli::init::InitArgs;
 use cli::package::PackageArgs;
+use cli::prove::ProveArgs;
 use cli::registry::RegistryAction;
+use cli::run::RunArgs;
 use cli::store::StoreAction;
 use cli::test::TestArgs;
 use cli::tree_sitter::TreeSitterArgs;
 use cli::verify::{EquivArgs, VerifyArgs};
+use cli::verify_proof::VerifyProofArgs;
 use cli::view::ViewArgs;
 
 #[derive(Parser)]
@@ -76,6 +79,12 @@ enum Command {
     Package(PackageArgs),
     /// Deploy a program to a registry server or blockchain node
     Deploy(DeployArgs),
+    /// Run a compiled program via a hero (target-specific runtime)
+    Run(RunArgs),
+    /// Generate a proof of correct execution via a hero
+    Prove(ProveArgs),
+    /// Verify a proof via a hero (target-specific verifier)
+    VerifyProof(VerifyProofArgs),
     /// Generate tree-sitter grammar.json from the Rust grammar definition
     TreeSitter(TreeSitterArgs),
     /// Start the Language Server Protocol server
@@ -103,6 +112,9 @@ fn main() {
         Command::Deps { action } => cli::deps::cmd_deps(action),
         Command::Package(args) => cli::package::cmd_package(args),
         Command::Deploy(args) => cli::deploy::cmd_deploy(args),
+        Command::Run(args) => cli::run::cmd_run(args),
+        Command::Prove(args) => cli::prove::cmd_prove(args),
+        Command::VerifyProof(args) => cli::verify_proof::cmd_verify_proof(args),
         Command::TreeSitter(args) => cli::tree_sitter::cmd_tree_sitter(args),
         Command::Lsp => cmd_lsp(),
     }

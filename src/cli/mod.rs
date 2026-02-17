@@ -9,11 +9,14 @@ pub mod generate;
 pub mod hash;
 pub mod init;
 pub mod package;
+pub mod prove;
 pub mod registry;
+pub mod run;
 pub mod store;
 pub mod test;
 pub mod tree_sitter;
 pub mod verify;
+pub mod verify_proof;
 pub mod view;
 
 use std::path::{Path, PathBuf};
@@ -299,6 +302,64 @@ pub fn load_dep_dirs(project: &trident::project::Project) -> Vec<PathBuf> {
     match trident::manifest::load_lockfile(&lock_path) {
         Ok(lockfile) => trident::manifest::dependency_search_paths(&project.root_dir, &lockfile),
         Err(_) => Vec::new(),
+    }
+}
+
+/// Find a hero binary on PATH for the given target.
+///
+/// Convention: heroes are named `trident-<name>` (like git subcommands).
+/// Checks `trident-<target>` first. If the target is an OS with an
+/// underlying VM, also checks `trident-<vm>`.
+pub fn find_hero(target: &str) -> Option<PathBuf> {
+    let direct = format!("trident-{}", target);
+    if let Ok(path) = which_on_path(&direct) {
+        return Some(path);
+    }
+
+    if let Ok(resolved) = trident::target::ResolvedTarget::resolve(target) {
+        if resolved.os.is_some() {
+            let vm_hero = format!("trident-{}", resolved.vm.name);
+            if let Ok(path) = which_on_path(&vm_hero) {
+                return Some(path);
+            }
+        }
+    }
+
+    None
+}
+
+/// Look for an executable on PATH (simple, no `which` crate).
+fn which_on_path(name: &str) -> Result<PathBuf, ()> {
+    let path_var = std::env::var("PATH").unwrap_or_default();
+    for dir in path_var.split(':') {
+        let candidate = PathBuf::from(dir).join(name);
+        if candidate.is_file() {
+            return Ok(candidate);
+        }
+    }
+    Err(())
+}
+
+/// Delegate a CLI command to a hero binary.
+///
+/// Forwards `command` as the first argument, then all `extra_args`.
+/// Exits with the hero's exit code on failure.
+pub fn delegate_to_hero(hero_bin: &Path, command: &str, extra_args: &[&str]) {
+    let mut cmd = std::process::Command::new(hero_bin);
+    cmd.arg(command);
+    for arg in extra_args {
+        cmd.arg(arg);
+    }
+    match cmd.status() {
+        Ok(status) => {
+            if !status.success() {
+                process::exit(status.code().unwrap_or(1));
+            }
+        }
+        Err(e) => {
+            eprintln!("error: failed to run hero '{}': {}", hero_bin.display(), e);
+            process::exit(1);
+        }
     }
 }
 
