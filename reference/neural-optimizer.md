@@ -372,12 +372,54 @@ impl StackLowering for SpeculativeLowering {
 
 ---
 
-### N6: Training Integration
+### N6: Training Integration + Weight Storage
 
 **What:** Wire evolutionary training into the compilation workflow.
 Background training during `trident build`. Weight persistence.
+Convergence tracking.
 
-**Where:** `src/ir/tir/neural/trainer.rs` (~150 LOC)
+**Where:** `src/ir/tir/neural/trainer.rs` (~200 LOC)
+
+**Weights live in the repo, not in `~/`:**
+```
+neural/
+  weights.bin       728 KB — active weight vector (91K * 8 bytes)
+  meta.toml         convergence state + generation count + scores
+```
+
+Weights are code. They are content-addressed (Poseidon2 hash), versioned
+with git, reproducible across machines. A weight file in `~/.trident/`
+would be invisible state — breaks reproducibility, breaks CI, breaks
+the self-referential fixed point (the converged compiler hash must
+include its own weights).
+
+The `neural/` directory is checked in. `trident build --train` updates
+it. A fresh clone starts from the committed weights. Training improves
+from there.
+
+**meta.toml format:**
+```toml
+[optimizer]
+generation = 4200
+weight_hash = "a3f7c2..."          # Poseidon2 of weights.bin
+best_score = 8192                  # best padded height sum across eval set
+prev_score = 8704                  # previous generation best
+baseline_score = 16384             # classical-only score on same eval set
+improvement = "50.0%"              # vs baseline
+status = "improving"               # improving | plateaued | converged
+
+[convergence]
+plateau_window = 50                # generations without improvement
+plateau_threshold = 0.001          # relative improvement threshold
+generations_since_improvement = 12
+converged = false
+```
+
+**Convergence detection:** Track `best_score` over a sliding window
+of `plateau_window` generations. If relative improvement
+`(prev_best - best) / prev_best < plateau_threshold` for the entire
+window, status transitions to `plateaued`. If plateaued for 3 consecutive
+windows, status becomes `converged`.
 
 **Workflow:**
 1. During normal compilation, collect (TIR block, baseline TASM, score)
@@ -386,10 +428,8 @@ Background training during `trident build`. Weight persistence.
    (non-blocking, background thread).
 3. If a new weight vector improves average score on the training buffer,
    promote it to the active weights.
-4. Persist weights to `~/.trident/neural/weights.bin` (728 KB).
-
-**Weight versioning:** Content-addressed. Hash the weight vector with
-Poseidon2. The hash identifies the optimizer version.
+4. Write `neural/weights.bin` and update `neural/meta.toml`.
+5. `trident build` (without `--train`) reads weights but never writes.
 
 ```rust
 pub struct TrainingSession {
@@ -397,8 +437,137 @@ pub struct TrainingSession {
     training_buffer: Vec<(TIRBlock, Vec<String>, u64)>,
     active_weights: WeightVec,
     active_hash: [u8; 32],
+    generation: u64,
+    best_score: u64,
+    baseline_score: u64,
+    convergence: ConvergenceTracker,
+}
+
+pub struct ConvergenceTracker {
+    scores: VecDeque<u64>,   // last N generation scores
+    window: usize,           // plateau detection window
+    threshold: f64,          // relative improvement threshold
+    plateau_count: usize,    // consecutive plateau windows
+}
+
+pub enum OptimizerStatus {
+    Improving,
+    Plateaued,
+    Converged,
 }
 ```
+
+---
+
+### N7: CLI Optimizer Display
+
+**What:** Show optimizer decisions during compilation. Which path won
+per block, why, scores, and convergence status.
+
+**Where:** `src/cli/build.rs` (~80 LOC change), `src/ir/tir/neural/report.rs` (new, ~120 LOC)
+
+**New flag:** `--neural` on `trident build`. Shows optimizer rationale.
+
+**Output format:**
+
+```
+$ trident build program.tri --neural
+
+Compiling program.tri...
+Neural optimizer: gen 4200, improving (50.0% vs baseline)
+  weights: a3f7c2... | score: 8192 | baseline: 16384
+
+  Block 1 (main:0..14)     neural    1024 < 2048    -50.0%  cliff jump
+  Block 2 (main:15..28)    classical 512 = 512       0.0%   neural failed verify
+  Block 3 (hash_pair:0..9) neural    512 < 1024     -50.0%  table rebalance
+  Block 4 (loop:0..6)      classical 256 = 256       0.0%   neural worse (384)
+  Block 5 (epilogue:0..4)  classical 128 = 128       0.0%   no neural candidate
+
+  Summary: 2/5 blocks improved by neural path
+  Total cost: 8192 (classical: 16384, saved: 50.0%)
+
+Compiled -> program.tasm
+```
+
+**Each line shows:**
+- Block identifier (function name + node range)
+- Winner: `neural` or `classical`
+- Scores: winner_cost vs loser_cost
+- Percentage change
+- Reason: why the decision was made
+
+**Reasons vocabulary:**
+| Reason | Meaning |
+|--------|---------|
+| `cliff jump` | Neural found a score below a power-of-2 boundary |
+| `table rebalance` | Neural reduced max table by rebalancing across tables |
+| `stack scheduling` | Neural found better stack arrangement (fewer swaps/dups) |
+| `neural failed verify` | Candidate TASM not semantically equivalent |
+| `neural worse (N)` | Candidate verified but score N >= baseline |
+| `no neural candidate` | Model produced empty or unparseable output |
+| `neural timeout` | Inference exceeded time budget |
+
+**Convergence status line:**
+```
+Neural optimizer: gen <N>, <status> (<improvement>% vs baseline)
+```
+
+Status is one of:
+- `improving` — fitness still increasing
+- `plateaued` — no improvement in last 50 generations
+- `converged` — self-optimality reached, no further improvement possible
+
+When `--train` is also set, shows training progress:
+```
+Neural optimizer: training gen 4200 -> 4250 (50 generations, 2.3ms)
+  best: 8192 -> 8064 (1.6% improvement)
+  status: improving
+```
+
+**Implementation:**
+
+```rust
+/// Per-block optimization decision for CLI display.
+pub struct BlockDecision {
+    pub block_id: String,       // "main:0..14"
+    pub winner: Winner,         // Neural | Classical
+    pub winner_cost: u64,
+    pub loser_cost: u64,
+    pub reason: DecisionReason,
+}
+
+pub enum Winner { Neural, Classical }
+
+pub enum DecisionReason {
+    CliffJump,
+    TableRebalance,
+    StackScheduling,
+    NeuralFailedVerify,
+    NeuralWorse(u64),
+    NoCandidate,
+    NeuralTimeout,
+}
+
+/// Full compilation report with optimizer decisions.
+pub struct OptimizerReport {
+    pub status: OptimizerStatus,
+    pub generation: u64,
+    pub weight_hash: String,
+    pub decisions: Vec<BlockDecision>,
+    pub total_neural: u64,
+    pub total_classical: u64,
+}
+
+impl OptimizerReport {
+    pub fn format_report(&self) -> String;
+}
+```
+
+The `SpeculativeLowering` from N5 collects `BlockDecision`s as it
+processes each block. The report is returned alongside the TASM output
+and displayed by `cmd_build` when `--neural` is set.
+
+Without `--neural`, compilation is silent (current behavior).
 
 ---
 
@@ -412,9 +581,10 @@ pub struct TrainingSession {
 | N3 | 91K model | ~500 | N0, N1 | `src/ir/tir/neural/` |
 | N4 | Evolutionary training | ~200 | N0, N2, N3 | `src/ir/tir/neural/evolve.rs` |
 | N5 | Speculative lowering | ~50 | N2, N3 | `src/ir/tir/lower/triton.rs` |
-| N6 | Training integration | ~150 | N4, N5 | `src/ir/tir/neural/trainer.rs` |
+| N6 | Training + weight storage | ~200 | N4, N5 | `src/ir/tir/neural/trainer.rs` + `neural/` |
+| N7 | CLI optimizer display | ~200 | N5, N6 | `src/ir/tir/neural/report.rs` + `src/cli/build.rs` |
 
-**Total new code:** ~1,370 LOC Rust.
+**Total new code:** ~1,620 LOC Rust.
 
 N0 and N2 are independent — can be built in parallel.
 N1 and N2 are independent — can be built in parallel.
@@ -422,6 +592,7 @@ N3 depends on N0 + N1.
 N4 depends on N0 + N2 + N3.
 N5 depends on N2 + N3.
 N6 depends on N4 + N5.
+N7 depends on N5 + N6.
 
 ---
 
@@ -437,7 +608,10 @@ N6 depends on N4 + N5.
 - `src/ir/tir/neural/weights.rs` — Weight init + serialization
 - `src/ir/tir/neural/decode.rs` — Output to TASM decoding
 - `src/ir/tir/neural/evolve.rs` — Evolutionary search
-- `src/ir/tir/neural/trainer.rs` — Training integration
+- `src/ir/tir/neural/trainer.rs` — Training integration + convergence
+- `src/ir/tir/neural/report.rs` — Optimizer decision report for CLI
+- `neural/weights.bin` — Trained weight vector (728 KB, checked in)
+- `neural/meta.toml` — Convergence state, generation, scores
 
 **Modified files:**
 - `src/field/mod.rs` — Add `pub mod fixed;`
@@ -445,6 +619,7 @@ N6 depends on N4 + N5.
 - `src/ir/tir/mod.rs` — Add `pub mod encode; pub mod neural;`
 - `src/ir/tir/lower/triton.rs` — Speculative lowering wrapper
 - `src/ir/tir/lower/mod.rs` — Wire SpeculativeLowering into factory
+- `src/cli/build.rs` — `--neural` and `--train` flags, report display
 
 ---
 
@@ -533,7 +708,8 @@ Phase-specific verification:
 | N3 | Forward pass determinism. Output dimensions correct. Known-weight inference matches expected output. |
 | N4 | Population fitness improves over 100 generations on a toy problem. |
 | N5 | Speculative lowering never produces worse output than classical. Semantic equivalence holds for all accepted candidates. |
-| N6 | Weights persist and reload correctly. Training session improves scores on held-out blocks. |
+| N6 | Weights persist to `neural/` and reload correctly. Convergence detector transitions improving -> plateaued -> converged. Training session improves scores on held-out blocks. |
+| N7 | `--neural` flag displays per-block decisions. Reason classification matches actual decision path. Report totals are consistent. `--train` shows generation progress. |
 
 ---
 
@@ -547,5 +723,6 @@ Phase-specific verification:
 | N3 | 6 | Core model, most complex phase |
 | N4 | 3 | Selection + crossover + mutation |
 | N5 | 2 | Integration point, relies on existing equiv |
-| N6 | 3 | Persistence, background threading |
-| **Total** | **~21 pomodoros (~3.5 sessions)** | |
+| N6 | 3 | Persistence, convergence tracking, background threading |
+| N7 | 3 | Report formatting, CLI flags, reason classification |
+| **Total** | **~24 pomodoros (~4 sessions)** | |
