@@ -27,7 +27,7 @@ mod tests {
 use std::collections::{BTreeMap, BTreeSet};
 
 use crate::ast::*;
-use crate::target::TargetConfig;
+use crate::target::TerrainConfig;
 use crate::tir::stack::SpillFormatter;
 use crate::tir::stack::StackManager;
 use crate::tir::TIROp;
@@ -76,11 +76,11 @@ pub struct TIRBuilder {
     /// Active cfg flags for conditional compilation.
     pub(crate) cfg_flags: BTreeSet<String>,
     /// Target VM configuration.
-    pub(crate) target_config: TargetConfig,
+    pub(crate) target_config: TerrainConfig,
 }
 
 impl TIRBuilder {
-    pub fn new(target_config: TargetConfig) -> Self {
+    pub fn new(target_config: TerrainConfig) -> Self {
         let stack = StackManager::with_formatter(
             target_config.stack_depth,
             target_config.spill_ram_base,

@@ -155,14 +155,14 @@ fn test_lower_already_prefixed_labels() {
 
 use crate::lexer::Lexer;
 use crate::parser::Parser;
-use crate::target::TargetConfig;
+use crate::target::TerrainConfig;
 use crate::tir::builder::TIRBuilder;
 
 /// Compile source through the TIR pipeline to TASM.
 fn compile_to_tasm(source: &str) -> String {
     let (tokens, _, _) = Lexer::new(source, 0).tokenize();
     let file = Parser::new(tokens).parse_file().unwrap();
-    let config = TargetConfig::triton();
+    let config = TerrainConfig::triton();
     let ir = TIRBuilder::new(config).build_file(&file);
     let lowering = TritonLowering::new();
     lowering.lower(&ir).join("\n")

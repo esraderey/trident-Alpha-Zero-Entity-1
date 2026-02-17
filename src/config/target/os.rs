@@ -8,7 +8,7 @@ use super::*;
 /// runs on top of a VM. The `vm` field maps the OS to its underlying
 /// VM (e.g. "neptune" → "triton", "starknet" → "cairo").
 #[derive(Clone, Debug)]
-pub struct OsConfig {
+pub struct UnionConfig {
     /// OS name (e.g. "neptune").
     pub name: String,
     /// Display name (e.g. "Neptune").
@@ -25,7 +25,7 @@ pub struct OsConfig {
     pub transaction_model: String,
 }
 
-impl OsConfig {
+impl UnionConfig {
     /// Try to resolve an OS config by name.
     ///
     /// Searches for `os/<name>/target.toml` relative to the compiler
@@ -150,9 +150,9 @@ impl OsConfig {
 #[derive(Clone, Debug)]
 pub struct ResolvedTarget {
     /// VM configuration (always present).
-    pub vm: TargetConfig,
+    pub vm: TerrainConfig,
     /// OS configuration (present only if the target name was an OS).
-    pub os: Option<OsConfig>,
+    pub os: Option<UnionConfig>,
 }
 
 impl ResolvedTarget {
@@ -164,8 +164,8 @@ impl ResolvedTarget {
     /// 3. Neither? Error.
     pub fn resolve(name: &str) -> Result<Self, Diagnostic> {
         // 1. Try OS
-        if let Some(os_config) = OsConfig::resolve(name)? {
-            let vm = TargetConfig::resolve(&os_config.vm)?;
+        if let Some(os_config) = UnionConfig::resolve(name)? {
+            let vm = TerrainConfig::resolve(&os_config.vm)?;
             return Ok(ResolvedTarget {
                 vm,
                 os: Some(os_config),
@@ -173,7 +173,7 @@ impl ResolvedTarget {
         }
 
         // 2. Try VM
-        let vm = TargetConfig::resolve(name)?;
+        let vm = TerrainConfig::resolve(name)?;
         Ok(ResolvedTarget { vm, os: None })
     }
 }

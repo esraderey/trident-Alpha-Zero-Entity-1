@@ -17,7 +17,7 @@ use crate::ast;
 use crate::ast::display::format_ast_type;
 use crate::cost::ProgramCost;
 use crate::hash::ContentHash;
-use crate::target::{Arch, OsConfig, TargetConfig};
+use crate::target::{Arch, TerrainConfig, UnionConfig};
 
 // ─── Data Types ────────────────────────────────────────────────────
 
@@ -79,8 +79,8 @@ pub fn generate_artifact(
     tasm: &str,
     source_file: &ast::File,
     cost: &ProgramCost,
-    target_vm: &TargetConfig,
-    target_os: Option<&OsConfig>,
+    target_vm: &TerrainConfig,
+    target_os: Option<&UnionConfig>,
     output_base: &Path,
 ) -> Result<PackageResult, String> {
     // 1. Compute program_digest = Poseidon2(tasm bytes)

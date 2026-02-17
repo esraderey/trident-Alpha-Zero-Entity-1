@@ -5,13 +5,13 @@ use std::collections::BTreeMap;
 pub(crate) use crate::ast::display::format_ast_type as format_type_name;
 use crate::ast::*;
 use crate::span::Spanned;
-use crate::target::TargetConfig;
+use crate::target::TerrainConfig;
 
 use super::TIRBuilder;
 
 // ─── Free functions: type helpers ─────────────────────────────────
 
-pub(crate) fn resolve_type_width(ty: &Type, tc: &TargetConfig) -> u32 {
+pub(crate) fn resolve_type_width(ty: &Type, tc: &TerrainConfig) -> u32 {
     match ty {
         Type::Field | Type::Bool | Type::U32 => 1,
         Type::XField => tc.xfield_width,
@@ -28,7 +28,7 @@ pub(crate) fn resolve_type_width(ty: &Type, tc: &TargetConfig) -> u32 {
 pub(crate) fn resolve_type_width_with_subs(
     ty: &Type,
     subs: &BTreeMap<String, u64>,
-    tc: &TargetConfig,
+    tc: &TerrainConfig,
 ) -> u32 {
     match ty {
         Type::Field | Type::Bool | Type::U32 => 1,

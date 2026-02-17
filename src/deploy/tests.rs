@@ -129,7 +129,7 @@ fn test_generate_artifact_roundtrip() {
     // Create a minimal cost
     let cost = crate::cost::CostAnalyzer::default().analyze_file(&file);
 
-    let target_vm = TargetConfig::triton();
+    let target_vm = TerrainConfig::triton();
     let tasm = "push 1\nwrite_io 1\nhalt\n";
 
     let result = generate_artifact(

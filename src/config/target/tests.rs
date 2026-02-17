@@ -2,7 +2,7 @@ use super::*;
 
 #[test]
 fn test_triton_defaults() {
-    let config = TargetConfig::triton();
+    let config = TerrainConfig::triton();
     assert_eq!(config.name, "triton");
     assert_eq!(config.architecture, Arch::Stack);
     assert_eq!(config.field_bits, 64);
@@ -19,17 +19,17 @@ fn test_triton_defaults() {
 
 #[test]
 fn test_resolve_triton() {
-    let config = TargetConfig::resolve("triton").unwrap();
+    let config = TerrainConfig::resolve("triton").unwrap();
     assert_eq!(config.name, "triton");
     assert_eq!(config.digest_width, 5);
 }
 
 #[test]
 fn test_resolve_rejects_path_traversal() {
-    assert!(TargetConfig::resolve("../etc/passwd").is_err());
-    assert!(TargetConfig::resolve("./sneaky").is_err());
-    assert!(TargetConfig::resolve("foo/bar").is_err());
-    assert!(TargetConfig::resolve(".hidden").is_err());
+    assert!(TerrainConfig::resolve("../etc/passwd").is_err());
+    assert!(TerrainConfig::resolve("./sneaky").is_err());
+    assert!(TerrainConfig::resolve("foo/bar").is_err());
+    assert!(TerrainConfig::resolve(".hidden").is_err());
 }
 
 #[test]
@@ -67,7 +67,7 @@ tables = ["cycles"]
     )
     .unwrap();
 
-    let config = TargetConfig::load(&path).unwrap();
+    let config = TerrainConfig::load(&path).unwrap();
     assert_eq!(config.name, "test_vm");
     assert_eq!(config.architecture, Arch::Register);
     assert_eq!(config.field_bits, 32);
@@ -123,7 +123,7 @@ limbs = 4
     )
     .unwrap();
 
-    let config = TargetConfig::load(&path).unwrap();
+    let config = TerrainConfig::load(&path).unwrap();
     assert_eq!(config.field_bits, 64);
     assert_eq!(config.emulated_fields.len(), 2);
 
@@ -146,11 +146,11 @@ limbs = 4
 
 #[test]
 fn test_resolve_unknown_target() {
-    let result = TargetConfig::resolve("nonexistent_vm");
+    let result = TerrainConfig::resolve("nonexistent_vm");
     assert!(result.is_err());
 }
 
-// ── OsConfig ───────────────────────────────────────────────
+// ── UnionConfig ───────────────────────────────────────────────
 
 #[test]
 fn test_os_config_parse_toml() {
@@ -173,7 +173,7 @@ transaction_model = "proof-based"
     )
     .unwrap();
 
-    let config = OsConfig::load(&path).unwrap();
+    let config = UnionConfig::load(&path).unwrap();
     assert_eq!(config.name, "test_os");
     assert_eq!(config.display_name, "Test OS");
     assert_eq!(config.vm, "triton");
@@ -197,18 +197,18 @@ display_name = "Broken"
     )
     .unwrap();
 
-    assert!(OsConfig::load(&path).is_err());
+    assert!(UnionConfig::load(&path).is_err());
 }
 
 #[test]
 fn test_os_config_resolve_nonexistent() {
-    let result = OsConfig::resolve("definitely_not_an_os").unwrap();
+    let result = UnionConfig::resolve("definitely_not_an_os").unwrap();
     assert!(result.is_none());
 }
 
 #[test]
 fn test_os_config_resolve_rejects_traversal() {
-    let result = OsConfig::resolve("../etc/passwd").unwrap();
+    let result = UnionConfig::resolve("../etc/passwd").unwrap();
     assert!(result.is_none());
 }
 

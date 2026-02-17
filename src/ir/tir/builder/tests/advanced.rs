@@ -13,7 +13,7 @@ fn sp<T>(node: T) -> Spanned<T> {
 }
 
 fn make_builder() -> TIRBuilder {
-    TIRBuilder::new(TargetConfig::triton())
+    TIRBuilder::new(TerrainConfig::triton())
 }
 
 // ── Test: pass-through intrinsic emits minimal ops ──

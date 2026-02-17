@@ -47,7 +47,7 @@ pub struct WarriorConfig {
 /// Every numeric constant that was previously hardcoded for Triton VM
 /// (stack depth 16, digest width 5, hash rate 10, etc.) now lives here.
 #[derive(Clone, Debug)]
-pub struct TargetConfig {
+pub struct TerrainConfig {
     /// Short identifier used in CLI and file paths (e.g. "triton").
     pub name: String,
     /// Human-readable name (e.g. "Triton VM").
@@ -80,7 +80,7 @@ pub struct TargetConfig {
     pub warrior: Option<WarriorConfig>,
 }
 
-impl TargetConfig {
+impl TerrainConfig {
     /// Built-in Triton VM configuration (hardcoded fallback).
     pub fn triton() -> Self {
         Self {

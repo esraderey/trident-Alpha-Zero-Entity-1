@@ -25,7 +25,7 @@ fn minimal_program(items: Vec<Item>) -> File {
 }
 
 fn make_builder() -> TIRBuilder {
-    TIRBuilder::new(TargetConfig::triton())
+    TIRBuilder::new(TerrainConfig::triton())
 }
 
 // ── Test: minimal program produces Entry + FnStart + FnEnd ──

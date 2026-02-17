@@ -99,7 +99,7 @@ pub(crate) struct TypeChecker {
     /// Active cfg flags for conditional compilation.
     pub(super) cfg_flags: BTreeSet<String>,
     /// Target VM configuration (digest width, hash rate, field limbs, etc.).
-    pub(super) target_config: crate::target::TargetConfig,
+    pub(super) target_config: crate::target::TerrainConfig,
     /// Whether we are currently inside a `#[pure]` function body.
     pub(super) in_pure_fn: bool,
 }
@@ -112,10 +112,10 @@ impl Default for TypeChecker {
 
 impl TypeChecker {
     pub(crate) fn new() -> Self {
-        Self::with_target(crate::target::TargetConfig::triton())
+        Self::with_target(crate::target::TerrainConfig::triton())
     }
 
-    pub(crate) fn with_target(config: crate::target::TargetConfig) -> Self {
+    pub(crate) fn with_target(config: crate::target::TerrainConfig) -> Self {
         let mut tc = Self {
             functions: BTreeMap::new(),
             scopes: Vec::new(),

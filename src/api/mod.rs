@@ -6,7 +6,7 @@ pub(crate) use crate::cost;
 pub(crate) use crate::diagnostic::{render_diagnostics, Diagnostic};
 pub(crate) use crate::resolve::resolve_modules;
 pub(crate) use crate::span;
-pub(crate) use crate::target::TargetConfig;
+pub(crate) use crate::target::TerrainConfig;
 pub(crate) use crate::tir::builder::TIRBuilder;
 pub(crate) use crate::tir::linker::{link, ModuleTasm};
 pub(crate) use crate::tir::lower::create_stack_lowering;
@@ -25,7 +25,7 @@ pub struct CompileOptions {
     /// Active cfg flags for conditional compilation.
     pub cfg_flags: BTreeSet<String>,
     /// Target VM configuration.
-    pub target_config: TargetConfig,
+    pub target_config: TerrainConfig,
     /// Additional module search directories (from locked dependencies).
     pub dep_dirs: Vec<std::path::PathBuf>,
 }
@@ -35,7 +35,7 @@ impl Default for CompileOptions {
         Self {
             profile: "debug".to_string(),
             cfg_flags: BTreeSet::from(["debug".to_string()]),
-            target_config: TargetConfig::triton(),
+            target_config: TerrainConfig::triton(),
             dep_dirs: Vec::new(),
         }
     }
@@ -47,7 +47,7 @@ impl CompileOptions {
         Self {
             profile: profile.to_string(),
             cfg_flags: BTreeSet::from([profile.to_string()]),
-            target_config: TargetConfig::triton(),
+            target_config: TerrainConfig::triton(),
             dep_dirs: Vec::new(),
         }
     }

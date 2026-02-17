@@ -103,9 +103,9 @@ pub fn resolve_options(
     };
 
     let target_config = if effective_target == "triton" {
-        trident::target::TargetConfig::triton()
+        trident::target::TerrainConfig::triton()
     } else {
-        match trident::target::TargetConfig::resolve(effective_target) {
+        match trident::target::TerrainConfig::resolve(effective_target) {
             Ok(config) => config,
             Err(e) => {
                 eprintln!("error: {}", e.message);

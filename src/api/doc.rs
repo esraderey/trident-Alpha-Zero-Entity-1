@@ -11,7 +11,7 @@ use crate::ast::FileKind;
 use crate::cost;
 use crate::diagnostic::Diagnostic;
 use crate::pipeline::PreparedProject;
-use crate::target::TargetConfig;
+use crate::target::TerrainConfig;
 use crate::CompileOptions;
 
 /// Generate markdown documentation for a Trident project.
@@ -236,7 +236,7 @@ pub(crate) fn generate_docs(
 }
 
 /// Compute the width in field elements for an AST type (best-effort).
-pub(crate) fn ast_type_width(ty: &ast::Type, config: &TargetConfig) -> u32 {
+pub(crate) fn ast_type_width(ty: &ast::Type, config: &TerrainConfig) -> u32 {
     match ty {
         ast::Type::Field | ast::Type::Bool | ast::Type::U32 => 1,
         ast::Type::XField => config.xfield_width,
