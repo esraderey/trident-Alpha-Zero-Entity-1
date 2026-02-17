@@ -27,7 +27,7 @@ pub fn cmd_run(args: RunArgs) {
     let ri = resolve_input(&args.input);
     let target = &args.target;
 
-    if let Some(hero_bin) = super::find_hero(target) {
+    if let Some(warrior_bin) = super::find_warrior(target) {
         let mut extra: Vec<String> = vec![
             args.input.display().to_string(),
             "--target".to_string(),
@@ -46,7 +46,7 @@ pub fn cmd_run(args: RunArgs) {
             extra.push(s.join(","));
         }
         let refs: Vec<&str> = extra.iter().map(|s| s.as_str()).collect();
-        super::delegate_to_hero(&hero_bin, "run", &refs);
+        super::delegate_to_warrior(&warrior_bin, "run", &refs);
         return;
     }
 
@@ -56,10 +56,10 @@ pub fn cmd_run(args: RunArgs) {
             let op_count = bundle.assembly.lines().count();
             eprintln!("Compiled {} ({} ops)", bundle.name, op_count);
             eprintln!();
-            eprintln!("No runtime hero found for target '{}'.", target);
-            eprintln!("Heroes handle execution, proving, and deployment.");
+            eprintln!("No runtime warrior found for target '{}'.", target);
+            eprintln!("Warriors handle execution, proving, and deployment.");
             eprintln!();
-            eprintln!("Install a hero for this target:");
+            eprintln!("Install a warrior for this target:");
             eprintln!("  cargo install trident-trisha   # Triton VM + Neptune");
             eprintln!();
             eprintln!("Or use 'trident build' to produce TASM output directly.");

@@ -305,13 +305,13 @@ pub fn load_dep_dirs(project: &trident::project::Project) -> Vec<PathBuf> {
     }
 }
 
-/// Find a hero binary on PATH for the given target.
+/// Find a warrior binary on PATH for the given target.
 ///
 /// Resolution order:
 /// 1. `trident-<target>` directly on PATH
-/// 2. If target has a `[hero]` config, try `trident-<hero.name>`
-/// 3. If target is an OS, try `trident-<vm>` and the VM's hero config
-pub fn find_hero(target: &str) -> Option<PathBuf> {
+/// 2. If target has a `[warrior]` config, try `trident-<warrior.name>`
+/// 3. If target is an OS, try `trident-<vm>` and the VM's warrior config
+pub fn find_warrior(target: &str) -> Option<PathBuf> {
     // Direct match: trident-triton, trident-neptune, trident-trisha
     let direct = format!("trident-{}", target);
     if let Ok(path) = which_on_path(&direct) {
@@ -319,18 +319,18 @@ pub fn find_hero(target: &str) -> Option<PathBuf> {
     }
 
     if let Ok(resolved) = trident::target::ResolvedTarget::resolve(target) {
-        // Check VM's hero config
-        if let Some(ref hero) = resolved.vm.hero {
-            let hero_bin = format!("trident-{}", hero.name);
-            if let Ok(path) = which_on_path(&hero_bin) {
+        // Check VM's warrior config
+        if let Some(ref warrior) = resolved.vm.warrior {
+            let warrior_bin = format!("trident-{}", warrior.name);
+            if let Ok(path) = which_on_path(&warrior_bin) {
                 return Some(path);
             }
         }
 
         // If target is an OS, also try the VM name directly
         if resolved.os.is_some() {
-            let vm_hero = format!("trident-{}", resolved.vm.name);
-            if let Ok(path) = which_on_path(&vm_hero) {
+            let vm_warrior = format!("trident-{}", resolved.vm.name);
+            if let Ok(path) = which_on_path(&vm_warrior) {
                 return Some(path);
             }
         }
@@ -351,12 +351,12 @@ fn which_on_path(name: &str) -> Result<PathBuf, ()> {
     Err(())
 }
 
-/// Delegate a CLI command to a hero binary.
+/// Delegate a CLI command to a warrior binary.
 ///
 /// Forwards `command` as the first argument, then all `extra_args`.
-/// Exits with the hero's exit code on failure.
-pub fn delegate_to_hero(hero_bin: &Path, command: &str, extra_args: &[&str]) {
-    let mut cmd = std::process::Command::new(hero_bin);
+/// Exits with the warrior's exit code on failure.
+pub fn delegate_to_warrior(warrior_bin: &Path, command: &str, extra_args: &[&str]) {
+    let mut cmd = std::process::Command::new(warrior_bin);
     cmd.arg(command);
     for arg in extra_args {
         cmd.arg(arg);
@@ -368,7 +368,11 @@ pub fn delegate_to_hero(hero_bin: &Path, command: &str, extra_args: &[&str]) {
             }
         }
         Err(e) => {
-            eprintln!("error: failed to run hero '{}': {}", hero_bin.display(), e);
+            eprintln!(
+                "error: failed to run warrior '{}': {}",
+                warrior_bin.display(),
+                e
+            );
             process::exit(1);
         }
     }

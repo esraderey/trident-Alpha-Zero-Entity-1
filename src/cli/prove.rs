@@ -30,7 +30,7 @@ pub fn cmd_prove(args: ProveArgs) {
     let ri = resolve_input(&args.input);
     let target = &args.target;
 
-    if let Some(hero_bin) = super::find_hero(target) {
+    if let Some(warrior_bin) = super::find_warrior(target) {
         let mut extra: Vec<String> = vec![
             args.input.display().to_string(),
             "--target".to_string(),
@@ -53,7 +53,7 @@ pub fn cmd_prove(args: ProveArgs) {
             extra.push(out.display().to_string());
         }
         let refs: Vec<&str> = extra.iter().map(|s| s.as_str()).collect();
-        super::delegate_to_hero(&hero_bin, "prove", &refs);
+        super::delegate_to_warrior(&warrior_bin, "prove", &refs);
         return;
     }
 
@@ -63,10 +63,10 @@ pub fn cmd_prove(args: ProveArgs) {
             let op_count = bundle.assembly.lines().count();
             eprintln!("Compiled {} ({} ops)", bundle.name, op_count);
             eprintln!();
-            eprintln!("No proving hero found for target '{}'.", target);
-            eprintln!("Heroes handle proof generation using target-specific provers.");
+            eprintln!("No proving warrior found for target '{}'.", target);
+            eprintln!("Warriors handle proof generation using target-specific provers.");
             eprintln!();
-            eprintln!("Install a hero for this target:");
+            eprintln!("Install a warrior for this target:");
             eprintln!("  cargo install trident-trisha   # Triton VM + Neptune");
         }
         Err(_) => {

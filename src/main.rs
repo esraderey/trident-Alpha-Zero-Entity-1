@@ -79,11 +79,11 @@ enum Command {
     Package(PackageArgs),
     /// Deploy a program to a registry server or blockchain node
     Deploy(DeployArgs),
-    /// Run a compiled program via a hero (target-specific runtime)
+    /// Run a compiled program via a warrior (target-specific runtime)
     Run(RunArgs),
-    /// Generate a proof of correct execution via a hero
+    /// Generate a proof of correct execution via a warrior
     Prove(ProveArgs),
-    /// Verify a proof via a hero (target-specific verifier)
+    /// Verify a proof via a warrior (target-specific verifier)
     VerifyProof(VerifyProofArgs),
     /// Generate tree-sitter grammar.json from the Rust grammar definition
     TreeSitter(TreeSitterArgs),
