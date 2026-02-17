@@ -24,7 +24,7 @@ use crate::ast::*;
 use crate::span::Spanned;
 
 /// The prime modulus for the Goldilocks field.
-pub const GOLDILOCKS_P: u64 = 0xFFFFFFFF00000001; // 2^64 - 2^32 + 1
+pub const GOLDILOCKS_P: u64 = crate::field::goldilocks::MODULUS;
 
 mod executor;
 mod expr;

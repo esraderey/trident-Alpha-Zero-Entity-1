@@ -7,7 +7,7 @@
 //!   - Round constants derived deterministically from BLAKE3
 
 /// Goldilocks prime: p = 2^64 - 2^32 + 1
-const P: u64 = 0xFFFF_FFFF_0000_0001;
+const P: u64 = crate::field::goldilocks::MODULUS;
 
 /// Poseidon2 state width.
 const T: usize = 8;

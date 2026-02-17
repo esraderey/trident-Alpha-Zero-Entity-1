@@ -1,8 +1,8 @@
 use std::collections::BTreeMap;
 
 use super::model::{create_cost_model, CostModel, TableCost};
-use super::visit::next_power_of_two;
 use crate::ast::*;
+use crate::field::proof;
 
 // --- Per-function cost result ---
 
@@ -131,12 +131,10 @@ impl<'a> CostAnalyzer<'a> {
 
         // Padded height includes attestation.
         let max_height = total.max_height().max(attestation_hash_rows);
-        let padded_height = next_power_of_two(max_height);
+        let padded_height = proof::padded_height(max_height);
 
-        // Proving time estimate: padded_height * columns * log2(ph) * 3 nanoseconds per field op
         let columns = self.cost_model.trace_column_count();
-        let log2_padded = 64 - padded_height.leading_zeros() as u64;
-        let estimated_proving_ns = padded_height * columns * log2_padded * 3;
+        let estimated_proving_ns = proof::estimate_proving_ns(padded_height, columns);
 
         // H0004: scan for loop bound waste (bound >> constant end)
         for item in &file.items {
