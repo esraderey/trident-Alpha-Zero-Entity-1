@@ -41,11 +41,43 @@ Use `tokei src/` or `find src/ -name '*.rs'` to explore module structure.
 ## Pipeline Contract
 
 ```
-Source → Lexer → Parser → AST → TypeCheck → KIR → TIR → LIR → Target
+Source → Lexer → Parser → AST → TypeCheck → KIR → TIR → LIR → Target → Bundle → Warrior
 ```
 
 Output of stage N must be valid input for stage N+1. When modifying a
 stage, verify both its input and its output still connect.
+
+The pipeline boundary is ProgramBundle. Everything before it is Trident
+(the weapon). Warriors are external binaries that take the bundle and
+handle execution, proving, and deployment for a specific VM+OS.
+
+## Key Modules
+
+Beyond the pipeline stages (`syntax/`, `ast/`, `typecheck/`, `ir/`),
+key support modules:
+
+```
+field/             ~870 LOC   Universal field arithmetic + primitives
+  mod.rs           ~156         PrimeField trait + module declarations
+  goldilocks.rs    ~101         Goldilocks field (p = 2^64 - 2^32 + 1)
+  babybear.rs       ~60         BabyBear field (p = 2^31 - 2^27 + 1)
+  mersenne31.rs     ~77         Mersenne31 field (p = 2^31 - 1)
+  poseidon2.rs     ~295         Generic Poseidon2 sponge over PrimeField
+  proof.rs         ~179         Claim, padded_height, FRI params, proof size
+
+runtime/           ~416 LOC   Warrior interface definitions
+  mod.rs            ~96         Runner, Prover, Verifier, Deployer traits
+  artifact.rs      ~320         ProgramBundle struct + JSON serialization
+
+cli/               ~2.5k LOC  Command-line interface
+  mod.rs           ~360         Arg parsing, shared warrior helpers
+  run.rs            ~72         trident run (delegates to warrior)
+  prove.rs          ~77         trident prove (delegates to warrior)
+  validate.rs       ~33         trident validate (delegates to warrior)
+  build.rs         ~150         trident build
+  verify.rs        ~220         trident verify (formal verification)
+  ... (14 more subcommands)
+```
 
 ## Quality
 

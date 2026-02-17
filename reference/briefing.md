@@ -162,6 +162,29 @@ xx_dot_step(acc, ptr_a, ptr_b) -> (XField, Field, Field)
 xb_dot_step(acc, ptr_a, ptr_b) -> (XField, Field, Field)
 ```
 
+### Warriors (Runtime Delegation)
+
+Trident is the weapon. Warriors wield it on specific battlefields.
+
+```text
+Trident (this crate)           Warrior (separate crate)
+  .tri → compile → bundle  ──→  run / prove / validate
+  Field math, Poseidon2          triton-vm, neptune-core, wgpu
+  Cost estimation                GPU proving, chain deployment
+  Formal verification            Proof validation
+```
+
+```nu
+trident run <file>              # Delegates to warrior (execute on VM)
+trident prove <file>            # Delegates to warrior (generate proof)
+trident validate <proof>        # Delegates to warrior (validate proof)
+trident verify <file>           # Local (formal verification, symbolic)
+```
+
+Discovery: `trident-<name>` on PATH (like `git-<subcommand>`).
+Install: `cargo install trident-trisha` (Triton VM + Neptune).
+See [targets.md](targets.md#warriors).
+
 ### Common Errors to Avoid
 
 ```trident

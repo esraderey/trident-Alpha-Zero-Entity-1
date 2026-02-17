@@ -111,7 +111,7 @@ trident lsp                             # Start LSP server
 
 Trident is the weapon. **Warriors** wield it on specific battlefields.
 
-`run`, `prove`, and `verify-proof` delegate to external **warrior** binaries.
+`run`, `prove`, and `validate` delegate to external **warrior** binaries.
 Each warrior is specialized for a target VM+OS combination, bringing the
 heavy dependencies (provers, VMs, chain clients) that Trident stays clean of.
 

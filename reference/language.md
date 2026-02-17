@@ -105,7 +105,7 @@ width D varies by target (5 on TRITON, 4 on MIDEN, 8 on SP1/OPENVM, 1 on CAIRO).
 No implicit conversions. `Field` and `U32` do not auto-convert. Use `as_field()`
 and `as_u32()` (the latter inserts a range check).
 
-For extension field types, see [Extension Field](#15-extension-field).
+For extension field types, see [Extension Field](#16-extension-field).
 
 ### Composite Types
 
@@ -234,7 +234,7 @@ sec ram: { 17: Field, 42: Field }   // pre-initialized RAM slots
 No subtraction operator (`-`). No division operator (`/`). No `!=`, `>`, `<=`,
 `>=`. No `&&`, `||`, `!`. Use builtins: `sub(a, b)`, `neg(a)`, `inv(a)`.
 
-For extension field operators, see [Extension Field](#15-extension-field).
+For extension field operators, see [Extension Field](#16-extension-field).
 
 ### Other Expressions
 
@@ -531,7 +531,25 @@ written to public output. The verifier sees the commitment, not the data.
 
 ---
 
-## 11. Type Checking Rules
+## 11. Verify vs Validate
+
+Two distinct commands share the "check correctness" concept:
+
+| Command | What it checks | How | Where |
+|---------|---------------|-----|-------|
+| `trident verify` | Source code contracts | Symbolic execution, algebraic solver | Local (Trident) |
+| `trident validate` | Proof artifacts | STARK/SNARK proof verification | Warrior (external) |
+
+`verify` is static analysis — it checks `#[requires]`/`#[ensures]`
+contracts without executing the program. It runs entirely within Trident.
+
+`validate` checks a proof file produced by `trident prove`. It delegates
+to a warrior binary that has the target-specific verifier (e.g. triton-vm's
+`verify()` function). See [targets.md](targets.md#warriors).
+
+---
+
+## 12. Type Checking Rules
 
 - No implicit conversions between any types
 - No recursion — the compiler rejects call cycles across all modules
@@ -545,7 +563,7 @@ written to public output. The verifier sees the commitment, not the data.
 
 ---
 
-## 12. Permanent Exclusions
+## 13. Permanent Exclusions
 
 These are design decisions, not roadmap items.
 
@@ -582,7 +600,7 @@ Note: `hash()` is Tier 1 (universal) and documented in
 
 ---
 
-## 13. Sponge
+## 14. Sponge
 
 The sponge API enables incremental hashing of data larger than R fields.
 Initialize, absorb in chunks, squeeze the result. The rate R is
@@ -597,7 +615,7 @@ target-dependent: 10 on TRITON, 8 on MIDEN.
 
 ---
 
-## 14. Merkle Authentication
+## 15. Merkle Authentication
 
 | Signature | IR op | Description |
 |-----------|-------|-------------|
@@ -620,7 +638,7 @@ pub fn verify(root: Digest, leaf: Digest, index: U32, depth: U32) {
 
 ---
 
-## 15. Extension Field
+## 16. Extension Field
 
 The extension field extends `Field` to degree E (E = 3 on TRITON and NOCK).
 Only available on targets where `xfield_width > 0`.
@@ -653,7 +671,7 @@ Note: The `*.` operator (scalar multiply) maps to `ExtMul` in the IR.
 
 ---
 
-## 16. Proof Composition (Tier 3)
+## 17. Proof Composition (Tier 3)
 
 Proofs that verify other proofs. TRITON and NOCK only.
 

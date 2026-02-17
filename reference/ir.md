@@ -26,7 +26,19 @@ TIRBuilder → Vec<TIROp>              ← 54 ops, target-independent
         │
         ▼
       Linker                          ← multi-module resolution (all targets)
+        │
+        ▼
+    ProgramBundle                     ← serializable artifact
+        │
+        ▼
+      Warrior                         ← external: run, prove, validate
 ```
+
+The pipeline boundary is ProgramBundle. Everything above it is Trident
+(the weapon). Everything below it is the warrior — an external binary
+that takes the compiled artifact and handles execution, proving, and
+deployment for a specific VM+OS. See [targets.md](targets.md#warriors)
+for warrior architecture.
 
 ---
 

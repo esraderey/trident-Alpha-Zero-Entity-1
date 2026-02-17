@@ -194,6 +194,104 @@ Summary: 15 done, 1 placeholder, 2 stubs, 1 hardcoded.
 
 ---
 
+## Warriors
+
+Trident is the weapon. **Warriors** wield it on specific battlefields.
+
+A warrior is an external binary that takes Trident's compiled output and
+handles execution, proving, and deployment for a particular VM+OS
+combination. Trident stays clean — zero heavy dependencies. Warriors bring
+the VM runtime, the prover, the GPU acceleration, and the chain client.
+
+### Why Warriors
+
+Adding triton-vm, neptune-core, and wgpu directly to Trident makes it a
+monolith. One VM's dependencies pollute every build. Twenty VMs would be
+unmanageable. Warriors solve this: each is a separate crate with its own
+dependency tree. Install only what you need.
+
+### The `[warrior]` Section
+
+VM target configs (`vm/<vm>/target.toml`) can declare a warrior:
+
+```toml
+[warrior]
+name = "trisha"
+crate = "trident-trisha"
+runner = true
+prover = true
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `name` | string | Warrior name (used for `trident-<name>` binary lookup) |
+| `crate` | string | Rust crate name (for `cargo install`) |
+| `runner` | bool | Warrior can execute programs |
+| `prover` | bool | Warrior can generate proofs |
+
+### Discovery
+
+Trident discovers warriors via PATH, following the git subcommand
+convention (`trident-<name>`, like `git-<subcommand>`).
+
+Resolution order:
+
+1. `trident-<target>` on PATH (direct match)
+2. Target's `[warrior]` config → `trident-<warrior.name>` on PATH
+3. If target is an OS → underlying VM's warrior config
+
+If no warrior is found, Trident compiles the program and prints
+installation guidance.
+
+### Warrior Commands
+
+Three CLI commands delegate to warriors:
+
+| Command | What the warrior does |
+|---------|----------------------|
+| `trident run` | Execute compiled program on the target VM |
+| `trident prove` | Generate a STARK/SNARK proof of execution |
+| `trident validate` | Validate a proof against its claim |
+
+All other commands (`build`, `check`, `verify`, `fmt`, `bench`, etc.)
+run locally in Trident with zero warrior involvement.
+
+### Warrior vs Trident Responsibilities
+
+| Trident provides | Warriors provide |
+|-------------------|------------------|
+| Compilation (.tri → assembly) | VM execution (run the assembly) |
+| PrimeField trait + field impls | VM-specific runtime (triton-vm, etc.) |
+| Generic Poseidon2 sponge | GPU-accelerated proving (wgpu, CUDA) |
+| Proof cost estimation | Actual proof generation |
+| ProgramBundle artifact format | Chain deployment (neptune-core, etc.) |
+| `verify` (formal verification) | `validate` (proof validation) |
+
+### Current Warriors
+
+| Warrior | Crate | VM | OS | Status |
+|---------|-------|----|----|--------|
+| Trisha | `trident-trisha` | Triton | Neptune | Planned |
+
+### How to Build a Warrior
+
+A warrior is a Rust crate that depends on `trident-lang`:
+
+```toml
+[dependencies]
+trident-lang = "0.1"    # compiler + field math + Poseidon2 + traits
+triton-vm = "0.42"      # VM-specific heavy dependency
+```
+
+Implement the runtime traits (`Runner`, `Prover`, `Verifier`, `Deployer`)
+from `trident::runtime` and provide a `trident-<name>` binary that accepts
+`run`, `prove`, and `validate` subcommands.
+
+The warrior uses Trident's universal primitives — field arithmetic,
+Poseidon2 hashing, proof estimation — instead of reimplementing them.
+
+---
+
 ## How to Add a New VM
 
 Step-by-step checklist with exact file paths.
