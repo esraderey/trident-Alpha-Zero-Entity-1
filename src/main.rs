@@ -2,6 +2,7 @@ mod cli;
 
 use clap::{Parser, Subcommand};
 
+use cli::audit::{AuditArgs, EquivArgs};
 use cli::bench::BenchArgs;
 use cli::build::BuildArgs;
 use cli::check::CheckArgs;
@@ -19,8 +20,7 @@ use cli::run::RunArgs;
 use cli::store::StoreAction;
 use cli::test::TestArgs;
 use cli::tree_sitter::TreeSitterArgs;
-use cli::validate::ValidateArgs;
-use cli::verify::{EquivArgs, VerifyArgs};
+use cli::verify::VerifyProofArgs;
 use cli::view::ViewArgs;
 
 #[derive(Parser)]
@@ -48,8 +48,8 @@ enum Command {
     Test(TestArgs),
     /// Generate documentation with cost annotations
     Doc(DocArgs),
-    /// Verify assertions using symbolic execution + algebraic solver
-    Verify(VerifyArgs),
+    /// Audit contracts using symbolic execution + algebraic solver
+    Audit(AuditArgs),
     /// Show content hashes of functions (BLAKE3)
     Hash(HashArgs),
     /// Run benchmarks: compare Trident output vs hand-written TASM
@@ -83,8 +83,8 @@ enum Command {
     Run(RunArgs),
     /// Generate a proof of correct execution via a warrior
     Prove(ProveArgs),
-    /// Validate a proof via a warrior (target-specific verifier)
-    Validate(ValidateArgs),
+    /// Verify a proof via a warrior (target-specific verifier)
+    Verify(VerifyProofArgs),
     /// Generate tree-sitter grammar.json from the Rust grammar definition
     TreeSitter(TreeSitterArgs),
     /// Start the Language Server Protocol server
@@ -101,20 +101,20 @@ fn main() {
         Command::Fmt(args) => cli::fmt::cmd_fmt(args),
         Command::Test(args) => cli::test::cmd_test(args),
         Command::Doc(args) => cli::doc::cmd_doc(args),
-        Command::Verify(args) => cli::verify::cmd_verify(args),
+        Command::Audit(args) => cli::audit::cmd_audit(args),
         Command::Hash(args) => cli::hash::cmd_hash(args),
         Command::Bench(args) => cli::bench::cmd_bench(args),
         Command::Generate(args) => cli::generate::cmd_generate(args),
         Command::View(args) => cli::view::cmd_view(args),
         Command::Store { action } => cli::store::cmd_store(action),
         Command::Atlas { action } => cli::registry::cmd_registry(action),
-        Command::Equiv(args) => cli::verify::cmd_equiv(args),
+        Command::Equiv(args) => cli::audit::cmd_equiv(args),
         Command::Deps { action } => cli::deps::cmd_deps(action),
         Command::Package(args) => cli::package::cmd_package(args),
         Command::Deploy(args) => cli::deploy::cmd_deploy(args),
         Command::Run(args) => cli::run::cmd_run(args),
         Command::Prove(args) => cli::prove::cmd_prove(args),
-        Command::Validate(args) => cli::validate::cmd_validate(args),
+        Command::Verify(args) => cli::verify::cmd_verify_proof(args),
         Command::TreeSitter(args) => cli::tree_sitter::cmd_tree_sitter(args),
         Command::Lsp => cmd_lsp(),
     }

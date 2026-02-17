@@ -346,7 +346,7 @@ Override with `$TRIDENT_CACHE_DIR`.
 
 ### 5.2 How It Works
 
-When `trident verify` runs on a file:
+When `trident audit` runs on a file:
 
 1. Each function is hashed via the content-addressing pipeline.
 2. The verification cache is checked for each hash.

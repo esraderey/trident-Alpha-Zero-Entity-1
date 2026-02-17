@@ -152,7 +152,7 @@ Merkle trees, content addressing, token transfers — this is decisive.
 See [Comparative Analysis](docs/explanation/provable-computing.md).
 
 Formal verification built in. Annotate with `#[requires]` and
-`#[ensures]`, run `trident verify`, get a proof of correctness for all
+`#[ensures]`, run `trident audit`, get a proof of correctness for all
 inputs — or a concrete counterexample.
 See [Formal Verification](docs/explanation/formal-verification.md).
 
@@ -197,7 +197,7 @@ trident build main.tri           # compile to TASM
 trident check main.tri           # type-check without emitting
 trident fmt main.tri             # format source
 trident test main.tri            # run #[test] functions
-trident verify main.tri          # formal verification
+trident audit main.tri           # formal verification
 trident package main.tri         # produce .deploy/ artifact
 trident deploy main.tri          # package + deploy to registry
 ```

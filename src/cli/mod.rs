@@ -1,3 +1,4 @@
+pub mod audit;
 pub mod bench;
 pub mod build;
 pub mod check;
@@ -15,7 +16,6 @@ pub mod run;
 pub mod store;
 pub mod test;
 pub mod tree_sitter;
-pub mod validate;
 pub mod verify;
 pub mod view;
 
@@ -202,7 +202,7 @@ pub fn prepare_artifact(
     };
 
     if verify {
-        verify_or_exit(&entry);
+        audit_or_exit(&entry);
     }
 
     PreparedArtifact {
@@ -217,8 +217,8 @@ pub fn prepare_artifact(
     }
 }
 
-fn verify_or_exit(entry: &Path) {
-    eprintln!("Verifying {}...", entry.display());
+fn audit_or_exit(entry: &Path) {
+    eprintln!("Auditing {}...", entry.display());
     match trident::verify_project(entry) {
         Ok(report) if report.is_safe() => eprintln!("Verification: OK"),
         Ok(report) => {

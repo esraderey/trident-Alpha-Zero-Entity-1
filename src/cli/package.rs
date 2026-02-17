@@ -18,9 +18,9 @@ pub struct PackageArgs {
     /// Compilation profile for cfg flags (default: release)
     #[arg(long, default_value = "release")]
     pub profile: String,
-    /// Run verification before packaging
+    /// Run formal audit before packaging
     #[arg(long)]
-    pub verify: bool,
+    pub audit: bool,
     /// Show what would be produced without writing files
     #[arg(long)]
     pub dry_run: bool,
@@ -32,10 +32,10 @@ pub fn cmd_package(args: PackageArgs) {
         output,
         target,
         profile,
-        verify,
+        audit,
         dry_run,
     } = args;
-    let art = prepare_artifact(&input, &target, &profile, verify);
+    let art = prepare_artifact(&input, &target, &profile, audit);
 
     // Determine output base directory
     let output_base = output.unwrap_or_else(|| {

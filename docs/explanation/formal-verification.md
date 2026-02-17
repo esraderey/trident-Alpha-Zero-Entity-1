@@ -21,7 +21,7 @@ The verification toolchain consists of:
 - Semantic equivalence checking that proves two functions produce
   identical outputs for all inputs.
 
-All of these are available today through the `trident verify`, `trident equiv`,
+All of these are available today through the `trident audit`, `trident equiv`,
 and `trident generate` commands.
 
 ---
@@ -137,7 +137,7 @@ fn safe_transfer(sender_balance: Field, amount: Field, receiver_balance: Field) 
 
 ## 🏗️ Verification Engine
 
-The `trident verify` command runs the full verification pipeline. It processes
+The `trident audit` command runs the full verification pipeline. It processes
 a Trident source file through three stages.
 
 ### Stage 1: Symbolic Execution
@@ -197,22 +197,22 @@ modular reduction. Two query modes are supported:
 
 ```nu
 # Standard verification: symbolic execution + algebraic solver + BMC
-trident verify main.tri
+trident audit main.tri
 
 # Verbose output: show the constraint system summary
-trident verify main.tri --verbose
+trident audit main.tri --verbose
 
 # Export SMT-LIB2 encoding for external solvers
-trident verify main.tri --smt output.smt2
+trident audit main.tri --smt output.smt2
 
 # Run Z3 directly (requires Z3 installed and in PATH)
-trident verify main.tri --z3
+trident audit main.tri --z3
 
 # Machine-readable JSON report (for CI or LLM consumption)
-trident verify main.tri --json
+trident audit main.tri --json
 
 # Run automatic invariant synthesis alongside verification
-trident verify main.tri --synthesize
+trident audit main.tri --synthesize
 ```
 
 ### Verification Output
@@ -240,7 +240,7 @@ Verdict: UNSAFE -- random testing found violations (high confidence)
 ## 🔄 Invariant Synthesis
 
 The invariant synthesis engine automatically infers specifications from code
-patterns. Run it with `trident verify --synthesize`.
+patterns. Run it with `trident audit --synthesize`.
 
 ### Template-Based Pattern Matching
 
@@ -397,12 +397,12 @@ The intended workflow is:
 1. Write a spec file with `#[requires]` and `#[ensures]` annotations.
 2. Run `trident generate spec.tri -o impl.tri` to produce a scaffold.
 3. Fill in any remaining logic (or have an LLM complete it).
-4. Run `trident verify impl.tri` to verify the implementation satisfies all
+4. Run `trident audit impl.tri` to verify the implementation satisfies all
    assertions and annotations.
 5. If verification fails, use the counterexample to fix the implementation
    and re-verify.
 
-The `--json` flag on `trident verify` produces machine-readable output that
+The `--json` flag on `trident audit` produces machine-readable output that
 an LLM can parse to understand exactly which assertion failed and why,
 enabling automated generate-verify loops.
 

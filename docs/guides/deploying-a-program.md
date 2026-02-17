@@ -28,8 +28,8 @@ trident deploy lock.tri --target neptune
 # Deploy to a specific registry
 trident deploy my_project/ --registry http://prod-registry:8090
 
-# Verify before deploying (runs symbolic verification)
-trident deploy lock.tri --verify
+# Audit before deploying (runs symbolic verification)
+trident deploy lock.tri --audit
 
 # Deploy a pre-packaged artifact directly
 trident deploy lock.deploy/
@@ -48,8 +48,8 @@ deploy it later:
 # Compile + hash + produce artifact
 trident package lock.tri --target neptune
 
-# Package with verification
-trident package lock.tri --verify
+# Package with audit (formal verification)
+trident package lock.tri --audit
 
 # Output to a custom directory
 trident package lock.tri -o /artifacts/
@@ -325,7 +325,7 @@ Complete the build pipeline: `trident check`, `trident test`, `trident build --c
 ### 2. Package the Artifact
 
 ```nu
-trident package main.tri --target neptune --verify
+trident package main.tri --target neptune --audit
 ```
 
 This compiles, verifies, and produces the `.deploy/` directory. The

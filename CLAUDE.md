@@ -73,9 +73,9 @@ cli/               ~2.5k LOC  Command-line interface
   mod.rs           ~360         Arg parsing, shared warrior helpers
   run.rs            ~72         trident run (delegates to warrior)
   prove.rs          ~77         trident prove (delegates to warrior)
-  validate.rs       ~33         trident validate (delegates to warrior)
+  verify.rs          ~36         trident verify (delegates to warrior)
   build.rs         ~150         trident build
-  verify.rs        ~220         trident verify (formal verification)
+  audit.rs         ~220         trident audit (formal verification)
   ... (14 more subcommands)
 ```
 
@@ -105,7 +105,7 @@ Builtins must stay in sync across 4 places:
 
 When writing or modifying `.tri` code in `vm/`, `std/`, or `os/`, add
 `#[requires]`/`#[ensures]` contracts and `#[pure]` where applicable.
-`trident verify` checks these every commit.
+`trident audit` checks these every commit.
 
 ## Do Not Touch
 
@@ -182,7 +182,7 @@ Every commit:
 - `cargo check` — zero warnings
 - `cargo test` — all tests pass
 - `trident bench` — no regressions vs baselines
-- `trident verify` — formal properties still hold
+- `trident audit` — formal properties still hold
 - If anything fails, fix before reporting done.
 
 ## Compaction Survival

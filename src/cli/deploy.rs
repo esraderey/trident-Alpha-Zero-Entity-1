@@ -18,9 +18,9 @@ pub struct DeployArgs {
     /// Registry URL to deploy to
     #[arg(long)]
     pub registry: Option<String>,
-    /// Run verification before deploying
+    /// Run formal audit before deploying
     #[arg(long)]
-    pub verify: bool,
+    pub audit: bool,
     /// Show what would be deployed without actually deploying
     #[arg(long)]
     pub dry_run: bool,
@@ -32,7 +32,7 @@ pub fn cmd_deploy(args: DeployArgs) {
         target,
         profile,
         registry,
-        verify,
+        audit,
         dry_run,
     } = args;
     // Handle pre-packaged .deploy/ artifact directory
@@ -64,7 +64,7 @@ pub fn cmd_deploy(args: DeployArgs) {
     }
 
     // Build from source
-    let art = prepare_artifact(&input, &target, &profile, verify);
+    let art = prepare_artifact(&input, &target, &profile, audit);
     let output_base = art.entry.parent().unwrap_or(Path::new(".")).to_path_buf();
 
     let target_display = if let Some(ref os) = art.resolved.os {

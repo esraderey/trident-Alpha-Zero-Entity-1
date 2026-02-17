@@ -37,7 +37,7 @@ Generate a complete implementation where:
 5. All loops are bounded
 6. No recursion
 
-Run `trident verify` to check correctness after implementation.
+Run `trident audit` to check correctness after implementation.
 ```
 
 ## ⚡ Template 3: Optimize for Cost
@@ -57,7 +57,7 @@ Optimize to reduce the dominant table height. Strategies:
 - Replace u32 operations with field arithmetic where safe
 - Reduce loop iterations
 - Combine multiple hash calls into sponge operations
-- Eliminate redundant assertions (marked by trident verify --json)
+- Eliminate redundant assertions (marked by trident audit --json)
 ```
 
 ## 🔧 Template 4: Fix Verification Failure
@@ -145,7 +145,7 @@ Events: emit for public data, seal for private commitments
 
 ## 📄 JSON Report Fields for LLM Consumption
 
-When using `trident verify --json`, the output contains:
+When using `trident audit --json`, the output contains:
 
 ```json
 {
