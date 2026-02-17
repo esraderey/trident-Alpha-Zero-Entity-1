@@ -162,11 +162,11 @@ fn cached_round_constants() -> &'static [GoldilocksField] {
 // ---------------------------------------------------------------------------
 
 /// The Poseidon2 internal state (8 Goldilocks elements).
-pub struct Poseidon2State {
+pub struct Poseidon2Sponge {
     pub state: [GoldilocksField; T],
 }
 
-impl Poseidon2State {
+impl Poseidon2Sponge {
     pub fn new() -> Self {
         Self {
             state: [GoldilocksField::ZERO; T],
@@ -254,14 +254,14 @@ impl Poseidon2State {
 
 /// Poseidon2 sponge hasher (absorb / squeeze interface).
 pub struct Poseidon2Hasher {
-    state: Poseidon2State,
+    state: Poseidon2Sponge,
     absorbed: usize,
 }
 
 impl Poseidon2Hasher {
     pub fn new() -> Self {
         Self {
-            state: Poseidon2State::new(),
+            state: Poseidon2Sponge::new(),
             absorbed: 0,
         }
     }
@@ -391,8 +391,8 @@ mod tests {
     fn test_permutation_deterministic() {
         let input: [GoldilocksField; T] =
             core::array::from_fn(|i| GoldilocksField::new(i as u64 + 1));
-        let mut s1 = Poseidon2State { state: input };
-        let mut s2 = Poseidon2State { state: input };
+        let mut s1 = Poseidon2Sponge { state: input };
+        let mut s2 = Poseidon2Sponge { state: input };
         s1.permutation();
         s2.permutation();
         assert_eq!(s1.state, s2.state);
@@ -402,12 +402,12 @@ mod tests {
     fn test_permutation_diffusion() {
         let base: [GoldilocksField; T] =
             core::array::from_fn(|i| GoldilocksField::new(i as u64 + 100));
-        let mut s_base = Poseidon2State { state: base };
+        let mut s_base = Poseidon2Sponge { state: base };
         s_base.permutation();
 
         let mut tweaked = base;
         tweaked[0] = tweaked[0].add(GoldilocksField::ONE);
-        let mut s_tweak = Poseidon2State { state: tweaked };
+        let mut s_tweak = Poseidon2Sponge { state: tweaked };
         s_tweak.permutation();
 
         for i in 0..T {
