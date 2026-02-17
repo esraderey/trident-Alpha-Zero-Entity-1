@@ -4,7 +4,7 @@
 //! configurable state width, round counts, and S-box. The sponge
 //! construction (absorb/squeeze) is field-generic.
 //!
-//! Heroes call `poseidon2_hash::<Goldilocks>(...)` or
+//! Warriors call `poseidon2_hash::<Goldilocks>(...)` or
 //! `poseidon2_hash::<BabyBear>(...)` — same code, different field.
 
 use super::PrimeField;

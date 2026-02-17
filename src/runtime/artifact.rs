@@ -1,12 +1,12 @@
-//! Program bundle: self-contained compilation artifact for hero consumption.
+//! Program bundle: self-contained compilation artifact for warrior consumption.
 //!
 //! Contains the compiled assembly, metadata, cost analysis, and function
-//! signatures. Heroes deserialize this from a JSON file or receive it
+//! signatures. Warriors deserialize this from a JSON file or receive it
 //! via the Rust API.
 
 // ─── Data Types ────────────────────────────────────────────────────
 
-/// Self-contained compilation artifact that a hero needs to execute,
+/// Self-contained compilation artifact that a warrior needs to execute,
 /// prove, or deploy a Trident program.
 #[derive(Clone, Debug)]
 pub struct ProgramBundle {

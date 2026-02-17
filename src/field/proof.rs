@@ -1,7 +1,7 @@
 //! Universal STARK proof estimation and claim structure.
 //!
 //! These formulas apply to all FRI-based STARK provers regardless of
-//! target VM or field. Heroes call these functions for cost reporting
+//! target VM or field. Warriors call these functions for cost reporting
 //! and proof parameter computation.
 
 // ─── Claim ─────────────────────────────────────────────────────────
@@ -9,7 +9,7 @@
 /// Universal proof claim: what any STARK/SNARK proof asserts.
 ///
 /// This is the public data shared between prover and verifier.
-/// The proof itself is hero-specific (opaque bytes); the claim
+/// The proof itself is warrior-specific (opaque bytes); the claim
 /// is universal.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Claim {

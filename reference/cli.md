@@ -47,20 +47,20 @@ trident package <file> -o <dir>         # Output to custom directory
 trident package <file> --verify         # Run verification before packaging
 trident package <file> --dry-run        # Show what would be produced
 
-# Run (delegates to hero)
-trident run <file>                      # Compile and run via hero
+# Run (delegates to warrior)
+trident run <file>                      # Compile and run via warrior
 trident run <file> --target neptune     # Run on specific target
 trident run <file> --input-values 1,2,3 # Public input field elements
 trident run <file> --secret 42          # Secret/divine input values
 
-# Prove (delegates to hero)
-trident prove <file>                    # Compile and generate proof via hero
+# Prove (delegates to warrior)
+trident prove <file>                    # Compile and generate proof via warrior
 trident prove <file> --target neptune   # Prove on specific target
 trident prove <file> --output proof.bin # Write proof to file
 trident prove <file> --input-values 1,2 # Public input for proof
 
-# Verify Proof (delegates to hero)
-trident verify-proof <proof>            # Verify a proof via hero
+# Verify Proof (delegates to warrior)
+trident verify-proof <proof>            # Verify a proof via warrior
 trident verify-proof <proof> --target neptune  # Verify against target
 
 # Deploy
@@ -107,19 +107,22 @@ trident generate <spec.tri>             # Generate scaffold from spec
 trident lsp                             # Start LSP server
 ```
 
-### Hero Discovery
+### Warrior Discovery
 
-`run`, `prove`, and `verify-proof` delegate to external **hero** binaries.
-Heroes handle target-specific execution, proving, and deployment.
+Trident is the weapon. **Warriors** wield it on specific battlefields.
 
-Resolution order for finding a hero:
+`run`, `prove`, and `verify-proof` delegate to external **warrior** binaries.
+Each warrior is specialized for a target VM+OS combination, bringing the
+heavy dependencies (provers, VMs, chain clients) that Trident stays clean of.
+
+Resolution order for finding a warrior:
 
 1. Look for `trident-<target>` on PATH
-2. Check the target's `[hero]` config in `vm/<target>/target.toml`
-3. If target is an OS, check the underlying VM's hero config
+2. Check the target's `[warrior]` config in `vm/<target>/target.toml`
+3. If target is an OS, check the underlying VM's warrior config
 
-If no hero is found, Trident compiles the program and prints installation
-guidance. Heroes are installed separately (e.g. `cargo install trident-trisha`).
+If no warrior is found, Trident compiles the program and prints installation
+guidance. Warriors are installed separately (e.g. `cargo install trident-trisha`).
 
 ### Target Resolution
 

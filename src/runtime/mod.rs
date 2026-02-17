@@ -1,13 +1,14 @@
 //! Runtime traits for VM execution, proving, and deployment.
 //!
-//! Trident defines these traits; heroes implement them. A hero is a
-//! target-specific tool (separate crate) that takes compiled Trident
-//! output and handles execution, proving, and deployment for a
-//! particular VM+OS combination.
+//! Trident is the weapon. Warriors wield it. Trident defines these
+//! traits; warriors implement them. A warrior is a target-specific
+//! tool (separate crate) that takes compiled Trident output and
+//! handles execution, proving, and deployment for a particular
+//! VM+OS combination.
 //!
-//! Example: **Trisha** (Triton + Neptune) implements `Runner` via
-//! `triton_vm::simulate()`, `Prover` via `triton_vm::prove()`, and
-//! `Deployer` via Neptune RPC — all using Trident's `PrimeField`,
+//! Example: **Trisha** (Triton + Neptune warrior) implements `Runner`
+//! via `triton_vm::simulate()`, `Prover` via `triton_vm::prove()`,
+//! and `Deployer` via Neptune RPC — all using Trident's `PrimeField`,
 //! `Poseidon2`, and `Claim` primitives from `crate::field`.
 //!
 //! No heavy dependencies here — only the interface contract and
@@ -32,13 +33,13 @@ pub struct ExecutionResult {
 /// Proof artifact: claim + opaque proof bytes.
 ///
 /// The `claim` is universal (defined in `field::proof`). The
-/// `proof_bytes` are hero-specific — their format depends on
+/// `proof_bytes` are warrior-specific — their format depends on
 /// the proving system (STARK, SNARK, etc.).
 #[derive(Clone, Debug)]
 pub struct ProofData {
     /// What the proof asserts (program hash, input, output).
     pub claim: Claim,
-    /// Serialized proof (format is hero-specific).
+    /// Serialized proof (format is warrior-specific).
     pub proof_bytes: Vec<u8>,
     /// Proof system identifier (e.g. "stark-triton-v2", "groth16-bn254").
     pub format: String,
@@ -53,11 +54,11 @@ pub struct ProgramInput {
     pub secret: Vec<u64>,
 }
 
-// ─── Hero Traits ───────────────────────────────────────────────────
+// ─── Warrior Traits ────────────────────────────────────────────────
 
 /// Run a compiled program on a VM.
 ///
-/// Heroes implement this to execute TASM (or other target assembly)
+/// Warriors implement this to execute TASM (or other target assembly)
 /// using the actual VM runtime.
 pub trait Runner {
     /// Execute the program with the given inputs, returning output
@@ -67,7 +68,7 @@ pub trait Runner {
 
 /// Generate a proof of correct execution.
 ///
-/// Heroes implement this to produce a cryptographic proof that the
+/// Warriors implement this to produce a cryptographic proof that the
 /// program executed correctly on the given inputs.
 pub trait Prover {
     /// Execute and prove, returning the proof artifact.
@@ -76,7 +77,7 @@ pub trait Prover {
 
 /// Verify a proof against its claim.
 ///
-/// Heroes implement this to check that a proof is valid for its
+/// Warriors implement this to check that a proof is valid for its
 /// claimed program, input, and output.
 pub trait Verifier {
     /// Returns true if the proof is valid.
@@ -85,7 +86,7 @@ pub trait Verifier {
 
 /// Deploy a program to a chain or runtime.
 ///
-/// Heroes implement this for chain-specific deployment (e.g.,
+/// Warriors implement this for chain-specific deployment (e.g.,
 /// constructing Neptune LockScript/TypeScript, broadcasting
 /// transactions via RPC).
 pub trait Deployer {

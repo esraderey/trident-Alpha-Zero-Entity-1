@@ -1,6 +1,6 @@
 //! Prime field arithmetic and universal proving primitives.
 //!
-//! This module provides field-generic math that every target hero reuses:
+//! This module provides field-generic math that every target warrior reuses:
 //! - `PrimeField` trait with concrete implementations (Goldilocks, BabyBear, Mersenne31)
 //! - `poseidon2` — generic Poseidon2 sponge hash over any PrimeField
 //! - `proof` — universal STARK proof estimation (padded height, FRI params, proof size)
@@ -22,9 +22,9 @@ pub use mersenne31::Mersenne31;
 
 /// Trait for prime field arithmetic.
 ///
-/// Heroes use this for field-generic hash functions, proof estimation,
+/// Warriors use this for field-generic hash functions, proof estimation,
 /// and verification. Trident provides concrete implementations;
-/// heroes call them without reimplementing the math.
+/// warriors call them without reimplementing the math.
 pub trait PrimeField: Copy + Clone + Eq + PartialEq + Ord + PartialOrd + std::fmt::Debug {
     /// The field modulus as u128 (fits all supported primes).
     const MODULUS: u128;

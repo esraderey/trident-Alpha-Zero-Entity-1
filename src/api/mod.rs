@@ -389,7 +389,7 @@ pub use tools::*;
 
 /// Compile a multi-module project to a `ProgramBundle` artifact.
 ///
-/// This is the primary entry point for heroes: it produces a
+/// This is the primary entry point for warriors: it produces a
 /// self-contained bundle with compiled assembly, cost analysis,
 /// function signatures, and metadata.
 pub fn compile_to_bundle(
