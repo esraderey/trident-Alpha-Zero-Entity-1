@@ -251,9 +251,9 @@ Three CLI commands delegate to warriors:
 |---------|----------------------|
 | `trident run` | Execute compiled program on the target VM |
 | `trident prove` | Generate a STARK/SNARK proof of execution |
-| `trident validate` | Validate a proof against its claim |
+| `trident verify` | Verify a proof against its claim |
 
-All other commands (`build`, `check`, `verify`, `fmt`, `bench`, etc.)
+All other commands (`build`, `check`, `audit`, `fmt`, `bench`, etc.)
 run locally in Trident with zero warrior involvement.
 
 ### Warrior vs Trident Responsibilities
@@ -265,7 +265,7 @@ run locally in Trident with zero warrior involvement.
 | Generic Poseidon2 sponge | GPU-accelerated proving (wgpu, CUDA) |
 | Proof cost estimation | Actual proof generation |
 | ProgramBundle artifact format | Chain deployment (neptune-core, etc.) |
-| `verify` (formal verification) | `validate` (proof validation) |
+| `audit` (formal verification) | `verify` (proof verification) |
 
 ### Current Warriors
 
@@ -285,7 +285,7 @@ triton-vm = "0.42"      # VM-specific heavy dependency
 
 Implement the runtime traits (`Runner`, `Prover`, `Verifier`, `Deployer`)
 from `trident::runtime` and provide a `trident-<name>` binary that accepts
-`run`, `prove`, and `validate` subcommands.
+`run`, `prove`, and `verify` subcommands.
 
 The warrior uses Trident's universal primitives — field arithmetic,
 Poseidon2 hashing, proof estimation — instead of reimplementing them.

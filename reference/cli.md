@@ -32,9 +32,9 @@ trident fmt <file> --check              # Check only (exit 1 if unformatted)
 # Test
 trident test <file>                     # Run #[test] functions
 
-# Verify
-trident verify <file>                   # Verify #[requires]/#[ensures]
-trident verify <file> --z3              # Formal verification via Z3
+# Audit
+trident audit <file>                    # Verify #[requires]/#[ensures]
+trident audit <file> --z3              # Formal verification via Z3
 
 # Docs
 trident doc <file>                      # Generate documentation
@@ -44,7 +44,7 @@ trident doc <file> -o <docs.md>         # Generate to file
 trident package <file>                  # Compile + hash + produce .deploy/ artifact
 trident package <file> --target neptune # Package for specific OS/VM target
 trident package <file> -o <dir>         # Output to custom directory
-trident package <file> --verify         # Run verification before packaging
+trident package <file> --audit          # Run verification before packaging
 trident package <file> --dry-run        # Show what would be produced
 
 # Run (delegates to warrior)
@@ -59,15 +59,15 @@ trident prove <file> --target neptune   # Prove on specific target
 trident prove <file> --output proof.bin # Write proof to file
 trident prove <file> --input-values 1,2 # Public input for proof
 
-# Validate (delegates to warrior)
-trident validate <proof>                # Validate a proof via warrior
-trident validate <proof> --target neptune  # Validate against target
+# Verify (delegates to warrior)
+trident verify <proof>                  # Verify a proof via warrior
+trident verify <proof> --target neptune # Verify against target
 
 # Deploy
 trident deploy <file>                   # Compile, package, deploy to registry
 trident deploy <dir>.deploy/            # Deploy pre-packaged artifact
 trident deploy <file> --registry <url>  # Deploy to specific registry
-trident deploy <file> --verify          # Verify before deploying
+trident deploy <file> --audit           # Audit before deploying
 trident deploy <file> --dry-run         # Show what would be deployed
 
 # Hash
@@ -111,7 +111,7 @@ trident lsp                             # Start LSP server
 
 Trident is the weapon. **Warriors** wield it on specific battlefields.
 
-`run`, `prove`, and `validate` delegate to external **warrior** binaries.
+`run`, `prove`, and `verify` delegate to external **warrior** binaries.
 Each warrior is specialized for a target VM+OS combination, bringing the
 heavy dependencies (provers, VMs, chain clients) that Trident stays clean of.
 

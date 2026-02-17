@@ -200,7 +200,7 @@ trident deploy <input> [options]
   --target <os>        Target VM or OS (default: triton)
   --profile <profile>  Compilation profile (default: release)
   --registry <url>     Atlas server URL
-  --verify             Run verification before deploying
+  --audit              Run verification before deploying
   --dry-run            Show what would be deployed
 ```
 

@@ -423,7 +423,7 @@ For full API specifications and per-OS lowering tables, see [os.md](os.md).
 | `#[test]` | Test function — run with `trident test` |
 | `#[pure]` | No I/O side effects allowed |
 | `#[intrinsic(name)]` | Maps to target instruction (std modules only) |
-| `#[requires(predicate)]` | Precondition — checked by `trident verify` |
+| `#[requires(predicate)]` | Precondition — checked by `trident audit` |
 | `#[ensures(predicate)]` | Postcondition — `result` refers to return value |
 
 ```trident
@@ -531,19 +531,19 @@ written to public output. The verifier sees the commitment, not the data.
 
 ---
 
-## 11. Verify vs Validate
+## 11. Audit vs Verify
 
 Two distinct commands share the "check correctness" concept:
 
 | Command | What it checks | How | Where |
 |---------|---------------|-----|-------|
-| `trident verify` | Source code contracts | Symbolic execution, algebraic solver | Local (Trident) |
-| `trident validate` | Proof artifacts | STARK/SNARK proof verification | Warrior (external) |
+| `trident audit` | Source code contracts | Symbolic execution, algebraic solver | Local (Trident) |
+| `trident verify` | Proof artifacts | STARK/SNARK proof verification | Warrior (external) |
 
-`verify` is static analysis — it checks `#[requires]`/`#[ensures]`
+`audit` is static analysis — it checks `#[requires]`/`#[ensures]`
 contracts without executing the program. It runs entirely within Trident.
 
-`validate` checks a proof file produced by `trident prove`. It delegates
+`verify` checks a proof file produced by `trident prove`. It delegates
 to a warrior binary that has the target-specific verifier (e.g. triton-vm's
 `verify()` function). See [targets.md](targets.md#warriors).
 
