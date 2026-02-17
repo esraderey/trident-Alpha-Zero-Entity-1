@@ -158,10 +158,10 @@ impl TypeChecker {
     fn collect_calls_expr(expr: &Expr, calls: &mut Vec<String>) {
         match expr {
             Expr::Call { path, args, .. } => {
-                // Extract the function name (last segment for cross-module calls)
+                // Use full dotted path for cross-module calls so they don't
+                // collide with local functions of the same name.
                 let dotted = path.node.as_dotted();
-                let fn_name = dotted.rsplit('.').next().unwrap_or(&dotted);
-                calls.push(fn_name.to_string());
+                calls.push(dotted.clone());
                 for arg in args {
                     Self::collect_calls_expr(&arg.node, calls);
                 }

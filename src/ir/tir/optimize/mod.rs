@@ -29,8 +29,7 @@ pub(crate) fn optimize(ops: Vec<TIROp>) -> Vec<TIROp> {
     ir
 }
 
-/// Merge consecutive Hint(a), Hint(b) -> Hint(a+b).
-/// Turns 10x `divine 1` into 1x `divine 10`.
+/// Merge consecutive Hint(a), Hint(b) -> Hint(a+b), capped at 5 per instruction.
 fn merge_hints(ops: Vec<TIROp>) -> Vec<TIROp> {
     let mut out: Vec<TIROp> = Vec::with_capacity(ops.len());
     let mut i = 0;
@@ -46,7 +45,12 @@ fn merge_hints(ops: Vec<TIROp>) -> Vec<TIROp> {
                     break;
                 }
             }
-            out.push(TIROp::Hint(total));
+            // Emit in batches of 5 (Triton VM limit)
+            while total > 0 {
+                let batch = total.min(5);
+                out.push(TIROp::Hint(batch));
+                total -= batch;
+            }
             i = j;
         } else {
             out.push(ops[i].clone());

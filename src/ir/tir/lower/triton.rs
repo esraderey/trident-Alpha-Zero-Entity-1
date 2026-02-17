@@ -157,7 +157,8 @@ impl TritonLowering {
             }
             // ── Control flow (flat) ──
             TIROp::Call(label) => {
-                let formatted = if label.starts_with("__") {
+                let formatted = if label.starts_with("__") || label.starts_with("@") {
+                    // Already prefixed (__) or cross-module (@) — pass through
                     label.clone()
                 } else {
                     self.format_label(label)

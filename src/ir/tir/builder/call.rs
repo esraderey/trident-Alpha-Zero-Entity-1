@@ -252,13 +252,40 @@ impl TIRBuilder {
                 self.ops.push(TIROp::Assert(1));
             }
             "pub_read" => self.ops.push(TIROp::ReadIo(1)),
+            "pub_read2" => self.ops.push(TIROp::ReadIo(2)),
+            "pub_read3" => self.ops.push(TIROp::ReadIo(3)),
+            "pub_read4" => self.ops.push(TIROp::ReadIo(4)),
+            "pub_read5" => self.ops.push(TIROp::ReadIo(5)),
             "pub_write" => self.ops.push(TIROp::WriteIo(1)),
+            "pub_write2" => self.ops.push(TIROp::WriteIo(2)),
+            "pub_write3" => self.ops.push(TIROp::WriteIo(3)),
+            "pub_write4" => self.ops.push(TIROp::WriteIo(4)),
+            "pub_write5" => self.ops.push(TIROp::WriteIo(5)),
+            "divine" => self.ops.push(TIROp::Hint(1)),
+            "divine3" => self.ops.push(TIROp::Hint(3)),
+            "divine5" => self.ops.push(TIROp::Hint(5)),
             "split" => self.ops.push(TIROp::Split),
+            "log2" => self.ops.push(TIROp::Log2),
+            "pow" => self.ops.push(TIROp::Pow),
+            "popcount" => self.ops.push(TIROp::PopCount),
             "inv" => self.ops.push(TIROp::Invert),
             "neg" => self.ops.push(TIROp::Neg),
             "sub" => self.ops.push(TIROp::Sub),
             "field_add" => self.ops.push(TIROp::Add),
             "field_mul" => self.ops.push(TIROp::Mul),
+            "ram_read" => self.ops.push(TIROp::RamRead { width: 1 }),
+            "ram_write" => self.ops.push(TIROp::RamWrite { width: 1 }),
+            "ram_read_block" => self.ops.push(TIROp::RamRead { width: 5 }),
+            "ram_write_block" => self.ops.push(TIROp::RamWrite { width: 5 }),
+            "merkle_step" => self.ops.push(TIROp::MerkleStep),
+            "merkle_step_mem" => self.ops.push(TIROp::MerkleLoad),
+            "xinvert" => self.ops.push(TIROp::ExtInvert),
+            "xx_dot_step" => self.ops.push(TIROp::FoldExt),
+            "xb_dot_step" => self.ops.push(TIROp::FoldBase),
+            "assert_digest" => {
+                self.ops.push(TIROp::Assert(5));
+                self.ops.push(TIROp::Pop(self.target_config.digest_width));
+            }
             _ => {
                 // User-defined call — resolve label the same way as
                 // build_user_call but skip stack model updates.
@@ -321,7 +348,8 @@ impl TIRBuilder {
                 .map(|s| s.as_str())
                 .unwrap_or(short_module);
             let mangled = full_module.replace('.', "_");
-            format!("{}__{}", mangled, fn_name)
+            // @ prefix marks cross-module calls so the linker doesn't re-prefix them
+            format!("@{}__{}", mangled, fn_name)
         } else {
             name.to_string()
         }

@@ -166,7 +166,14 @@ fn mangle_labels(tasm: &str, prefix: &str, is_program: bool) -> String {
             continue;
         }
 
-        // Call instruction: `call __foo` → `call prefix__foo`
+        // Call instruction: two forms:
+        // 1. `call __foo` — local call, mangle to `call prefix__foo`
+        // 2. `call @mod__fn` — cross-module call (@ marker), emit as `call mod__fn`
+        if let Some(target) = trimmed.strip_prefix("call @") {
+            // Cross-module: already fully qualified, strip marker
+            result.push(format!("    call {}", target));
+            continue;
+        }
         if let Some(target) = trimmed.strip_prefix("call __") {
             result.push(format!("    call {}{}", prefix, target));
             continue;
