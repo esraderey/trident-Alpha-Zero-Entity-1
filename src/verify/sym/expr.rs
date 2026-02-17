@@ -107,9 +107,8 @@ impl SymExecutor {
                 return SymValue::Var(var);
             }
             "hash" | "tip5" => {
-                let _inputs: Vec<SymValue> = args.iter().map(|a| self.eval_expr(&a.node)).collect();
-                let var = self.fresh_var("__hash");
-                return SymValue::Var(var);
+                let inputs: Vec<SymValue> = args.iter().map(|a| self.eval_expr(&a.node)).collect();
+                return SymValue::Hash(inputs, 0);
             }
             "assert" => {
                 if let Some(arg) = args.first() {
