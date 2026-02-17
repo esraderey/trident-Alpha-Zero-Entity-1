@@ -280,7 +280,7 @@ fn extract_functions(
 }
 
 /// Format a function signature for the manifest.
-fn format_fn_signature(func: &ast::FnDef) -> String {
+pub fn format_fn_signature(func: &ast::FnDef) -> String {
     let mut sig = String::from("fn ");
     sig.push_str(&func.name.node);
 

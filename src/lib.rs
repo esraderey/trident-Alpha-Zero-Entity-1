@@ -8,6 +8,7 @@ pub mod field;
 pub mod ir;
 pub mod lsp;
 pub mod package;
+pub mod runtime;
 pub mod syntax;
 pub mod typecheck;
 pub mod verify;

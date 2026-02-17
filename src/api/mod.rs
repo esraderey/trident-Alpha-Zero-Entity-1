@@ -386,3 +386,101 @@ pub(crate) mod doc;
 pub(crate) mod pipeline;
 mod tools;
 pub use tools::*;
+
+/// Compile a multi-module project to a `ProgramBundle` artifact.
+///
+/// This is the primary entry point for heroes: it produces a
+/// self-contained bundle with compiled assembly, cost analysis,
+/// function signatures, and metadata.
+pub fn compile_to_bundle(
+    entry_path: &Path,
+    options: &CompileOptions,
+) -> Result<crate::runtime::ProgramBundle, Vec<Diagnostic>> {
+    use crate::runtime::artifact::{BundleCost, BundleFunction, ProgramBundle};
+    use pipeline::PreparedProject;
+
+    let tasm = compile_project_with_options(entry_path, options)?;
+
+    // Cost analysis (best-effort — use zeros on failure)
+    let program_cost =
+        analyze_costs_project(entry_path, options).unwrap_or_else(|_| cost::ProgramCost {
+            program_name: String::new(),
+            functions: Vec::new(),
+            total: cost::TableCost::ZERO,
+            table_names: Vec::new(),
+            table_short_names: Vec::new(),
+            attestation_hash_rows: 0,
+            padded_height: 0,
+            estimated_proving_ns: 0,
+            loop_bound_waste: Vec::new(),
+        });
+
+    // Parse entry file for function signatures + content hashes
+    let project = PreparedProject::build(entry_path, options)?;
+    let entry_file = project
+        .modules
+        .iter()
+        .find(|m| m.file.kind == FileKind::Program)
+        .or_else(|| project.modules.last());
+
+    let (functions, entry_point, source_hash) = if let Some(pm) = entry_file {
+        let fn_hashes = crate::hash::hash_file(&pm.file);
+        let fns: Vec<BundleFunction> = pm
+            .file
+            .items
+            .iter()
+            .filter_map(|item| {
+                if let ast::Item::Fn(func) = &item.node {
+                    if !func.is_test {
+                        let hash = fn_hashes
+                            .get(&func.name.node)
+                            .map(|h| h.to_hex())
+                            .unwrap_or_default();
+                        return Some(BundleFunction {
+                            name: func.name.node.clone(),
+                            hash,
+                            signature: crate::deploy::format_fn_signature(func),
+                        });
+                    }
+                }
+                None
+            })
+            .collect();
+        let ep = if fns.iter().any(|f| f.name == "main") {
+            "main".to_string()
+        } else {
+            fns.first()
+                .map(|f| f.name.clone())
+                .unwrap_or_else(|| "main".to_string())
+        };
+        let sh = crate::hash::hash_file_content(&pm.file).to_hex();
+        (fns, ep, sh)
+    } else {
+        (Vec::new(), "main".to_string(), String::new())
+    };
+
+    let name = entry_path
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .unwrap_or("program")
+        .to_string();
+
+    Ok(ProgramBundle {
+        name,
+        version: "0.1.0".to_string(),
+        target_vm: options.target_config.name.clone(),
+        target_os: None,
+        assembly: tasm,
+        entry_point,
+        functions,
+        cost: BundleCost {
+            table_values: (0..program_cost.total.count as usize)
+                .map(|i| program_cost.total.get(i))
+                .collect(),
+            table_names: program_cost.table_names,
+            padded_height: program_cost.padded_height,
+            estimated_proving_ns: program_cost.estimated_proving_ns,
+        },
+        source_hash,
+    })
+}
