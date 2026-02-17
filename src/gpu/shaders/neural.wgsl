@@ -251,8 +251,10 @@ fn fp_gt(a: vec2<u32>, b: vec2<u32>) -> bool {
     let b_neg = b.y > hp.y || (b.y == hp.y && b.x > hp.x);
     if !a_neg && b_neg { return true; }
     if a_neg && !b_neg { return false; }
-    if !a_neg { return a.y > b.y || (a.y == b.y && a.x > b.x); }
-    return a.y < b.y || (a.y == b.y && a.x < b.x);
+    // Both same sign: compare raw unsigned values.
+    // For positive: larger raw = larger real. For negative: larger raw = larger real
+    // (since neg values are p - |v|*S, less negative = larger raw).
+    return a.y > b.y || (a.y == b.y && a.x > b.x);
 }
 
 fn fp_inv(x: vec2<u32>) -> vec2<u32> {
@@ -390,8 +392,8 @@ fn neural_forward(@builtin(global_invocation_id) gid: vec3<u32>) {
             var exp_sc: array<vec2<u32>, 32>;
 
             for (var i = 0u; i < seq_len; i++) {
-                var max_s = FP_ZERO;
-                var max_neg = true;
+                // Fixed(-1000.0): p - 1000*65536 = (0xFC180001, 0xFFFFFFFE)
+                var max_s = vec2<u32>(0xFC180001u, 0xFFFFFFFEu);
                 for (var j = 0u; j < seq_len; j++) {
                     var dot_acc = FP_ZERO;
                     for (var d = 0u; d < HEAD_DIM; d++) {
@@ -401,7 +403,7 @@ fn neural_forward(@builtin(global_invocation_id) gid: vec3<u32>) {
                     }
                     let score = fp_mul(canon_mul(dot_acc, inv_scale()), scale_inv);
                     scores[j] = score;
-                    if max_neg || fp_gt(score, max_s) { max_s = score; max_neg = false; }
+                    if fp_gt(score, max_s) { max_s = score; }
                 }
 
                 let half = vec2<u32>(32768u, 0u);
@@ -461,9 +463,14 @@ fn neural_forward(@builtin(global_invocation_id) gid: vec3<u32>) {
                 var_sum = gl_add(var_sum, fp_mul(diff, diff));
             }
             let variance = fp_mul(var_sum, inv_dim);
-            let inv_std = fp_inv_sqrt(variance);
+            // CPU layer_norm uses 1/variance (not 1/sqrt), with epsilon guard
+            let eps = vec2<u32>(1u, 0u);  // ~1.5e-5 in fixed-point
+            var var_scale = fp_one();
+            if variance.y > 0u || variance.x > eps.x {
+                var_scale = fp_inv(variance);
+            }
             for (var d = 0u; d < DIM; d++) {
-                let normed = fp_mul(gl_sub(s_get(sb + S_EMB, start + d), mean), inv_std);
+                let normed = fp_mul(gl_sub(s_get(sb + S_EMB, start + d), mean), var_scale);
                 s_set(sb + S_EMB, start + d,
                     gl_add(fp_mul(normed, weights[ln_s_base + d]), weights[ln_b_base + d]));
             }
