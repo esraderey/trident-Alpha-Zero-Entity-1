@@ -38,6 +38,16 @@ toward provable compilation on Triton VM.
 
 Use `tokei src/` or `find src/ -name '*.rs'` to explore module structure.
 
+## Companion Repos
+
+- **trisha** (`~/git/trisha`) — Triton VM warrior. Executes, proves,
+  verifies, deploys programs compiled by trident. Depends on trident
+  via `path = "../trident"`. ~2k LOC Rust + WGSL.
+- When referencing files across repos, use repo-qualified paths
+  (e.g. `trident/src/cli/mod.rs` vs `trisha/src/cli.rs`).
+- After editing trident code, rebuild trisha too:
+  `cargo install --path . --force && cd ../trisha && cargo install --path . --force`
+
 ## Five-Layer Architecture
 
 | Layer | Geeky | Gamy | Code | What it is |
