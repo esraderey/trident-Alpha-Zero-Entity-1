@@ -40,9 +40,13 @@ fn find_references_in_project(file_path: &std::path::Path, target: &str) -> Vec<
 
     let mut locations = Vec::new();
     for module in &modules {
-        let uri = Url::from_file_path(&module.file_path).unwrap_or_else(|_| {
-            Url::parse(&format!("file://{}", module.file_path.display())).unwrap()
-        });
+        let uri = match Url::from_file_path(&module.file_path) {
+            Ok(u) => u,
+            Err(_) => match Url::parse(&format!("file://{}", module.file_path.display())) {
+                Ok(u) => u,
+                Err(_) => continue,
+            },
+        };
         for range in find_references_in_source(&module.source, target) {
             locations.push(Location {
                 uri: uri.clone(),
@@ -131,7 +135,7 @@ impl TridentLsp {
         let name_kinds = self
             .documents
             .lock()
-            .unwrap()
+            .unwrap_or_else(|e| e.into_inner())
             .get(uri)
             .map(|d| d.name_kinds.clone())
             .unwrap_or_default();

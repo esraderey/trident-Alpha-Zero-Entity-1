@@ -131,7 +131,7 @@ const TOTAL_ROUNDS: usize = R_F + R_P;
 fn round_constant(round: usize, element: usize) -> GoldilocksField {
     let tag = format!("Poseidon2-Goldilocks-t8-RF8-RP22-{round}-{element}");
     let digest = blake3::hash(tag.as_bytes());
-    let bytes: [u8; 8] = digest.as_bytes()[..8].try_into().unwrap();
+    let bytes: [u8; 8] = digest.as_bytes()[..8].try_into().unwrap_or([0u8; 8]);
     GoldilocksField::new(u64::from_le_bytes(bytes))
 }
 

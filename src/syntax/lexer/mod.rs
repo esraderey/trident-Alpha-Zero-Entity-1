@@ -125,7 +125,7 @@ impl<'src> Lexer<'src> {
                     self.pos += 1;
                 }
                 let text = std::str::from_utf8(&self.source[start..self.pos])
-                    .unwrap()
+                    .unwrap_or_default()
                     .to_string();
                 self.comments.push(Comment {
                     text,
@@ -144,7 +144,7 @@ impl<'src> Lexer<'src> {
         while self.pos < self.source.len() && is_ident_continue(self.source[self.pos]) {
             self.pos += 1;
         }
-        let text = std::str::from_utf8(&self.source[start..self.pos]).unwrap();
+        let text = std::str::from_utf8(&self.source[start..self.pos]).unwrap_or_default();
         if text == "asm" {
             return self.scan_asm_block(start);
         }
@@ -182,7 +182,7 @@ impl<'src> Lexer<'src> {
                     self.pos += 1;
                 }
                 let tag = std::str::from_utf8(&self.source[tag_start..self.pos])
-                    .unwrap()
+                    .unwrap_or_default()
                     .to_string();
                 target = Some(tag);
 
@@ -262,7 +262,7 @@ impl<'src> Lexer<'src> {
             }
         }
         let body = std::str::from_utf8(&self.source[body_start..self.pos])
-            .unwrap()
+            .unwrap_or_default()
             .trim()
             .to_string();
 
@@ -306,7 +306,7 @@ impl<'src> Lexer<'src> {
         while self.pos < self.source.len() && self.source[self.pos].is_ascii_digit() {
             self.pos += 1;
         }
-        let num_text = std::str::from_utf8(&self.source[num_start..self.pos]).unwrap();
+        let num_text = std::str::from_utf8(&self.source[num_start..self.pos]).unwrap_or_default();
         let n: i32 = num_text.parse().unwrap_or(0);
         if neg {
             -n
@@ -320,7 +320,7 @@ impl<'src> Lexer<'src> {
         while self.pos < self.source.len() && self.source[self.pos].is_ascii_digit() {
             self.pos += 1;
         }
-        let text = std::str::from_utf8(&self.source[start..self.pos]).unwrap();
+        let text = std::str::from_utf8(&self.source[start..self.pos]).unwrap_or_default();
         match text.parse::<u64>() {
             Ok(n) => self.make_token(Lexeme::Integer(n), start, self.pos),
             Err(_) => {

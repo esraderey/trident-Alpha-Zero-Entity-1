@@ -145,7 +145,14 @@ impl Parser {
                     )
                 } else if self.at(&Lexeme::LBrace) && !path.0.is_empty() {
                     // Could be struct init — but only if it looks like one
-                    let first_char = path.0.last().unwrap().chars().next().unwrap_or('a');
+                    let empty = String::new();
+                    let first_char = path
+                        .0
+                        .last()
+                        .unwrap_or(&empty)
+                        .chars()
+                        .next()
+                        .unwrap_or('a');
                     if first_char.is_uppercase() && self.is_struct_init_ahead() {
                         self.advance(); // consume {
                         let fields = self.parse_struct_init_fields();
@@ -165,7 +172,10 @@ impl Parser {
                 } else {
                     // Variable reference
                     if path.0.len() == 1 {
-                        Spanned::new(Expr::Var(path.0.into_iter().next().unwrap()), start)
+                        Spanned::new(
+                            Expr::Var(path.0.into_iter().next().unwrap_or_default()),
+                            start,
+                        )
                     } else {
                         let name = path.0.join(".");
                         Spanned::new(Expr::Var(name), start)

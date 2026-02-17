@@ -45,9 +45,13 @@ impl TridentLsp {
                 Err(_) => continue,
             };
 
-            let mod_uri = Url::from_file_path(&module.file_path).unwrap_or_else(|_| {
-                Url::parse(&format!("file://{}", module.file_path.display())).unwrap()
-            });
+            let mod_uri = match Url::from_file_path(&module.file_path) {
+                Ok(u) => u,
+                Err(_) => match Url::parse(&format!("file://{}", module.file_path.display())) {
+                    Ok(u) => u,
+                    Err(_) => continue,
+                },
+            };
             let mod_short = module.name.rsplit('.').next().unwrap_or(&module.name);
 
             for item in &parsed.items {

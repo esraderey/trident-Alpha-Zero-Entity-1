@@ -29,7 +29,7 @@ pub fn run_z3(smt_script: &str) -> Result<SmtResult, String> {
     // Run Z3 with timeout
     let output = Command::new(&z3_path)
         .arg("-T:10") // 10 second timeout
-        .arg(temp_file.to_str().unwrap())
+        .arg(temp_file.to_string_lossy().as_ref())
         .output()
         .map_err(|e| format!("cannot run z3: {}", e))?;
 
@@ -91,4 +91,3 @@ fn which_z3() -> Option<String> {
 
     None
 }
-
