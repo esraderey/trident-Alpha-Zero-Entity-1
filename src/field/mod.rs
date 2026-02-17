@@ -11,6 +11,7 @@
 //! - Mersenne31 (2^31 - 1): Plonky3, Circle STARKs
 
 pub mod babybear;
+pub mod fixed;
 pub mod goldilocks;
 pub mod mersenne31;
 pub mod poseidon2;

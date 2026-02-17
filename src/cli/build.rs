@@ -48,6 +48,12 @@ pub struct BuildArgs {
     /// Compilation profile for cfg flags (debug or release)
     #[arg(long, default_value = "debug")]
     pub profile: String,
+    /// Run neural optimizer analysis (shows per-block decisions)
+    #[arg(long)]
+    pub neural: bool,
+    /// Train the neural optimizer for N generations (implies --neural)
+    #[arg(long, value_name = "GENERATIONS")]
+    pub train: Option<u64>,
 }
 
 pub fn cmd_build(args: BuildArgs) {
@@ -66,6 +72,8 @@ pub fn cmd_build(args: BuildArgs) {
         network,
         union_flag,
         profile,
+        neural,
+        train,
     } = args;
     let bf = super::resolve_battlefield_compile(&target, &engine, &terrain, &network, &union_flag);
     let target = bf.target;
@@ -93,6 +101,12 @@ pub fn cmd_build(args: BuildArgs) {
         process::exit(1);
     }
     eprintln!("Compiled -> {}", out_path.display());
+
+    // Neural optimizer analysis
+    let use_neural = neural || train.is_some();
+    if use_neural {
+        run_neural_analysis(&ri.entry, &options, train);
+    }
 
     if annotate {
         if let Some(source_path) = find_program_source(&input) {
@@ -144,6 +158,202 @@ pub fn cmd_build(args: BuildArgs) {
             }
         }
     }
+}
+
+fn run_neural_analysis(
+    entry: &std::path::Path,
+    options: &trident::CompileOptions,
+    train_generations: Option<u64>,
+) {
+    use trident::ir::tir::encode;
+    use trident::ir::tir::lower::{create_speculative_lowering, StackLowering};
+    use trident::ir::tir::neural::evolve::Population;
+    use trident::ir::tir::neural::model::NeuralModel;
+    use trident::ir::tir::neural::report::OptimizerReport;
+    use trident::ir::tir::neural::weights::{self, OptimizerMeta, OptimizerStatus};
+
+    // Determine project root for weight storage
+    let project_root = entry.parent().unwrap_or(std::path::Path::new("."));
+    let weights_path = weights::weights_path(project_root);
+    let meta_path = weights::meta_path(project_root);
+
+    // Load existing weights or start fresh
+    let (model, meta) = match weights::load_weights(&weights_path) {
+        Ok(w) => {
+            let meta = weights::load_meta(&meta_path).unwrap_or(OptimizerMeta {
+                generation: 0,
+                weight_hash: weights::hash_weights(&w),
+                best_score: 0,
+                prev_score: 0,
+                baseline_score: 0,
+                status: OptimizerStatus::Improving,
+            });
+            (NeuralModel::from_weight_vec(&w), meta)
+        }
+        Err(_) => {
+            let meta = OptimizerMeta {
+                generation: 0,
+                weight_hash: String::new(),
+                best_score: 0,
+                prev_score: 0,
+                baseline_score: 0,
+                status: OptimizerStatus::Improving,
+            };
+            (NeuralModel::zeros(), meta)
+        }
+    };
+
+    // Build TIR for neural analysis
+    let ir = match build_tir(entry, options) {
+        Some(ir) => ir,
+        None => {
+            eprintln!("warning: could not build TIR for neural analysis");
+            return;
+        }
+    };
+
+    // Training mode
+    if let Some(generations) = train_generations {
+        let blocks = encode::encode_blocks(&ir);
+        if blocks.is_empty() {
+            eprintln!("No blocks to train on.");
+            return;
+        }
+
+        let start_time = std::time::Instant::now();
+        let gen_start = meta.generation;
+
+        // Create population from current weights
+        let current_weights = model.to_weight_vec();
+        let mut pop = if current_weights.iter().all(|w| w.to_f64() == 0.0) {
+            Population::new_random(gen_start.wrapping_add(42))
+        } else {
+            Population::from_weights(&current_weights, gen_start.wrapping_add(42))
+        };
+
+        // Compute baseline cost (classical lowering)
+        let lowering = trident::ir::tir::lower::create_stack_lowering(&options.target_config.name);
+        let baseline_tasm = lowering.lower(&ir);
+        let baseline_profile = trident::cost::scorer::profile_tasm_str(&baseline_tasm.join("\n"));
+        let baseline_cost = baseline_profile.cost();
+
+        let score_before = if meta.best_score > 0 {
+            meta.best_score
+        } else {
+            baseline_cost
+        };
+
+        // Train for N generations
+        for gen in 0..generations {
+            pop.evaluate(&blocks, |m, block| {
+                let output = m.forward(block);
+                if output.is_empty() {
+                    return -(baseline_cost as i64);
+                }
+                // Score = negative padded cost (higher is better for evolution)
+                let candidate_lines: Vec<String> = output
+                    .iter()
+                    .filter_map(|&code| {
+                        if code == 0 || code > 63 {
+                            None
+                        } else {
+                            Some(format!("nop")) // placeholder — real decode in lowering
+                        }
+                    })
+                    .collect();
+                if candidate_lines.is_empty() {
+                    return -(baseline_cost as i64);
+                }
+                let profile = trident::cost::scorer::profile_tasm(
+                    &candidate_lines
+                        .iter()
+                        .map(|s| s.as_str())
+                        .collect::<Vec<_>>(),
+                );
+                -(profile.cost() as i64)
+            });
+            pop.evolve(gen_start.wrapping_add(gen));
+        }
+
+        let elapsed = start_time.elapsed();
+        let best = pop.best_weights();
+        let best_model = NeuralModel::from_weight_vec(best);
+
+        // Evaluate best model's actual cost
+        let spec = create_speculative_lowering(
+            &options.target_config.name,
+            Some(best_model),
+            gen_start + generations,
+            String::new(),
+            OptimizerStatus::Improving,
+        );
+        let _ = spec.lower(&ir);
+        let report = spec.report();
+        let score_after = if report.total_neural_cost > 0 {
+            report.total_neural_cost
+        } else {
+            baseline_cost
+        };
+
+        // Save weights
+        let weight_hash = weights::hash_weights(best);
+        if let Err(e) = weights::save_weights(best, &weights_path) {
+            eprintln!("warning: could not save weights: {}", e);
+        }
+
+        let mut tracker = weights::ConvergenceTracker::new();
+        // Feed in the score
+        let status = tracker.record(score_after);
+
+        let new_meta = OptimizerMeta {
+            generation: gen_start + generations,
+            weight_hash: weight_hash.clone(),
+            best_score: score_after,
+            prev_score: score_before,
+            baseline_score: baseline_cost,
+            status: status.clone(),
+        };
+        if let Err(e) = weights::save_meta(&new_meta, &meta_path) {
+            eprintln!("warning: could not save meta: {}", e);
+        }
+
+        // Display training progress
+        eprintln!(
+            "\n{}",
+            OptimizerReport::format_training(
+                gen_start,
+                gen_start + generations,
+                elapsed.as_micros() as u64,
+                score_before,
+                score_after,
+                &status,
+            )
+        );
+        eprintln!("  weights: {} -> {}", weights_path.display(), weight_hash);
+        return;
+    }
+
+    // Analysis mode (--neural without --train): run speculative lowering and show report
+    let spec = create_speculative_lowering(
+        &options.target_config.name,
+        Some(model),
+        meta.generation,
+        meta.weight_hash.clone(),
+        meta.status.clone(),
+    );
+    let _ = spec.lower(&ir);
+    let report = spec.report();
+    eprintln!("\n{}", report.format_report());
+}
+
+/// Build TIR from a source entry point (for neural analysis).
+fn build_tir(
+    entry: &std::path::Path,
+    options: &trident::CompileOptions,
+) -> Option<Vec<trident::tir::TIROp>> {
+    let source = std::fs::read_to_string(entry).ok()?;
+    let filename = entry.to_string_lossy().to_string();
+    trident::build_tir(&source, &filename, options).ok()
 }
 
 fn print_hints(cost: &trident::cost::ProgramCost) {

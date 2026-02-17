@@ -382,6 +382,36 @@ pub fn compile_module(
     }
 }
 
+/// Build TIR (optimized intermediate representation) from a single source file.
+///
+/// Returns the IR ops before lowering to target assembly. Used by the
+/// neural optimizer to analyze and improve the compilation.
+pub fn build_tir(
+    source: &str,
+    filename: &str,
+    options: &CompileOptions,
+) -> Result<Vec<crate::tir::TIROp>, Vec<Diagnostic>> {
+    let file = crate::parse_source(source, filename)?;
+
+    let exports = match TypeChecker::with_target(options.target_config.clone())
+        .with_cfg_flags(options.cfg_flags.clone())
+        .check_file(&file)
+    {
+        Ok(exports) => exports,
+        Err(errors) => {
+            render_diagnostics(&errors, filename, source);
+            return Err(errors);
+        }
+    };
+
+    let ir = TIRBuilder::new(options.target_config.clone())
+        .with_cfg_flags(options.cfg_flags.clone())
+        .with_mono_instances(exports.mono_instances)
+        .with_call_resolutions(exports.call_resolutions)
+        .build_file(&file);
+    Ok(optimize_tir(ir))
+}
+
 pub(crate) mod doc;
 pub(crate) mod pipeline;
 mod tools;

@@ -7,6 +7,7 @@ mod json;
 /// This gives an upper bound on proving cost without executing the program.
 pub mod model;
 pub mod report;
+pub mod scorer;
 mod visit;
 
 // Public re-exports

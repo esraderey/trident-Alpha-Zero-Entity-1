@@ -5,8 +5,10 @@
 //! produces target assembly text.
 
 pub mod builder;
+pub mod encode;
 pub(crate) mod linker;
 pub mod lower;
+pub mod neural;
 pub(crate) mod optimize;
 pub mod stack;
 
