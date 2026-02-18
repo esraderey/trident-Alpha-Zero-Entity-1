@@ -16,13 +16,22 @@ pub struct TrainArgs {
     pub gpu: bool,
 }
 
-/// Pre-compiled file data — TIR + blocks + baselines, computed once.
 struct CompiledFile {
     path: String,
     blocks: Vec<trident::ir::tir::encode::TIRBlock>,
     per_block_baselines: Vec<u64>,
     baseline_cost: u64,
 }
+
+// ANSI colors
+const DIM: &str = "\x1b[2m";
+const RESET: &str = "\x1b[0m";
+const GREEN: &str = "\x1b[32m";
+const YELLOW: &str = "\x1b[33m";
+const RED: &str = "\x1b[31m";
+const CYAN: &str = "\x1b[36m";
+const BOLD: &str = "\x1b[1m";
+const WHITE: &str = "\x1b[37m";
 
 pub fn cmd_train(args: TrainArgs) {
     use trident::ir::tir::neural::weights;
@@ -36,33 +45,34 @@ pub fn cmd_train(args: TrainArgs) {
     let meta = weights::load_best_meta().ok();
     let gen_start = meta.as_ref().map_or(0, |m| m.generation);
 
-    eprintln!("trident train");
+    eprintln!("{BOLD}trident train{RESET}");
     eprintln!("  compiling corpus...");
 
-    // Compile all files once with warnings suppressed
     let _guard = trident::diagnostic::suppress_warnings();
     let compiled = compile_corpus(&corpus);
     drop(_guard);
+
     let total_blocks: usize = compiled.iter().map(|c| c.blocks.len()).sum();
     let total_baseline: u64 = compiled.iter().map(|c| c.baseline_cost).sum();
     let total_gens = args.epochs * compiled.len() as u64 * args.generations;
 
+    // Header table
+    eprintln!();
+    eprintln!("  {DIM}┌──────────────────────────────────────────┐{RESET}");
+    eprintln!("  {DIM}│{RESET} corpus    {WHITE}{}{RESET} files ({CYAN}{}{RESET} trainable, {CYAN}{}{RESET} blocks) {DIM}│{RESET}",
+        corpus.len(), compiled.len(), total_blocks);
     eprintln!(
-        "  corpus    {} files ({} trainable, {} blocks)",
-        corpus.len(),
-        compiled.len(),
-        total_blocks
+        "  {DIM}│{RESET} baseline  {WHITE}{}{RESET} total cost                    {DIM}│{RESET}",
+        total_baseline
     );
-    eprintln!("  baseline  {} total cost", total_baseline);
+    eprintln!("  {DIM}│{RESET} schedule  {WHITE}{}{RESET} epochs x {WHITE}{}{RESET} gens = {CYAN}{}{RESET} total     {DIM}│{RESET}",
+        args.epochs, args.generations, total_gens);
     eprintln!(
-        "  schedule  {} epochs x {} gens/file = {} total gens",
-        args.epochs, args.generations, total_gens
-    );
-    eprintln!(
-        "  model     gen {} | {}",
+        "  {DIM}│{RESET} model     gen {WHITE}{}{RESET} | {}                       {DIM}│{RESET}",
         gen_start,
         if args.gpu { "GPU" } else { "CPU" }
     );
+    eprintln!("  {DIM}└──────────────────────────────────────────┘{RESET}");
     eprintln!();
 
     let start = std::time::Instant::now();
@@ -70,7 +80,6 @@ pub fn cmd_train(args: TrainArgs) {
     let mut prev_epoch_avg = 0u64;
 
     for epoch in 0..args.epochs {
-        // Shuffle file indices each epoch
         let mut indices: Vec<usize> = (0..compiled.len()).collect();
         shuffle(&mut indices, gen_start + epoch);
 
@@ -80,14 +89,13 @@ pub fn cmd_train(args: TrainArgs) {
         for (i, &file_idx) in indices.iter().enumerate() {
             let cf = &compiled[file_idx];
             eprint!(
-                "\r  epoch {}/{} | {}/{} | {}",
+                "\r  {DIM}epoch {}/{}{RESET} {DIM}│{RESET} {}/{} {DIM}│{RESET} {}",
                 epoch + 1,
                 args.epochs,
                 i + 1,
                 compiled.len(),
                 cf.path,
             );
-            // Pad to clear previous longer lines
             let pad = 50usize.saturating_sub(cf.path.len());
             eprint!("{}", " ".repeat(pad));
             use std::io::Write;
@@ -101,33 +109,27 @@ pub fn cmd_train(args: TrainArgs) {
         let epoch_elapsed = epoch_start.elapsed();
         let epoch_cost: u64 = epoch_costs.iter().map(|(_, c)| c).sum();
         let avg_cost = epoch_cost / compiled.len().max(1) as u64;
+        let ratio = epoch_cost as f64 / total_baseline.max(1) as f64;
 
         let trend = if epoch == 0 {
             String::new()
         } else if avg_cost < prev_epoch_avg {
-            format!(" (-{} vs prev)", prev_epoch_avg - avg_cost)
+            format!(" {GREEN}-{}{RESET}", prev_epoch_avg - avg_cost)
         } else if avg_cost > prev_epoch_avg {
-            format!(" (+{} vs prev)", avg_cost - prev_epoch_avg)
+            format!(" {RED}+{}{RESET}", avg_cost - prev_epoch_avg)
         } else {
-            " (=)".into()
+            format!(" {DIM}={RESET}")
         };
         prev_epoch_avg = avg_cost;
 
-        let ratio = epoch_cost as f64 / total_baseline.max(1) as f64;
+        let ratio_color = ratio_to_color(ratio);
         eprintln!(
-            "\r  epoch {}/{} | {} blocks | cost {} / baseline {} ({:.2}x) | avg {} | {:.1}s{}",
-            epoch + 1,
-            args.epochs,
-            total_blocks,
-            epoch_cost,
-            total_baseline,
-            ratio,
-            avg_cost,
-            epoch_elapsed.as_secs_f64(),
-            trend,
+            "\r  {BOLD}epoch {}/{}{RESET} {DIM}│{RESET} {ratio_color}{:.2}x{RESET} {DIM}│{RESET} cost {WHITE}{}{RESET}/{} {DIM}│{RESET} avg {WHITE}{}{RESET} {DIM}│{RESET} {DIM}{:.1}s{RESET}{}",
+            epoch + 1, args.epochs, ratio, epoch_cost, total_baseline,
+            avg_cost, epoch_elapsed.as_secs_f64(), trend,
         );
 
-        // Per-file breakdown on first and last epoch
+        // Per-file table on first and last epoch
         if epoch == 0 || epoch + 1 == args.epochs {
             let mut sorted: Vec<_> = epoch_costs
                 .iter()
@@ -141,20 +143,10 @@ pub fn cmd_train(args: TrainArgs) {
                 let rb = b.2 as f64 / b.3.max(1) as f64;
                 ra.partial_cmp(&rb).unwrap()
             });
+
             let label = if epoch == 0 { "initial" } else { "final" };
-            eprintln!("    {} per-file breakdown:", label);
-            for (path, blocks, cost, baseline) in &sorted {
-                let r = *cost as f64 / (*baseline).max(1) as f64;
-                eprintln!(
-                    "      {:<45} {:>3} blk  {:>6} / {:<6} ({:.2}x) {}",
-                    path,
-                    blocks,
-                    cost,
-                    baseline,
-                    r,
-                    cost_bar(r),
-                );
-            }
+            eprintln!();
+            print_file_table(&sorted, label);
             eprintln!();
         }
     }
@@ -163,42 +155,123 @@ pub fn cmd_train(args: TrainArgs) {
     let meta = weights::load_best_meta().ok();
     let gen_end = meta.as_ref().map_or(0, |m| m.generation);
 
-    eprintln!("done");
-    eprintln!(
-        "  generations  {} -> {} (+{})",
-        gen_start,
-        gen_end,
-        gen_end - gen_start
-    );
-    eprintln!(
-        "  trained      {} file-passes in {:.1}s",
-        total_trained,
-        elapsed.as_secs_f64()
-    );
+    // Summary
+    eprintln!("  {DIM}┌────────────────────────────────────────┐{RESET}");
+    eprintln!("  {DIM}│{RESET} {BOLD}done{RESET}                                   {DIM}│{RESET}");
+    eprintln!("  {DIM}│{RESET} generations  {WHITE}{}{RESET} -> {WHITE}{}{RESET} ({GREEN}+{}{RESET})          {DIM}│{RESET}",
+        gen_start, gen_end, gen_end - gen_start);
+    eprintln!("  {DIM}│{RESET} trained      {WHITE}{}{RESET} file-passes in {WHITE}{:.1}s{RESET}    {DIM}│{RESET}",
+        total_trained, elapsed.as_secs_f64());
     if let Some(meta) = meta {
         eprintln!(
-            "  model        score {} | status: {}",
+            "  {DIM}│{RESET} model        score {BOLD}{}{RESET} | {}         {DIM}│{RESET}",
             meta.best_score, meta.status
         );
-        eprintln!("  weights      {}", meta.weight_hash);
+        eprintln!(
+            "  {DIM}│{RESET} weights      {DIM}{}{RESET}   {DIM}│{RESET}",
+            &meta.weight_hash[..16.min(meta.weight_hash.len())]
+        );
     }
+    eprintln!("  {DIM}└────────────────────────────────────────┘{RESET}");
 }
 
-fn cost_bar(ratio: f64) -> &'static str {
-    if ratio <= 0.25 {
-        ">>>>"
-    } else if ratio <= 0.5 {
-        ">>>"
-    } else if ratio <= 0.75 {
-        ">>"
-    } else if ratio < 1.0 {
-        ">"
+fn print_file_table(rows: &[(&str, usize, u64, u64)], label: &str) {
+    // Column widths
+    let w_file = 45;
+    let w_blk = 5;
+    let w_cost = 6;
+    let w_base = 6;
+    let w_ratio = 7;
+    let w_bar = 12;
+
+    eprintln!("  {DIM}{}{RESET}", label);
+    eprintln!(
+        "  {DIM}┌{}┬{}┬{}┬{}┬{}┬{}┐{RESET}",
+        "─".repeat(w_file + 2),
+        "─".repeat(w_blk + 2),
+        "─".repeat(w_cost + 2),
+        "─".repeat(w_base + 2),
+        "─".repeat(w_ratio + 2),
+        "─".repeat(w_bar + 2)
+    );
+    eprintln!("  {DIM}│{RESET} {BOLD}{:<w_file$}{RESET} {DIM}│{RESET} {BOLD}{:>w_blk$}{RESET} {DIM}│{RESET} {BOLD}{:>w_cost$}{RESET} {DIM}│{RESET} {BOLD}{:>w_base$}{RESET} {DIM}│{RESET} {BOLD}{:>w_ratio$}{RESET} {DIM}│{RESET} {BOLD}{:<w_bar$}{RESET} {DIM}│{RESET}",
+        "file", "blk", "cost", "base", "ratio", "");
+    eprintln!(
+        "  {DIM}├{}┼{}┼{}┼{}┼{}┼{}┤{RESET}",
+        "─".repeat(w_file + 2),
+        "─".repeat(w_blk + 2),
+        "─".repeat(w_cost + 2),
+        "─".repeat(w_base + 2),
+        "─".repeat(w_ratio + 2),
+        "─".repeat(w_bar + 2)
+    );
+
+    for (path, blocks, cost, baseline) in rows {
+        let r = *cost as f64 / (*baseline).max(1) as f64;
+        let color = ratio_to_color(r);
+        let bar = ratio_bar(r, w_bar);
+        eprintln!(
+            "  {DIM}│{RESET} {:<w_file$} {DIM}│{RESET} {:>w_blk$} {DIM}│{RESET} {:>w_cost$} {DIM}│{RESET} {:>w_base$} {DIM}│{RESET} {color}{:>w_ratio$}{RESET} {DIM}│{RESET} {} {DIM}│{RESET}",
+            path, blocks, cost, baseline, format!("{:.2}x", r), bar,
+        );
+    }
+
+    // Footer with totals
+    let total_blocks: usize = rows.iter().map(|(_, b, _, _)| b).sum();
+    let total_cost: u64 = rows.iter().map(|(_, _, c, _)| c).sum();
+    let total_base: u64 = rows.iter().map(|(_, _, _, b)| b).sum();
+    let total_ratio = total_cost as f64 / total_base.max(1) as f64;
+    let total_color = ratio_to_color(total_ratio);
+
+    eprintln!(
+        "  {DIM}├{}┼{}┼{}┼{}┼{}┼{}┤{RESET}",
+        "─".repeat(w_file + 2),
+        "─".repeat(w_blk + 2),
+        "─".repeat(w_cost + 2),
+        "─".repeat(w_base + 2),
+        "─".repeat(w_ratio + 2),
+        "─".repeat(w_bar + 2)
+    );
+    eprintln!(
+        "  {DIM}│{RESET} {BOLD}{:<w_file$}{RESET} {DIM}│{RESET} {BOLD}{:>w_blk$}{RESET} {DIM}│{RESET} {BOLD}{:>w_cost$}{RESET} {DIM}│{RESET} {BOLD}{:>w_base$}{RESET} {DIM}│{RESET} {total_color}{BOLD}{:>w_ratio$}{RESET} {DIM}│{RESET} {} {DIM}│{RESET}",
+        "total", total_blocks, total_cost, total_base,
+        format!("{:.2}x", total_ratio), ratio_bar(total_ratio, w_bar),
+    );
+    eprintln!(
+        "  {DIM}└{}┴{}┴{}┴{}┴{}┴{}┘{RESET}",
+        "─".repeat(w_file + 2),
+        "─".repeat(w_blk + 2),
+        "─".repeat(w_cost + 2),
+        "─".repeat(w_base + 2),
+        "─".repeat(w_ratio + 2),
+        "─".repeat(w_bar + 2)
+    );
+}
+
+fn ratio_to_color(r: f64) -> &'static str {
+    if r <= 0.3 {
+        GREEN
+    } else if r <= 0.6 {
+        CYAN
+    } else if r <= 0.9 {
+        YELLOW
     } else {
-        "="
+        RED
     }
 }
 
-/// Compile all files once, return only those with trainable blocks.
+fn ratio_bar(ratio: f64, width: usize) -> String {
+    let filled = ((1.0 - ratio.min(1.0)) * width as f64).round() as usize;
+    let filled = filled.min(width);
+    let empty = width - filled;
+    let color = ratio_to_color(ratio);
+    format!(
+        "{color}{}{RESET}{DIM}{}{RESET}",
+        "█".repeat(filled),
+        "░".repeat(empty)
+    )
+}
+
 fn compile_corpus(files: &[std::path::PathBuf]) -> Vec<CompiledFile> {
     let options = super::resolve_options("triton", "debug", None);
     let mut compiled = Vec::new();
@@ -247,7 +320,6 @@ fn compile_corpus(files: &[std::path::PathBuf]) -> Vec<CompiledFile> {
     compiled
 }
 
-/// Train on a pre-compiled file. Returns the cost after training.
 fn train_one_compiled(cf: &CompiledFile, generations: u64, gpu: bool) -> u64 {
     use trident::field::PrimeField;
     use trident::ir::tir::lower::decode_output;
