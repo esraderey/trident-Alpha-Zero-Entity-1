@@ -329,13 +329,25 @@ fn train_one_compiled(
                 .map(|ind| ind.weights.clone())
                 .collect();
             let gpu_outputs = accel.batch_forward(&weight_vecs);
+            // Score in parallel — one thread per individual
+            let baselines = &cf.per_block_baselines;
+            let fitnesses: Vec<i64> = std::thread::scope(|s| {
+                let handles: Vec<_> = gpu_outputs
+                    .iter()
+                    .map(|ind_outputs| {
+                        s.spawn(move || {
+                            let mut total = 0i64;
+                            for (b, block_out) in ind_outputs.iter().enumerate() {
+                                total -= score_neural_output(block_out, baselines[b]) as i64;
+                            }
+                            total
+                        })
+                    })
+                    .collect();
+                handles.into_iter().map(|h| h.join().unwrap()).collect()
+            });
             for (i, ind) in pop.individuals.iter_mut().enumerate() {
-                let mut total = 0i64;
-                for (b, _) in cf.blocks.iter().enumerate() {
-                    total -=
-                        score_neural_output(&gpu_outputs[i][b], cf.per_block_baselines[b]) as i64;
-                }
-                ind.fitness = total;
+                ind.fitness = fitnesses[i];
             }
             pop.update_best();
         } else {
