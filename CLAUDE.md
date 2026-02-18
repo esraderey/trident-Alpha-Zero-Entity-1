@@ -171,20 +171,25 @@ implementation.
   `reference/roadmap.md` closer to 0K. If it does, update the
   current temperature in the stack table.
 
-## Agent Cortex
+## Agent Memory
 
-`.cortex/` is shared memory for agents — insights, audit results,
-intermediate findings, open questions, anything useful.
+`.claude/` is persistent agent memory — signed-off plans, audit results,
+performance reports, and design decisions. Structured as:
 
-Budget: 1000 lines total. Rules for every update:
+```
+.claude/
+  settings.local.json   Claude Code settings
+  plans/                Signed-off design decisions and implementation plans
+  audits/               Audit logs (chronological) and summaries
+  other/                Performance reports, analysis, misc findings
+```
+
+Rules:
 
 1. Read what's already there before writing.
-2. Add what you have — no format restrictions.
-3. If budget exceeded, compress, merge, or delete the weakest entries.
-4. Every update must increase information density.
-
-Agents self-organize. The budget is the only constraint.
-Gitignored for now (experimental).
+2. Plans go in `plans/` with descriptive names (e.g. `gpu-neural-rewrite.md`).
+3. Audits are chronological logs, one per date, plus a rolling `summary.md`.
+4. Compress old entries when files grow stale — density over volume.
 
 ## Dual-Stream Optimization
 

@@ -26,5 +26,5 @@ editor/zed/grammars/
 **/neural/weights.bin
 **/neural/meta.toml
 
-# Agent shared memory (experimental, not committed yet)
+# Agent shared memory (migrated to .claude/)
 /.cortex/
