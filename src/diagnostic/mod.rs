@@ -1,4 +1,28 @@
 use crate::span::Span;
+use std::cell::Cell;
+
+thread_local! {
+    static SUPPRESS_WARNINGS: Cell<bool> = const { Cell::new(false) };
+}
+
+/// Suppress warning diagnostics on the current thread.
+/// Returns a guard that restores the previous state on drop.
+pub fn suppress_warnings() -> SuppressGuard {
+    let prev = SUPPRESS_WARNINGS.with(|s| s.replace(true));
+    SuppressGuard(prev)
+}
+
+pub struct SuppressGuard(bool);
+
+impl Drop for SuppressGuard {
+    fn drop(&mut self) {
+        SUPPRESS_WARNINGS.with(|s| s.set(self.0));
+    }
+}
+
+fn warnings_suppressed() -> bool {
+    SUPPRESS_WARNINGS.with(|s| s.get())
+}
 
 /// A compiler diagnostic (error, warning, or hint).
 #[derive(Clone, Debug)]
@@ -49,6 +73,9 @@ impl Diagnostic {
 
     /// Render the diagnostic to stderr using ariadne.
     pub fn render(&self, filename: &str, source: &str) {
+        if self.severity == Severity::Warning && warnings_suppressed() {
+            return;
+        }
         use ariadne::{Color, Label, Report, ReportKind, Source};
 
         let kind = match self.severity {

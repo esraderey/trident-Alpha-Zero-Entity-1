@@ -39,8 +39,10 @@ pub fn cmd_train(args: TrainArgs) {
     eprintln!("trident train");
     eprintln!("  compiling corpus...");
 
-    // Compile all files once, suppress repeated warnings
+    // Compile all files once with warnings suppressed
+    let _guard = trident::diagnostic::suppress_warnings();
     let compiled = compile_corpus(&corpus);
+    drop(_guard);
     let total_blocks: usize = compiled.iter().map(|c| c.blocks.len()).sum();
     let total_baseline: u64 = compiled.iter().map(|c| c.baseline_cost).sum();
     let total_gens = args.epochs * compiled.len() as u64 * args.generations;
