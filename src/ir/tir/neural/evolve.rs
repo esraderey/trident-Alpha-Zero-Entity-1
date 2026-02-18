@@ -25,6 +25,10 @@ pub struct Population {
     pub individuals: Vec<Individual>,
     pub generation: u64,
     pub best_fitness: i64,
+    /// Adaptive mutation rate: increases on plateau, decreases on improvement.
+    pub mutation_rate: f64,
+    /// Generations since last improvement (for adaptive rate).
+    stale_count: u64,
 }
 
 impl Population {
@@ -46,6 +50,8 @@ impl Population {
             individuals,
             generation: 0,
             best_fitness: i64::MIN,
+            mutation_rate: MUTATION_RATE,
+            stale_count: 0,
         }
     }
 
@@ -73,6 +79,8 @@ impl Population {
             individuals,
             generation: 0,
             best_fitness: i64::MIN,
+            mutation_rate: MUTATION_RATE,
+            stale_count: 0,
         }
     }
 
@@ -113,10 +121,61 @@ impl Population {
         self.update_best();
     }
 
-    /// Run one generation: selection + crossover + mutation.
+    /// Evaluate all individuals using per-block baselines.
+    ///
+    /// The scorer function takes (model, block, block_baseline) and returns a score.
+    pub fn evaluate_with_baselines<F>(&mut self, blocks: &[TIRBlock], baselines: &[u64], scorer: F)
+    where
+        F: Fn(&mut NeuralModel, &TIRBlock, u64) -> i64 + Sync,
+    {
+        let fitnesses: Vec<i64> = std::thread::scope(|s| {
+            let handles: Vec<_> = self
+                .individuals
+                .iter()
+                .map(|individual| {
+                    let scorer = &scorer;
+                    s.spawn(move || {
+                        let mut model = NeuralModel::from_weight_vec(&individual.weights);
+                        let mut total_fitness = 0i64;
+                        for (i, block) in blocks.iter().enumerate() {
+                            let baseline = baselines.get(i).copied().unwrap_or(1);
+                            total_fitness =
+                                total_fitness.saturating_add(scorer(&mut model, block, baseline));
+                        }
+                        total_fitness
+                    })
+                })
+                .collect();
+            handles
+                .into_iter()
+                .map(|h| h.join().expect("evaluate thread panicked"))
+                .collect()
+        });
+        for (individual, fitness) in self.individuals.iter_mut().zip(fitnesses) {
+            individual.fitness = fitness;
+        }
+
+        self.update_best();
+    }
+
+    /// Run one generation: selection + crossover + mutation with adaptive rate.
     pub fn evolve(&mut self, seed: u64) {
         // Sort by fitness (descending)
         self.individuals.sort_by(|a, b| b.fitness.cmp(&a.fitness));
+
+        // Adaptive mutation rate: increase on plateau, decrease on improvement
+        let current_best = self.individuals[0].fitness;
+        if current_best > self.best_fitness {
+            self.stale_count = 0;
+            // Decrease rate toward baseline on improvement
+            self.mutation_rate = (self.mutation_rate * 0.9).max(MUTATION_RATE * 0.5);
+        } else {
+            self.stale_count += 1;
+            if self.stale_count >= 5 {
+                // Increase rate on plateau (cap at 10x baseline)
+                self.mutation_rate = (self.mutation_rate * 1.3).min(MUTATION_RATE * 10.0);
+            }
+        }
 
         // Keep top SURVIVORS
         let survivors: Vec<Vec<Fixed>> = self.individuals[..SURVIVORS]
@@ -143,7 +202,7 @@ impl Population {
 
             let child = crossover(parent_a, parent_b, gen_seed);
             let mut weights = child;
-            mutate_weights(&mut weights, MUTATION_RATE, gen_seed.wrapping_add(2));
+            mutate_weights(&mut weights, self.mutation_rate, gen_seed.wrapping_add(2));
 
             new_individuals.push(Individual {
                 weights,
@@ -189,16 +248,17 @@ fn crossover(a: &[Fixed], b: &[Fixed], seed: u64) -> Vec<Fixed> {
     child
 }
 
-/// Mutate weights in-place with the given rate.
+/// Mutate weights in-place via perturbation (add small delta to existing weight).
 fn mutate_weights(weights: &mut [Fixed], rate: f64, seed: u64) {
     let threshold = (rate * u64::MAX as f64) as u64;
     for i in 0..weights.len() {
         let hash = simple_hash(seed.wrapping_add(i as u64));
         if hash < threshold {
-            // Replace with a small random value
-            let val_hash = simple_hash(hash.wrapping_add(42));
-            let small = (val_hash % 131072) as f64 / 65536.0 - 1.0; // range [-1, 1]
-            weights[i] = Fixed::from_f64(small * 0.1);
+            // Perturb existing weight (not replace)
+            let delta_hash = simple_hash(hash.wrapping_add(42));
+            let delta = (delta_hash % 131072) as f64 / 65536.0 - 1.0; // range [-1, 1]
+            let current = weights[i].to_f64();
+            weights[i] = Fixed::from_f64(current + delta * 0.05);
         }
     }
 }

@@ -244,14 +244,34 @@ fn run_neural_analysis(
             baseline_cost
         };
 
+        // Compute per-block baselines by lowering each block's TIR ops independently.
+        // Each block contains straight-line ops (no control flow) so lowering is valid.
+        let per_block_baselines: Vec<u64> = blocks
+            .iter()
+            .map(|block| {
+                let block_ops = &ir[block.start_idx..block.end_idx];
+                if block_ops.is_empty() {
+                    return 1; // minimum cost for empty blocks
+                }
+                let block_tasm = lowering.lower(block_ops);
+                if block_tasm.is_empty() {
+                    return 1;
+                }
+                let profile = trident::cost::scorer::profile_tasm(
+                    &block_tasm.iter().map(|s| s.as_str()).collect::<Vec<_>>(),
+                );
+                profile.cost().max(1)
+            })
+            .collect();
+        let total_block_baseline: u64 = per_block_baselines.iter().sum();
+
         eprintln!(
-            "Training neural optimizer on {} blocks ({} weights), baseline cost: {}",
+            "Training neural optimizer on {} blocks ({} weights), baseline cost: {} (per-block sum: {})",
             blocks.len(),
             pop.individuals[0].weights.len(),
             baseline_cost,
+            total_block_baseline,
         );
-
-        let per_block_baseline = baseline_cost / blocks.len().max(1) as u64;
 
         // GPU acceleration (opt-in: set TRIDENT_GPU=1 to enable)
         // Parallel CPU is faster (~250ms/gen vs ~800ms/gen GPU) because
@@ -280,47 +300,31 @@ fn run_neural_analysis(
                     .collect();
                 let gpu_outputs = accel.batch_forward(&weight_vecs);
 
-                // Score outputs on CPU
+                // Score outputs on CPU using per-block baselines
                 for (i, ind) in pop.individuals.iter_mut().enumerate() {
                     let mut total = 0i64;
                     for (b, _block) in blocks.iter().enumerate() {
-                        let codes: Vec<u64> = gpu_outputs[i][b]
-                            .iter()
-                            .take_while(|&&c| c != 0)
-                            .map(|&c| c as u64)
-                            .collect();
-                        if codes.is_empty() {
-                            total -= per_block_baseline as i64;
-                        } else {
-                            let candidate_lines = decode_output(&codes);
-                            if candidate_lines.is_empty() {
-                                total -= per_block_baseline as i64;
-                            } else {
-                                let profile = trident::cost::scorer::profile_tasm(
-                                    &candidate_lines
-                                        .iter()
-                                        .map(|s| s.as_str())
-                                        .collect::<Vec<_>>(),
-                                );
-                                total -= profile.cost() as i64;
-                            }
-                        }
+                        let block_baseline = per_block_baselines[b];
+                        total -= score_neural_output(&gpu_outputs[i][b], block_baseline) as i64;
                     }
                     ind.fitness = total;
                 }
                 pop.update_best();
             } else {
                 // Parallel CPU path (default — faster than GPU for this workload)
-                pop.evaluate(
+                pop.evaluate_with_baselines(
                     &blocks,
-                    |m: &mut NeuralModel, block: &trident::ir::tir::encode::TIRBlock| {
+                    &per_block_baselines,
+                    |m: &mut NeuralModel,
+                     block: &trident::ir::tir::encode::TIRBlock,
+                     block_baseline: u64| {
                         let output = m.forward(block);
                         if output.is_empty() {
-                            return -(per_block_baseline as i64);
+                            return -(block_baseline as i64);
                         }
                         let candidate_lines = decode_output(&output);
                         if candidate_lines.is_empty() {
-                            return -(per_block_baseline as i64);
+                            return -(block_baseline as i64);
                         }
                         let profile = trident::cost::scorer::profile_tasm(
                             &candidate_lines
@@ -328,7 +332,8 @@ fn run_neural_analysis(
                                 .map(|s| s.as_str())
                                 .collect::<Vec<_>>(),
                         );
-                        -(profile.cost() as i64)
+                        // Cap: neural can't score worse than baseline
+                        -(profile.cost().min(block_baseline) as i64)
                     },
                 );
             }
@@ -461,6 +466,33 @@ fn build_tir(
     let source = std::fs::read_to_string(entry).ok()?;
     let filename = entry.to_string_lossy().to_string();
     trident::build_tir(&source, &filename, options).ok()
+}
+
+/// Score a neural output against a per-block baseline.
+/// Returns the cost to subtract from fitness (lower is better for the model).
+fn score_neural_output(raw_codes: &[u32], block_baseline: u64) -> u64 {
+    use trident::ir::tir::lower::decode_output;
+
+    let codes: Vec<u64> = raw_codes
+        .iter()
+        .take_while(|&&c| c != 0)
+        .map(|&c| c as u64)
+        .collect();
+    if codes.is_empty() {
+        return block_baseline;
+    }
+    let candidate_lines = decode_output(&codes);
+    if candidate_lines.is_empty() {
+        return block_baseline;
+    }
+    let profile = trident::cost::scorer::profile_tasm(
+        &candidate_lines
+            .iter()
+            .map(|s| s.as_str())
+            .collect::<Vec<_>>(),
+    );
+    // Cap: neural can't score worse than baseline
+    profile.cost().min(block_baseline)
 }
 
 fn print_hints(cost: &trident::cost::ProgramCost) {

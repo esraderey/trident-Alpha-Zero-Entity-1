@@ -4,7 +4,7 @@
 //! Currently provides neural optimizer batch forward pass.
 
 pub mod neural_accel;
-mod shaders;
+pub(crate) mod shaders;
 
 /// Try to create a wgpu device and queue.
 /// Returns None if no GPU adapter is available.
