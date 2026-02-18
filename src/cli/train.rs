@@ -16,203 +16,243 @@ pub struct TrainArgs {
     pub gpu: bool,
 }
 
+/// Pre-compiled file data — TIR + blocks + baselines, computed once.
+struct CompiledFile {
+    path: String,
+    blocks: Vec<trident::ir::tir::encode::TIRBlock>,
+    per_block_baselines: Vec<u64>,
+    baseline_cost: u64,
+}
+
 pub fn cmd_train(args: TrainArgs) {
-    // Discover all .tri files in vm/, std/, os/
+    use trident::ir::tir::neural::weights;
+
     let corpus = discover_corpus();
     if corpus.is_empty() {
         eprintln!("error: no .tri files found in vm/, std/, os/");
         process::exit(1);
     }
 
-    use trident::ir::tir::neural::weights;
-
     let meta = weights::load_best_meta().ok();
     let gen_start = meta.as_ref().map_or(0, |m| m.generation);
 
-    let trainable: Vec<_> = corpus.iter().filter(|f| has_trainable_blocks(f)).collect();
+    eprintln!("trident train");
+    eprintln!("  compiling corpus...");
+
+    // Compile all files once, suppress repeated warnings
+    let compiled = compile_corpus(&corpus);
+    let total_blocks: usize = compiled.iter().map(|c| c.blocks.len()).sum();
+    let total_baseline: u64 = compiled.iter().map(|c| c.baseline_cost).sum();
+    let total_gens = args.epochs * compiled.len() as u64 * args.generations;
 
     eprintln!(
-        "Training neural optimizer: {} epochs x {} files x {} gens/file",
-        args.epochs,
-        trainable.len(),
-        args.generations,
+        "  corpus    {} files ({} trainable, {} blocks)",
+        corpus.len(),
+        compiled.len(),
+        total_blocks
+    );
+    eprintln!("  baseline  {} total cost", total_baseline);
+    eprintln!(
+        "  schedule  {} epochs x {} gens/file = {} total gens",
+        args.epochs, args.generations, total_gens
     );
     eprintln!(
-        "  corpus: {} files ({} trainable, {} intrinsic)",
-        corpus.len(),
-        trainable.len(),
-        corpus.len() - trainable.len(),
+        "  model     gen {} | {}",
+        gen_start,
+        if args.gpu { "GPU" } else { "CPU" }
     );
-    if gen_start > 0 {
-        eprintln!("  resuming from generation {}", gen_start);
-    }
     eprintln!();
 
     let start = std::time::Instant::now();
     let mut total_trained = 0u64;
+    let mut prev_epoch_avg = 0u64;
 
     for epoch in 0..args.epochs {
-        // Shuffle file order each epoch for diverse training signal
-        let mut epoch_files = trainable.clone();
-        shuffle(&mut epoch_files, gen_start + epoch);
+        // Shuffle file indices each epoch
+        let mut indices: Vec<usize> = (0..compiled.len()).collect();
+        shuffle(&mut indices, gen_start + epoch);
 
         let epoch_start = std::time::Instant::now();
-        let mut epoch_cost_sum = 0u64;
-        let mut epoch_count = 0u64;
+        let mut epoch_costs: Vec<(usize, u64)> = Vec::new();
 
-        for (i, file) in epoch_files.iter().enumerate() {
-            let short = short_path(file);
+        for (i, &file_idx) in indices.iter().enumerate() {
+            let cf = &compiled[file_idx];
             eprint!(
-                "\r  epoch {}/{} [{}/{}] {}                    ",
+                "\r  epoch {}/{} | {}/{} | {}",
                 epoch + 1,
                 args.epochs,
                 i + 1,
-                epoch_files.len(),
-                short,
+                compiled.len(),
+                cf.path,
             );
+            // Pad to clear previous longer lines
+            let pad = 50usize.saturating_sub(cf.path.len());
+            eprint!("{}", " ".repeat(pad));
             use std::io::Write;
             let _ = std::io::stderr().flush();
 
-            match train_one(file, args.generations, args.gpu) {
-                TrainResult::Trained { score, .. } => {
-                    epoch_cost_sum += score;
-                    epoch_count += 1;
-                    total_trained += 1;
-                }
-                _ => {}
-            }
+            let cost = train_one_compiled(cf, args.generations, args.gpu);
+            epoch_costs.push((file_idx, cost));
+            total_trained += 1;
         }
 
         let epoch_elapsed = epoch_start.elapsed();
-        let avg_cost = if epoch_count > 0 {
-            epoch_cost_sum / epoch_count
+        let epoch_cost: u64 = epoch_costs.iter().map(|(_, c)| c).sum();
+        let avg_cost = epoch_cost / compiled.len().max(1) as u64;
+
+        let trend = if epoch == 0 {
+            String::new()
+        } else if avg_cost < prev_epoch_avg {
+            format!(" (-{} vs prev)", prev_epoch_avg - avg_cost)
+        } else if avg_cost > prev_epoch_avg {
+            format!(" (+{} vs prev)", avg_cost - prev_epoch_avg)
         } else {
-            0
+            " (=)".into()
         };
+        prev_epoch_avg = avg_cost;
+
+        let ratio = epoch_cost as f64 / total_baseline.max(1) as f64;
         eprintln!(
-            "\r  epoch {}/{} done — avg cost: {}, {:.1}s                    ",
+            "\r  epoch {}/{} | {} blocks | cost {} / baseline {} ({:.2}x) | avg {} | {:.1}s{}",
             epoch + 1,
             args.epochs,
+            total_blocks,
+            epoch_cost,
+            total_baseline,
+            ratio,
             avg_cost,
             epoch_elapsed.as_secs_f64(),
+            trend,
         );
+
+        // Per-file breakdown on first and last epoch
+        if epoch == 0 || epoch + 1 == args.epochs {
+            let mut sorted: Vec<_> = epoch_costs
+                .iter()
+                .map(|&(idx, cost)| {
+                    let cf = &compiled[idx];
+                    (cf.path.as_str(), cf.blocks.len(), cost, cf.baseline_cost)
+                })
+                .collect();
+            sorted.sort_by(|a, b| {
+                let ra = a.2 as f64 / a.3.max(1) as f64;
+                let rb = b.2 as f64 / b.3.max(1) as f64;
+                ra.partial_cmp(&rb).unwrap()
+            });
+            let label = if epoch == 0 { "initial" } else { "final" };
+            eprintln!("    {} per-file breakdown:", label);
+            for (path, blocks, cost, baseline) in &sorted {
+                let r = *cost as f64 / (*baseline).max(1) as f64;
+                eprintln!(
+                    "      {:<45} {:>3} blk  {:>6} / {:<6} ({:.2}x) {}",
+                    path,
+                    blocks,
+                    cost,
+                    baseline,
+                    r,
+                    cost_bar(r),
+                );
+            }
+            eprintln!();
+        }
     }
 
     let elapsed = start.elapsed();
     let meta = weights::load_best_meta().ok();
     let gen_end = meta.as_ref().map_or(0, |m| m.generation);
 
-    eprintln!();
+    eprintln!("done");
     eprintln!(
-        "Done: {} file-trainings, {} total generations ({:.1}s)",
-        total_trained,
-        gen_end - gen_start,
-        elapsed.as_secs_f64(),
+        "  generations  {} -> {} (+{})",
+        gen_start,
+        gen_end,
+        gen_end - gen_start
     );
-
+    eprintln!(
+        "  trained      {} file-passes in {:.1}s",
+        total_trained,
+        elapsed.as_secs_f64()
+    );
     if let Some(meta) = meta {
         eprintln!(
-            "  model: gen {}, score {}, status: {}",
-            meta.generation, meta.best_score, meta.status,
+            "  model        score {} | status: {}",
+            meta.best_score, meta.status
         );
+        eprintln!("  weights      {}", meta.weight_hash);
     }
 }
 
-/// Discover all .tri files in vm/, std/, os/ relative to repo root.
-fn discover_corpus() -> Vec<std::path::PathBuf> {
-    let root = find_repo_root();
-    let mut files = Vec::new();
-    for dir in &["vm", "std", "os"] {
-        let dir_path = root.join(dir);
-        if dir_path.is_dir() {
-            files.extend(super::resolve_tri_files(&dir_path));
-        }
-    }
-    files.sort();
-    files
-}
-
-/// Find the repository root by looking for Cargo.toml upward.
-fn find_repo_root() -> std::path::PathBuf {
-    let mut dir = std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
-    loop {
-        if dir.join("Cargo.toml").exists() && dir.join("vm").is_dir() {
-            return dir;
-        }
-        if !dir.pop() {
-            // Fallback to cwd
-            return std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
-        }
+fn cost_bar(ratio: f64) -> &'static str {
+    if ratio <= 0.25 {
+        ">>>>"
+    } else if ratio <= 0.5 {
+        ">>>"
+    } else if ratio <= 0.75 {
+        ">>"
+    } else if ratio < 1.0 {
+        ">"
+    } else {
+        "="
     }
 }
 
-/// Check if a file has any trainable TIR blocks (without full training).
-fn has_trainable_blocks(file: &Path) -> bool {
+/// Compile all files once, return only those with trainable blocks.
+fn compile_corpus(files: &[std::path::PathBuf]) -> Vec<CompiledFile> {
     let options = super::resolve_options("triton", "debug", None);
-    let ir = match trident::build_tir_project(file, &options) {
-        Ok(ir) => ir,
-        Err(_) => return false,
-    };
-    let blocks = trident::ir::tir::encode::encode_blocks(&ir);
-    !blocks.is_empty()
-}
+    let mut compiled = Vec::new();
 
-/// Deterministic shuffle using a simple hash.
-fn shuffle(files: &mut Vec<&std::path::PathBuf>, seed: u64) {
-    let n = files.len();
-    if n <= 1 {
-        return;
-    }
-    let mut state = seed.wrapping_mul(6364136223846793005).wrapping_add(1);
-    for i in (1..n).rev() {
-        state = state.wrapping_mul(6364136223846793005).wrapping_add(1);
-        let j = (state >> 33) as usize % (i + 1);
-        files.swap(i, j);
-    }
-}
-
-/// Shorten a path for display (show from vm/, std/, or os/).
-fn short_path(path: &Path) -> String {
-    let s = path.to_string_lossy();
-    for prefix in &["vm/", "std/", "os/"] {
-        if let Some(pos) = s.find(prefix) {
-            return s[pos..].to_string();
+    for file in files {
+        let ir = match trident::build_tir_project(file, &options) {
+            Ok(ir) => ir,
+            Err(_) => continue,
+        };
+        let blocks = trident::ir::tir::encode::encode_blocks(&ir);
+        if blocks.is_empty() {
+            continue;
         }
+
+        let lowering = trident::ir::tir::lower::create_stack_lowering(&options.target_config.name);
+        let baseline_tasm = lowering.lower(&ir);
+        let baseline_profile = trident::cost::scorer::profile_tasm_str(&baseline_tasm.join("\n"));
+        let baseline_cost = baseline_profile.cost();
+
+        let per_block_baselines: Vec<u64> = blocks
+            .iter()
+            .map(|block| {
+                let block_ops = &ir[block.start_idx..block.end_idx];
+                if block_ops.is_empty() {
+                    return 1;
+                }
+                let block_tasm = lowering.lower(block_ops);
+                if block_tasm.is_empty() {
+                    return 1;
+                }
+                let profile = trident::cost::scorer::profile_tasm(
+                    &block_tasm.iter().map(|s| s.as_str()).collect::<Vec<_>>(),
+                );
+                profile.cost().max(1)
+            })
+            .collect();
+
+        compiled.push(CompiledFile {
+            path: short_path(file),
+            blocks,
+            per_block_baselines,
+            baseline_cost,
+        });
     }
-    s.to_string()
+
+    compiled
 }
 
-enum TrainResult {
-    Trained {
-        #[allow(dead_code)]
-        blocks: usize,
-        score: u64,
-    },
-    NoBlocks,
-    Failed,
-}
-
-fn train_one(file: &Path, generations: u64, gpu: bool) -> TrainResult {
+/// Train on a pre-compiled file. Returns the cost after training.
+fn train_one_compiled(cf: &CompiledFile, generations: u64, gpu: bool) -> u64 {
     use trident::field::PrimeField;
-    use trident::ir::tir::encode;
     use trident::ir::tir::lower::decode_output;
     use trident::ir::tir::neural::evolve::Population;
     use trident::ir::tir::neural::model::NeuralModel;
     use trident::ir::tir::neural::weights::{self, OptimizerMeta, OptimizerStatus};
 
-    let options = super::resolve_options("triton", "debug", None);
-
-    let ir = match trident::build_tir_project(file, &options) {
-        Ok(ir) => ir,
-        Err(_) => return TrainResult::Failed,
-    };
-
-    let blocks = encode::encode_blocks(&ir);
-    if blocks.is_empty() {
-        return TrainResult::NoBlocks;
-    }
-
-    // Load current model (reloaded each file — picks up prior file's improvements)
     let (model, meta) = match weights::load_best_weights() {
         Ok(w) => {
             let meta = weights::load_best_meta().unwrap_or(OptimizerMeta {
@@ -246,47 +286,21 @@ fn train_one(file: &Path, generations: u64, gpu: bool) -> TrainResult {
         Population::from_weights(&current_weights, gen_start.wrapping_add(42))
     };
 
-    // Classical baselines
-    let lowering = trident::ir::tir::lower::create_stack_lowering(&options.target_config.name);
-    let baseline_tasm = lowering.lower(&ir);
-    let baseline_profile = trident::cost::scorer::profile_tasm_str(&baseline_tasm.join("\n"));
-    let baseline_cost = baseline_profile.cost();
-
     let score_before = if meta.best_score > 0 {
         meta.best_score
     } else {
-        baseline_cost
+        cf.baseline_cost
     };
 
-    let per_block_baselines: Vec<u64> = blocks
-        .iter()
-        .map(|block| {
-            let block_ops = &ir[block.start_idx..block.end_idx];
-            if block_ops.is_empty() {
-                return 1;
-            }
-            let block_tasm = lowering.lower(block_ops);
-            if block_tasm.is_empty() {
-                return 1;
-            }
-            let profile = trident::cost::scorer::profile_tasm(
-                &block_tasm.iter().map(|s| s.as_str()).collect::<Vec<_>>(),
-            );
-            profile.cost().max(1)
-        })
-        .collect();
-
-    // GPU acceleration
     let gpu_accel = if gpu {
         trident::gpu::neural_accel::NeuralAccelerator::try_new(
-            &blocks,
+            &cf.blocks,
             trident::ir::tir::neural::evolve::POP_SIZE as u32,
         )
     } else {
         None
     };
 
-    // Train
     let mut best_seen = i64::MIN;
     for gen in 0..generations {
         if let Some(ref accel) = gpu_accel {
@@ -298,16 +312,17 @@ fn train_one(file: &Path, generations: u64, gpu: bool) -> TrainResult {
             let gpu_outputs = accel.batch_forward(&weight_vecs);
             for (i, ind) in pop.individuals.iter_mut().enumerate() {
                 let mut total = 0i64;
-                for (b, _block) in blocks.iter().enumerate() {
-                    total -= score_neural_output(&gpu_outputs[i][b], per_block_baselines[b]) as i64;
+                for (b, _) in cf.blocks.iter().enumerate() {
+                    total -=
+                        score_neural_output(&gpu_outputs[i][b], cf.per_block_baselines[b]) as i64;
                 }
                 ind.fitness = total;
             }
             pop.update_best();
         } else {
             pop.evaluate_with_baselines(
-                &blocks,
-                &per_block_baselines,
+                &cf.blocks,
+                &cf.per_block_baselines,
                 |m: &mut NeuralModel,
                  block: &trident::ir::tir::encode::TIRBlock,
                  block_baseline: u64| {
@@ -339,44 +354,85 @@ fn train_one(file: &Path, generations: u64, gpu: bool) -> TrainResult {
         if gen_best > best_seen {
             best_seen = gen_best;
         }
-
         pop.evolve(gen_start.wrapping_add(gen));
     }
 
-    // Save
     let best = pop.best_weights();
     let score_after = if best_seen > i64::MIN {
         (-best_seen) as u64
     } else {
-        baseline_cost
+        cf.baseline_cost
     };
 
     let weight_hash = weights::hash_weights(best);
-    let project_root = file.parent().unwrap_or(Path::new("."));
-    let _ = weights::save_weights(best, &weights::weights_path(project_root));
+    let dummy_root = Path::new(".");
+    let _ = weights::save_weights(best, &weights::weights_path(dummy_root));
 
     let mut tracker = weights::ConvergenceTracker::new();
     let status = tracker.record(score_after);
-
     let new_meta = OptimizerMeta {
         generation: gen_start + generations,
         weight_hash,
         best_score: score_after,
         prev_score: score_before,
-        baseline_score: baseline_cost,
+        baseline_score: cf.baseline_cost,
         status,
     };
-    let _ = weights::save_meta(&new_meta, &weights::meta_path(project_root));
+    let _ = weights::save_meta(&new_meta, &weights::meta_path(dummy_root));
 
-    TrainResult::Trained {
-        blocks: blocks.len(),
-        score: score_after,
+    score_after
+}
+
+fn discover_corpus() -> Vec<std::path::PathBuf> {
+    let root = find_repo_root();
+    let mut files = Vec::new();
+    for dir in &["vm", "std", "os"] {
+        let dir_path = root.join(dir);
+        if dir_path.is_dir() {
+            files.extend(super::resolve_tri_files(&dir_path));
+        }
     }
+    files.sort();
+    files
+}
+
+fn find_repo_root() -> std::path::PathBuf {
+    let mut dir = std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
+    loop {
+        if dir.join("Cargo.toml").exists() && dir.join("vm").is_dir() {
+            return dir;
+        }
+        if !dir.pop() {
+            return std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
+        }
+    }
+}
+
+fn shuffle(indices: &mut Vec<usize>, seed: u64) {
+    let n = indices.len();
+    if n <= 1 {
+        return;
+    }
+    let mut state = seed.wrapping_mul(6364136223846793005).wrapping_add(1);
+    for i in (1..n).rev() {
+        state = state.wrapping_mul(6364136223846793005).wrapping_add(1);
+        let j = (state >> 33) as usize % (i + 1);
+        indices.swap(i, j);
+    }
+}
+
+fn short_path(path: &Path) -> String {
+    let s = path.to_string_lossy();
+    for prefix in &["vm/", "std/", "os/"] {
+        if let Some(pos) = s.find(prefix) {
+            return s[pos..].to_string();
+        }
+    }
+    s.to_string()
 }
 
 fn score_neural_output(raw_codes: &[u32], block_baseline: u64) -> u64 {
     use trident::ir::tir::lower::decode_output;
-
     let codes: Vec<u64> = raw_codes
         .iter()
         .take_while(|&&c| c != 0)
