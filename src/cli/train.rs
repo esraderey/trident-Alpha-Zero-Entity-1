@@ -5,10 +5,11 @@ use clap::Args;
 
 #[derive(Args)]
 pub struct TrainArgs {
-    /// Input .tri file or directory (trains on all .tri files found)
-    pub input: std::path::PathBuf,
-    /// Generations per file (default: 100)
-    #[arg(short, long, default_value = "100")]
+    /// Epochs over the full corpus (default: 10)
+    #[arg(short, long, default_value = "10")]
+    pub epochs: u64,
+    /// Generations per file per epoch (default: 10)
+    #[arg(short, long, default_value = "10")]
     pub generations: u64,
     /// Use GPU acceleration (default: CPU parallel)
     #[arg(long)]
@@ -16,9 +17,10 @@ pub struct TrainArgs {
 }
 
 pub fn cmd_train(args: TrainArgs) {
-    let files = super::resolve_tri_files(&args.input);
-    if files.is_empty() {
-        eprintln!("error: no .tri files found");
+    // Discover all .tri files in vm/, std/, os/
+    let corpus = discover_corpus();
+    if corpus.is_empty() {
+        eprintln!("error: no .tri files found in vm/, std/, os/");
         process::exit(1);
     }
 
@@ -27,38 +29,73 @@ pub fn cmd_train(args: TrainArgs) {
     let meta = weights::load_best_meta().ok();
     let gen_start = meta.as_ref().map_or(0, |m| m.generation);
 
+    let trainable: Vec<_> = corpus.iter().filter(|f| has_trainable_blocks(f)).collect();
+
     eprintln!(
-        "Training neural optimizer on {} file(s), {} generations each",
-        files.len(),
+        "Training neural optimizer: {} epochs x {} files x {} gens/file",
+        args.epochs,
+        trainable.len(),
         args.generations,
+    );
+    eprintln!(
+        "  corpus: {} files ({} trainable, {} intrinsic)",
+        corpus.len(),
+        trainable.len(),
+        corpus.len() - trainable.len(),
     );
     if gen_start > 0 {
         eprintln!("  resuming from generation {}", gen_start);
     }
     eprintln!();
 
-    let mut trained = 0u64;
-    let mut skipped = 0u64;
-    let total = files.len();
     let start = std::time::Instant::now();
+    let mut total_trained = 0u64;
 
-    for (i, file) in files.iter().enumerate() {
-        eprint!("[{}/{}] {} ", i + 1, total, file.display());
+    for epoch in 0..args.epochs {
+        // Shuffle file order each epoch for diverse training signal
+        let mut epoch_files = trainable.clone();
+        shuffle(&mut epoch_files, gen_start + epoch);
 
-        match train_one(file, args.generations, args.gpu) {
-            TrainResult::Trained { blocks, score } => {
-                eprintln!("  {} blocks, cost {}", blocks, score);
-                trained += 1;
-            }
-            TrainResult::NoBlocks => {
-                eprintln!("  (no trainable blocks)");
-                skipped += 1;
-            }
-            TrainResult::Failed(msg) => {
-                eprintln!("  FAILED: {}", msg);
-                skipped += 1;
+        let epoch_start = std::time::Instant::now();
+        let mut epoch_cost_sum = 0u64;
+        let mut epoch_count = 0u64;
+
+        for (i, file) in epoch_files.iter().enumerate() {
+            let short = short_path(file);
+            eprint!(
+                "\r  epoch {}/{} [{}/{}] {}                    ",
+                epoch + 1,
+                args.epochs,
+                i + 1,
+                epoch_files.len(),
+                short,
+            );
+            use std::io::Write;
+            let _ = std::io::stderr().flush();
+
+            match train_one(file, args.generations, args.gpu) {
+                TrainResult::Trained { score, .. } => {
+                    epoch_cost_sum += score;
+                    epoch_count += 1;
+                    total_trained += 1;
+                }
+                _ => {}
             }
         }
+
+        let epoch_elapsed = epoch_start.elapsed();
+        let avg_cost = if epoch_count > 0 {
+            epoch_cost_sum / epoch_count
+        } else {
+            0
+        };
+        eprintln!(
+            "\r  epoch {}/{} done — avg cost: {}, {:.1}s                    ",
+            epoch + 1,
+            args.epochs,
+            avg_cost,
+            epoch_elapsed.as_secs_f64(),
+        );
     }
 
     let elapsed = start.elapsed();
@@ -67,9 +104,8 @@ pub fn cmd_train(args: TrainArgs) {
 
     eprintln!();
     eprintln!(
-        "Done: {} trained, {} skipped, {} total generations ({:.1}s)",
-        trained,
-        skipped,
+        "Done: {} file-trainings, {} total generations ({:.1}s)",
+        total_trained,
         gen_end - gen_start,
         elapsed.as_secs_f64(),
     );
@@ -82,10 +118,78 @@ pub fn cmd_train(args: TrainArgs) {
     }
 }
 
+/// Discover all .tri files in vm/, std/, os/ relative to repo root.
+fn discover_corpus() -> Vec<std::path::PathBuf> {
+    let root = find_repo_root();
+    let mut files = Vec::new();
+    for dir in &["vm", "std", "os"] {
+        let dir_path = root.join(dir);
+        if dir_path.is_dir() {
+            files.extend(super::resolve_tri_files(&dir_path));
+        }
+    }
+    files.sort();
+    files
+}
+
+/// Find the repository root by looking for Cargo.toml upward.
+fn find_repo_root() -> std::path::PathBuf {
+    let mut dir = std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
+    loop {
+        if dir.join("Cargo.toml").exists() && dir.join("vm").is_dir() {
+            return dir;
+        }
+        if !dir.pop() {
+            // Fallback to cwd
+            return std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
+        }
+    }
+}
+
+/// Check if a file has any trainable TIR blocks (without full training).
+fn has_trainable_blocks(file: &Path) -> bool {
+    let options = super::resolve_options("triton", "debug", None);
+    let ir = match trident::build_tir_project(file, &options) {
+        Ok(ir) => ir,
+        Err(_) => return false,
+    };
+    let blocks = trident::ir::tir::encode::encode_blocks(&ir);
+    !blocks.is_empty()
+}
+
+/// Deterministic shuffle using a simple hash.
+fn shuffle(files: &mut Vec<&std::path::PathBuf>, seed: u64) {
+    let n = files.len();
+    if n <= 1 {
+        return;
+    }
+    let mut state = seed.wrapping_mul(6364136223846793005).wrapping_add(1);
+    for i in (1..n).rev() {
+        state = state.wrapping_mul(6364136223846793005).wrapping_add(1);
+        let j = (state >> 33) as usize % (i + 1);
+        files.swap(i, j);
+    }
+}
+
+/// Shorten a path for display (show from vm/, std/, or os/).
+fn short_path(path: &Path) -> String {
+    let s = path.to_string_lossy();
+    for prefix in &["vm/", "std/", "os/"] {
+        if let Some(pos) = s.find(prefix) {
+            return s[pos..].to_string();
+        }
+    }
+    s.to_string()
+}
+
 enum TrainResult {
-    Trained { blocks: usize, score: u64 },
+    Trained {
+        #[allow(dead_code)]
+        blocks: usize,
+        score: u64,
+    },
     NoBlocks,
-    Failed(String),
+    Failed,
 }
 
 fn train_one(file: &Path, generations: u64, gpu: bool) -> TrainResult {
@@ -98,10 +202,9 @@ fn train_one(file: &Path, generations: u64, gpu: bool) -> TrainResult {
 
     let options = super::resolve_options("triton", "debug", None);
 
-    // Build TIR
     let ir = match trident::build_tir_project(file, &options) {
         Ok(ir) => ir,
-        Err(_) => return TrainResult::Failed("TIR build failed".into()),
+        Err(_) => return TrainResult::Failed,
     };
 
     let blocks = encode::encode_blocks(&ir);
@@ -109,7 +212,7 @@ fn train_one(file: &Path, generations: u64, gpu: bool) -> TrainResult {
         return TrainResult::NoBlocks;
     }
 
-    // Load current model
+    // Load current model (reloaded each file — picks up prior file's improvements)
     let (model, meta) = match weights::load_best_weights() {
         Ok(w) => {
             let meta = weights::load_best_meta().unwrap_or(OptimizerMeta {
