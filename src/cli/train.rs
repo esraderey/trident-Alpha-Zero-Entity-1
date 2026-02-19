@@ -180,6 +180,29 @@ pub fn cmd_train(args: TrainArgs) {
     let meta = weights::load_best_meta().ok();
     let gen_end = meta.as_ref().map_or(0, |m| m.generation);
 
+    // Corpus-level final cost (last epoch)
+    let final_cost = prev_epoch_avg * compiled.len() as u64;
+    let final_ratio = final_cost as f64 / total_baseline.max(1) as f64;
+
+    // Save corpus-level meta
+    {
+        let dummy_root = std::path::Path::new(".");
+        let best_weights = weights::load_best_weights().ok();
+        let weight_hash = best_weights
+            .as_ref()
+            .map(|w| weights::hash_weights(w))
+            .unwrap_or_default();
+        let new_meta = weights::OptimizerMeta {
+            generation: gen_end,
+            weight_hash,
+            best_score: final_cost,
+            prev_score: total_baseline,
+            baseline_score: total_baseline,
+            status: weights::OptimizerStatus::Improving,
+        };
+        let _ = weights::save_meta(&new_meta, &weights::meta_path(dummy_root));
+    }
+
     eprintln!("done");
     eprintln!(
         "  generations  {} -> {} (+{})",
@@ -192,11 +215,14 @@ pub fn cmd_train(args: TrainArgs) {
         total_trained,
         elapsed.as_secs_f64()
     );
+    eprintln!(
+        "  corpus cost  {} / {} baseline ({:.2}x) — {:.1}% reduction",
+        final_cost,
+        total_baseline,
+        final_ratio,
+        (1.0 - final_ratio) * 100.0,
+    );
     if let Some(meta) = meta {
-        eprintln!(
-            "  model        score {} | status: {}",
-            meta.best_score, meta.status
-        );
         eprintln!("  weights      {}", meta.weight_hash);
     }
 }
