@@ -23,6 +23,9 @@ struct CompiledFile {
     per_block_baselines: Vec<u64>,
     per_block_tasm: Vec<Vec<String>>,
     baseline_cost: u64,
+    /// Full compiler output (with labels, control flow, subroutines).
+    /// Neural blocks get spliced into this to produce a complete program.
+    compiled_tasm: String,
 }
 
 pub fn cmd_train(args: TrainArgs) {
@@ -339,6 +342,7 @@ fn compile_corpus(files: &[std::path::PathBuf]) -> Vec<CompiledFile> {
         }
 
         let lowering = trident::ir::tir::lower::create_stack_lowering(&options.target_config.name);
+        let compiled_tasm = lowering.lower(&ir).join("\n");
 
         let mut per_block_baselines: Vec<u64> = Vec::new();
         let mut per_block_tasm: Vec<Vec<String>> = Vec::new();
@@ -375,6 +379,7 @@ fn compile_corpus(files: &[std::path::PathBuf]) -> Vec<CompiledFile> {
             per_block_baselines,
             per_block_tasm,
             baseline_cost,
+            compiled_tasm,
         });
     }
 
@@ -591,25 +596,56 @@ fn short_path(path: &Path) -> String {
 }
 
 /// Write captured neural TASM to disk at benches/<path>.neural.tasm.
+///
+/// Produces a complete, executable TASM program by splicing neural blocks
+/// into the full compiler output. Only straight-line blocks (no labels,
+/// no control flow) are substituted — the rest of the program (function
+/// labels, loops, subroutines, memory ops) is preserved from the compiler.
 fn write_neural_tasm(cf: &CompiledFile, per_block: &[Vec<String>], repo_root: &Path) {
     let benches_dir = repo_root.join("benches");
     let neural_path = benches_dir.join(cf.path.replace(".tri", ".neural.tasm"));
     if let Some(parent) = neural_path.parent() {
         let _ = std::fs::create_dir_all(parent);
     }
-    let lines: Vec<&str> = per_block
-        .iter()
-        .flat_map(|b| b.iter().map(|s| s.as_str()))
-        .collect();
-    let content = lines.join("\n");
-    if std::fs::write(&neural_path, &content).is_ok() {
+
+    // Start with full compiler output; splice in neural blocks where they differ.
+    let mut result = cf.compiled_tasm.clone();
+    let mut substitutions = 0usize;
+
+    for (i, neural_block) in per_block.iter().enumerate() {
+        let classical_block = &cf.per_block_tasm[i];
+        if classical_block.is_empty() || neural_block == classical_block {
+            continue; // No substitution needed
+        }
+        // Find classical block text in the full TASM and replace with neural.
+        // Straight-line blocks have no labels, so substring match is reliable.
+        let needle = classical_block.join("\n");
+        let replacement = neural_block.join("\n");
+        if let Some(pos) = result.find(&needle) {
+            result = format!(
+                "{}{}{}",
+                &result[..pos],
+                replacement,
+                &result[pos + needle.len()..],
+            );
+            substitutions += 1;
+        }
+    }
+
+    if std::fs::write(&neural_path, &result).is_ok() {
+        let tag = if substitutions > 0 {
+            format!(" ({} blocks substituted)", substitutions)
+        } else {
+            " (no substitutions)".into()
+        };
         eprintln!(
-            "\r  wrote {}{}",
+            "\r  wrote {}{}{}",
             neural_path
                 .strip_prefix(repo_root)
                 .unwrap_or(&neural_path)
                 .display(),
-            " ".repeat(30),
+            tag,
+            " ".repeat(20),
         );
     }
 }

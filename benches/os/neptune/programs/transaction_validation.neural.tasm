@@ -1,3 +1,4 @@
+__verify1:
     dup 10
     dup 10
     dup 10
@@ -33,6 +34,9 @@
     pop 5
     pop 5
     pop 1
+    return
+    
+__verify2:
     dup 10
     dup 10
     dup 10
@@ -89,6 +93,9 @@
     pop 5
     pop 5
     pop 1
+    return
+    
+__verify3:
     dup 10
     dup 10
     dup 10
@@ -165,6 +172,9 @@
     pop 5
     pop 5
     pop 1
+    return
+    
+__verify4:
     dup 10
     dup 10
     dup 10
@@ -257,6 +267,9 @@
     pop 5
     pop 5
     pop 1
+    return
+    
+__authenticate_leaf3:
     divine 5
     dup 4
     dup 4
@@ -277,6 +290,10 @@
     swap 15
     pop 5
     dup 0
+    call __verify3
+    return
+    
+__verify:
     swap 6
     swap 5
     swap 4
@@ -315,7 +332,36 @@
     swap 13
     pop 1
     dup 0
+    call __loop__1
     pop 1
+__loop__1:
+    dup 0
+    push 0
+    eq
+    skiz
+    return
+    push -1
+    add
+    dup 0
+    dup 0
+    dup 0
+    dup 0
+    dup 0
+    dup 0
+    merkle_step
+    dup 2
+    dup 2
+    dup 2
+    dup 5
+    dup 5
+    dup 5
+    pop 1
+    dup 2
+    dup 2
+    dup 2
+    pop 1
+    recurse
+
     swap 14
     pop 4
     dup 5
@@ -335,6 +381,9 @@
     assert_vector
     pop 5
     pop 5
+    return
+    
+__authenticate_leaf:
     divine 5
     swap 11
     swap 10
@@ -362,25 +411,66 @@
     pop 5
     dup 0
     dup 0
+    call __verify
     swap 9
     swap 8
     swap 7
     swap 6
     swap 5
     pop 5
+    return
+    
+__read_lock_script_hash:
+    read_io 5
+    return
+    
+__read_type_script_hashes:
     read_io 5
     read_io 5
     read_io 5
-    read_io 5
+    return
+    
+__leaf_inputs:
     push 0
+    return
+    
+__leaf_outputs:
     push 1
+    return
+    
+__leaf_announcements:
     push 2
+    return
+    
+__leaf_fee:
     push 3
+    return
+    
+__leaf_coinbase:
     push 4
+    return
+    
+__leaf_timestamp:
     push 5
+    return
+    
+__leaf_mutator_set_hash:
     push 6
+    return
+    
+__leaf_merge_bit:
     push 7
+    return
+    
+__tree_height:
     push 3
+    return
+    
+__authenticate_field:
+    call @std_crypto_merkle__authenticate_leaf3
+    return
+    
+__authenticate_fee:
     push 3
     split
     pop 1
@@ -390,6 +480,7 @@
     dup 5
     dup 5
     dup 5
+    call @std_crypto_merkle__authenticate_leaf3
     push 1073741824
     swap 1
     swap 2
@@ -401,6 +492,9 @@
     push 1073741828
     read_mem 5
     pop 1
+    return
+    
+__authenticate_timestamp:
     push 5
     split
     pop 1
@@ -410,6 +504,7 @@
     dup 5
     dup 5
     dup 5
+    call @std_crypto_merkle__authenticate_leaf3
     push 1073741829
     swap 1
     swap 2
@@ -421,13 +516,41 @@
     push 1073741833
     read_mem 5
     pop 1
+    return
+    
+__xfe_inner_product:
     push 0
     push 0
     push 0
     dup 5
     dup 5
     dup 5
+    call __loop__1
     pop 1
+__loop__1:
+    dup 0
+    push 0
+    eq
+    skiz
+    return
+    push -1
+    add
+    dup 0
+    dup 0
+    dup 0
+    dup 0
+    dup 0
+    xx_dot_step
+    dup 4
+    pop 1
+    dup 3
+    pop 1
+    dup 2
+    pop 1
+    dup 1
+    pop 1
+    recurse
+
     dup 4
     dup 4
     dup 4
@@ -445,13 +568,41 @@
     push 1073741828
     read_mem 5
     pop 1
+    return
+    
+__xb_inner_product:
     push 0
     push 0
     push 0
     dup 5
     dup 5
     dup 5
+    call __loop__2
     pop 1
+__loop__2:
+    dup 0
+    push 0
+    eq
+    skiz
+    return
+    push -1
+    add
+    dup 0
+    dup 0
+    dup 0
+    dup 0
+    dup 0
+    xb_dot_step
+    dup 4
+    pop 1
+    dup 3
+    pop 1
+    dup 2
+    pop 1
+    dup 1
+    pop 1
+    recurse
+
     dup 4
     dup 4
     dup 4
@@ -469,9 +620,15 @@
     push 1073741833
     read_mem 5
     pop 1
+    return
+    
+__read_claim:
     read_io 5
     read_io 1
     read_io 1
+    return
+    
+__verify_commitment:
     divine 5
     dup 4
     dup 4
@@ -488,11 +645,14 @@
     assert_vector
     pop 5
     pop 5
-    dup 0
-    dup 0
-    dup 0
-    swap 2
-    pop 2
+    return
+    
+__parse_claim:
+    call @os_neptune_recursive__read_claim
+dup 0
+    return
+    
+__hash_public_io:
     push 0
     push 0
     push 0
@@ -505,9 +665,59 @@
     push 0
     hash
     dup 5
+    call __loop__1
     pop 1
+__loop__1:
+    dup 0
+    push 0
+    eq
+    skiz
+    return
+    push -1
+    add
+    read_io 1
+    dup 0
+    dup 0
+    dup 0
+    dup 0
+    dup 0
+    dup 0
     dup 5
+    push 0
+    push 0
+    push 0
+    push 0
+    hash
     pop 1
+    recurse
+
+    dup 5
+    call __loop__2
+    pop 1
+__loop__2:
+    dup 0
+    push 0
+    eq
+    skiz
+    return
+    push -1
+    add
+    read_io 1
+    dup 0
+    dup 0
+    dup 0
+    dup 0
+    dup 0
+    dup 0
+    dup 5
+    push 0
+    push 0
+    push 0
+    push 0
+    hash
+    pop 1
+    recurse
+
     push 1073741824
     swap 1
     swap 2
@@ -519,6 +729,9 @@
     push 1073741828
     read_mem 5
     pop 1
+    return
+    
+__derive_fiat_shamir_seed:
     dup 5
     dup 4
     dup 4
@@ -546,6 +759,9 @@
     swap 6
     swap 5
     pop 5
+    return
+    
+__derive_challenge:
     dup 5
     dup 5
     dup 5
@@ -576,6 +792,9 @@
     push 1073741844
     read_mem 5
     pop 1
+    return
+    
+__fri_fold:
     dup 5
     dup 5
     dup 5
@@ -584,6 +803,7 @@
     swap 15
     pop 5
     dup 5
+    call __derive_challenge
     divine 5
     swap 15
     pop 5
@@ -651,6 +871,9 @@
     swap 7
     swap 8
     swap 9
+    return
+    
+__fri_verify:
     dup 10
     dup 10
     dup 10
@@ -659,7 +882,29 @@
     swap 10
     pop 5
     dup 5
+    call __loop__3
     pop 1
+__loop__3:
+    dup 0
+    push 0
+    eq
+    skiz
+    return
+    push -1
+    add
+    dup 0
+    dup 0
+    dup 0
+    dup 2
+    call __fri_fold
+    dup 9
+    dup 9
+    dup 9
+    dup 9
+    dup 9
+    pop 1
+    recurse
+
     push 1073741866
     swap 1
     swap 2
@@ -672,12 +917,16 @@
     push 1073741870
     read_mem 5
     pop 1
+    return
+    
+__verify_ood:
     dup 4
     dup 4
     dup 4
     dup 4
     dup 4
     push 100
+    call __derive_challenge
     divine 5
     swap 14
     pop 5
@@ -744,6 +993,13 @@
     swap 7
     swap 8
     swap 9
+    return
+    
+__combine_constraints:
+    call @os_neptune_recursive__xfe_inner_product
+    return
+    
+__output_verified_claim:
     dup 0
     dup 0
     write_io 1
@@ -756,13 +1012,19 @@
     dup 0
     write_io 1
     pop 1
+    return
+    
+__verify_inner_proof:
+    call __parse_claim
     dup 0
+    call __hash_public_io
     dup 5
     dup 5
     dup 5
     dup 5
     dup 5
     dup 5
+    call __derive_fiat_shamir_seed
     swap 11
     divine 5
     swap 15
@@ -786,6 +1048,7 @@
     swap 12
     swap 11
     dup 0
+    call __fri_verify
     swap 9
     pop 5
     dup 4
@@ -795,6 +1058,7 @@
     dup 4
     swap 4
     pop 5
+    call __verify_ood
     divine 1
     swap 10
     pop 5
@@ -804,19 +1068,75 @@
     dup 2
     swap 7
     pop 5
+    call __combine_constraints
     dup 0
+    call __output_verified_claim
     pop 5
     pop 5
     pop 4
+    return
+    
+__aggregate_proofs:
     dup 1
+    call __loop__4
     pop 1
+__loop__4:
+    dup 0
+    push 0
+    eq
+    skiz
+    return
+    push -1
+    add
+    dup 0
+    call __verify_inner_proof
+    recurse
+
     pop 2
+    return
+    
+    call __main
+    halt
+
+__verify_lock_scripts:
     dup 1
+    call __loop__1
     pop 1
+__loop__1:
+    dup 0
+    push 0
+    eq
+    skiz
+    return
+    push -1
+    add
+    dup 0
+    call @os_neptune_proof__verify_inner_proof
+    recurse
+
     pop 2
+    return
+    
+__verify_type_scripts:
     dup 1
+    call __loop__2
     pop 1
+__loop__2:
+    dup 0
+    push 0
+    eq
+    skiz
+    return
+    push -1
+    add
+    dup 0
+    call @os_neptune_proof__verify_inner_proof
+    recurse
+
     pop 2
+    return
+    
+__verify_fee:
     push 3
     split
     pop 1
@@ -826,6 +1146,7 @@
     dup 5
     dup 5
     dup 5
+    call @os_neptune_kernel__authenticate_field
     dup 0
     dup 0
     split
@@ -834,14 +1155,28 @@
     swap 7
     pop 5
     pop 2
+    return
+    
+__verify_timestamp:
     dup 4
     dup 4
     dup 4
     dup 4
     dup 4
-dup 7
-swap 4
-pop 5
+    call @os_neptune_kernel__authenticate_timestamp
+    dup 4
+    dup 4
+    dup 4
+    dup 4
+    dup 4
+    pop 4
+    dup 0
+    swap 6
+    pop 5
+    pop 1
+    return
+    
+__verify_mutator_set:
     push 6
     split
     pop 1
@@ -851,6 +1186,7 @@ pop 5
     dup 5
     dup 5
     dup 5
+    call @os_neptune_kernel__authenticate_field
     dup 0
     push 1073741824
     swap 1
@@ -863,6 +1199,9 @@ pop 5
     push 1073741828
     read_mem 5
     pop 1
+    return
+    
+__main:
     read_io 5
     read_io 1
     read_io 1
@@ -872,22 +1211,27 @@ pop 5
     dup 7
     dup 7
     dup 7
+    call __verify_fee
     dup 8
     dup 8
     dup 8
     dup 8
     dup 8
+    call __verify_timestamp
     dup 9
     dup 9
     dup 9
     dup 9
     dup 9
+    call __verify_mutator_set
     dup 9
     swap 9
     dup 8
+    call __verify_lock_scripts
     dup 0
     swap 8
     dup 8
+    call __verify_type_scripts
     swap 6
     pop 5
     pop 1
@@ -911,3 +1255,5 @@ pop 5
     pop 5
     pop 5
     pop 4
+    return
+    
