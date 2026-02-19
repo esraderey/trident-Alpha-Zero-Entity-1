@@ -62,6 +62,7 @@ struct ModuleAudit {
     name: String,
     classic: DimAudit,
     hand: DimAudit,
+    neural: DimAudit,
 }
 
 enum AuditStatus {
@@ -133,6 +134,7 @@ fn cmd_audit_exec() {
             name: module_name.clone(),
             classic: DimAudit::default(),
             hand: DimAudit::default(),
+            neural: DimAudit::default(),
         };
 
         // ── Classic dimension ──
@@ -156,6 +158,20 @@ fn cmd_audit_exec() {
             audit_run_pipeline(&mut audit.hand, &module_name, "hand", &harness);
         }
 
+        // ── Neural dimension ──
+        let _guard = trident::diagnostic::suppress_warnings();
+        let compiled_for_neural = trident::compile_module(&source_path, &options).ok();
+        drop(_guard);
+        if let Some(ref compiled) = compiled_for_neural {
+            if let Some(neural_tasm) =
+                super::bench::compile_neural_tasm(&source_path, compiled, &options)
+            {
+                audit.neural.compile = AuditStatus::Ok;
+                let harness = generate_test_harness(&neural_tasm);
+                audit_run_pipeline(&mut audit.neural, &module_name, "neural", &harness);
+            }
+        }
+
         results.push(audit);
     }
 
@@ -170,16 +186,31 @@ fn cmd_audit_exec() {
     // Render table
     eprintln!();
     eprintln!(
-        "{:<32} | {:>4} {:>4} {:>4} {:>4} | {:>4} {:>4} {:>4} {:>4}",
-        "Module", "Comp", "Exec", "Prov", "Vrfy", "Comp", "Exec", "Prov", "Vrfy"
+        "{:<32} | {:>4} {:>4} {:>4} {:>4} | {:>4} {:>4} {:>4} {:>4} | {:>4} {:>4} {:>4} {:>4}",
+        "Module",
+        "Comp",
+        "Exec",
+        "Prov",
+        "Vrfy",
+        "Comp",
+        "Exec",
+        "Prov",
+        "Vrfy",
+        "Comp",
+        "Exec",
+        "Prov",
+        "Vrfy"
     );
-    eprintln!("{:<32} | {:<19} | {:<19}", "", "Classic", "Hand");
-    eprintln!("{}", "-".repeat(76));
+    eprintln!(
+        "{:<32} | {:<19} | {:<19} | {:<19}",
+        "", "Classic", "Hand", "Neural"
+    );
+    eprintln!("{}", "-".repeat(97));
 
     let mut any_fail = false;
     for r in &results {
         eprintln!(
-            "{:<32} | {:>4} {:>4} {:>4} {:>4} | {:>4} {:>4} {:>4} {:>4}",
+            "{:<32} | {:>4} {:>4} {:>4} {:>4} | {:>4} {:>4} {:>4} {:>4} | {:>4} {:>4} {:>4} {:>4}",
             r.name,
             r.classic.compile.label(),
             r.classic.execute.label(),
@@ -189,12 +220,20 @@ fn cmd_audit_exec() {
             r.hand.execute.label(),
             r.hand.prove.label(),
             r.hand.verify.label(),
+            r.neural.compile.label(),
+            r.neural.execute.label(),
+            r.neural.prove.label(),
+            r.neural.verify.label(),
         );
         any_fail |= print_dim_failures("classic", &r.classic);
         any_fail |= print_dim_failures("hand", &r.hand);
+        // Neural failures only count when neural was attempted (compile=Ok but later stage failed)
+        if r.neural.compile.is_ok() {
+            any_fail |= print_dim_failures("neural", &r.neural);
+        }
     }
 
-    eprintln!("{}", "-".repeat(76));
+    eprintln!("{}", "-".repeat(97));
 
     let n = results.len();
     let count = |f: fn(&ModuleAudit) -> &AuditStatus| -> usize {
@@ -222,6 +261,24 @@ fn cmd_audit_exec() {
         count(|r| &r.hand.verify),
         n,
     );
+    let neural_attempted = results.iter().filter(|r| r.neural.compile.is_ok()).count();
+    if neural_attempted > 0 {
+        eprintln!(
+            "Neural:  {}/{} compile  {}/{} execute  {}/{} prove  {}/{} verify",
+            count(|r| &r.neural.compile),
+            n,
+            count(|r| &r.neural.execute),
+            n,
+            count(|r| &r.neural.prove),
+            n,
+            count(|r| &r.neural.verify),
+            n,
+        );
+    } else {
+        eprintln!(
+            "Neural:  no verified substitutions (model untrained or no wins survived 8-seed check)"
+        );
+    }
 
     if any_fail {
         eprintln!();
