@@ -476,10 +476,11 @@ fn train_one_compiled(
                                     total -= baseline as i64;
                                     continue;
                                 }
-                                // Correctness check
+                                // Correctness: must match baseline stack.
+                                // No baseline = nothing to verify = reject.
                                 let baseline_tasm = &cf.per_block_tasm[i];
-                                if !baseline_tasm.is_empty()
-                                    && !stack_verifier::verify_equivalent(
+                                if baseline_tasm.is_empty()
+                                    || !stack_verifier::verify_equivalent(
                                         baseline_tasm,
                                         &candidate_lines,
                                         i as u64,
@@ -617,11 +618,12 @@ fn score_neural_output(
     if candidate_lines.is_empty() {
         return block_baseline;
     }
-    // Correctness check: candidate must produce same stack as baseline
-    if !baseline_tasm.is_empty()
-        && !stack_verifier::verify_equivalent(baseline_tasm, &candidate_lines, block_seed)
+    // Correctness check: candidate must produce same stack as baseline.
+    // No baseline = nothing to verify against = reject.
+    if baseline_tasm.is_empty()
+        || !stack_verifier::verify_equivalent(baseline_tasm, &candidate_lines, block_seed)
     {
-        return block_baseline; // incorrect — reject
+        return block_baseline;
     }
     let profile = trident::cost::scorer::profile_tasm(
         &candidate_lines
