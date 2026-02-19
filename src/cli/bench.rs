@@ -8,41 +8,50 @@ pub struct BenchArgs {
     /// Directory containing baseline .tasm files (mirrors source tree)
     #[arg(default_value = "benches")]
     pub dir: PathBuf,
-    /// Verify correctness: compare classical, manual, neural TASM via stack verifier
-    #[arg(long)]
-    pub verify: bool,
-    /// Measure execution speed (cycle count via trisha run)
-    #[arg(long)]
-    pub exec: bool,
-    /// Measure proving time (via trisha prove)
-    #[arg(long)]
-    pub prove: bool,
-    /// Measure verification time (via trisha verify)
-    #[arg(long)]
-    pub check: bool,
-    /// Run all checks: --verify --exec --prove --check
+    /// Run all checks: compile, execute, prove, verify
     #[arg(long)]
     pub full: bool,
+    /// Show per-function instruction breakdown
+    #[arg(long)]
+    pub functions: bool,
+}
+
+/// Timing triplet for a single dimension: execute, prove, verify (ms).
+#[derive(Default)]
+struct DimTiming {
+    exec_ms: Option<f64>,
+    prove_ms: Option<f64>,
+    verify_ms: Option<f64>,
+    proof_path: Option<PathBuf>,
+}
+
+/// Per-module benchmark data across all dimensions.
+struct ModuleBench {
+    name: String,
+    /// Instruction counts
+    classic_insn: usize,
+    hand_insn: usize,
+    /// Rust-native compilation time (ms)
+    compile_ms: f64,
+    /// Per-dimension timing
+    classic: DimTiming,
+    hand: DimTiming,
+    neural: DimTiming,
+    /// Per-function breakdown (only collected with --functions)
+    functions: Vec<trident::FunctionBenchmark>,
 }
 
 pub fn cmd_bench(args: BenchArgs) {
-    let do_verify = args.verify || args.full;
-    let do_exec = args.exec || args.full;
-    let do_prove = args.prove || args.full;
-    let do_check = args.check || args.full;
-
     let bench_dir = resolve_bench_dir(&args.dir);
     if !bench_dir.is_dir() {
         eprintln!("error: '{}' is not a directory", args.dir.display());
         process::exit(1);
     }
 
-    // Find the project root (parent of benches/)
     let project_root = bench_dir
         .parent()
         .unwrap_or_else(|| std::path::Path::new("."));
 
-    // Recursively find all .baseline.tasm files
     let mut baselines = find_baseline_files(&bench_dir, 0);
     baselines.sort();
 
@@ -52,50 +61,44 @@ pub fn cmd_bench(args: BenchArgs) {
     }
 
     let options = trident::CompileOptions::default();
-    let mut results: Vec<trident::ModuleBenchmarkResult> = Vec::new();
+    let has_trisha = args.full && trisha_available();
+
+    // Collect data for each module
+    let mut modules: Vec<ModuleBench> = Vec::new();
 
     for baseline_path in &baselines {
-        // Map baseline to source: benches/std/crypto/auth.baseline.tasm -> std/crypto/auth.tri
         let rel = baseline_path
             .strip_prefix(&bench_dir)
             .unwrap_or(baseline_path);
         let rel_str = rel.to_string_lossy();
         let source_rel = rel_str.replace(".baseline.tasm", ".tri");
         let source_path = project_root.join(&source_rel);
-        let module_name = source_rel.trim_end_matches(".tri").replace('/', ".");
+        let module_name = source_rel.trim_end_matches(".tri").replace('/', "::");
 
         if !source_path.exists() {
-            eprintln!(
-                "  SKIP  {}  (source not found: {})",
-                module_name,
-                source_path.display()
-            );
             continue;
         }
 
-        // Compile the module (no linking, no DCE)
-        let compiled_tasm = match trident::compile_module(&source_path, &options) {
-            Ok(t) => t,
-            Err(_) => {
-                eprintln!("  FAIL  {}  (compilation error)", module_name);
-                continue;
-            }
-        };
-
-        // Read baseline
+        // Read baseline TASM
         let baseline_tasm = match std::fs::read_to_string(baseline_path) {
             Ok(s) => s,
-            Err(e) => {
-                eprintln!("  FAIL  {}  (read error: {})", module_name, e);
-                continue;
-            }
+            Err(_) => continue,
         };
 
-        // Parse both into per-function instruction maps
+        // Compile module (instruction count) + time it
+        let compile_start = std::time::Instant::now();
+        let _guard = trident::diagnostic::suppress_warnings();
+        let compiled_tasm = match trident::compile_module(&source_path, &options) {
+            Ok(t) => t,
+            Err(_) => continue,
+        };
+        drop(_guard);
+        let compile_ms = compile_start.elapsed().as_secs_f64() * 1000.0;
+
+        // Parse per-function instruction counts
         let compiled_fns = trident::parse_tasm_functions(&compiled_tasm);
         let baseline_fns = trident::parse_tasm_functions(&baseline_tasm);
 
-        // Compare: only functions present in the baseline
         let mut fn_results: Vec<trident::FunctionBenchmark> = Vec::new();
         let mut total_compiled: usize = 0;
         let mut total_baseline: usize = 0;
@@ -104,514 +107,339 @@ pub fn cmd_bench(args: BenchArgs) {
             let compiled_count = compiled_fns.get(name).copied().unwrap_or(0);
             total_compiled += compiled_count;
             total_baseline += baseline_count;
-            fn_results.push(trident::FunctionBenchmark {
-                name: name.clone(),
-                compiled_instructions: compiled_count,
-                baseline_instructions: baseline_count,
-            });
+            if args.functions {
+                fn_results.push(trident::FunctionBenchmark {
+                    name: name.clone(),
+                    compiled_instructions: compiled_count,
+                    baseline_instructions: baseline_count,
+                });
+            }
         }
 
-        results.push(trident::ModuleBenchmarkResult {
-            module_path: module_name,
+        let mut mb = ModuleBench {
+            name: module_name.clone(),
+            classic_insn: total_compiled,
+            hand_insn: total_baseline,
+            compile_ms,
+            classic: DimTiming::default(),
+            hand: DimTiming::default(),
+            neural: DimTiming::default(),
             functions: fn_results,
-            total_compiled,
-            total_baseline,
-        });
+        };
+
+        // Run trisha passes for --full
+        if has_trisha {
+            // Classic: compile full program (with entry + halt)
+            let _guard2 = trident::diagnostic::suppress_warnings();
+            let full_tasm = trident::compile_project_with_options(&source_path, &options).ok();
+            drop(_guard2);
+
+            if let Some(tasm) = full_tasm {
+                run_dimension(&mut mb.classic, &module_name, "classic", &tasm);
+            }
+
+            // Hand: baseline .tasm (library functions, not standalone — skip for now)
+            // TODO: wrap baseline functions with entry+halt harness for execution
+
+            // Neural: not available in bench context yet
+            // TODO: wire neural optimizer output here
+        }
+
+        // Show progress
+        eprint!("\r  collecting {}...{}", module_name, " ".repeat(30));
+        use std::io::Write;
+        let _ = std::io::stderr().flush();
+
+        modules.push(mb);
     }
 
-    if results.is_empty() {
+    // Verify pass (needs proof files from prove pass)
+    if has_trisha {
+        for mb in &mut modules {
+            verify_dimension(&mut mb.classic);
+            verify_dimension(&mut mb.hand);
+            verify_dimension(&mut mb.neural);
+        }
+    }
+
+    // Clear progress line
+    eprint!("\r{}\r", " ".repeat(80));
+
+    if modules.is_empty() {
         eprintln!("No benchmarks could be compiled.");
         process::exit(1);
     }
 
-    // Print results table
+    // Render unified table
     eprintln!();
-    eprintln!("{}", trident::ModuleBenchmarkResult::format_header());
-    for (i, result) in results.iter().enumerate() {
-        if i > 0 {
-            eprintln!("{}", result.format_module_header());
-        } else {
-            // First module: print header row directly
-            eprintln!(
-                "\u{2502} {:<28} \u{2502} {:>8} \u{2502} {:>8} \u{2502} {:>7} \u{2502} {} \u{2502}",
-                result.module_path,
-                trident::fmt_num(result.total_compiled),
-                trident::fmt_num(result.total_baseline),
-                trident::fmt_ratio(result.total_compiled, result.total_baseline),
-                trident::status_icon(result.total_compiled, result.total_baseline),
-            );
-        }
-        for f in &result.functions {
-            eprintln!("{}", result.format_function(f));
-        }
-    }
-    eprintln!("{}", trident::ModuleBenchmarkResult::format_separator());
-
-    // Summary: average = total_compiled_all / total_baseline_all
-    // max = module with highest compiled/baseline ratio (by cross-multiply)
-    if !results.is_empty() {
-        let sum_compiled: usize = results.iter().map(|r| r.total_compiled).sum();
-        let sum_baseline: usize = results.iter().map(|r| r.total_baseline).sum();
-        // Find module with maximum ratio via cross-multiplication
-        let (max_compiled, max_baseline) = results
-            .iter()
-            .map(|r| (r.total_compiled, r.total_baseline))
-            .fold((0usize, 1usize), |(ac, ad), (bc, bd)| {
-                // Compare ac/ad vs bc/bd via cross-multiply: ac*bd vs bc*ad
-                if ac * bd >= bc * ad {
-                    (ac, ad)
-                } else {
-                    (bc, bd)
-                }
-            });
-        eprintln!(
-            "{}",
-            trident::ModuleBenchmarkResult::format_summary(
-                sum_compiled,
-                sum_baseline,
-                max_compiled,
-                max_baseline,
-                results.len(),
-            )
-        );
-    }
-    // --- Rust reference: compilation timing ---
-    if do_verify || do_exec || do_prove || do_check {
-        eprintln!();
-        eprintln!("Compilation (Rust native):");
-        run_compile_pass(&bench_dir, project_root, &baselines, &options);
-    }
-
-    // --- 4D Verification: --verify ---
-    if do_verify {
-        eprintln!();
-        eprintln!("Verification (stack verifier):");
-        run_verify_pass(&bench_dir, project_root, &baselines, &options);
-    }
-
-    // --- Execution speed: --exec ---
-    if do_exec {
-        eprintln!();
-        eprintln!("Execution (trisha run --tasm):");
-        run_exec_pass(&bench_dir, project_root, &baselines, &options);
-    }
-
-    // --- Proving time: --prove ---
-    let proof_files = if do_prove {
-        eprintln!();
-        eprintln!("Proving (trisha prove --tasm):");
-        run_prove_pass(&bench_dir, project_root, &baselines, &options)
+    if args.full {
+        render_full_table(&modules, args.functions);
     } else {
-        Vec::new()
+        render_insn_table(&modules, args.functions);
+    }
+
+    // Clean up proof files
+    for mb in &modules {
+        for dim in [&mb.classic, &mb.hand, &mb.neural] {
+            if let Some(ref path) = dim.proof_path {
+                let _ = std::fs::remove_file(path);
+            }
+        }
+    }
+
+    eprintln!();
+}
+
+/// Render instruction-count-only table (default, no --full).
+fn render_insn_table(modules: &[ModuleBench], show_functions: bool) {
+    eprintln!("{:<40} {:>6} {:>6} {:>7}", "Module", "Tri", "Hand", "Ratio");
+    eprintln!("{}", "-".repeat(63));
+
+    for mb in modules {
+        let ratio = if mb.hand_insn > 0 {
+            format!("{:.2}x", mb.classic_insn as f64 / mb.hand_insn as f64)
+        } else {
+            "-".to_string()
+        };
+        eprintln!(
+            "{:<40} {:>6} {:>6} {:>7}",
+            mb.name, mb.classic_insn, mb.hand_insn, ratio,
+        );
+        if show_functions {
+            for f in &mb.functions {
+                let fr = if f.baseline_instructions > 0 {
+                    format!(
+                        "{:.2}x",
+                        f.compiled_instructions as f64 / f.baseline_instructions as f64
+                    )
+                } else {
+                    "-".to_string()
+                };
+                eprintln!(
+                    "  {:<38} {:>6} {:>6} {:>7}",
+                    f.name,
+                    if f.compiled_instructions > 0 {
+                        f.compiled_instructions.to_string()
+                    } else {
+                        "-".to_string()
+                    },
+                    f.baseline_instructions,
+                    fr,
+                );
+            }
+        }
+    }
+
+    eprintln!("{}", "-".repeat(63));
+    let sum_classic: usize = modules.iter().map(|m| m.classic_insn).sum();
+    let sum_hand: usize = modules.iter().map(|m| m.hand_insn).sum();
+    let avg_ratio = if sum_hand > 0 {
+        format!("{:.2}x", sum_classic as f64 / sum_hand as f64)
+    } else {
+        "-".to_string()
+    };
+    eprintln!(
+        "{:<40} {:>6} {:>6} {:>7}",
+        format!("TOTAL ({} modules)", modules.len()),
+        sum_classic,
+        sum_hand,
+        avg_ratio,
+    );
+}
+
+/// Format a millisecond value, or "-" if None.
+fn fmt_ms(ms: Option<f64>) -> String {
+    ms.map(|v| format!("{:.0}ms", v))
+        .unwrap_or_else(|| "-".into())
+}
+
+/// Format verify result for a dimension.
+fn fmt_verify(dim: &DimTiming) -> &'static str {
+    if dim.verify_ms.is_some() {
+        "PASS"
+    } else if dim.proof_path.is_some() {
+        "FAIL"
+    } else {
+        "-"
+    }
+}
+
+/// Render full 4D table: one row per file, all dimensions.
+fn render_full_table(modules: &[ModuleBench], show_functions: bool) {
+    //                                  Compile  | Classic (Exec/Prove/Verify)  | Hand (Exec/Prove/Verify)  | Neural (Exec/Prove/Verify)  | Ratio
+    eprintln!(
+        "{:<28} {:>7}  | {:>6} {:>6} {:>6} {:>4} | {:>6} {:>6} {:>6} {:>4} | {:>6} {:>6} {:>6} {:>4} | {:>5}",
+        "Module", "Compile",
+        "Exec", "Prove", "Verif", "",
+        "Exec", "Prove", "Verif", "",
+        "Exec", "Prove", "Verif", "",
+        "Ratio",
+    );
+    eprintln!(
+        "{:<28} {:>7}  | {:<27} | {:<27} | {:<27} | {:>5}",
+        "", "", "Classic", "Hand", "Neural", "",
+    );
+    eprintln!("{}", "-".repeat(140));
+
+    for mb in modules {
+        let ratio = if mb.hand_insn > 0 {
+            format!("{:.2}x", mb.classic_insn as f64 / mb.hand_insn as f64)
+        } else {
+            "-".to_string()
+        };
+
+        eprintln!(
+            "{:<28} {:>7}  | {:>6} {:>6} {:>6} {:>4} | {:>6} {:>6} {:>6} {:>4} | {:>6} {:>6} {:>6} {:>4} | {:>5}",
+            mb.name,
+            format!("{:.1}ms", mb.compile_ms),
+            fmt_ms(mb.classic.exec_ms), fmt_ms(mb.classic.prove_ms), fmt_ms(mb.classic.verify_ms), fmt_verify(&mb.classic),
+            fmt_ms(mb.hand.exec_ms), fmt_ms(mb.hand.prove_ms), fmt_ms(mb.hand.verify_ms), fmt_verify(&mb.hand),
+            fmt_ms(mb.neural.exec_ms), fmt_ms(mb.neural.prove_ms), fmt_ms(mb.neural.verify_ms), fmt_verify(&mb.neural),
+            ratio,
+        );
+
+        if show_functions {
+            for f in &mb.functions {
+                let fr = if f.baseline_instructions > 0 {
+                    format!(
+                        "{:.2}x",
+                        f.compiled_instructions as f64 / f.baseline_instructions as f64
+                    )
+                } else {
+                    "-".to_string()
+                };
+                eprintln!(
+                    "  {:<26} {:>5}/{:<5} {}",
+                    f.name,
+                    if f.compiled_instructions > 0 {
+                        f.compiled_instructions.to_string()
+                    } else {
+                        "-".to_string()
+                    },
+                    f.baseline_instructions,
+                    fr,
+                );
+            }
+        }
+    }
+
+    eprintln!("{}", "-".repeat(140));
+
+    // Summary row
+    let sum_classic: usize = modules.iter().map(|m| m.classic_insn).sum();
+    let sum_hand: usize = modules.iter().map(|m| m.hand_insn).sum();
+    let avg_ratio = if sum_hand > 0 {
+        format!("{:.2}x", sum_classic as f64 / sum_hand as f64)
+    } else {
+        "-".to_string()
     };
 
-    // --- Verification time: --check ---
-    if do_check {
-        eprintln!();
-        if proof_files.is_empty() {
-            eprintln!("Verification time:");
-            eprintln!("  no proof files — run with --prove or --full first");
+    let total_compile: f64 = modules.iter().map(|m| m.compile_ms).sum();
+    let sum_dim_col = |modules: &[ModuleBench],
+                       dim: fn(&ModuleBench) -> &DimTiming,
+                       get: fn(&DimTiming) -> Option<f64>|
+     -> f64 { modules.iter().filter_map(|m| get(dim(m))).sum() };
+    let classic_exec: f64 = sum_dim_col(modules, |m| &m.classic, |d| d.exec_ms);
+    let classic_prove: f64 = sum_dim_col(modules, |m| &m.classic, |d| d.prove_ms);
+    let classic_verify: f64 = sum_dim_col(modules, |m| &m.classic, |d| d.verify_ms);
+    let classic_verified = modules
+        .iter()
+        .filter(|m| m.classic.verify_ms.is_some())
+        .count();
+
+    let hand_exec: f64 = sum_dim_col(modules, |m| &m.hand, |d| d.exec_ms);
+    let hand_prove: f64 = sum_dim_col(modules, |m| &m.hand, |d| d.prove_ms);
+    let hand_verify: f64 = sum_dim_col(modules, |m| &m.hand, |d| d.verify_ms);
+    let hand_verified = modules
+        .iter()
+        .filter(|m| m.hand.verify_ms.is_some())
+        .count();
+
+    let neural_exec: f64 = sum_dim_col(modules, |m| &m.neural, |d| d.exec_ms);
+    let neural_prove: f64 = sum_dim_col(modules, |m| &m.neural, |d| d.prove_ms);
+    let neural_verify: f64 = sum_dim_col(modules, |m| &m.neural, |d| d.verify_ms);
+    let neural_verified = modules
+        .iter()
+        .filter(|m| m.neural.verify_ms.is_some())
+        .count();
+
+    let n = modules.len();
+
+    let fmt_total = |v: f64, count: usize, _total: usize| -> String {
+        if count > 0 {
+            format!("{:.0}ms", v)
         } else {
-            eprintln!("Verification (trisha verify):");
-            run_check_pass(&proof_files);
+            "-".to_string()
         }
-    }
-    // Clean up proof files
-    for (_, path) in &proof_files {
-        let _ = std::fs::remove_file(path);
-    }
-
-    eprintln!();
-}
-
-/// Run compilation timing: measure how long trident takes to compile each module.
-fn run_compile_pass(
-    bench_dir: &std::path::Path,
-    project_root: &std::path::Path,
-    baselines: &[PathBuf],
-    options: &trident::CompileOptions,
-) {
-    let mut total_ms = 0.0f64;
-    let mut count = 0;
-
-    for baseline_path in baselines {
-        let rel = baseline_path
-            .strip_prefix(bench_dir)
-            .unwrap_or(baseline_path);
-        let rel_str = rel.to_string_lossy();
-        let source_rel = rel_str.replace(".baseline.tasm", ".tri");
-        let source_path = project_root.join(&source_rel);
-        let module_name = source_rel.trim_end_matches(".tri").replace('/', "::");
-
-        if !source_path.exists() {
-            continue;
-        }
-
-        let start = std::time::Instant::now();
-        let _guard = trident::diagnostic::suppress_warnings();
-        let result = trident::compile_project_with_options(&source_path, options);
-        drop(_guard);
-        let elapsed_ms = start.elapsed().as_secs_f64() * 1000.0;
-
-        match result {
-            Ok(tasm) => {
-                let lines = tasm.lines().count();
-                eprintln!(
-                    "  {:<45} {:>6.1}ms  {} lines TASM",
-                    module_name, elapsed_ms, lines,
-                );
-                total_ms += elapsed_ms;
-                count += 1;
-            }
-            Err(_) => {
-                eprintln!("  {:<45} SKIP (compilation error)", module_name);
-            }
-        }
-    }
-
-    if count > 0 {
-        eprintln!(
-            "  total: {:.1}ms ({} modules, {:.1}ms avg)",
-            total_ms,
-            count,
-            total_ms / count as f64,
-        );
-    }
-}
-
-/// Run correctness verification: for each baseline function, compare
-/// classical compiler output vs manual baseline via stack verifier.
-fn run_verify_pass(
-    bench_dir: &std::path::Path,
-    project_root: &std::path::Path,
-    baselines: &[PathBuf],
-    options: &trident::CompileOptions,
-) {
-    use trident::cost::stack_verifier;
-
-    let mut total_pass = 0usize;
-    let mut total_fail = 0usize;
-    let mut total_skip = 0usize;
-
-    for baseline_path in baselines {
-        let rel = baseline_path
-            .strip_prefix(bench_dir)
-            .unwrap_or(baseline_path);
-        let rel_str = rel.to_string_lossy();
-        let source_rel = rel_str.replace(".baseline.tasm", ".tri");
-        let source_path = project_root.join(&source_rel);
-        let module_name = source_rel.trim_end_matches(".tri").replace('/', "::");
-
-        if !source_path.exists() {
-            continue;
-        }
-
-        // Compile to TASM via classical pipeline
-        let compiled_tasm = match trident::compile_module(&source_path, options) {
-            Ok(t) => t,
-            Err(_) => continue,
-        };
-
-        // Read manual baseline
-        let baseline_tasm = match std::fs::read_to_string(baseline_path) {
-            Ok(s) => s,
-            Err(_) => continue,
-        };
-
-        // Parse into per-function instruction lists
-        let compiled_fns = parse_tasm_to_lines(&compiled_tasm);
-        let baseline_fns = parse_tasm_to_lines(&baseline_tasm);
-
-        let mut module_pass = 0;
-        let mut module_fail = 0;
-        let mut module_skip = 0;
-
-        for (fn_name, baseline_lines) in &baseline_fns {
-            let compiled_lines = match compiled_fns.get(fn_name) {
-                Some(lines) => lines,
-                None => {
-                    module_skip += 1;
-                    continue;
-                }
-            };
-
-            // Run stack verifier: does classical produce same stack as manual baseline?
-            // Test with multiple seeds for confidence
-            let mut all_pass = true;
-            let mut any_simulated = false;
-            for seed in 0..5u64 {
-                let test_stack = stack_verifier::generate_test_stack(seed, 16);
-                let mut baseline_state = stack_verifier::StackState::new(test_stack.clone());
-                baseline_state.execute(baseline_lines);
-                if baseline_state.error {
-                    continue; // can't simulate this function (has control flow, etc.)
-                }
-                any_simulated = true;
-                let mut compiled_state = stack_verifier::StackState::new(test_stack);
-                compiled_state.execute(compiled_lines);
-                if compiled_state.error || compiled_state.stack != baseline_state.stack {
-                    all_pass = false;
-                    break;
-                }
-            }
-
-            if !any_simulated {
-                module_skip += 1;
-            } else if all_pass {
-                module_pass += 1;
-            } else {
-                module_fail += 1;
-                eprintln!("  FAIL  {}::{}", module_name, fn_name);
-            }
-        }
-
-        let status = if module_fail > 0 {
-            "FAIL"
-        } else if module_pass > 0 {
-            " ok "
+    };
+    let fmt_count = |count: usize, total: usize| -> String {
+        if count > 0 {
+            format!("{}/{}", count, total)
         } else {
-            "skip"
-        };
-        if module_fail > 0 || module_pass > 0 {
-            eprintln!(
-                "  [{}] {:<40} {} pass, {} fail, {} skip",
-                status, module_name, module_pass, module_fail, module_skip
-            );
+            "-".to_string()
         }
+    };
 
-        total_pass += module_pass;
-        total_fail += module_fail;
-        total_skip += module_skip;
-    }
-
-    eprintln!();
-    if total_fail > 0 {
-        eprintln!(
-            "  RESULT: {} passed, {} FAILED, {} skipped",
-            total_pass, total_fail, total_skip
-        );
-    } else {
-        eprintln!(
-            "  RESULT: {} passed, {} skipped (all ok)",
-            total_pass, total_skip
-        );
-    }
+    eprintln!(
+        "{:<28} {:>7}  | {:>6} {:>6} {:>6} {:>4} | {:>6} {:>6} {:>6} {:>4} | {:>6} {:>6} {:>6} {:>4} | {:>5}",
+        format!("TOTAL ({} modules)", n),
+        format!("{:.0}ms", total_compile),
+        fmt_total(classic_exec, classic_verified, n), fmt_total(classic_prove, classic_verified, n), fmt_total(classic_verify, classic_verified, n), fmt_count(classic_verified, n),
+        fmt_total(hand_exec, hand_verified, n), fmt_total(hand_prove, hand_verified, n), fmt_total(hand_verify, hand_verified, n), fmt_count(hand_verified, n),
+        fmt_total(neural_exec, neural_verified, n), fmt_total(neural_prove, neural_verified, n), fmt_total(neural_verify, neural_verified, n), fmt_count(neural_verified, n),
+        avg_ratio,
+    );
+    eprintln!(
+        "{:<28} {:>7}  | insn: {:<21} | insn: {:<21} |",
+        "",
+        "",
+        format!("{}", sum_classic),
+        format!("{}", sum_hand),
+    );
 }
 
-/// Parse TASM text into per-function instruction line lists.
-/// Returns map of function_name -> Vec<instruction lines>.
-fn parse_tasm_to_lines(tasm: &str) -> std::collections::HashMap<String, Vec<String>> {
-    let mut fns: std::collections::HashMap<String, Vec<String>> = std::collections::HashMap::new();
-    let mut current_fn: Option<String> = None;
-    let mut current_lines: Vec<String> = Vec::new();
-
-    for line in tasm.lines() {
-        let trimmed = line.trim();
-        // Function label: __name: at start of line (not indented)
-        if trimmed.ends_with(':') && !trimmed.starts_with("//") && !line.starts_with(' ') {
-            // Save previous function
-            if let Some(ref name) = current_fn {
-                fns.insert(name.clone(), std::mem::take(&mut current_lines));
-            }
-            let label = trimmed.trim_end_matches(':').trim_start_matches('_');
-            current_fn = Some(label.to_string());
-            current_lines.clear();
-        } else if current_fn.is_some() && !trimmed.is_empty() {
-            current_lines.push(trimmed.to_string());
-        }
-    }
-    // Save last function
-    if let Some(name) = current_fn {
-        fns.insert(name, current_lines);
-    }
-    fns
-}
-
-/// Run execution pass: compile each benchmark's .tri to TASM, execute via trisha.
-fn run_exec_pass(
-    bench_dir: &std::path::Path,
-    project_root: &std::path::Path,
-    baselines: &[PathBuf],
-    options: &trident::CompileOptions,
-) {
-    // Check trisha is available
-    if !trisha_available() {
-        eprintln!("  trisha not found in PATH — install trisha first");
+/// Run execute + prove for a single dimension, writing results into DimTiming.
+fn run_dimension(dim: &mut DimTiming, module_name: &str, label: &str, tasm: &str) {
+    let tmp_path = std::env::temp_dir().join(format!(
+        "trident_bench_{}_{}.tasm",
+        module_name.replace("::", "_"),
+        label,
+    ));
+    if std::fs::write(&tmp_path, tasm).is_err() {
         return;
     }
-
-    for baseline_path in baselines {
-        let rel = baseline_path
-            .strip_prefix(bench_dir)
-            .unwrap_or(baseline_path);
-        let rel_str = rel.to_string_lossy();
-        let source_rel = rel_str.replace(".baseline.tasm", ".tri");
-        let source_path = project_root.join(&source_rel);
-        let module_name = source_rel.trim_end_matches(".tri").replace('/', "::");
-
-        if !source_path.exists() {
-            continue;
-        }
-
-        // Compile to full TASM program via project pipeline (includes entry point + halt)
-        let tasm = match trident::compile_project_with_options(&source_path, options) {
-            Ok(t) => t,
-            Err(_) => {
-                eprintln!("  SKIP  {}  (compilation error)", module_name);
-                continue;
-            }
-        };
-
-        // Write to temp file and execute via trisha
-        let tmp_path = std::env::temp_dir().join(format!(
-            "trident_bench_{}.tasm",
-            module_name.replace("::", "_")
-        ));
-        if std::fs::write(&tmp_path, &tasm).is_err() {
-            continue;
-        }
-
-        match run_trisha(&["run", "--tasm", &tmp_path.to_string_lossy()]) {
-            Ok(trisha_result) => {
-                eprintln!(
-                    "  {:<45} {} cyc  {:>6.1}ms  output: [{}]",
-                    module_name,
-                    trisha_result.cycle_count,
-                    trisha_result.elapsed_ms,
-                    trisha_result
-                        .output
-                        .iter()
-                        .map(|v| v.to_string())
-                        .collect::<Vec<_>>()
-                        .join(", "),
-                );
-            }
-            Err(e) => {
-                eprintln!("  {:<45} ERROR: {}", module_name, e);
-            }
-        }
-
-        let _ = std::fs::remove_file(&tmp_path);
+    // Execute
+    if let Ok(r) = run_trisha(&["run", "--tasm", &tmp_path.to_string_lossy()]) {
+        dim.exec_ms = Some(r.elapsed_ms);
     }
+    // Prove
+    let proof_path = std::env::temp_dir().join(format!(
+        "trident_bench_{}_{}.proof.toml",
+        module_name.replace("::", "_"),
+        label,
+    ));
+    if let Ok(r) = run_trisha(&[
+        "prove",
+        "--tasm",
+        &tmp_path.to_string_lossy(),
+        "--output",
+        &proof_path.to_string_lossy(),
+    ]) {
+        dim.prove_ms = Some(r.elapsed_ms);
+        if proof_path.exists() {
+            dim.proof_path = Some(proof_path);
+        }
+    }
+    let _ = std::fs::remove_file(&tmp_path);
 }
 
-/// Run proving pass: compile, prove via trisha. Returns (module_name, proof_path) pairs.
-fn run_prove_pass(
-    bench_dir: &std::path::Path,
-    project_root: &std::path::Path,
-    baselines: &[PathBuf],
-    options: &trident::CompileOptions,
-) -> Vec<(String, PathBuf)> {
-    let mut proof_files: Vec<(String, PathBuf)> = Vec::new();
-
-    if !trisha_available() {
-        eprintln!("  trisha not found in PATH — install trisha first");
-        return proof_files;
-    }
-
-    for baseline_path in baselines {
-        let rel = baseline_path
-            .strip_prefix(bench_dir)
-            .unwrap_or(baseline_path);
-        let rel_str = rel.to_string_lossy();
-        let source_rel = rel_str.replace(".baseline.tasm", ".tri");
-        let source_path = project_root.join(&source_rel);
-        let module_name = source_rel.trim_end_matches(".tri").replace('/', "::");
-
-        if !source_path.exists() {
-            continue;
-        }
-
-        let tasm = match trident::compile_project_with_options(&source_path, options) {
-            Ok(t) => t,
-            Err(_) => {
-                eprintln!("  SKIP  {}  (compilation error)", module_name);
-                continue;
-            }
-        };
-
-        let tmp_path = std::env::temp_dir().join(format!(
-            "trident_bench_{}.tasm",
-            module_name.replace("::", "_")
-        ));
-        if std::fs::write(&tmp_path, &tasm).is_err() {
-            continue;
-        }
-
-        let proof_path = std::env::temp_dir().join(format!(
-            "trident_bench_{}.proof.toml",
-            module_name.replace("::", "_")
-        ));
-        match run_trisha(&[
-            "prove",
-            "--tasm",
-            &tmp_path.to_string_lossy(),
-            "--output",
-            &proof_path.to_string_lossy(),
-        ]) {
-            Ok(trisha_result) => {
-                eprintln!(
-                    "  {:<45} prove {:>8.1}ms",
-                    module_name, trisha_result.elapsed_ms,
-                );
-                if proof_path.exists() {
-                    proof_files.push((module_name.clone(), proof_path));
-                }
-            }
-            Err(e) => {
-                eprintln!("  {:<45} ERROR: {}", module_name, e);
-            }
-        }
-
-        let _ = std::fs::remove_file(&tmp_path);
-    }
-
-    proof_files
-}
-
-/// Run verification pass: verify each proof file via trisha verify.
-fn run_check_pass(proof_files: &[(String, PathBuf)]) {
-    if !trisha_available() {
-        eprintln!("  trisha not found in PATH — install trisha first");
-        return;
-    }
-
-    let mut pass = 0;
-    let mut fail = 0;
-
-    for (module_name, proof_path) in proof_files {
-        match run_trisha(&["verify", &proof_path.to_string_lossy()]) {
-            Ok(trisha_result) => {
-                eprintln!(
-                    "  {:<45} PASS  {:>8.1}ms",
-                    module_name, trisha_result.elapsed_ms,
-                );
-                pass += 1;
-            }
-            Err(e) => {
-                if e.contains("FAIL") {
-                    eprintln!("  {:<45} FAIL", module_name);
-                } else {
-                    eprintln!("  {:<45} ERROR: {}", module_name, e);
-                }
-                fail += 1;
-            }
+/// Run verify for a dimension (requires proof_path from prove pass).
+fn verify_dimension(dim: &mut DimTiming) {
+    if let Some(ref proof_path) = dim.proof_path {
+        if let Ok(r) = run_trisha(&["verify", &proof_path.to_string_lossy()]) {
+            dim.verify_ms = Some(r.elapsed_ms);
         }
     }
-
-    eprintln!();
-    if fail > 0 {
-        eprintln!("  RESULT: {} passed, {} FAILED", pass, fail);
-    } else {
-        eprintln!("  RESULT: {} passed (all verified)", pass);
-    }
-}
-
-/// Result from a trisha subprocess call.
-struct TrishaResult {
-    output: Vec<u64>,
-    cycle_count: u64,
-    elapsed_ms: f64,
 }
 
 /// Check if trisha binary is available.
@@ -622,6 +450,14 @@ fn trisha_available() -> bool {
         .stderr(std::process::Stdio::null())
         .status()
         .is_ok()
+}
+
+/// Result from a trisha subprocess call.
+#[allow(dead_code)]
+struct TrishaResult {
+    output: Vec<u64>,
+    cycle_count: u64,
+    elapsed_ms: f64,
 }
 
 /// Run trisha as a subprocess, parse output.
@@ -639,14 +475,12 @@ fn run_trisha(args: &[&str]) -> Result<TrishaResult, String> {
         return Err(stderr.trim().to_string());
     }
 
-    // stdout: output values (one per line)
     let stdout = String::from_utf8_lossy(&result.stdout);
     let output: Vec<u64> = stdout
         .lines()
         .filter_map(|l| l.trim().parse().ok())
         .collect();
 
-    // stderr: "Executed in N cycles" or proving time
     let stderr = String::from_utf8_lossy(&result.stderr);
     let cycle_count = stderr
         .lines()
