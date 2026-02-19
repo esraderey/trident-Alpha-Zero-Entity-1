@@ -441,6 +441,42 @@ pub fn verify_equivalent(baseline_tasm: &[String], candidate_tasm: &[String], se
     true
 }
 
+/// Score a neural model's raw output against a baseline block.
+/// Decodes the output, verifies equivalence, and returns the lower cost
+/// (or baseline cost if candidate is invalid/worse).
+pub fn score_neural_output(
+    raw_codes: &[u32],
+    block_baseline: u64,
+    baseline_tasm: &[String],
+    block_seed: u64,
+) -> u64 {
+    use crate::ir::tir::lower::decode_output;
+
+    let codes: Vec<u64> = raw_codes
+        .iter()
+        .take_while(|&&c| c != 0)
+        .map(|&c| c as u64)
+        .collect();
+    if codes.is_empty() {
+        return block_baseline;
+    }
+    let candidate_lines = decode_output(&codes);
+    if candidate_lines.is_empty() {
+        return block_baseline;
+    }
+    // No baseline = nothing to verify against = reject.
+    if baseline_tasm.is_empty() || !verify_equivalent(baseline_tasm, &candidate_lines, block_seed) {
+        return block_baseline;
+    }
+    let profile = crate::cost::scorer::profile_tasm(
+        &candidate_lines
+            .iter()
+            .map(|s| s.as_str())
+            .collect::<Vec<_>>(),
+    );
+    profile.cost().min(block_baseline)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
