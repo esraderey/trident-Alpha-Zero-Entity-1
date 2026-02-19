@@ -445,8 +445,8 @@ fn run_trisha_prove_with_timeout(
     let start = std::time::Instant::now();
     let mut child = std::process::Command::new("trisha")
         .args(&args)
-        .stdout(std::process::Stdio::piped())
-        .stderr(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
         .spawn()
         .map_err(|e| format!("failed to spawn trisha: {}", e))?;
 
