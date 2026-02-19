@@ -185,23 +185,22 @@ pub fn cmd_bench(args: BenchArgs) {
     // --- Execution speed: --exec ---
     if do_exec {
         eprintln!();
-        eprintln!("Execution speed (cycle count):");
-        eprintln!("  requires trisha --tasm support (not yet implemented)");
-        eprintln!("  track: https://github.com/nicksavers/trisha/issues/tasm-flag");
+        eprintln!("Execution (trisha run --tasm):");
+        run_exec_pass(&bench_dir, project_root, &baselines, &options);
     }
 
     // --- Proving time: --prove ---
     if do_prove {
         eprintln!();
-        eprintln!("Proving time:");
-        eprintln!("  requires trisha --tasm support (not yet implemented)");
+        eprintln!("Proving (trisha prove --tasm):");
+        run_prove_pass(&bench_dir, project_root, &baselines, &options);
     }
 
     // --- Verification time: --check ---
     if do_check {
         eprintln!();
         eprintln!("Verification time:");
-        eprintln!("  requires trisha --tasm support (not yet implemented)");
+        eprintln!("  requires proof files from --prove pass");
     }
 
     eprintln!();
@@ -353,6 +352,201 @@ fn parse_tasm_to_lines(tasm: &str) -> std::collections::HashMap<String, Vec<Stri
         fns.insert(name, current_lines);
     }
     fns
+}
+
+/// Run execution pass: compile each benchmark's .tri to TASM, execute via trisha.
+fn run_exec_pass(
+    bench_dir: &std::path::Path,
+    project_root: &std::path::Path,
+    baselines: &[PathBuf],
+    options: &trident::CompileOptions,
+) {
+    // Check trisha is available
+    if !trisha_available() {
+        eprintln!("  trisha not found in PATH — install trisha first");
+        return;
+    }
+
+    for baseline_path in baselines {
+        let rel = baseline_path
+            .strip_prefix(bench_dir)
+            .unwrap_or(baseline_path);
+        let rel_str = rel.to_string_lossy();
+        let source_rel = rel_str.replace(".baseline.tasm", ".tri");
+        let source_path = project_root.join(&source_rel);
+        let module_name = source_rel.trim_end_matches(".tri").replace('/', "::");
+
+        if !source_path.exists() {
+            continue;
+        }
+
+        // Compile to full TASM program via project pipeline (includes entry point + halt)
+        let tasm = match trident::compile_project_with_options(&source_path, options) {
+            Ok(t) => t,
+            Err(_) => {
+                eprintln!("  SKIP  {}  (compilation error)", module_name);
+                continue;
+            }
+        };
+
+        // Write to temp file and execute via trisha
+        let tmp_path = std::env::temp_dir().join(format!(
+            "trident_bench_{}.tasm",
+            module_name.replace("::", "_")
+        ));
+        if std::fs::write(&tmp_path, &tasm).is_err() {
+            continue;
+        }
+
+        match run_trisha(&["run", "--tasm", &tmp_path.to_string_lossy()]) {
+            Ok(trisha_result) => {
+                eprintln!(
+                    "  {:<45} {} cyc  {:>6.1}ms  output: [{}]",
+                    module_name,
+                    trisha_result.cycle_count,
+                    trisha_result.elapsed_ms,
+                    trisha_result
+                        .output
+                        .iter()
+                        .map(|v| v.to_string())
+                        .collect::<Vec<_>>()
+                        .join(", "),
+                );
+            }
+            Err(e) => {
+                eprintln!("  {:<45} ERROR: {}", module_name, e);
+            }
+        }
+
+        let _ = std::fs::remove_file(&tmp_path);
+    }
+}
+
+/// Run proving pass: compile, execute + prove via trisha.
+fn run_prove_pass(
+    bench_dir: &std::path::Path,
+    project_root: &std::path::Path,
+    baselines: &[PathBuf],
+    options: &trident::CompileOptions,
+) {
+    if !trisha_available() {
+        eprintln!("  trisha not found in PATH — install trisha first");
+        return;
+    }
+
+    for baseline_path in baselines {
+        let rel = baseline_path
+            .strip_prefix(bench_dir)
+            .unwrap_or(baseline_path);
+        let rel_str = rel.to_string_lossy();
+        let source_rel = rel_str.replace(".baseline.tasm", ".tri");
+        let source_path = project_root.join(&source_rel);
+        let module_name = source_rel.trim_end_matches(".tri").replace('/', "::");
+
+        if !source_path.exists() {
+            continue;
+        }
+
+        let tasm = match trident::compile_project_with_options(&source_path, options) {
+            Ok(t) => t,
+            Err(_) => {
+                eprintln!("  SKIP  {}  (compilation error)", module_name);
+                continue;
+            }
+        };
+
+        let tmp_path = std::env::temp_dir().join(format!(
+            "trident_bench_{}.tasm",
+            module_name.replace("::", "_")
+        ));
+        if std::fs::write(&tmp_path, &tasm).is_err() {
+            continue;
+        }
+
+        let proof_path = std::env::temp_dir().join(format!(
+            "trident_bench_{}.proof.toml",
+            module_name.replace("::", "_")
+        ));
+        match run_trisha(&[
+            "prove",
+            "--tasm",
+            &tmp_path.to_string_lossy(),
+            "--output",
+            &proof_path.to_string_lossy(),
+        ]) {
+            Ok(trisha_result) => {
+                eprintln!(
+                    "  {:<45} prove {:>8.1}ms",
+                    module_name, trisha_result.elapsed_ms,
+                );
+            }
+            Err(e) => {
+                eprintln!("  {:<45} ERROR: {}", module_name, e);
+            }
+        }
+
+        let _ = std::fs::remove_file(&tmp_path);
+        let _ = std::fs::remove_file(&proof_path);
+    }
+}
+
+/// Result from a trisha subprocess call.
+struct TrishaResult {
+    output: Vec<u64>,
+    cycle_count: u64,
+    elapsed_ms: f64,
+}
+
+/// Check if trisha binary is available.
+fn trisha_available() -> bool {
+    std::process::Command::new("trisha")
+        .arg("--help")
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .status()
+        .is_ok()
+}
+
+/// Run trisha as a subprocess, parse output.
+fn run_trisha(args: &[&str]) -> Result<TrishaResult, String> {
+    let start = std::time::Instant::now();
+    let result = std::process::Command::new("trisha")
+        .args(args)
+        .output()
+        .map_err(|e| format!("failed to run trisha: {}", e))?;
+
+    let elapsed_ms = start.elapsed().as_secs_f64() * 1000.0;
+
+    if !result.status.success() {
+        let stderr = String::from_utf8_lossy(&result.stderr);
+        return Err(stderr.trim().to_string());
+    }
+
+    // stdout: output values (one per line)
+    let stdout = String::from_utf8_lossy(&result.stdout);
+    let output: Vec<u64> = stdout
+        .lines()
+        .filter_map(|l| l.trim().parse().ok())
+        .collect();
+
+    // stderr: "Executed in N cycles" or proving time
+    let stderr = String::from_utf8_lossy(&result.stderr);
+    let cycle_count = stderr
+        .lines()
+        .find_map(|l| {
+            if l.contains("cycles") {
+                l.split_whitespace().find_map(|w| w.parse::<u64>().ok())
+            } else {
+                None
+            }
+        })
+        .unwrap_or(0);
+
+    Ok(TrishaResult {
+        output,
+        cycle_count,
+        elapsed_ms,
+    })
 }
 
 /// Recursively find all .baseline.tasm files in a directory (depth-limited).
