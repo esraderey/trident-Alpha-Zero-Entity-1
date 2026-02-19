@@ -87,7 +87,9 @@ pub fn cmd_train(args: TrainArgs) {
     let mut prev_epoch_avg = 0u64;
     let mut epoch_history: Vec<u64> = Vec::new();
     // EMA of per-epoch improvement rate (alpha=0.3 — smooths over ~3 epochs)
-    let mut ema_rate: f64 = 0.0;
+    // Initialized to None — seeded from first observed improvement, not 0.0.
+    // This avoids false "converged" in early epochs before the EMA warms up.
+    let mut ema_rate: Option<f64> = None;
     const EMA_ALPHA: f64 = 0.3;
 
     for epoch in 0..args.epochs {
@@ -146,13 +148,18 @@ pub fn cmd_train(args: TrainArgs) {
             } else {
                 0.0
             };
-            ema_rate = EMA_ALPHA * instant_rate + (1.0 - EMA_ALPHA) * ema_rate;
-            if ema_rate < 0.001 {
+            // Seed EMA from first observation; update normally after that
+            let rate = match ema_rate {
+                Some(prev_ema) => EMA_ALPHA * instant_rate + (1.0 - EMA_ALPHA) * prev_ema,
+                None => instant_rate, // first observation — use raw value as seed
+            };
+            ema_rate = Some(rate);
+            if rate < 0.001 {
                 " | converged".to_string()
-            } else if ema_rate < 0.005 {
-                format!(" | plateau ({:.2}%/ep)", ema_rate * 100.0)
+            } else if rate < 0.005 {
+                format!(" | plateau ({:.2}%/ep)", rate * 100.0)
             } else {
-                format!(" | improving ({:.1}%/ep)", ema_rate * 100.0)
+                format!(" | improving ({:.1}%/ep)", rate * 100.0)
             }
         } else {
             String::new()
@@ -250,10 +257,10 @@ pub fn cmd_train(args: TrainArgs) {
         final_ratio,
         (1.0 - final_ratio) * 100.0,
     );
-    if epoch_history.len() >= 2 {
-        let (label, hint) = if ema_rate < 0.001 {
+    if let Some(rate) = ema_rate {
+        let (label, hint) = if rate < 0.001 {
             ("converged", "further training unlikely to help")
-        } else if ema_rate < 0.005 {
+        } else if rate < 0.005 {
             ("plateau", "diminishing returns, may stop soon")
         } else {
             ("improving", "model still learning, keep training")
@@ -261,7 +268,7 @@ pub fn cmd_train(args: TrainArgs) {
         eprintln!(
             "  convergence  {} ({:.2}%/ep) — {}",
             label,
-            ema_rate * 100.0,
+            rate * 100.0,
             hint,
         );
     }
