@@ -23,6 +23,22 @@ The mycelium doesn't plan the forest.
 Every proof was once a question someone refused to ignore.
 Listen to the code. It knows what it wants to become.
 
+## Honesty
+
+Never fake results. Never fill empty columns with duplicate data to
+make things look complete. If a system produces nothing — show nothing.
+A dash is more honest than a copied number.
+
+The purpose of every metric, column, and indicator is to reflect
+reality. If the neural model has 0 verified wins, the Neural column
+is empty. When it learns to produce valid output, the data appears.
+Not before.
+
+Never substitute appearance of progress for actual progress.
+Never generate placeholder data to fill a gap.
+If you catch yourself making something "look right" instead of
+"be right" — stop and delete it.
+
 ## Source of Truth
 
 `reference/` is canonical. If reference/ and code disagree, resolve in
