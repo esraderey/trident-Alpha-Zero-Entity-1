@@ -140,7 +140,9 @@ impl StackState {
                 self.stack.push(a.mul(b).to_u64());
             }
             "invert" => {
-                // Negation (not multiplicative inverse) in Triton VM
+                // BUG: this implements negation, but Triton VM invert is
+                // multiplicative inverse (1/x mod p). Kept as-is for
+                // baseline simulation; excluded from ALLOWED candidate list.
                 if self.stack.is_empty() {
                     self.error = true;
                     return;
@@ -428,7 +430,10 @@ pub fn verify_equivalent(baseline_tasm: &[String], candidate_tasm: &[String], se
         "place",
         "add",
         "mul",
-        "invert",
+        // invert is NOT allowed — the verifier implements it as negation
+        // but Triton VM's invert is multiplicative inverse (1/x mod p).
+        // Neural candidates using invert would pass verification but
+        // crash or produce wrong results on real Triton VM.
         "eq",
         "lt",
         "and",
