@@ -86,10 +86,10 @@ pub fn cmd_train(args: TrainArgs) {
     let mut total_trained = 0u64;
     let mut prev_epoch_avg = 0u64;
     let mut epoch_history: Vec<u64> = Vec::new();
-    // EMA of per-epoch improvement rate (alpha=0.3 — smooths over ~3 epochs)
-    // Initialized to None — seeded from first observed improvement, not 0.0.
-    // This avoids false "converged" in early epochs before the EMA warms up.
+    // EMA of per-epoch improvement rate + volatility (alpha=0.3 — smooths over ~3 epochs)
+    // Initialized to None — seeded from first observed values, not 0.0.
     let mut ema_rate: Option<f64> = None;
+    let mut ema_volatility: Option<f64> = None;
     const EMA_ALPHA: f64 = 0.3;
 
     for epoch in 0..args.epochs {
@@ -139,7 +139,7 @@ pub fn cmd_train(args: TrainArgs) {
 
         let ratio = epoch_cost as f64 / total_baseline.max(1) as f64;
 
-        // EMA convergence: track smoothed improvement rate
+        // EMA convergence: track smoothed improvement rate + volatility
         let conv_info = if epoch_history.len() >= 2 {
             let prev = epoch_history[epoch_history.len() - 2];
             let curr = epoch_history[epoch_history.len() - 1];
@@ -148,13 +148,24 @@ pub fn cmd_train(args: TrainArgs) {
             } else {
                 0.0
             };
-            // Seed EMA from first observation; update normally after that
+            let instant_vol = instant_rate.abs();
+            // Seed EMAs from first observation; update normally after
             let rate = match ema_rate {
                 Some(prev_ema) => EMA_ALPHA * instant_rate + (1.0 - EMA_ALPHA) * prev_ema,
-                None => instant_rate, // first observation — use raw value as seed
+                None => instant_rate,
+            };
+            let vol = match ema_volatility {
+                Some(prev_vol) => EMA_ALPHA * instant_vol + (1.0 - EMA_ALPHA) * prev_vol,
+                None => instant_vol,
             };
             ema_rate = Some(rate);
-            if rate < 0.001 {
+            ema_volatility = Some(vol);
+            // Unstable = volatility > 2% per epoch (big swings mean not converged)
+            if vol > 0.02 {
+                format!(" | unstable ({:.1}%/ep swing)", vol * 100.0)
+            } else if vol > 0.005 {
+                format!(" | searching ({:.1}%/ep swing)", vol * 100.0)
+            } else if rate < 0.001 {
                 " | converged".to_string()
             } else if rate < 0.005 {
                 format!(" | plateau ({:.2}%/ep)", rate * 100.0)
@@ -258,7 +269,12 @@ pub fn cmd_train(args: TrainArgs) {
         (1.0 - final_ratio) * 100.0,
     );
     if let Some(rate) = ema_rate {
-        let (label, hint) = if rate < 0.001 {
+        let vol = ema_volatility.unwrap_or(0.0);
+        let (label, hint) = if vol > 0.02 {
+            ("unstable", "high variance — model exploring, keep training")
+        } else if vol > 0.005 {
+            ("searching", "moderate variance — model still exploring")
+        } else if rate < 0.001 {
             ("converged", "further training unlikely to help")
         } else if rate < 0.005 {
             ("plateau", "diminishing returns, may stop soon")
@@ -266,9 +282,10 @@ pub fn cmd_train(args: TrainArgs) {
             ("improving", "model still learning, keep training")
         };
         eprintln!(
-            "  convergence  {} ({:.2}%/ep) — {}",
+            "  convergence  {} ({:.2}%/ep, {:.1}% swing) — {}",
             label,
             rate * 100.0,
+            vol * 100.0,
             hint,
         );
     }
