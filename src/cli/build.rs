@@ -165,7 +165,6 @@ fn run_neural_analysis(
     options: &trident::CompileOptions,
     train_generations: Option<u64>,
 ) {
-    use trident::field::PrimeField;
     use trident::ir::tir::encode;
     use trident::ir::tir::lower::{create_speculative_lowering, decode_output, StackLowering};
     use trident::ir::tir::neural::evolve::Population;
@@ -245,13 +244,12 @@ fn run_neural_analysis(
         };
 
         // Compute per-block baselines by lowering each block's TIR ops independently.
-        // Each block contains straight-line ops (no control flow) so lowering is valid.
         let per_block_baselines: Vec<u64> = blocks
             .iter()
             .map(|block| {
                 let block_ops = &ir[block.start_idx..block.end_idx];
                 if block_ops.is_empty() {
-                    return 1; // minimum cost for empty blocks
+                    return 1;
                 }
                 let block_tasm = lowering.lower(block_ops);
                 if block_tasm.is_empty() {
@@ -273,69 +271,95 @@ fn run_neural_analysis(
             total_block_baseline,
         );
 
-        // GPU acceleration (opt-in: set TRIDENT_GPU=1 to enable)
-        // Parallel CPU is faster (~250ms/gen vs ~800ms/gen GPU) because
-        // GPU is memory-bound on 500KB weight reads per thread.
-        let gpu_accel = if std::env::var("TRIDENT_GPU").is_ok() {
-            trident::gpu::neural_accel::NeuralAccelerator::try_new(
-                &blocks,
-                trident::ir::tir::neural::evolve::POP_SIZE as u32,
-            )
-        } else {
-            None
+        // GPU acceleration (default)
+        let gpu_accel = {
+            let max_blocks = blocks.len() as u32;
+            let pop_size = trident::ir::tir::neural::evolve::POP_SIZE as u32;
+            trident::gpu::neural_accel::NeuralAccelerator::try_create(max_blocks, pop_size)
         };
-        if gpu_accel.is_some() {
+        let gpu_accel = gpu_accel.map(|mut a| {
+            a.upload_blocks(&blocks);
             eprintln!("  using GPU acceleration");
-        }
+            a
+        });
 
         // Train for N generations with live progress
         let mut best_seen = i64::MIN;
         for gen in 0..generations {
             if let Some(ref accel) = gpu_accel {
                 // GPU path: batch all forward passes in one dispatch
-                let weight_vecs: Vec<Vec<u64>> = pop
+                let weight_vecs: Vec<Vec<trident::field::fixed::Fixed>> = pop
                     .individuals
                     .iter()
-                    .map(|ind| ind.weights.iter().map(|w| w.raw().to_u64()).collect())
+                    .map(|ind| ind.weights.clone())
                     .collect();
                 let gpu_outputs = accel.batch_forward(&weight_vecs);
 
-                // Score outputs on CPU using per-block baselines
+                let baselines = &per_block_baselines;
+                let fitnesses: Vec<i64> = std::thread::scope(|s| {
+                    let handles: Vec<_> = gpu_outputs
+                        .iter()
+                        .map(|ind_outputs| {
+                            s.spawn(move || {
+                                let mut total = 0i64;
+                                for (b, block_out) in ind_outputs.iter().enumerate() {
+                                    total -= score_neural_output(block_out, baselines[b]) as i64;
+                                }
+                                total
+                            })
+                        })
+                        .collect();
+                    handles.into_iter().map(|h| h.join().unwrap()).collect()
+                });
                 for (i, ind) in pop.individuals.iter_mut().enumerate() {
-                    let mut total = 0i64;
-                    for (b, _block) in blocks.iter().enumerate() {
-                        let block_baseline = per_block_baselines[b];
-                        total -= score_neural_output(&gpu_outputs[i][b], block_baseline) as i64;
-                    }
-                    ind.fitness = total;
+                    ind.fitness = fitnesses[i];
                 }
                 pop.update_best();
             } else {
-                // Parallel CPU path (default — faster than GPU for this workload)
-                pop.evaluate_with_baselines(
-                    &blocks,
-                    &per_block_baselines,
-                    |m: &mut NeuralModel,
-                     block: &trident::ir::tir::encode::TIRBlock,
-                     block_baseline: u64| {
-                        let output = m.forward(block);
-                        if output.is_empty() {
-                            return -(block_baseline as i64);
-                        }
-                        let candidate_lines = decode_output(&output);
-                        if candidate_lines.is_empty() {
-                            return -(block_baseline as i64);
-                        }
-                        let profile = trident::cost::scorer::profile_tasm(
-                            &candidate_lines
-                                .iter()
-                                .map(|s| s.as_str())
-                                .collect::<Vec<_>>(),
-                        );
-                        // Cap: neural can't score worse than baseline
-                        -(profile.cost().min(block_baseline) as i64)
-                    },
-                );
+                // CPU fallback
+                let blk_ref = &blocks;
+                let baselines = &per_block_baselines;
+                let fitnesses: Vec<i64> = std::thread::scope(|s| {
+                    let handles: Vec<_> = pop
+                        .individuals
+                        .iter()
+                        .map(|individual| {
+                            s.spawn(move || {
+                                let mut model = NeuralModel::from_weight_vec(&individual.weights);
+                                let mut total = 0i64;
+                                for (i, block) in blk_ref.iter().enumerate() {
+                                    let baseline = baselines[i];
+                                    let output = model.forward(block);
+                                    if output.is_empty() {
+                                        total -= baseline as i64;
+                                        continue;
+                                    }
+                                    let candidate_lines = decode_output(&output);
+                                    if candidate_lines.is_empty() {
+                                        total -= baseline as i64;
+                                        continue;
+                                    }
+                                    let profile = trident::cost::scorer::profile_tasm(
+                                        &candidate_lines
+                                            .iter()
+                                            .map(|s| s.as_str())
+                                            .collect::<Vec<_>>(),
+                                    );
+                                    total -= profile.cost().min(baseline) as i64;
+                                }
+                                total
+                            })
+                        })
+                        .collect();
+                    handles
+                        .into_iter()
+                        .map(|h| h.join().expect("evaluate thread panicked"))
+                        .collect()
+                });
+                for (i, ind) in pop.individuals.iter_mut().enumerate() {
+                    ind.fitness = fitnesses[i];
+                }
+                pop.update_best();
             }
 
             let gen_best = pop
@@ -362,7 +386,6 @@ fn run_neural_analysis(
                 let elapsed_so_far = start_time.elapsed();
                 let cost_est = (-gen_best) as u64;
                 let marker = if improved { " *" } else { "" };
-                // Use \r to overwrite + pad with spaces to clear previous content
                 eprint!(
                     "\r  gen {}/{}  cost: {}  ({:.1}s){}          ",
                     gen_start + gen + 1,
@@ -414,7 +437,6 @@ fn run_neural_analysis(
         }
 
         let mut tracker = weights::ConvergenceTracker::new();
-        // Feed in the score
         let status = tracker.record(score_after);
 
         let new_meta = OptimizerMeta {

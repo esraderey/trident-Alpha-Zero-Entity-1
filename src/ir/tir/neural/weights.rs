@@ -244,26 +244,16 @@ fn bundled_neural_dir() -> PathBuf {
 
 /// Weights path for saving (always writes to user-local).
 pub fn weights_path(_project_root: &Path) -> PathBuf {
-    local_neural_dir().join("weights.bin")
+    local_neural_dir().join("weights_lite.bin")
 }
 
 /// Meta path for saving (always writes to user-local).
 pub fn meta_path(_project_root: &Path) -> PathBuf {
-    local_neural_dir().join("meta.toml")
-}
-
-/// Lite weights path for saving.
-pub fn weights_lite_path(_project_root: &Path) -> PathBuf {
-    local_neural_dir().join("weights_lite.bin")
-}
-
-/// Lite meta path for saving.
-pub fn meta_lite_path(_project_root: &Path) -> PathBuf {
     local_neural_dir().join("meta_lite.toml")
 }
 
-/// Load lite weights: user-local first, then bundled.
-pub fn load_best_weights_lite() -> std::io::Result<Vec<Fixed>> {
+/// Load weights: user-local first, then bundled.
+pub fn load_best_weights() -> std::io::Result<Vec<Fixed>> {
     let local = local_neural_dir().join("weights_lite.bin");
     if local.exists() {
         return load_weights(&local);
@@ -272,33 +262,13 @@ pub fn load_best_weights_lite() -> std::io::Result<Vec<Fixed>> {
     load_weights(&bundled)
 }
 
-/// Load lite meta: user-local first, then bundled.
-pub fn load_best_meta_lite() -> std::io::Result<OptimizerMeta> {
+/// Load meta: user-local first, then bundled.
+pub fn load_best_meta() -> std::io::Result<OptimizerMeta> {
     let local = local_neural_dir().join("meta_lite.toml");
     if local.exists() {
         return load_meta(&local);
     }
     let bundled = bundled_neural_dir().join("meta_lite.toml");
-    load_meta(&bundled)
-}
-
-/// Load weights: user-local first, then bundled.
-pub fn load_best_weights() -> std::io::Result<Vec<Fixed>> {
-    let local = local_neural_dir().join("weights.bin");
-    if local.exists() {
-        return load_weights(&local);
-    }
-    let bundled = bundled_neural_dir().join("weights.bin");
-    load_weights(&bundled)
-}
-
-/// Load meta: user-local first, then bundled.
-pub fn load_best_meta() -> std::io::Result<OptimizerMeta> {
-    let local = local_neural_dir().join("meta.toml");
-    if local.exists() {
-        return load_meta(&local);
-    }
-    let bundled = bundled_neural_dir().join("meta.toml");
     load_meta(&bundled)
 }
 

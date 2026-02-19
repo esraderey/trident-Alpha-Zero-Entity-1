@@ -11,12 +11,9 @@ pub struct TrainArgs {
     /// Generations per file per epoch (default: 10)
     #[arg(short, long, default_value = "10")]
     pub generations: u64,
-    /// Use GPU acceleration (default: CPU parallel)
+    /// Disable GPU (use CPU parallel instead)
     #[arg(long)]
-    pub gpu: bool,
-    /// Use lite model (10K params, MLP-only, faster training)
-    #[arg(long)]
-    pub lite: bool,
+    pub cpu: bool,
 }
 
 /// Pre-compiled file data — TIR + blocks + baselines, computed once.
@@ -25,31 +22,6 @@ struct CompiledFile {
     blocks: Vec<trident::ir::tir::encode::TIRBlock>,
     per_block_baselines: Vec<u64>,
     baseline_cost: u64,
-}
-
-/// Either full or lite GPU accelerator.
-enum GpuAccel {
-    Full(trident::gpu::neural_f32::F32Accelerator),
-    Lite(trident::gpu::neural_f32_lite::F32LiteAccelerator),
-}
-
-impl GpuAccel {
-    fn upload_blocks(&mut self, blocks: &[trident::ir::tir::encode::TIRBlock]) {
-        match self {
-            GpuAccel::Full(a) => a.upload_blocks(blocks),
-            GpuAccel::Lite(a) => a.upload_blocks(blocks),
-        }
-    }
-
-    fn batch_forward(
-        &self,
-        weight_vecs: &[Vec<trident::field::fixed::Fixed>],
-    ) -> Vec<Vec<Vec<u32>>> {
-        match self {
-            GpuAccel::Full(a) => a.batch_forward(weight_vecs),
-            GpuAccel::Lite(a) => a.batch_forward(weight_vecs),
-        }
-    }
 }
 
 pub fn cmd_train(args: TrainArgs) {
@@ -61,19 +33,11 @@ pub fn cmd_train(args: TrainArgs) {
         process::exit(1);
     }
 
-    let meta = if args.lite {
-        weights::load_best_meta_lite().ok()
-    } else {
-        weights::load_best_meta().ok()
-    };
+    let meta = weights::load_best_meta().ok();
     let gen_start = meta.as_ref().map_or(0, |m| m.generation);
 
-    let model_tag = if args.lite {
-        "lite (10K)"
-    } else {
-        "full (62K)"
-    };
-    let device_tag = if args.gpu { "GPU" } else { "CPU" };
+    let use_gpu = !args.cpu;
+    let device_tag = if use_gpu { "GPU" } else { "CPU" };
 
     eprintln!("trident train");
     eprintln!("  compiling corpus...");
@@ -97,42 +61,21 @@ pub fn cmd_train(args: TrainArgs) {
         "  schedule  {} epochs x {} gens/file = {} total gens",
         args.epochs, args.generations, total_gens
     );
-    eprintln!(
-        "  model     gen {} | {} | {}",
-        gen_start, model_tag, device_tag
-    );
+    eprintln!("  model     gen {} | 10K MLP | {}", gen_start, device_tag);
     eprintln!();
 
     // Create GPU accelerator once, sized for the largest file in corpus
-    let mut gpu_accel: Option<GpuAccel> = if args.gpu {
+    let mut gpu_accel: Option<trident::gpu::neural_accel::NeuralAccelerator> = if use_gpu {
         let max_blocks = compiled.iter().map(|c| c.blocks.len()).max().unwrap_or(1) as u32;
         let pop_size = trident::ir::tir::neural::evolve::POP_SIZE as u32;
-        if args.lite {
-            match trident::gpu::neural_f32_lite::F32LiteAccelerator::try_create(
-                max_blocks, pop_size,
-            ) {
-                Some(accel) => {
-                    eprintln!(
-                        "  GPU initialized (lite f32, capacity: {} blocks)",
-                        max_blocks
-                    );
-                    Some(GpuAccel::Lite(accel))
-                }
-                None => {
-                    eprintln!("  GPU unavailable, falling back to CPU");
-                    None
-                }
+        match trident::gpu::neural_accel::NeuralAccelerator::try_create(max_blocks, pop_size) {
+            Some(accel) => {
+                eprintln!("  GPU initialized (f32, capacity: {} blocks)", max_blocks);
+                Some(accel)
             }
-        } else {
-            match trident::gpu::neural_f32::F32Accelerator::try_create(max_blocks, pop_size) {
-                Some(accel) => {
-                    eprintln!("  GPU initialized (f32, capacity: {} blocks)", max_blocks);
-                    Some(GpuAccel::Full(accel))
-                }
-                None => {
-                    eprintln!("  GPU unavailable, falling back to CPU");
-                    None
-                }
+            None => {
+                eprintln!("  GPU unavailable, falling back to CPU");
+                None
             }
         }
     } else {
@@ -167,7 +110,7 @@ pub fn cmd_train(args: TrainArgs) {
             use std::io::Write;
             let _ = std::io::stderr().flush();
 
-            let cost = train_one_compiled(cf, args.generations, &mut gpu_accel, args.lite);
+            let cost = train_one_compiled(cf, args.generations, &mut gpu_accel);
             epoch_costs.push((file_idx, cost));
             total_trained += 1;
         }
@@ -234,11 +177,7 @@ pub fn cmd_train(args: TrainArgs) {
     }
 
     let elapsed = start.elapsed();
-    let meta = if args.lite {
-        weights::load_best_meta_lite().ok()
-    } else {
-        weights::load_best_meta().ok()
-    };
+    let meta = weights::load_best_meta().ok();
     let gen_end = meta.as_ref().map_or(0, |m| m.generation);
 
     eprintln!("done");
@@ -329,12 +268,11 @@ fn compile_corpus(files: &[std::path::PathBuf]) -> Vec<CompiledFile> {
 fn train_one_compiled(
     cf: &CompiledFile,
     generations: u64,
-    gpu_accel: &mut Option<GpuAccel>,
-    lite: bool,
+    gpu_accel: &mut Option<trident::gpu::neural_accel::NeuralAccelerator>,
 ) -> u64 {
     use trident::ir::tir::lower::decode_output;
     use trident::ir::tir::neural::evolve::Population;
-    use trident::ir::tir::neural::model_lite::NeuralModelLite;
+    use trident::ir::tir::neural::model::NeuralModel;
     use trident::ir::tir::neural::weights::{self, OptimizerMeta, OptimizerStatus};
 
     let default_meta = OptimizerMeta {
@@ -346,36 +284,18 @@ fn train_one_compiled(
         status: OptimizerStatus::Improving,
     };
 
-    let (current_weights, meta) = if lite {
-        match weights::load_best_weights_lite() {
-            Ok(w) => {
-                let meta = weights::load_best_meta_lite().unwrap_or_else(|_| {
-                    let mut m = default_meta.clone();
-                    m.weight_hash = weights::hash_weights(&w);
-                    m
-                });
-                (w, meta)
-            }
-            Err(_) => {
-                let w = NeuralModelLite::zeros().to_weight_vec();
-                (w, default_meta)
-            }
+    let (current_weights, meta) = match weights::load_best_weights() {
+        Ok(w) => {
+            let meta = weights::load_best_meta().unwrap_or_else(|_| {
+                let mut m = default_meta.clone();
+                m.weight_hash = weights::hash_weights(&w);
+                m
+            });
+            (w, meta)
         }
-    } else {
-        use trident::ir::tir::neural::model::NeuralModel;
-        match weights::load_best_weights() {
-            Ok(w) => {
-                let meta = weights::load_best_meta().unwrap_or_else(|_| {
-                    let mut m = default_meta.clone();
-                    m.weight_hash = weights::hash_weights(&w);
-                    m
-                });
-                (w, meta)
-            }
-            Err(_) => {
-                let w = NeuralModel::zeros().to_weight_vec();
-                (w, default_meta)
-            }
+        Err(_) => {
+            let w = NeuralModel::zeros().to_weight_vec();
+            (w, default_meta)
         }
     };
 
@@ -428,15 +348,15 @@ fn train_one_compiled(
                 ind.fitness = fitnesses[i];
             }
             pop.update_best();
-        } else if lite {
-            // CPU lite path: evaluate with NeuralModelLite
+        } else {
+            // CPU path
             let fitnesses: Vec<i64> = std::thread::scope(|s| {
                 let handles: Vec<_> = pop
                     .individuals
                     .iter()
                     .map(|individual| {
                         s.spawn(move || {
-                            let mut model = NeuralModelLite::from_weight_vec(&individual.weights);
+                            let mut model = NeuralModel::from_weight_vec(&individual.weights);
                             let mut total = 0i64;
                             for (i, block) in cf.blocks.iter().enumerate() {
                                 let baseline = cf.per_block_baselines[i];
@@ -464,38 +384,13 @@ fn train_one_compiled(
                     .collect();
                 handles
                     .into_iter()
-                    .map(|h| h.join().expect("lite evaluate thread panicked"))
+                    .map(|h| h.join().expect("evaluate thread panicked"))
                     .collect()
             });
             for (i, ind) in pop.individuals.iter_mut().enumerate() {
                 ind.fitness = fitnesses[i];
             }
             pop.update_best();
-        } else {
-            use trident::ir::tir::neural::model::NeuralModel;
-            pop.evaluate_with_baselines(
-                &cf.blocks,
-                &cf.per_block_baselines,
-                |m: &mut NeuralModel,
-                 block: &trident::ir::tir::encode::TIRBlock,
-                 block_baseline: u64| {
-                    let output = m.forward(block);
-                    if output.is_empty() {
-                        return -(block_baseline as i64);
-                    }
-                    let candidate_lines = decode_output(&output);
-                    if candidate_lines.is_empty() {
-                        return -(block_baseline as i64);
-                    }
-                    let profile = trident::cost::scorer::profile_tasm(
-                        &candidate_lines
-                            .iter()
-                            .map(|s| s.as_str())
-                            .collect::<Vec<_>>(),
-                    );
-                    -(profile.cost().min(block_baseline) as i64)
-                },
-            );
         }
 
         let gen_best = pop
@@ -519,11 +414,7 @@ fn train_one_compiled(
 
     let weight_hash = weights::hash_weights(best);
     let dummy_root = Path::new(".");
-    if lite {
-        let _ = weights::save_weights(best, &weights::weights_lite_path(dummy_root));
-    } else {
-        let _ = weights::save_weights(best, &weights::weights_path(dummy_root));
-    }
+    let _ = weights::save_weights(best, &weights::weights_path(dummy_root));
 
     let mut tracker = weights::ConvergenceTracker::new();
     let status = tracker.record(score_after);
@@ -535,11 +426,7 @@ fn train_one_compiled(
         baseline_score: cf.baseline_cost,
         status,
     };
-    if lite {
-        let _ = weights::save_meta(&new_meta, &weights::meta_lite_path(dummy_root));
-    } else {
-        let _ = weights::save_meta(&new_meta, &weights::meta_path(dummy_root));
-    }
+    let _ = weights::save_meta(&new_meta, &weights::meta_path(dummy_root));
 
     score_after
 }

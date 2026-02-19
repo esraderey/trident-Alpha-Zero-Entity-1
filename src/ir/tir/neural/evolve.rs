@@ -3,9 +3,8 @@
 //! Population of 16 weight vectors. Tournament selection, uniform
 //! crossover, per-weight mutation. No gradients required.
 
-use super::model::NeuralModel;
+use super::model::PARAM_COUNT;
 use crate::field::fixed::Fixed;
-use crate::ir::tir::encode::TIRBlock;
 
 /// Population size.
 pub const POP_SIZE: usize = 16;
@@ -32,32 +31,14 @@ pub struct Population {
 }
 
 impl Population {
+    /// Create a new random population.
+    pub fn new_random(seed: u64) -> Self {
+        Self::new_random_with_size(PARAM_COUNT, seed)
+    }
+
     /// Create a new random population with explicit weight count.
     pub fn new_random_with_size(weight_count: usize, seed: u64) -> Self {
         let mut individuals = Vec::with_capacity(POP_SIZE);
-
-        for i in 0..POP_SIZE {
-            let weights = random_weights(weight_count, seed.wrapping_add(i as u64));
-            individuals.push(Individual {
-                weights,
-                fitness: i64::MIN,
-            });
-        }
-
-        Self {
-            individuals,
-            generation: 0,
-            best_fitness: i64::MIN,
-            mutation_rate: MUTATION_RATE,
-            stale_count: 0,
-        }
-    }
-
-    /// Create a new random population.
-    pub fn new_random(seed: u64) -> Self {
-        let mut individuals = Vec::with_capacity(POP_SIZE);
-        let model = NeuralModel::zeros();
-        let weight_count = model.weight_count();
 
         for i in 0..POP_SIZE {
             let weights = random_weights(weight_count, seed.wrapping_add(i as u64));
@@ -103,80 +84,6 @@ impl Population {
             mutation_rate: MUTATION_RATE,
             stale_count: 0,
         }
-    }
-
-    /// Evaluate all individuals on a batch of TIR blocks.
-    ///
-    /// The scorer function takes (model, block) and returns a score
-    /// (negative padded height — higher is better). Only verified
-    /// outputs count.
-    pub fn evaluate<F>(&mut self, blocks: &[TIRBlock], scorer: F)
-    where
-        F: Fn(&mut NeuralModel, &TIRBlock) -> i64 + Sync,
-    {
-        let fitnesses: Vec<i64> = std::thread::scope(|s| {
-            let handles: Vec<_> = self
-                .individuals
-                .iter()
-                .map(|individual| {
-                    let scorer = &scorer;
-                    s.spawn(move || {
-                        let mut model = NeuralModel::from_weight_vec(&individual.weights);
-                        let mut total_fitness = 0i64;
-                        for block in blocks {
-                            total_fitness = total_fitness.saturating_add(scorer(&mut model, block));
-                        }
-                        total_fitness
-                    })
-                })
-                .collect();
-            handles
-                .into_iter()
-                .map(|h| h.join().expect("evaluate thread panicked"))
-                .collect()
-        });
-        for (individual, fitness) in self.individuals.iter_mut().zip(fitnesses) {
-            individual.fitness = fitness;
-        }
-
-        self.update_best();
-    }
-
-    /// Evaluate all individuals using per-block baselines.
-    ///
-    /// The scorer function takes (model, block, block_baseline) and returns a score.
-    pub fn evaluate_with_baselines<F>(&mut self, blocks: &[TIRBlock], baselines: &[u64], scorer: F)
-    where
-        F: Fn(&mut NeuralModel, &TIRBlock, u64) -> i64 + Sync,
-    {
-        let fitnesses: Vec<i64> = std::thread::scope(|s| {
-            let handles: Vec<_> = self
-                .individuals
-                .iter()
-                .map(|individual| {
-                    let scorer = &scorer;
-                    s.spawn(move || {
-                        let mut model = NeuralModel::from_weight_vec(&individual.weights);
-                        let mut total_fitness = 0i64;
-                        for (i, block) in blocks.iter().enumerate() {
-                            let baseline = baselines.get(i).copied().unwrap_or(1);
-                            total_fitness =
-                                total_fitness.saturating_add(scorer(&mut model, block, baseline));
-                        }
-                        total_fitness
-                    })
-                })
-                .collect();
-            handles
-                .into_iter()
-                .map(|h| h.join().expect("evaluate thread panicked"))
-                .collect()
-        });
-        for (individual, fitness) in self.individuals.iter_mut().zip(fitnesses) {
-            individual.fitness = fitness;
-        }
-
-        self.update_best();
     }
 
     /// Run one generation: selection + crossover + mutation with adaptive rate.
