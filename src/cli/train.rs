@@ -312,8 +312,14 @@ fn cost_bar(ratio: f64) -> &'static str {
         ">>"
     } else if ratio < 1.0 {
         ">"
-    } else {
+    } else if ratio <= 1.0 {
         "="
+    } else if ratio <= 1.25 {
+        "<"
+    } else if ratio <= 1.5 {
+        "<<"
+    } else {
+        "<<<"
     }
 }
 
@@ -564,33 +570,26 @@ fn train_one_compiled(
     // Capture per-block neural TASM from the actual best individual.
     // The reported cost reflects only what was actually captured and verified —
     // not the evolutionary population's best_seen (which may not reproduce).
-    let neural_tasm = if best_seen > 0 {
-        if let Some(ref bw) = best_individual_weights {
-            capture_neural_tasm(cf, bw)
-        } else {
-            None
-        }
+    let (neural_blocks, honest_cost) = if let Some(ref bw) = best_individual_weights {
+        capture_neural_tasm(cf, bw)
     } else {
-        None
+        (cf.per_block_tasm.clone(), cf.baseline_cost)
     };
 
-    let honest_cost = if let Some(ref blocks) = neural_tasm {
-        // Cost = sum of per-block costs from the actual captured TASM
-        let mut total = 0u64;
-        for block_lines in blocks {
-            let profile = trident::cost::scorer::profile_tasm(
-                &block_lines.iter().map(|s| s.as_str()).collect::<Vec<_>>(),
-            );
-            total += profile.cost();
-        }
-        total
-    } else {
-        cf.baseline_cost
-    };
+    // Write file if any block had a verified neural candidate
+    let has_neural = honest_cost != cf.baseline_cost
+        || neural_blocks
+            .iter()
+            .zip(cf.per_block_tasm.iter())
+            .any(|(n, b)| n != b);
 
     TrainResult {
         cost: honest_cost,
-        neural_tasm,
+        neural_tasm: if has_neural {
+            Some(neural_blocks)
+        } else {
+            None
+        },
     }
 }
 
@@ -643,18 +642,22 @@ fn short_path(path: &Path) -> String {
 }
 
 /// Capture per-block neural TASM from specific weights (the actual best individual).
-/// Returns Some(per-block TASM) if at least one block has a neural win, None otherwise.
+/// Always returns per-block TASM: for blocks where the neural candidate passes
+/// verification, use the candidate (even if more expensive — honest reporting).
+/// For blocks that fail verification, fall back to baseline.
+/// Also returns the honest cost (sum of all block costs as-used).
 fn capture_neural_tasm(
     cf: &CompiledFile,
     weights: &[trident::field::fixed::Fixed],
-) -> Option<Vec<Vec<String>>> {
+) -> (Vec<Vec<String>>, u64) {
     use trident::cost::{scorer, stack_verifier};
     use trident::ir::tir::lower::decode_output;
     use trident::ir::tir::neural::model::NeuralModel;
 
     let mut model = NeuralModel::from_weight_vec(weights);
     let mut per_block: Vec<Vec<String>> = Vec::with_capacity(cf.blocks.len());
-    let mut any_win = false;
+    let mut total_cost = 0u64;
+    let mut any_neural = false;
 
     for (i, block) in cf.blocks.iter().enumerate() {
         let baseline_tasm = &cf.per_block_tasm[i];
@@ -669,21 +672,23 @@ fn capture_neural_tasm(
             {
                 let profile =
                     scorer::profile_tasm(&candidate.iter().map(|s| s.as_str()).collect::<Vec<_>>());
-                if profile.cost() < baseline_cost {
-                    per_block.push(candidate);
-                    any_win = true;
-                    continue;
-                }
+                total_cost += profile.cost();
+                per_block.push(candidate);
+                any_neural = true;
+                continue;
             }
         }
+        // Verification failed or empty output — baseline fallback
+        total_cost += baseline_cost;
         per_block.push(baseline_tasm.clone());
     }
 
-    if any_win {
-        Some(per_block)
-    } else {
-        None
+    // Only write files when the model actually produced at least one verified block
+    if !any_neural {
+        total_cost = cf.baseline_cost;
     }
+
+    (per_block, total_cost)
 }
 
 /// Write captured neural TASM to disk at benches/<path>.neural.tasm.
