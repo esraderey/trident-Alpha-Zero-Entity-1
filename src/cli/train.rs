@@ -19,7 +19,6 @@ pub struct TrainArgs {
 /// Pre-compiled file data — TIR + blocks + baselines, computed once.
 struct CompiledFile {
     path: String,
-    source_path: std::path::PathBuf,
     blocks: Vec<trident::ir::tir::encode::TIRBlock>,
     per_block_baselines: Vec<u64>,
     per_block_tasm: Vec<Vec<String>>,
@@ -93,6 +92,7 @@ pub fn cmd_train(args: TrainArgs) {
     let mut ema_rate: Option<f64> = None;
     let mut ema_volatility: Option<f64> = None;
     const EMA_ALPHA: f64 = 0.3;
+    let repo_root = find_repo_root();
 
     for epoch in 0..args.epochs {
         // Shuffle file indices each epoch
@@ -118,9 +118,16 @@ pub fn cmd_train(args: TrainArgs) {
             use std::io::Write;
             let _ = std::io::stderr().flush();
 
-            let cost = train_one_compiled(cf, args.generations, &mut gpu_accel);
-            epoch_costs.push((file_idx, cost));
+            let result = train_one_compiled(cf, args.generations, &mut gpu_accel);
+            epoch_costs.push((file_idx, result.cost));
             total_trained += 1;
+
+            // On last epoch, write captured neural TASM to disk
+            if epoch + 1 == args.epochs {
+                if let Some(ref per_block) = result.neural_tasm {
+                    write_neural_tasm(cf, per_block, &repo_root);
+                }
+            }
         }
 
         let epoch_elapsed = epoch_start.elapsed();
@@ -251,51 +258,6 @@ pub fn cmd_train(args: TrainArgs) {
         let _ = weights::save_meta(&new_meta, &weights::meta_path(dummy_root));
     }
 
-    // Save neural TASM files for modules where the model found improvements
-    {
-        let options = super::resolve_options("triton", "debug", None);
-        let repo_root = find_repo_root();
-        let benches_dir = repo_root.join("benches");
-        let mut saved_count = 0usize;
-
-        for cf in &compiled {
-            // Compile classical TASM for this module
-            let _guard = trident::diagnostic::suppress_warnings();
-            let classical = trident::compile_module(&cf.source_path, &options);
-            drop(_guard);
-            let classical_tasm = match classical {
-                Ok(tasm) => tasm,
-                Err(_) => continue,
-            };
-
-            // Run neural forward pass + substitution
-            if let Some(neural_tasm) =
-                super::bench::compile_neural_tasm(&cf.source_path, &classical_tasm, &options)
-            {
-                // Map source path to benches/ path
-                // e.g. "std/crypto/poseidon2.tri" → "benches/std/crypto/poseidon2.neural.tasm"
-                let neural_path = benches_dir.join(cf.path.replace(".tri", ".neural.tasm"));
-                if let Some(parent) = neural_path.parent() {
-                    let _ = std::fs::create_dir_all(parent);
-                }
-                if std::fs::write(&neural_path, &neural_tasm).is_ok() {
-                    eprintln!(
-                        "  wrote {}",
-                        neural_path
-                            .strip_prefix(&repo_root)
-                            .unwrap_or(&neural_path)
-                            .display()
-                    );
-                    saved_count += 1;
-                }
-            }
-        }
-
-        if saved_count > 0 {
-            eprintln!("  saved {} neural TASM file(s)", saved_count);
-        }
-    }
-
     eprintln!("done");
     eprintln!(
         "  generations  {} -> {} (+{})",
@@ -399,7 +361,6 @@ fn compile_corpus(files: &[std::path::PathBuf]) -> Vec<CompiledFile> {
 
         compiled.push(CompiledFile {
             path: short_path(file),
-            source_path: file.clone(),
             blocks,
             per_block_baselines,
             per_block_tasm,
@@ -410,12 +371,22 @@ fn compile_corpus(files: &[std::path::PathBuf]) -> Vec<CompiledFile> {
     compiled
 }
 
-/// Train on a pre-compiled file. Returns the cost after training.
+/// Result of training a single file: cost + optional per-block neural TASM.
+struct TrainResult {
+    cost: u64,
+    /// Per-block TASM for every block in the file.
+    /// If a block had a neural win, it contains the neural candidate.
+    /// Otherwise, it contains the classical baseline.
+    /// None if no wins were found at all.
+    neural_tasm: Option<Vec<Vec<String>>>,
+}
+
+/// Train on a pre-compiled file. Returns cost + captured neural TASM.
 fn train_one_compiled(
     cf: &CompiledFile,
     generations: u64,
     gpu_accel: &mut Option<trident::gpu::neural_accel::NeuralAccelerator>,
-) -> u64 {
+) -> TrainResult {
     use trident::ir::tir::lower::decode_output;
     use trident::ir::tir::neural::evolve::Population;
     use trident::ir::tir::neural::model::NeuralModel;
@@ -465,6 +436,7 @@ fn train_one_compiled(
     }
 
     let mut best_seen = i64::MIN;
+    let mut best_individual_weights: Option<Vec<trident::field::fixed::Fixed>> = None;
     for gen in 0..generations {
         if let Some(ref accel) = gpu_accel {
             let weight_vecs: Vec<Vec<trident::field::fixed::Fixed>> = pop
@@ -555,14 +527,12 @@ fn train_one_compiled(
             pop.update_best();
         }
 
-        let gen_best = pop
-            .individuals
-            .iter()
-            .map(|i| i.fitness)
-            .max()
-            .unwrap_or(i64::MIN);
-        if gen_best > best_seen {
-            best_seen = gen_best;
+        let gen_best_ind = pop.individuals.iter().max_by_key(|i| i.fitness);
+        if let Some(ind) = gen_best_ind {
+            if ind.fitness > best_seen {
+                best_seen = ind.fitness;
+                best_individual_weights = Some(ind.weights.clone());
+            }
         }
         pop.evolve(gen_start.wrapping_add(gen));
     }
@@ -591,7 +561,37 @@ fn train_one_compiled(
     };
     let _ = weights::save_meta(&new_meta, &weights::meta_path(dummy_root));
 
-    score_after
+    // Capture per-block neural TASM from the actual best individual.
+    // The reported cost reflects only what was actually captured and verified —
+    // not the evolutionary population's best_seen (which may not reproduce).
+    let neural_tasm = if best_seen > 0 {
+        if let Some(ref bw) = best_individual_weights {
+            capture_neural_tasm(cf, bw)
+        } else {
+            None
+        }
+    } else {
+        None
+    };
+
+    let honest_cost = if let Some(ref blocks) = neural_tasm {
+        // Cost = sum of per-block costs from the actual captured TASM
+        let mut total = 0u64;
+        for block_lines in blocks {
+            let profile = trident::cost::scorer::profile_tasm(
+                &block_lines.iter().map(|s| s.as_str()).collect::<Vec<_>>(),
+            );
+            total += profile.cost();
+        }
+        total
+    } else {
+        cf.baseline_cost
+    };
+
+    TrainResult {
+        cost: honest_cost,
+        neural_tasm,
+    }
 }
 
 fn discover_corpus() -> Vec<std::path::PathBuf> {
@@ -640,6 +640,74 @@ fn short_path(path: &Path) -> String {
         }
     }
     s.to_string()
+}
+
+/// Capture per-block neural TASM from specific weights (the actual best individual).
+/// Returns Some(per-block TASM) if at least one block has a neural win, None otherwise.
+fn capture_neural_tasm(
+    cf: &CompiledFile,
+    weights: &[trident::field::fixed::Fixed],
+) -> Option<Vec<Vec<String>>> {
+    use trident::cost::{scorer, stack_verifier};
+    use trident::ir::tir::lower::decode_output;
+    use trident::ir::tir::neural::model::NeuralModel;
+
+    let mut model = NeuralModel::from_weight_vec(weights);
+    let mut per_block: Vec<Vec<String>> = Vec::with_capacity(cf.blocks.len());
+    let mut any_win = false;
+
+    for (i, block) in cf.blocks.iter().enumerate() {
+        let baseline_tasm = &cf.per_block_tasm[i];
+        let baseline_cost = cf.per_block_baselines[i];
+
+        let output = model.forward(block);
+        if !output.is_empty() {
+            let candidate = decode_output(&output);
+            if !candidate.is_empty()
+                && !baseline_tasm.is_empty()
+                && stack_verifier::verify_equivalent(baseline_tasm, &candidate, i as u64)
+            {
+                let profile =
+                    scorer::profile_tasm(&candidate.iter().map(|s| s.as_str()).collect::<Vec<_>>());
+                if profile.cost() < baseline_cost {
+                    per_block.push(candidate);
+                    any_win = true;
+                    continue;
+                }
+            }
+        }
+        per_block.push(baseline_tasm.clone());
+    }
+
+    if any_win {
+        Some(per_block)
+    } else {
+        None
+    }
+}
+
+/// Write captured neural TASM to disk at benches/<path>.neural.tasm.
+fn write_neural_tasm(cf: &CompiledFile, per_block: &[Vec<String>], repo_root: &Path) {
+    let benches_dir = repo_root.join("benches");
+    let neural_path = benches_dir.join(cf.path.replace(".tri", ".neural.tasm"));
+    if let Some(parent) = neural_path.parent() {
+        let _ = std::fs::create_dir_all(parent);
+    }
+    let lines: Vec<&str> = per_block
+        .iter()
+        .flat_map(|b| b.iter().map(|s| s.as_str()))
+        .collect();
+    let content = lines.join("\n");
+    if std::fs::write(&neural_path, &content).is_ok() {
+        eprintln!(
+            "\r  wrote {}{}",
+            neural_path
+                .strip_prefix(repo_root)
+                .unwrap_or(&neural_path)
+                .display(),
+            " ".repeat(30),
+        );
+    }
 }
 
 fn score_neural_improvement(

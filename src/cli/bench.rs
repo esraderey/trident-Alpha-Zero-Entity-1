@@ -582,7 +582,8 @@ fn run_rust_reference(ref_path: &str) -> Option<u64> {
 /// Compile a module with neural optimization: build TIR, run neural model
 /// on each block, substitute candidates that pass stack verification and
 /// have lower cost than classical lowering.
-pub(super) fn compile_neural_tasm(
+#[allow(dead_code)]
+fn compile_neural_tasm(
     source_path: &Path,
     classical_tasm: &str,
     options: &trident::CompileOptions,
