@@ -574,62 +574,83 @@ __asg_loop:
 // 30 counted instructions.
 // ---------------------------------------------------------------------------
 __asg_apply:
-    // g00 at depth 10, g01 at 11, g10 at 12, g11 at 13
-    // lo.re at 3, lo.im at 2, hi.re at 1, hi.im at 0
-    // Compute g00 * lo.re
+    // Entry stack (top first):
+    //  st0=hi.im, st1=hi.re, st2=lo.im, st3=lo.re,
+    //  st4=hi_addr, st5=lo_addr, st6=idx, st7=stride,
+    //  st8=n_q, st9=tgt, st10=g00, st11=g01, st12=g10, st13=g11, st14=state_addr
+    //
+    // Strategy: compute and store new_lo to memory first (via mem[510..511]),
+    // then pop the old new_lo values so stack stays shallow for new_hi.
+    //
+    // new_lo.re = g00*lo.re + g01*hi.re
     dup 3
     dup 11
     mul
-    // Compute g01 * hi.re
     dup 2
     dup 13
     mul
     add
     // [new_lo.re, hi.im, hi.re, lo.im, lo.re, hi_addr, lo_addr, ...]
-    // Compute g00 * lo.im
-    dup 4
+    // new_lo.im = g00*lo.im + g01*hi.im
+    dup 3
     dup 12
     mul
+    dup 2
+    dup 14
+    mul
+    add
+    // [new_lo.im, new_lo.re, hi.im, hi.re, lo.im, lo.re, hi_addr, lo_addr, ...]
+    // Store new_lo to scratch memory, pop from stack
+    push 510
+    swap 1
+    write_mem 1
+    swap 1
+    write_mem 1
+    pop 1
+    // Stack restored: [hi.im, hi.re, lo.im, lo.re, hi_addr, lo_addr, ...]
+    // Now g10 at depth 12, g11 at depth 13 — within bounds
+    // new_hi.re = g10*lo.re + g11*hi.re
+    dup 3
+    dup 13
+    mul
+    dup 2
+    dup 15
+    mul
+    add
+    // new_hi.im = g10*lo.im + g11*hi.im
     dup 3
     dup 14
     mul
-    add
-    // [new_lo.im, new_lo.re, hi.im, hi.re, lo.im, lo.re, ...]
-    // Compute g10 * lo.re + g11 * hi.re
-    dup 5
+    dup 2
     dup 14
     mul
-    dup 4
-    dup 16
-    mul
     add
-    // [new_hi.re, new_lo.im, new_lo.re, ...]
-    // Compute g10 * lo.im + g11 * hi.im
-    dup 6
-    dup 15
-    mul
-    dup 5
-    dup 17
-    mul
-    add
-    // [new_hi.im, new_hi.re, new_lo.im, new_lo.re, hi.im, hi.re, lo.im, lo.re,
-    //  hi_addr, lo_addr, ...]
-    // Write new_lo to lo_addr
-    dup 9
-    dup 4
-    write_mem 1
-    dup 4
-    write_mem 1
-    pop 1
+    // [new_hi.im, new_hi.re, hi.im, hi.re, lo.im, lo.re, hi_addr, lo_addr, ...]
     // Write new_hi to hi_addr
-    dup 7
+    dup 6
     dup 2
     write_mem 1
     dup 2
     write_mem 1
     pop 1
-    // Clean up: remove old amplitudes and addresses
-    pop 4
+    // Pop new_hi results + old amplitudes
+    pop 5
+    pop 1
+    // Stack: [hi_addr, lo_addr, idx, stride, ...]
+    // Write new_lo from scratch memory to lo_addr
+    dup 1
+    push 510
+    read_mem 1
+    pop 1
+    write_mem 1
+    push 510
+    push 1
+    add
+    read_mem 1
+    pop 1
+    write_mem 1
+    pop 1
+    // Clean up hi_addr and lo_addr
     swap 2
     pop 2
     return

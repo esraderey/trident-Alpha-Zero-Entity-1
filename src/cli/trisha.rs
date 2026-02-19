@@ -55,7 +55,13 @@ pub fn run_trisha(args: &[&str]) -> Result<TrishaResult, String> {
 
     if !result.status.success() {
         let stderr = String::from_utf8_lossy(&result.stderr);
-        return Err(stderr.trim().to_string());
+        // Filter out GPU init lines to surface the real error
+        let err_msg: String = stderr
+            .lines()
+            .filter(|l| !l.starts_with("GPU:") && !l.starts_with("Backend:"))
+            .collect::<Vec<_>>()
+            .join("\n");
+        return Err(err_msg.trim().to_string());
     }
 
     let stdout = String::from_utf8_lossy(&result.stdout);

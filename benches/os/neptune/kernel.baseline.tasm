@@ -72,10 +72,29 @@ __tree_height:
     push 3
     return
 
+// authenticate_leaf3(idx: U32, hash: Digest) -> Digest
+//   Merkle authentication path at depth 3.
+//   In the full system this is provided by the merkle module.
+//   Standalone stub: reads 3 authentication path siblings from divine,
+//   performs 3 merkle_step operations.
+//   Stack entry: idx d4 d3 d2 d1 d0
+//   10 instructions
+__authenticate_leaf3:
+    divine 5
+    merkle_step
+    divine 5
+    merkle_step
+    divine 5
+    merkle_step
+    // idx still on stack below digest, swap out
+    swap 5
+    pop 1
+    return
+
 // authenticate_field(kernel_hash: Digest, leaf_idx: U32) -> Digest
 //   Delegates to merkle.authenticate_leaf3.
 //   Stack entry: idx d4 d3 d2 d1 d0
-//   3 instructions (call + return, authenticate_leaf3 is external)
+//   3 instructions (call + return)
 __authenticate_field:
     call __authenticate_leaf3
     return
@@ -83,7 +102,7 @@ __authenticate_field:
 // authenticate_fee(kernel_hash: Digest) -> Digest
 //   Stack entry: d4 d3 d2 d1 d0
 //   Push idx=3, then delegate.
-//   5 instructions
+//   8 instructions
 __authenticate_fee:
     push 3
     swap 1

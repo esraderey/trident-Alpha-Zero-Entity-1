@@ -60,12 +60,9 @@ std_crypto_poseidon__mix2:
     pop 1
     // Stack: new_a b S
     swap 1
-    dupdup 0
-    add
-    add0
+    dup 0
     add
     add
-    // Stack: new_a (S + b + b) = new_a new_b
     return
 
 
@@ -89,18 +86,19 @@ std_crypto_poseidon__mix4:
     dup 0
     dup 5
     add
-push500    swap 1
+    push 500
+    swap 1
     write_mem 1
     pop 1
-    // nb = S + b
     dup 0
     dup 4
     add
-push501    swap 1
+    push 501
+    swap 1
     write_mem 1
     pop 1
- = S + c
-    dup 0    dup 3
+    dup 0
+    dup 3
     add
     push 502
     swap 1
@@ -145,7 +143,7 @@ std_crypto_poseidon__round2:
     dup 2
     add
     // Stack: a b1 a1
-a1=+    swap 2
+    swap 2
     pop 1
     // swap 2: a1 b1 a; pop 1: a1 b1
     // sbox(b1) -- b1 is on top
@@ -178,9 +176,7 @@ a1=+    swap 2
     pop 1
     // Stack: new_a b2 S
     swap 1
-    dupdup 0
-    add
-    add0
+    dup 0
     add
     add
     return
@@ -191,7 +187,7 @@ a1=+    swap 2
 // ---------------------------------------------------------------------------
 // Input:  a b c d rc0 rc1 rc2 rc3  (rc3 on top)
 // Output: na nb nc nd  (nd on top)
-std_crypto_poseidon__round4// Inline:d1 add= d1 = d + rc3
+std_crypto_poseidon__round4:
     dup 4
     add
     swap 4
@@ -213,7 +209,7 @@ std_crypto_poseidon__round4// Inline:d1 add= d1 = d + rc3
     swap 4
     pop 1
     // Stack: a1 b1 c1 d1
-sbox all 4 (d on top)
+    // sbox all 4 (d on top)
     dup 0
     dup 0
     mul
