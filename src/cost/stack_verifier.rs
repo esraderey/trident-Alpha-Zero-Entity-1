@@ -408,29 +408,37 @@ pub fn generate_test_stack(seed: u64, size: usize) -> Vec<u64> {
 }
 
 /// Verify that candidate TASM produces the same stack as baseline TASM.
-/// Returns true only if both execute successfully and produce identical stacks.
+/// Tests with 8 independent seeds — all must pass. A single concrete test
+/// case is trivially gamed by the neural optimizer; 8 distinct Goldilocks
+/// stacks catch wrong operand order, off-by-one dup/swap depth, and
+/// missing operations.
 /// Conservative: rejects candidates when baseline can't be simulated.
 pub fn verify_equivalent(baseline_tasm: &[String], candidate_tasm: &[String], seed: u64) -> bool {
-    // Use 16 elements — enough for hash (10), assert_vector (10), etc.
-    let test_stack = generate_test_stack(seed, 16);
+    const NUM_SEEDS: u64 = 8;
+    for i in 0..NUM_SEEDS {
+        let test_seed = seed.wrapping_mul(6364136223846793005).wrapping_add(i);
+        let test_stack = generate_test_stack(test_seed, 16);
 
-    let mut baseline_state = StackState::new(test_stack.clone());
-    baseline_state.execute(baseline_tasm);
+        let mut baseline_state = StackState::new(test_stack.clone());
+        baseline_state.execute(baseline_tasm);
 
-    // If baseline can't be simulated, we can't verify — reject candidate.
-    // No free passes: the candidate must prove itself correct.
-    if baseline_state.error {
-        return false;
+        // If baseline can't be simulated, we can't verify — reject candidate.
+        if baseline_state.error {
+            return false;
+        }
+
+        let mut candidate_state = StackState::new(test_stack);
+        candidate_state.execute(candidate_tasm);
+
+        if candidate_state.error {
+            return false;
+        }
+
+        if baseline_state.stack != candidate_state.stack {
+            return false;
+        }
     }
-
-    let mut candidate_state = StackState::new(test_stack);
-    candidate_state.execute(candidate_tasm);
-
-    // Candidate must execute without error and match baseline stack exactly
-    if candidate_state.error {
-        return false;
-    }
-    baseline_state.stack == candidate_state.stack
+    true
 }
 
 #[cfg(test)]
@@ -594,8 +602,8 @@ mod tests {
     #[test]
     fn verify_rejects_when_candidate_errors() {
         let baseline = lines(&["push 1", "push 2", "add"]);
-        let candidate = lines(&["add"]); // underflow on empty-ish stack (after 16 elements, add pops 2 and pushes 1 — actually this succeeds)
-                                         // Use a candidate that definitely errors
+        let _candidate = lines(&["add"]); // underflow on empty-ish stack (after 16 elements, add pops 2 and pushes 1 — actually this succeeds)
+                                          // Use a candidate that definitely errors
         let bad_candidate = lines(&["pop 100"]); // underflow
         assert!(!verify_equivalent(&baseline, &bad_candidate, 42));
     }
