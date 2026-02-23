@@ -32,68 +32,68 @@ use vm.io.mem
 // =========================================================================
 
 // Keywords (1-22)
-fn TK_PROGRAM() -> Field { 1 }
-fn TK_MODULE() -> Field { 2 }
-fn TK_USE() -> Field { 3 }
-fn TK_FN() -> Field { 4 }
-fn TK_PUB() -> Field { 5 }
-fn TK_SEC() -> Field { 6 }
-fn TK_LET() -> Field { 7 }
-fn TK_MUT() -> Field { 8 }
-fn TK_CONST() -> Field { 9 }
-fn TK_STRUCT() -> Field { 10 }
-fn TK_IF() -> Field { 11 }
-fn TK_ELSE() -> Field { 12 }
-fn TK_FOR() -> Field { 13 }
-fn TK_IN() -> Field { 14 }
-fn TK_BOUNDED() -> Field { 15 }
-fn TK_RETURN() -> Field { 16 }
-fn TK_TRUE() -> Field { 17 }
-fn TK_FALSE() -> Field { 18 }
-fn TK_EVENT() -> Field { 19 }
-fn TK_REVEAL() -> Field { 20 }
-fn TK_SEAL() -> Field { 21 }
-fn TK_MATCH() -> Field { 22 }
+pub fn TK_PROGRAM() -> Field { 1 }
+pub fn TK_MODULE() -> Field { 2 }
+pub fn TK_USE() -> Field { 3 }
+pub fn TK_FN() -> Field { 4 }
+pub fn TK_PUB() -> Field { 5 }
+pub fn TK_SEC() -> Field { 6 }
+pub fn TK_LET() -> Field { 7 }
+pub fn TK_MUT() -> Field { 8 }
+pub fn TK_CONST() -> Field { 9 }
+pub fn TK_STRUCT() -> Field { 10 }
+pub fn TK_IF() -> Field { 11 }
+pub fn TK_ELSE() -> Field { 12 }
+pub fn TK_FOR() -> Field { 13 }
+pub fn TK_IN() -> Field { 14 }
+pub fn TK_BOUNDED() -> Field { 15 }
+pub fn TK_RETURN() -> Field { 16 }
+pub fn TK_TRUE() -> Field { 17 }
+pub fn TK_FALSE() -> Field { 18 }
+pub fn TK_EVENT() -> Field { 19 }
+pub fn TK_REVEAL() -> Field { 20 }
+pub fn TK_SEAL() -> Field { 21 }
+pub fn TK_MATCH() -> Field { 22 }
 
 // Type keywords (23-27)
-fn TK_FIELD_TY() -> Field { 23 }
-fn TK_XFIELD_TY() -> Field { 24 }
-fn TK_BOOL_TY() -> Field { 25 }
-fn TK_U32_TY() -> Field { 26 }
-fn TK_DIGEST_TY() -> Field { 27 }
+pub fn TK_FIELD_TY() -> Field { 23 }
+pub fn TK_XFIELD_TY() -> Field { 24 }
+pub fn TK_BOOL_TY() -> Field { 25 }
+pub fn TK_U32_TY() -> Field { 26 }
+pub fn TK_DIGEST_TY() -> Field { 27 }
 
 // Symbols (28-52)
-fn TK_LPAREN() -> Field { 28 }
-fn TK_RPAREN() -> Field { 29 }
-fn TK_LBRACE() -> Field { 30 }
-fn TK_RBRACE() -> Field { 31 }
-fn TK_LBRACKET() -> Field { 32 }
-fn TK_RBRACKET() -> Field { 33 }
-fn TK_COMMA() -> Field { 34 }
-fn TK_COLON() -> Field { 35 }
-fn TK_SEMICOLON() -> Field { 36 }
-fn TK_DOT() -> Field { 37 }
-fn TK_DOTDOT() -> Field { 38 }
-fn TK_ARROW() -> Field { 39 }
-fn TK_EQ() -> Field { 40 }
-fn TK_FAT_ARROW() -> Field { 41 }
-fn TK_EQEQ() -> Field { 42 }
-fn TK_PLUS() -> Field { 43 }
-fn TK_STAR() -> Field { 44 }
-fn TK_STARDOT() -> Field { 45 }
-fn TK_LT() -> Field { 46 }
-fn TK_GT() -> Field { 47 }
-fn TK_AMP() -> Field { 48 }
-fn TK_CARET() -> Field { 49 }
-fn TK_SLASH_PERCENT() -> Field { 50 }
-fn TK_HASH() -> Field { 51 }
-fn TK_UNDERSCORE() -> Field { 52 }
+pub fn TK_LPAREN() -> Field { 28 }
+pub fn TK_RPAREN() -> Field { 29 }
+pub fn TK_LBRACE() -> Field { 30 }
+pub fn TK_RBRACE() -> Field { 31 }
+pub fn TK_LBRACKET() -> Field { 32 }
+pub fn TK_RBRACKET() -> Field { 33 }
+pub fn TK_COMMA() -> Field { 34 }
+pub fn TK_COLON() -> Field { 35 }
+pub fn TK_SEMICOLON() -> Field { 36 }
+pub fn TK_DOT() -> Field { 37 }
+pub fn TK_DOTDOT() -> Field { 38 }
+pub fn TK_ARROW() -> Field { 39 }
+pub fn TK_EQ() -> Field { 40 }
+pub fn TK_FAT_ARROW() -> Field { 41 }
+pub fn TK_EQEQ() -> Field { 42 }
+pub fn TK_PLUS() -> Field { 43 }
+pub fn TK_STAR() -> Field { 44 }
+pub fn TK_STARDOT() -> Field { 45 }
+pub fn TK_LT() -> Field { 46 }
+pub fn TK_GT() -> Field { 47 }
+pub fn TK_AMP() -> Field { 48 }
+pub fn TK_CARET() -> Field { 49 }
+pub fn TK_SLASH_PERCENT() -> Field { 50 }
+pub fn TK_HASH() -> Field { 51 }
+pub fn TK_UNDERSCORE() -> Field { 52 }
 
 // Literals and special (53-56)
-fn TK_INTEGER() -> Field { 53 }
-fn TK_IDENT() -> Field { 54 }
-fn TK_ASM_BLOCK() -> Field { 55 }
-fn TK_EOF() -> Field { 56 }
+pub fn TK_INTEGER() -> Field { 53 }
+pub fn TK_IDENT() -> Field { 54 }
+pub fn TK_ASM_BLOCK() -> Field { 55 }
+pub fn TK_EOF() -> Field { 56 }
 
 // Error codes (100+)
 fn ERR_UNEXPECTED_CHAR() -> Field { 100 }

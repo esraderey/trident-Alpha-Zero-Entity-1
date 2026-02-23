@@ -258,6 +258,40 @@ fn main() {
     );
 }
 
+// ── std.compiler.parser ──
+
+#[test]
+fn test_std_compiler_parser_compiles() {
+    let tasm = compile_test_program(
+        "_test_parser.tri",
+        r#"program test_parser
+use vm.io.mem
+use std.compiler.parser
+
+fn main() {
+    let tok_base: Field = 1000
+    let tok_count: Field = 0
+    let ast_base: Field = 5000
+    let err_base: Field = 8000
+    let state_base: Field = 9000
+    let stack_base: Field = 10000
+    parser.parse(tok_base, tok_count, ast_base, err_base, state_base, stack_base)
+    let node_count: Field = mem.read(state_base + 2)
+    pub_write(node_count)
+}
+"#,
+    );
+    assert!(tasm.contains("__parse:"), "missing parse function");
+    assert!(
+        tasm.contains("__dispatch:"),
+        "missing dispatch function"
+    );
+    assert!(
+        tasm.contains("__emit_node:"),
+        "missing emit_node function"
+    );
+}
+
 // ── std.crypto.ed25519 ──
 
 #[test]
