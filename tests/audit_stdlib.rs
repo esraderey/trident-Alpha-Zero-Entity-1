@@ -225,6 +225,39 @@ fn main() {
     assert!(tasm.contains("__on_curve:"), "missing on_curve function");
 }
 
+// ── std.compiler.lexer ──
+
+#[test]
+fn test_std_compiler_lexer_compiles() {
+    let tasm = compile_test_program(
+        "_test_lexer.tri",
+        r#"program test_lexer
+use vm.io.mem
+use std.compiler.lexer
+
+fn main() {
+    let src_base: Field = 1000
+    let src_len: Field = 0
+    let tok_base: Field = 2000
+    let err_base: Field = 3000
+    let state_base: Field = 4000
+    lexer.lex(src_base, src_len, tok_base, err_base, state_base)
+    let tok_count: Field = mem.read(state_base + 1)
+    pub_write(tok_count)
+}
+"#,
+    );
+    assert!(tasm.contains("__lex:"), "missing lex function");
+    assert!(
+        tasm.contains("__classify_keyword:"),
+        "missing classify_keyword function"
+    );
+    assert!(
+        tasm.contains("__skip_ws_and_comments:"),
+        "missing skip_ws_and_comments function"
+    );
+}
+
 // ── std.crypto.ed25519 ──
 
 #[test]
