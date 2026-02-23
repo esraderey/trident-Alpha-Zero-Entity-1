@@ -9,6 +9,8 @@ struct DeferredBlock {
     ops: Vec<TIROp>,
     /// If true, this is a "then" branch: pop the flag on entry, push 0 on exit.
     clears_flag: bool,
+    /// If true, this is a loop body — has its own return/recurse, skip auto-return.
+    is_loop: bool,
 }
 
 /// Triton VM lowering — produces TASM from IR.
@@ -190,11 +192,13 @@ impl TritonLowering {
                     label: then_label,
                     ops: then_body.clone(),
                     clears_flag: true,
+                    is_loop: false,
                 });
                 self.deferred.push(DeferredBlock {
                     label: else_label,
                     ops: else_body.clone(),
                     clears_flag: false,
+                    is_loop: false,
                 });
             }
             TIROp::IfOnly { then_body } => {
@@ -207,6 +211,7 @@ impl TritonLowering {
                     label: then_label,
                     ops: then_body.clone(),
                     clears_flag: false,
+                    is_loop: false,
                 });
             }
             TIROp::Loop { label, body } => {
@@ -215,21 +220,12 @@ impl TritonLowering {
                 } else {
                     self.format_label(label)
                 };
-                out.push(format!("{}:", formatted_label));
-                out.push("    dup 0".to_string());
-                out.push("    push 0".to_string());
-                out.push("    eq".to_string());
-                out.push("    skiz".to_string());
-                out.push("    return".to_string());
-                out.push("    push -1".to_string());
-                out.push("    add".to_string());
-
-                for body_op in body {
-                    self.lower_op(body_op, out);
-                }
-
-                out.push("    recurse".to_string());
-                out.push(String::new());
+                self.deferred.push(DeferredBlock {
+                    label: formatted_label,
+                    ops: body.clone(),
+                    clears_flag: false,
+                    is_loop: true,
+                });
             }
 
             // ── Program structure ──
@@ -278,19 +274,37 @@ impl TritonLowering {
             for block in blocks {
                 out.push(format!("{}:", block.label));
 
-                if block.clears_flag {
-                    out.push("    pop 1".to_string());
-                }
-
-                for op in &block.ops {
-                    self.lower_op(op, out);
-                }
-
-                if block.clears_flag {
+                if block.is_loop {
+                    // Loop: counter check, decrement, body, recurse
+                    out.push("    dup 0".to_string());
                     out.push("    push 0".to_string());
+                    out.push("    eq".to_string());
+                    out.push("    skiz".to_string());
+                    out.push("    return".to_string());
+                    out.push("    push -1".to_string());
+                    out.push("    add".to_string());
+
+                    for op in &block.ops {
+                        self.lower_op(op, out);
+                    }
+
+                    out.push("    recurse".to_string());
+                    out.push(String::new());
+                } else {
+                    if block.clears_flag {
+                        out.push("    pop 1".to_string());
+                    }
+
+                    for op in &block.ops {
+                        self.lower_op(op, out);
+                    }
+
+                    if block.clears_flag {
+                        out.push("    push 0".to_string());
+                    }
+                    out.push("    return".to_string());
+                    out.push(String::new());
                 }
-                out.push("    return".to_string());
-                out.push(String::new());
             }
         }
     }

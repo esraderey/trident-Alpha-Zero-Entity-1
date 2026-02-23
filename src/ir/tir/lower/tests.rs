@@ -74,14 +74,18 @@ fn test_lower_if_only() {
 
 #[test]
 fn test_lower_loop() {
-    let ops = vec![TIROp::Loop {
-        label: "loop__1".into(),
-        body: vec![TIROp::Push(1), TIROp::Add],
-    }];
+    let ops = vec![
+        TIROp::Loop {
+            label: "loop__1".into(),
+            body: vec![TIROp::Push(1), TIROp::Add],
+        },
+        TIROp::FnEnd,
+    ];
     let lowering = TritonLowering::new();
     let out = lowering.lower(&ops);
     let joined = out.join("\n");
 
+    // Loop is deferred — emitted after FnEnd flush
     assert!(joined.contains("__loop__1:"));
     assert!(joined.contains("dup 0\n    push 0\n    eq\n    skiz\n    return"));
     assert!(joined.contains("push -1\n    add"));

@@ -190,7 +190,9 @@ impl TIRBuilder {
 
             // ── Conversion ──
             "as_u32" => {
+                // split: st0=lo (u32), st1=hi. Keep lo, discard hi.
                 self.ops.push(TIROp::Split);
+                self.ops.push(TIROp::Swap(1));
                 self.ops.push(TIROp::Pop(1));
                 self.push_temp(1);
             }
