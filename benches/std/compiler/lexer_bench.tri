@@ -1,0 +1,52 @@
+program lexer_bench
+
+// Benchmark: tokenize a small Trident program using the self-hosted lexer.
+// Reads source bytes and parameters from public input, calls lexer.lex(),
+// asserts token count matches expected, writes tok_count to output.
+use vm.io.io
+
+use vm.io.mem
+
+use vm.core.convert
+
+use std.compiler.lexer
+
+fn main() {
+    // Read parameters from public input
+    let src_base: Field = io.read()
+    let src_len: Field = io.read()
+    let tok_base: Field = io.read()
+    let err_base: Field = io.read()
+    let state_base: Field = io.read()
+    let expected_tok_count: Field = io.read()
+
+    // Load source bytes from public input into RAM
+    let src_len_u32: U32 = convert.as_u32(src_len)
+    for i in 0..src_len_u32 bounded 1024 {
+        let idx: Field = convert.as_field(i)
+        let byte: Field = io.read()
+        mem.write(src_base + idx, byte)
+    }
+
+    // Call the self-hosted lexer
+    lexer.lex(src_base, src_len, tok_base, err_base, state_base)
+
+    // Read results from lexer state
+    let tok_count: Field = mem.read(state_base + 1)
+    let err_count: Field = mem.read(state_base + 2)
+
+    // Verify expected token count
+    assert(tok_count == expected_tok_count)
+
+    // Read expected token kinds from public input and verify each one
+    let tok_count_u32: U32 = convert.as_u32(tok_count)
+    for i in 0..tok_count_u32 bounded 1024 {
+        let idx: Field = convert.as_field(i)
+        let expected_kind: Field = io.read()
+        let actual_kind: Field = mem.read(tok_base + idx * 4)
+        assert(actual_kind == expected_kind)
+    }
+
+    // Output the token count as proof of work
+    io.write(tok_count)
+}
