@@ -348,13 +348,84 @@ fn trinity(
 //
 // FIFO order matches program execution: Phase 1b divines, then Phase 4 divines.
 
+/// Compute Poseidon2-Goldilocks round constants (same as src/field/poseidon2.rs).
+/// t=8, RF=8, RP=22. Full rounds: 8 constants each, partial: 1 constant each.
+/// Layout: first_full(32) + partial(22) + last_full(32) = 86 total.
+fn poseidon2_round_constants() -> Vec<u64> {
+    let width = 8;
+    let rounds_f = 8usize;
+    let rounds_p = 22usize;
+    let total = rounds_f + rounds_p;
+    let mut constants = Vec::new();
+    for r in 0..total {
+        let is_full = r < rounds_f / 2 || r >= rounds_f / 2 + rounds_p;
+        if is_full {
+            for e in 0..width {
+                let tag = format!("Poseidon2-Goldilocks-t8-RF8-RP22-{}-{}", r, e);
+                let digest = blake3::hash(tag.as_bytes());
+                let bytes: [u8; 8] = digest.as_bytes()[..8].try_into().unwrap();
+                constants.push(u64::from_le_bytes(bytes));
+            }
+        } else {
+            let tag = format!("Poseidon2-Goldilocks-t8-RF8-RP22-{}-0", r);
+            let digest = blake3::hash(tag.as_bytes());
+            let bytes: [u8; 8] = digest.as_bytes()[..8].try_into().unwrap();
+            constants.push(u64::from_le_bytes(bytes));
+        }
+    }
+    constants
+}
+
+/// Simulate LUT sponge on zero bench data to produce reduce_mod divine pairs.
+/// Returns (r, k) pairs in FIFO order: 14 rounds × 8 elements × 2 values = 224.
+fn compute_lut_sponge_divine(domain: u64, lut: &[F]) -> Vec<u64> {
+    let rc = lut_sponge_round_constants();
+    // Initial state for hash4_to_digest(0, 0, 0, 0):
+    // input = (weights_digest=0, key_digest=0, output_digest=0, class=0)
+    // state = [0, 0, 0, 0, 4, 0, 0, 0] (domain sep = 4)
+    let mut state = [F::ZERO; 8];
+    state[4] = F::from_u64(4); // domain separation
+
+    let mut divine = Vec::new();
+
+    for r in 0..LUT_SPONGE_ROUNDS {
+        // add_constants
+        let rc_offset = r * LUT_SPONGE_WIDTH;
+        for i in 0..LUT_SPONGE_WIDTH {
+            state[i] = state[i].add(rc[rc_offset + i]);
+        }
+        // sbox_layer: reduce_mod + lut.read for each element
+        for i in 0..LUT_SPONGE_WIDTH {
+            let x = state[i].to_u64() as u128;
+            let d = domain as u128;
+            let r_val = (x % d) as u64;
+            let k_val = (x / d) as u64;
+            divine.push(r_val); // r = x mod D
+            divine.push(k_val); // k = x / D
+            // Apply S-box: state[i] = lut[r_val]
+            state[i] = if (r_val as usize) < lut.len() {
+                lut[r_val as usize]
+            } else {
+                F::ZERO
+            };
+        }
+        // mds
+        let sum = state.iter().fold(F::ZERO, |acc, &x| acc.add(x));
+        for s in state.iter_mut() {
+            *s = s.add(sum);
+        }
+    }
+
+    divine
+}
+
 fn compute_bench_divine(
     lwe_n: usize,
     neurons: usize,
     ring_n: usize,
     domain: u64,
+    lut: &[F],
 ) -> Vec<u64> {
-    let p = 0xFFFF_FFFF_0000_0001u64;
     let mut divine = Vec::new();
 
     // Phase 1b: decrypt_outputs — one divine per neuron.
@@ -362,6 +433,13 @@ fn compute_bench_divine(
     for _ in 0..neurons {
         divine.push(0);
     }
+    let phase1b_count = divine.len();
+
+    // Phase 3: LUT sponge reduce_mod divine pairs.
+    // Runs on zero data (activated = all 0, weights_digest = 0, key_digest = 0, class = 0).
+    let sponge_divine = compute_lut_sponge_divine(domain, lut);
+    let phase3_count = sponge_divine.len();
+    divine.extend(sponge_divine);
 
     // Phase 4: pbs.bootstrap chain
 
@@ -380,7 +458,6 @@ fn compute_bench_divine(
     // With rotation k=0: monomial_mul is identity.
     // For each j in 0..ring_n: src = j, sign = 1.
     for _ in 0..2 {
-        // One monomial_mul call
         for j in 0..ring_n {
             divine.push(j as u64); // src
             divine.push(1);        // sign (no negation)
@@ -397,10 +474,11 @@ fn compute_bench_divine(
     // Zero ciphertext → m = 0.
     divine.push(0);
 
+    let phase4_count = divine.len() - phase1b_count - phase3_count;
     eprintln!("--- Divine values for bench harness ---");
-    eprintln!("  Phase 1b: {} values (decrypt plaintexts)", neurons);
-    eprintln!("  Phase 4:  build_test_poly={}, rotation=1, monomial=2×{}, key_switch={}, decrypt=1",
-        ring_n, ring_n * 2, lwe_n + 1);
+    eprintln!("  Phase 1b: {} values (decrypt plaintexts)", phase1b_count);
+    eprintln!("  Phase 3:  {} values (LUT sponge reduce_mod)", phase3_count);
+    eprintln!("  Phase 4:  {} values (PBS chain)", phase4_count);
     eprintln!("  Total:    {} divine values", divine.len());
     let _ = std::io::Write::flush(&mut std::io::stderr());
 
@@ -615,15 +693,39 @@ fn main() {
     }
     println!("rust_ns: {}", start.elapsed().as_nanos() / iters);
 
-    // ========== DIVINE VALUES FOR BENCH HARNESS ==========
-    // Compute divine values for Probe 2 parameters (used by .inputs file).
+    // ========== BENCH HARNESS DATA ==========
+    // Compute round constants and divine values for Probe 2 parameters.
     // These are for the zero-data bench — all ciphertext/weight RAM is uninitialized.
     let bench_lwe_n = 32;
     let bench_neurons = 64;
     let bench_ring_n = 64;
     let bench_domain = 1024u64;
-    let divine = compute_bench_divine(bench_lwe_n, bench_neurons, bench_ring_n, bench_domain);
-    let divine_strs: Vec<String> = divine.iter().map(|v| v.to_string()).collect();
+    let bench_lut = build_relu_lut();
+
+    // Poseidon2 round constants (86 values, BLAKE3-derived)
+    let p2_rc = poseidon2_round_constants();
     eprintln!();
+    eprintln!("--- Poseidon2 round constants ({} values) ---", p2_rc.len());
+
+    // LUT sponge round constants (112 values, deterministic formula)
+    let sponge_rc: Vec<u64> = lut_sponge_round_constants()
+        .iter()
+        .map(|f| f.to_u64())
+        .collect();
+    eprintln!("--- LUT sponge round constants ({} values) ---", sponge_rc.len());
+
+    // Divine values (FIFO order: Phase 1b → Phase 3 → Phase 4)
+    let divine = compute_bench_divine(
+        bench_lwe_n, bench_neurons, bench_ring_n, bench_domain, &bench_lut,
+    );
+
+    // Emit round constants as additional public inputs
+    let rc_strs: Vec<String> = p2_rc.iter().chain(sponge_rc.iter())
+        .map(|v| v.to_string())
+        .collect();
+    eprintln!();
+    eprintln!("rc_values: {}", rc_strs.join(", "));
+
+    let divine_strs: Vec<String> = divine.iter().map(|v| v.to_string()).collect();
     eprintln!("divine: {}", divine_strs.join(", "));
 }

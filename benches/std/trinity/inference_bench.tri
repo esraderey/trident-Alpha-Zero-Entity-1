@@ -9,6 +9,8 @@ use vm.io.mem
 
 use vm.core.field
 
+use vm.core.convert
+
 use std.math.lut
 
 use std.trinity.inference
@@ -47,6 +49,21 @@ fn store_params() {
     mem.write(26, io.read())  // pbs_test_addr
     mem.write(27, io.read())  // pbs_tmp_addr
     mem.write(28, io.read())  // pbs_expected_m
+}
+
+// Load Poseidon2 (86) and LUT sponge (112) round constants from public input
+// into RAM at rc_addr and sponge_rc_addr respectively.
+fn load_round_constants() {
+    let rc_addr: Field = mem.read(15)
+    for i in 0..86 bounded 86 {
+        let idx: Field = convert.as_field(i)
+        mem.write(rc_addr + idx, io.read())
+    }
+    let sponge_rc_addr: Field = mem.read(20)
+    for i in 0..112 bounded 112 {
+        let idx: Field = convert.as_field(i)
+        mem.write(sponge_rc_addr + idx, io.read())
+    }
 }
 
 fn run_phase0_lut() {
@@ -137,11 +154,12 @@ fn run_phase5_quantum() {
 
 fn main() {
     store_params()
+    load_round_constants()
     run_phase0_lut()
     run_phase1_encrypt()
     run_phase1b_decrypt()
     run_phase2_neural()
-    // Skip Phase 3 (hash) — requires Poseidon2 round constants in RAM.
+    run_phase3_hash()
     run_phase4_pbs()
     run_phase5_quantum()
     io.write(1)
