@@ -87,3 +87,7 @@ path = "benches/std/compiler/lexer.reference.rs"
 [[example]]
 name = "ref_std_compiler_parser"
 path = "benches/std/compiler/parser.reference.rs"
+
+[[example]]
+name = "ref_std_compiler_pipeline"
+path = "benches/std/compiler/pipeline.reference.rs"
