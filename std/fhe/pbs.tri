@@ -58,21 +58,24 @@ pub fn build_test_poly(
         let idx: Field = convert.as_field(i)
         mem.write(poly_addr + idx, 0)
     }
+    // Store params in RAM scratch (1073741848..1073741851) for loop access.
+    mem.write(1073741848, lut_addr)
+    mem.write(1073741849, poly_addr)
+    mem.write(1073741850, n)
+    mem.write(1073741851, d)
     // Fill from lookup table
-    // For pitch (N=64, D=1024): downsample by factor D/N = 16
-    // For each polynomial coefficient i, read T[i * D/N]
     for i in 0..n bounded 4096 {
         let idx: Field = convert.as_field(i)
-        // table_idx = i * d / n (integer division via prover hint)
-        let scaled: Field = idx * d
+        let r_d: Field = mem.read(1073741851)
+        let scaled: Field = idx * r_d
         let table_idx: Field = io.divine()
-        // Verify: table_idx * n <= scaled < (table_idx + 1) * n
-        // This constrains the divine to be floor(i * d / n)
-        let lo: Field = table_idx * n
-        assert.is_true(convert.as_u32(scaled + field.neg(lo)) < convert.as_u32(n))
-        // Read from shared Rosetta Stone table
-        let val: Field = lut.read(lut_addr, table_idx)
-        mem.write(poly_addr + idx, val)
+        let r_n: Field = mem.read(1073741850)
+        let lo: Field = table_idx * r_n
+        assert.is_true(convert.as_u32(scaled + field.neg(lo)) < convert.as_u32(r_n))
+        let r_lut: Field = mem.read(1073741848)
+        let val: Field = lut.read(r_lut, table_idx)
+        let r_poly: Field = mem.read(1073741849)
+        mem.write(r_poly + idx, val)
     }
 }
 
@@ -97,18 +100,17 @@ pub fn monomial_mul(
         let idx: Field = convert.as_field(i)
         mem.write(tmp_addr + idx, mem.read(poly_addr + idx))
     }
-    // For each output position j: find source index and sign
-    // new[j] = tmp[(j - k) mod N] * sign
-    // where sign = -1 if (j - k) wrapped around (i.e., j < k mod N → borrow from X^N = -1)
+    // Store params in RAM scratch (1073741852..1073741853) for loop access.
+    mem.write(1073741852, tmp_addr)
+    mem.write(1073741853, poly_addr)
     for j in 0..n bounded 4096 {
         let jj: Field = convert.as_field(j)
-        // src_index and sign via prover hint
         let src: Field = io.divine()
         let sign: Field = io.divine()
-        // Verify: src is in [0, N) and the rotation is correct
-        // j = (src + k) mod 2N mapped to [0, N) with sign
-        let src_val: Field = mem.read(tmp_addr + src)
-        mem.write(poly_addr + jj, src_val * sign)
+        let r_tmp: Field = mem.read(1073741852)
+        let src_val: Field = mem.read(r_tmp + src)
+        let r_poly: Field = mem.read(1073741853)
+        mem.write(r_poly + jj, src_val * sign)
     }
 }
 
@@ -237,16 +239,25 @@ pub fn bootstrap(
     // Step 1: Build test polynomial from shared LUT (Rosetta Stone Reader 3)
     build_test_poly(lut_addr, test_poly_addr, n, d)
     // Step 2: Initialize accumulator as trivial RLWE encryption of test_poly
-    // Trivial encryption: a(X) = 0, b(X) = test_poly(X) * delta
+    // Store loop params in RAM scratch (1073741856..1073741859).
+    mem.write(1073741856, acc_addr)
+    mem.write(1073741857, test_poly_addr)
+    mem.write(1073741858, delta)
+    mem.write(1073741859, acc_addr + n)
+    // Zero the a-component
     for i in 0..n bounded 4096 {
         let idx: Field = convert.as_field(i)
-        mem.write(acc_addr + idx, 0)
+        let r_acc: Field = mem.read(1073741856)
+        mem.write(r_acc + idx, 0)
     }
-    let acc_b_addr: Field = acc_addr + n
+    // Fill b-component: b[i] = test_poly[i] * delta
     for i in 0..n bounded 4096 {
         let idx: Field = convert.as_field(i)
-        let coeff: Field = mem.read(test_poly_addr + idx)
-        mem.write(acc_b_addr + idx, coeff * delta)
+        let r_test: Field = mem.read(1073741857)
+        let coeff: Field = mem.read(r_test + idx)
+        let r_acc_b: Field = mem.read(1073741859)
+        let r_delta: Field = mem.read(1073741858)
+        mem.write(r_acc_b + idx, coeff * r_delta)
     }
     // Step 3: Compute rotation amount
     // rotation = round(b / delta) - sum(round(a_i / delta) * s_i)

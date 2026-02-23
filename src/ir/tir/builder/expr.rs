@@ -22,8 +22,16 @@ impl TIRBuilder {
             }
 
             Expr::BinOp { op, lhs, rhs } => {
-                self.build_expr(&lhs.node);
-                self.build_expr(&rhs.node);
+                if matches!(op, BinOp::Lt) {
+                    // Triton VM lt: result = (st0 < st1).
+                    // For `a < b`, we need a at st0, b at st1.
+                    // Push b first (deeper), then a (top).
+                    self.build_expr(&rhs.node);
+                    self.build_expr(&lhs.node);
+                } else {
+                    self.build_expr(&lhs.node);
+                    self.build_expr(&rhs.node);
+                }
                 match op {
                     BinOp::Add => self.ops.push(TIROp::Add),
                     BinOp::Mul => self.ops.push(TIROp::Mul),

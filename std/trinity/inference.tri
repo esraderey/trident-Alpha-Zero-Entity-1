@@ -76,12 +76,24 @@ pub fn decrypt_outputs(
     lwe_n: Field,
     neurons: Field
 ) {
-    let stride: Field = lwe_n + 1
+    // Store params in RAM scratch (1073741840..1073741845) for loop access.
+    mem.write(1073741840, ct_out_addr)
+    mem.write(1073741841, s_addr)
+    mem.write(1073741842, result_addr)
+    mem.write(1073741843, delta)
+    mem.write(1073741844, lwe_n)
+    mem.write(1073741845, lwe_n + 1)
     for i in 0..neurons bounded 4096 {
         let idx: Field = convert.as_field(i)
-        let ct_addr: Field = ct_out_addr + idx * stride
-        let m: Field = lwe.decrypt(ct_addr, s_addr, delta, lwe_n)
-        mem.write(result_addr + idx, m)
+        let r_ct_out: Field = mem.read(1073741840)
+        let r_stride: Field = mem.read(1073741845)
+        let ct_addr: Field = r_ct_out + idx * r_stride
+        let r_s: Field = mem.read(1073741841)
+        let r_delta: Field = mem.read(1073741843)
+        let r_lwe: Field = mem.read(1073741844)
+        let m: Field = lwe.decrypt(ct_addr, r_s, r_delta, r_lwe)
+        let r_result: Field = mem.read(1073741842)
+        mem.write(r_result + idx, m)
     }
 }
 

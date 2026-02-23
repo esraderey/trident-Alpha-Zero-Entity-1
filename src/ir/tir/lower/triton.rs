@@ -151,7 +151,10 @@ impl TritonLowering {
                 out.push("    pop 1".to_string());
             }
             TIROp::RamWrite { width } => {
-                // Triton: write_mem + pop address.
+                // Args are pushed left-to-right: addr then value(s).
+                // Stack: val_N..val_1 | addr (addr at position width).
+                // write_mem needs addr at st0: swap it up.
+                out.push(format!("    swap {}", width));
                 out.push(format!("    write_mem {}", width));
                 out.push("    pop 1".to_string());
             }

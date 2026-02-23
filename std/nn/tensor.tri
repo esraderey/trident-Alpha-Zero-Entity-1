@@ -47,14 +47,17 @@ pub fn scale(x: Field, s: Field) -> Field {
 // Field-native ReLU: if x < p/2 then x, else 0.
 // Upper half of field represents negative values.
 // ---------------------------------------------------------------------------
+// Compare hi 32-bit word of two field elements.
+// Separate function keeps stack shallow during split.
+fn field_hi_lt(a: Field, b: Field) -> Bool {
+    let (a_hi, a_lo) = convert.split(a)
+    let (b_hi, b_lo) = convert.split(b)
+    a_hi < b_hi
+}
+
 pub fn relu(x: Field) -> Field {
     let threshold: Field = half_p()
-    // Split both x and threshold into (hi, lo) U32 pairs.
-    // If x < HALF_P, it's "positive" — keep it.
-    // If x >= HALF_P, it's "negative" — return 0.
-    let (x_hi, x_lo) = convert.split(x)
-    let (t_hi, t_lo) = convert.split(threshold)
-    if x_hi < t_hi {
+    if field_hi_lt(x, threshold) {
         x
     } else {
         0
@@ -171,41 +174,43 @@ pub fn dense(
 // "Positive" = below HALF_P. If all values are negative (>= HALF_P),
 // returns 0. Ties go to the first occurrence.
 // ---------------------------------------------------------------------------
+// Check if a field value is "positive" (below half_p).
+fn is_positive(x: Field) -> Bool {
+    field_hi_lt(x, half_p())
+}
+
+// Check if a > b as unsigned field values (hi-word comparison).
+fn field_hi_gt(a: Field, b: Field) -> Bool {
+    field_hi_lt(b, a)
+}
+
 pub fn argmax(addr: Field, n: Field) -> Field {
-    let hp: Field = half_p()
-    let (hp_hi, hp_lo) = convert.split(hp)
-    let mut best_idx: Field = 0
-    let mut best_val: Field = mem.read(addr)
+    // Store all loop state in RAM scratch (1073741872..1073741875).
+    // Avoids compiler dup-offset bug with mutable vars across loops.
+    mem.write(1073741872, addr)
+    mem.write(1073741873, 0)              // best_idx
+    mem.write(1073741874, mem.read(addr)) // best_val
     for i in 1..n bounded 4096 {
         let idx: Field = convert.as_field(i)
-        let val: Field = mem.read(addr + idx)
-        let (v_hi, v_lo) = convert.split(val)
-        let (b_hi, b_lo) = convert.split(best_val)
-        let val_pos: Bool = v_hi < hp_hi
-        let best_pos: Bool = b_hi < hp_hi
-        // Replace if val is positive and either:
-        //   - best is negative, or
-        //   - val > best_val (as unsigned — bigger positive = better)
+        let r_addr: Field = mem.read(1073741872)
+        let val: Field = mem.read(r_addr + idx)
+        let val_pos: Bool = is_positive(val)
         if val_pos {
+            let r_best_val: Field = mem.read(1073741874)
+            let best_pos: Bool = is_positive(r_best_val)
             if best_pos {
-                // Both positive — bigger u64 wins (use < reversed)
-                if b_hi < v_hi {
-                    best_idx = idx
-                    best_val = val
-                } else {
-                    if v_hi == b_hi {
-                        if b_lo < v_lo {
-                            best_idx = idx
-                            best_val = val
-                        }
-                    }
+                // Both positive — bigger u64 wins
+                let r_bv2: Field = mem.read(1073741874)
+                if field_hi_gt(val, r_bv2) {
+                    mem.write(1073741873, idx)
+                    mem.write(1073741874, val)
                 }
             } else {
                 // val positive, best negative — val wins
-                best_idx = idx
-                best_val = val
+                mem.write(1073741873, idx)
+                mem.write(1073741874, val)
             }
         }
     }
-    best_idx
+    mem.read(1073741873)
 }

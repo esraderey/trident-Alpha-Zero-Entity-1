@@ -3,7 +3,9 @@ use std::process;
 
 use clap::Args;
 
-use super::trisha::{generate_test_harness, run_trisha, trisha_available, Harness};
+use super::trisha::{
+    generate_program_harness, generate_test_harness, run_trisha, trisha_available, Harness,
+};
 
 use burn::backend::wgpu::{Wgpu, WgpuDevice};
 use trident::neural::model::composite::NeuralCompilerV2;
@@ -193,25 +195,78 @@ pub fn cmd_bench(args: BenchArgs) {
 
         // Run trisha passes for --full
         if has_trisha {
-            // Classic: compile module, generate test harness
-            let _guard2 = trident::diagnostic::suppress_warnings();
-            let module_tasm = trident::compile_module(&source_path, &options).ok();
-            drop(_guard2);
+            // Check for .inputs file for live harness mode
+            let inputs_path = baseline_path.with_file_name(
+                baseline_path
+                    .file_name()
+                    .unwrap()
+                    .to_string_lossy()
+                    .replace(".baseline.tasm", ".inputs"),
+            );
+            let live_inputs = if inputs_path.exists() {
+                parse_inputs_file(&inputs_path)
+            } else {
+                None
+            };
 
-            if let Some(tasm) = module_tasm {
-                let classic_harness = generate_test_harness(&tasm);
-                run_dimension(&mut mb.classic, &module_name, "classic", &classic_harness);
-            }
+            if let Some(ref li) = live_inputs {
+                // Live mode: compile _bench.tri as linked program, transform for execution.
+                // This resolves all cross-module calls (unlike compile_module).
+                let bench_tri = baseline_path.with_file_name(
+                    baseline_path
+                        .file_name()
+                        .unwrap()
+                        .to_string_lossy()
+                        .replace(".baseline.tasm", "_bench.tri"),
+                );
+                // Also check for pre-compiled _bench.tasm
+                let bench_tasm_path = baseline_path.with_file_name(
+                    baseline_path
+                        .file_name()
+                        .unwrap()
+                        .to_string_lossy()
+                        .replace(".baseline.tasm", "_bench.tasm"),
+                );
 
-            // Hand: generate test harness from baseline
-            let hand_harness = generate_test_harness(&baseline_tasm);
-            run_dimension(&mut mb.hand, &module_name, "hand", &hand_harness);
+                let linked_tasm = if bench_tasm_path.exists() {
+                    std::fs::read_to_string(&bench_tasm_path).ok()
+                } else if bench_tri.exists() {
+                    let _guard2 = trident::diagnostic::suppress_warnings();
+                    let result =
+                        trident::compile_project_with_options(&bench_tri, &options).ok();
+                    drop(_guard2);
+                    result
+                } else {
+                    None
+                };
 
-            // Neural: use inline-compiled neural TASM
-            if let Some(ref neural_tasm) = neural_tasm_opt {
-                if !neural_tasm.is_empty() {
-                    let neural_harness = generate_test_harness(neural_tasm);
-                    run_dimension(&mut mb.neural, &module_name, "neural", &neural_harness);
+                if let Some(ref tasm) = linked_tasm {
+                    let harness = generate_program_harness(tasm, &li.values);
+                    run_dimension(&mut mb.classic, &module_name, "classic", &harness);
+                }
+                // Hand baseline: use test harness (hand TASM is single-module)
+                let hand_harness = generate_test_harness(&baseline_tasm);
+                run_dimension(&mut mb.hand, &module_name, "hand", &hand_harness);
+            } else {
+                // Standard mode: single-module test harness (loops execute once)
+                let _guard2 = trident::diagnostic::suppress_warnings();
+                let module_tasm = trident::compile_module(&source_path, &options).ok();
+                drop(_guard2);
+
+                if let Some(tasm) = module_tasm {
+                    let classic_harness = generate_test_harness(&tasm);
+                    run_dimension(&mut mb.classic, &module_name, "classic", &classic_harness);
+                }
+
+                let hand_harness = generate_test_harness(&baseline_tasm);
+                run_dimension(&mut mb.hand, &module_name, "hand", &hand_harness);
+
+                // Neural: use inline-compiled neural TASM
+                if let Some(ref neural_tasm) = neural_tasm_opt {
+                    if !neural_tasm.is_empty() {
+                        let neural_harness = generate_test_harness(neural_tasm);
+                        run_dimension(&mut mb.neural, &module_name, "neural", &neural_harness);
+                    }
                 }
             }
         }
@@ -543,8 +598,8 @@ fn run_trisha_timed(
     let start = std::time::Instant::now();
     let mut child = std::process::Command::new("trisha")
         .args(&args)
-        .stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::null())
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
         .spawn()
         .map_err(|e| format!("failed to spawn trisha: {}", e))?;
 
@@ -553,6 +608,21 @@ fn run_trisha_timed(
             Ok(Some(status)) => {
                 let elapsed_ms = start.elapsed().as_secs_f64() * 1000.0;
                 if !status.success() {
+                    // Capture stderr for debugging
+                    if let Some(mut stderr) = child.stderr.take() {
+                        use std::io::Read;
+                        let mut buf = String::new();
+                        let _ = stderr.read_to_string(&mut buf);
+                        let msg: String = buf
+                            .lines()
+                            .filter(|l| !l.starts_with("GPU:") && !l.starts_with("Backend:"))
+                            .take(5)
+                            .collect::<Vec<_>>()
+                            .join("\n");
+                        if !msg.is_empty() {
+                            return Err(msg);
+                        }
+                    }
                     return Err("failed".to_string());
                 }
                 return Ok(super::trisha::TrishaResult {
@@ -585,15 +655,16 @@ fn run_dimension(dim: &mut DimTiming, module_name: &str, label: &str, harness: &
         return;
     }
     let tmp_str = tmp_path.to_string_lossy().to_string();
-    // Execute (30s timeout)
-    if let Ok(r) = run_trisha_timed(
+    // Execute (5min timeout)
+    match run_trisha_timed(
         &["run", "--tasm", &tmp_str],
         harness,
-        std::time::Duration::from_secs(30),
+        std::time::Duration::from_secs(300),
     ) {
-        dim.exec_ms = Some(r.elapsed_ms);
+        Ok(r) => dim.exec_ms = Some(r.elapsed_ms),
+        Err(e) => eprintln!("\n  [{}:{}] exec error: {}", module_name, label, e),
     }
-    // Prove (2min timeout)
+    // Prove (5min timeout)
     let proof_path = std::env::temp_dir().join(format!(
         "trident_bench_{}_{}.proof.toml",
         module_name.replace("::", "_"),
@@ -603,7 +674,7 @@ fn run_dimension(dim: &mut DimTiming, module_name: &str, label: &str, harness: &
     if let Ok(r) = run_trisha_timed(
         &["prove", "--tasm", &tmp_str, "--output", &proof_str],
         harness,
-        std::time::Duration::from_secs(120),
+        std::time::Duration::from_secs(300),
     ) {
         dim.prove_ms = Some(r.elapsed_ms);
         if proof_path.exists() {
@@ -810,6 +881,38 @@ fn derive_neural_tasm_path(source_path: &str) -> Option<PathBuf> {
             return None;
         }
     }
+}
+
+/// Parsed live inputs from a `.inputs` file.
+struct LiveInputs {
+    values: Vec<u64>,
+}
+
+/// Parse a `.inputs` file for live harness generation.
+///
+/// Format:
+/// ```text
+/// values: 1000, 2000, 3000, 8, 16, 64, ...
+/// ```
+///
+/// Lines starting with `#` are comments. Blank lines ignored.
+fn parse_inputs_file(path: &Path) -> Option<LiveInputs> {
+    let content = std::fs::read_to_string(path).ok()?;
+    let mut values = None;
+    for line in content.lines() {
+        let line = line.trim();
+        if line.is_empty() || line.starts_with('#') {
+            continue;
+        }
+        if let Some(rest) = line.strip_prefix("values:") {
+            let vals: Vec<u64> = rest
+                .split(',')
+                .filter_map(|v| v.trim().parse().ok())
+                .collect();
+            values = Some(vals);
+        }
+    }
+    Some(LiveInputs { values: values? })
 }
 
 /// Recursively find all .baseline.tasm files in a directory (depth-limited).

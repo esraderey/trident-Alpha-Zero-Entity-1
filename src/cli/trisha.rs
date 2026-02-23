@@ -233,6 +233,80 @@ pub fn trisha_args_with_inputs(base_args: &[&str], harness: &Harness) -> Vec<Str
     args
 }
 
+/// Transform a fully linked program TASM for benchmark execution.
+///
+/// Takes the output of `compile_project` (a complete linked program with
+/// `call main; halt` entry and all cross-module functions resolved) and
+/// transforms it for execution without prover hints:
+///
+/// - `read_io N` → `push <value>` using values from `input_values` in order
+/// - `assert` → `pop 1` (neutralize without crashing)
+/// - `divine` → `push 0` (no prover hints)
+/// - `recurse` preserved → loops execute with real iteration counts
+/// - `halt`, `call`, `return` preserved as-is
+///
+/// The linked program is self-contained — all cross-module calls are resolved.
+pub fn generate_program_harness(tasm: &str, input_values: &[u64]) -> Harness {
+    let mut result = String::with_capacity(tasm.len());
+    let mut input_idx: usize = 0;
+    let mut divine_count: usize = 0;
+    let mut merkle_count: usize = 0;
+
+    for line in tasm.lines() {
+        let t = line.trim();
+        // Skip comments
+        if t.starts_with("//") {
+            continue;
+        }
+        if t == "assert" {
+            result.push_str("    pop 1\n");
+        } else if t == "assert_vector" {
+            result.push_str("    pop 5\n");
+        } else if t == "merkle_step" || t == "merkle_step_mem" {
+            result.push_str("    nop\n");
+            merkle_count += 1;
+        } else if t == "divine" {
+            result.push_str("    divine 1\n");
+            divine_count += 1;
+        } else if let Some(rest) = t.strip_prefix("divine ") {
+            let n: usize = rest.trim().parse().unwrap_or(1);
+            result.push_str(line);
+            result.push('\n');
+            divine_count += n;
+        } else if let Some(rest) = t.strip_prefix("read_io ") {
+            let n: usize = rest.trim().parse().unwrap_or(1);
+            for _ in 0..n {
+                let val = if input_idx < input_values.len() {
+                    input_values[input_idx]
+                } else {
+                    0
+                };
+                result.push_str(&format!("    push {}\n", val));
+                input_idx += 1;
+            }
+        } else if t == "read_io" {
+            let val = if input_idx < input_values.len() {
+                input_values[input_idx]
+            } else {
+                0
+            };
+            result.push_str(&format!("    push {}\n", val));
+            input_idx += 1;
+        } else {
+            result.push_str(line);
+            result.push('\n');
+        }
+    }
+
+    Harness {
+        tasm: result,
+        n_funcs: 1,
+        read_io_count: 0,
+        divine_count: divine_count * 4096,
+        merkle_count,
+    }
+}
+
 /// Run trisha with harness-computed inputs.
 pub fn run_trisha_with_inputs(
     base_args: &[&str],

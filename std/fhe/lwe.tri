@@ -89,6 +89,14 @@ pub fn encrypt(
 // n: LWE dimension
 // Returns: decrypted plaintext m
 // ---------------------------------------------------------------------------
+// Check if hi-word of a < hi-word of b.
+// Separate function to keep stack shallow during split.
+fn hi_lt(a: Field, b: Field) -> Bool {
+    let (a_hi, a_lo) = convert.split(a)
+    let (b_hi, b_lo) = convert.split(b)
+    a_hi < b_hi
+}
+
 pub fn decrypt(
     ct_addr: Field,
     s_addr: Field,
@@ -104,23 +112,22 @@ pub fn decrypt(
     // Verify: noise = phase - m * delta
     let noise: Field = phase + field.neg(m * delta)
     // Check |noise| < delta/2.
-    // Either noise < delta/2 (small positive)
-    // or p - noise < delta/2 (small negative, i.e. noise > p - delta/2).
     let half_delta: Field = delta * field.inv(2)
     let neg_noise: Field = field.neg(noise)
-    // One of {noise, neg_noise} must be small (< half_delta).
-    // Use split + compare on hi word.
-    let (noise_hi, noise_lo) = convert.split(noise)
-    let (half_hi, half_lo) = convert.split(half_delta)
-    let (neg_hi, neg_lo) = convert.split(neg_noise)
-    let small_pos: Bool = noise_hi < half_hi
-    let small_neg: Bool = neg_hi < half_hi
-    // At least one must hold. If noise == 0, small_pos is true.
+    // Store values in RAM to keep stack clean for hi_lt calls.
+    mem.write(1073741864, noise)
+    mem.write(1073741865, half_delta)
+    mem.write(1073741866, neg_noise)
+    mem.write(1073741867, m)
+    // Compare noise hi < half_delta hi (small positive noise).
+    let small_pos: Bool = hi_lt(mem.read(1073741864), mem.read(1073741865))
     if small_pos {
-        m
+        mem.read(1073741867)
     } else {
+        // Compare neg_noise hi < half_delta hi (small negative noise).
+        let small_neg: Bool = hi_lt(mem.read(1073741866), mem.read(1073741865))
         assert.is_true(small_neg)
-        m
+        mem.read(1073741867)
     }
 }
 
@@ -128,7 +135,7 @@ pub fn decrypt(
 // Homomorphic addition: ct_out = ct1 + ct2.
 // Adds all n+1 elements pointwise.
 // ---------------------------------------------------------------------------
-pub fn add(
+pub fn ct_add(
     ct1_addr: Field,
     ct2_addr: Field,
     out_addr: Field,
@@ -188,13 +195,27 @@ pub fn private_dot(
         let jj: Field = convert.as_field(j)
         mem.write(out_addr + jj, 0)
     }
+    // Store params in RAM scratch area (addresses 1073741832..1073741837).
+    // Use literal addresses so compiler emits push instead of dup.
+    mem.write(1073741832, cts_addr)
+    mem.write(1073741833, w_addr)
+    mem.write(1073741834, out_addr)
+    mem.write(1073741835, tmp_addr)
+    mem.write(1073741836, lwe_n)
+    mem.write(1073741837, stride)
     // Accumulate: out += w[i] * ct[i]
     for i in 0..n_ct bounded 4096 {
         let ii: Field = convert.as_field(i)
-        let ct_base: Field = cts_addr + ii * stride
-        let w: Field = mem.read(w_addr + ii)
-        scale(ct_base, w, tmp_addr, lwe_n)
-        add(out_addr, tmp_addr, out_addr, lwe_n)
+        let r_cts: Field = mem.read(1073741832)
+        let r_w: Field = mem.read(1073741833)
+        let r_out: Field = mem.read(1073741834)
+        let r_tmp: Field = mem.read(1073741835)
+        let r_lwe: Field = mem.read(1073741836)
+        let r_stride: Field = mem.read(1073741837)
+        let ct_base: Field = r_cts + ii * r_stride
+        let w: Field = mem.read(r_w + ii)
+        scale(ct_base, w, r_tmp, r_lwe)
+        ct_add(r_out, r_tmp, r_out, r_lwe)
     }
 }
 
@@ -221,11 +242,26 @@ pub fn private_linear(
     input_dim: Field,
     neurons: Field
 ) {
-    let stride: Field = lwe_n + 1
+    // Store params in RAM scratch area (addresses 1073741824..1073741830).
+    // Use literal addresses everywhere so the compiler emits push instead of dup.
+    mem.write(1073741824, cts_addr)
+    mem.write(1073741825, w_addr)
+    mem.write(1073741826, out_addr)
+    mem.write(1073741827, tmp_addr)
+    mem.write(1073741828, lwe_n)
+    mem.write(1073741829, input_dim)
+    mem.write(1073741830, lwe_n + 1)
     for row in 0..neurons bounded 4096 {
         let row_idx: Field = convert.as_field(row)
-        let row_w_addr: Field = w_addr + row_idx * input_dim
-        let row_out_addr: Field = out_addr + row_idx * stride
-        private_dot(cts_addr, row_w_addr, row_out_addr, tmp_addr, lwe_n, input_dim)
+        let r_cts: Field = mem.read(1073741824)
+        let r_w: Field = mem.read(1073741825)
+        let r_out: Field = mem.read(1073741826)
+        let r_tmp: Field = mem.read(1073741827)
+        let r_lwe: Field = mem.read(1073741828)
+        let r_dim: Field = mem.read(1073741829)
+        let r_stride: Field = mem.read(1073741830)
+        let row_w_addr: Field = r_w + row_idx * r_dim
+        let row_out_addr: Field = r_out + row_idx * r_stride
+        private_dot(r_cts, row_w_addr, row_out_addr, r_tmp, r_lwe, r_dim)
     }
 }
