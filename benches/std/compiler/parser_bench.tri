@@ -1,0 +1,52 @@
+program parser_bench
+
+// Benchmark: parse a small Trident program using the self-hosted parser.
+// Reads token stream and parameters from public input, calls parser.parse(),
+// asserts node count and error count, spot-checks first node kind.
+use vm.io.io
+
+use vm.io.mem
+
+use vm.core.convert
+
+use std.compiler.parser
+
+fn main() {
+    // Read parameters from public input
+    let tok_base: Field = io.read()
+    let tok_count: Field = io.read()
+    let ast_base: Field = io.read()
+    let err_base: Field = io.read()
+    let state_base: Field = io.read()
+    let stack_base: Field = io.read()
+    let expected_node_count: Field = io.read()
+    let expected_err_count: Field = io.read()
+
+    // Load token data from public input into RAM (stride 4)
+    let total_tok_words: Field = tok_count * 4
+    let total_tok_words_u32: U32 = convert.as_u32(total_tok_words)
+    for i in 0..total_tok_words_u32 bounded 4096 {
+        let idx: Field = convert.as_field(i)
+        let val: Field = io.read()
+        mem.write(tok_base + idx, val)
+    }
+
+    // Call the self-hosted parser
+    parser.parse(tok_base, tok_count, ast_base, err_base, state_base, stack_base)
+
+    // Read results from parser state
+    let node_count: Field = mem.read(state_base + 2)
+    let err_count: Field = mem.read(state_base + 3)
+
+    // Verify expected counts
+    assert(node_count == expected_node_count)
+    assert(err_count == expected_err_count)
+
+    // Read expected first node kind and spot-check
+    let expected_first_kind: Field = io.read()
+    let actual_first_kind: Field = mem.read(ast_base)
+    assert(actual_first_kind == expected_first_kind)
+
+    // Output the node count as proof of work
+    io.write(node_count)
+}

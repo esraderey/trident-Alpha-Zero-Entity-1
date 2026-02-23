@@ -83,3 +83,7 @@ path = "benches/std/trinity/inference.reference.rs"
 [[example]]
 name = "ref_std_compiler_lexer"
 path = "benches/std/compiler/lexer.reference.rs"
+
+[[example]]
+name = "ref_std_compiler_parser"
+path = "benches/std/compiler/parser.reference.rs"
