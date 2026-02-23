@@ -211,7 +211,7 @@ trident deploy main.tri          # package + deploy to registry
 ```text
 src/          Compiler in Rust            ~36K lines, 5 runtime dependencies
 vm/           VM intrinsics in Trident    Compiler primitives (hash, I/O, field ops)
-std/          Standard library in Trident Crypto algorithms (sha256, bigint, ecdsa)
+std/          Standard library in Trident Crypto, math, neural networks, compiler components
 os/           OS bindings in Trident      Per-OS config, programs, and extensions
 ```
 
@@ -226,15 +226,35 @@ os.<os>.*         OS-specific APIs          os.neptune.xfield, os.solana.pda
 
 ---
 
-## The Endgame
+## Self-Hosting: Proving Compilation
 
 The compiler self-hosts on Triton VM: Trident compiles Trident, producing
 a STARK proof that the compilation was correct. Provable compilation.
 
+This is actively happening. The lexer — the first compiler component — is
+already written in Trident and STARK-verified:
+
+```nu
+trident build std/compiler/lexer.tri     # compile the lexer to TASM
+trident bench benches/std/compiler --full # execute, prove, verify
+```
+
+```
+Module                Compile    Rust  | Exec  | Prove    | Verify | Status
+std::compiler::lexer    4.4ms   1.4µs |  39ms | 10252ms  |  42ms  | PASS
+```
+
+`std/compiler/lexer.tri` — 824 lines of Trident — tokenizes source code
+into 51 token kinds, recognizes all 28 keywords via a length-first trie,
+handles comments, numbers, symbols, and inline assembly blocks. When
+executed on Triton VM, the result is a STARK proof that the tokenization
+was performed correctly. Proven lexing.
+
 The source tree reflects this trajectory. `src/` is the Rust bootstrap
 compiler — it shrinks as self-hosting progresses. `vm/`, `std/`, and `os/`
 are Trident source — they grow. The intrinsic `.tri` files in `vm/` are
-already the first pieces written in Trident itself.
+the first pieces written in Trident itself. The compiler components in
+`std/compiler/` are the next.
 
 Every `trident build` will produce a proof certificate alongside the
 assembly — a cryptographic guarantee that the compilation was faithful.
@@ -255,7 +275,8 @@ The `std.*` architecture reflects the three-pillar thesis:
 **Foundation** — `std.field` (Goldilocks arithmetic, NTT, extensions),
 `std.crypto` (Poseidon2, Tip5, signatures, FRI), `std.math` (exact field
 arithmetic, linear algebra), `std.data` (Merkle trees, tensors,
-authenticated structures), `std.io` (witness injection, storage).
+authenticated structures), `std.io` (witness injection, storage),
+`std.compiler` (self-hosted compiler components: lexer, parser, codegen).
 
 **Three Pillars** — `std.quantum` (state management, gates, Grover's, QFT,
 VQE, error correction), `std.private` (ZK + FHE + MPC: credentials,
