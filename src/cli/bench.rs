@@ -241,7 +241,7 @@ pub fn cmd_bench(args: BenchArgs) {
                 };
 
                 if let Some(ref tasm) = linked_tasm {
-                    let harness = generate_program_harness(tasm, &li.values);
+                    let harness = generate_program_harness(tasm, &li.values, &li.divine);
                     run_dimension(&mut mb.classic, &module_name, "classic", &harness);
                 }
                 // Hand baseline: use test harness (hand TASM is single-module)
@@ -886,6 +886,7 @@ fn derive_neural_tasm_path(source_path: &str) -> Option<PathBuf> {
 /// Parsed live inputs from a `.inputs` file.
 struct LiveInputs {
     values: Vec<u64>,
+    divine: Vec<u64>,
 }
 
 /// Parse a `.inputs` file for live harness generation.
@@ -893,12 +894,17 @@ struct LiveInputs {
 /// Format:
 /// ```text
 /// values: 1000, 2000, 3000, 8, 16, 64, ...
+/// divine: 42, 17, 0, 3, ...
 /// ```
 ///
 /// Lines starting with `#` are comments. Blank lines ignored.
+/// The `divine:` section is optional — when present, divine values
+/// are inlined into the harness TASM (replacing `divine N` instructions
+/// with `push <val>`), enabling phases that need prover hints.
 fn parse_inputs_file(path: &Path) -> Option<LiveInputs> {
     let content = std::fs::read_to_string(path).ok()?;
     let mut values = None;
+    let mut divine = Vec::new();
     for line in content.lines() {
         let line = line.trim();
         if line.is_empty() || line.starts_with('#') {
@@ -910,9 +916,18 @@ fn parse_inputs_file(path: &Path) -> Option<LiveInputs> {
                 .filter_map(|v| v.trim().parse().ok())
                 .collect();
             values = Some(vals);
+        } else if let Some(rest) = line.strip_prefix("divine:") {
+            let vals: Vec<u64> = rest
+                .split(',')
+                .filter_map(|v| v.trim().parse().ok())
+                .collect();
+            divine = vals;
         }
     }
-    Some(LiveInputs { values: values? })
+    Some(LiveInputs {
+        values: values?,
+        divine,
+    })
 }
 
 /// Recursively find all .baseline.tasm files in a directory (depth-limited).

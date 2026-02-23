@@ -237,20 +237,27 @@ pub fn trisha_args_with_inputs(base_args: &[&str], harness: &Harness) -> Vec<Str
 ///
 /// Takes the output of `compile_project` (a complete linked program with
 /// `call main; halt` entry and all cross-module functions resolved) and
-/// transforms it for execution without prover hints:
+/// transforms it for execution:
 ///
 /// - `read_io N` → `push <value>` using values from `input_values` in order
 /// - `assert` → `pop 1` (neutralize without crashing)
-/// - `divine` → `push 0` (no prover hints)
+/// - `divine N` → `push <value>` × N when `divine_values` supplied (FIFO),
+///   or kept as `divine N` with zeros via `--secret` when not
 /// - `recurse` preserved → loops execute with real iteration counts
 /// - `halt`, `call`, `return` preserved as-is
 ///
 /// The linked program is self-contained — all cross-module calls are resolved.
-pub fn generate_program_harness(tasm: &str, input_values: &[u64]) -> Harness {
+pub fn generate_program_harness(
+    tasm: &str,
+    input_values: &[u64],
+    divine_values: &[u64],
+) -> Harness {
     let mut result = String::with_capacity(tasm.len());
     let mut input_idx: usize = 0;
+    let mut divine_idx: usize = 0;
     let mut divine_count: usize = 0;
     let mut merkle_count: usize = 0;
+    let inline_divine = !divine_values.is_empty();
 
     for line in tasm.lines() {
         let t = line.trim();
@@ -266,13 +273,41 @@ pub fn generate_program_harness(tasm: &str, input_values: &[u64]) -> Harness {
             result.push_str("    nop\n");
             merkle_count += 1;
         } else if t == "divine" {
-            result.push_str("    divine 1\n");
-            divine_count += 1;
+            if inline_divine {
+                // Triton VM divine pushes to stack top — push in reverse
+                // so that the first value ends up at st0 after all pushes.
+                // For divine 1 (single value), reverse is identity.
+                let val = if divine_idx < divine_values.len() {
+                    divine_values[divine_idx]
+                } else {
+                    0
+                };
+                result.push_str(&format!("    push {}\n", val));
+                divine_idx += 1;
+            } else {
+                result.push_str("    divine 1\n");
+                divine_count += 1;
+            }
         } else if let Some(rest) = t.strip_prefix("divine ") {
             let n: usize = rest.trim().parse().unwrap_or(1);
-            result.push_str(line);
-            result.push('\n');
-            divine_count += n;
+            if inline_divine {
+                // divine N pops N values from FIFO, pushing each onto the
+                // stack in order. push reproduces the same stack layout:
+                // first FIFO value ends up deepest, last at st0.
+                for _ in 0..n {
+                    let val = if divine_idx < divine_values.len() {
+                        divine_values[divine_idx]
+                    } else {
+                        0
+                    };
+                    result.push_str(&format!("    push {}\n", val));
+                    divine_idx += 1;
+                }
+            } else {
+                result.push_str(line);
+                result.push('\n');
+                divine_count += n;
+            }
         } else if let Some(rest) = t.strip_prefix("read_io ") {
             let n: usize = rest.trim().parse().unwrap_or(1);
             for _ in 0..n {
@@ -302,7 +337,7 @@ pub fn generate_program_harness(tasm: &str, input_values: &[u64]) -> Harness {
         tasm: result,
         n_funcs: 1,
         read_io_count: 0,
-        divine_count: divine_count * 4096,
+        divine_count: if inline_divine { 0 } else { divine_count * 4096 },
         merkle_count,
     }
 }

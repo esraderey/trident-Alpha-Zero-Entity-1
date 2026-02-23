@@ -193,7 +193,10 @@ fn lut_sponge_permute(state: &mut [F; LUT_SPONGE_WIDTH], lut: &[F], domain: u64,
 
 fn lut_sponge_round_constants() -> Vec<F> {
     (0..LUT_SPONGE_ROUNDS * LUT_SPONGE_WIDTH)
-        .map(|i| F::from_u64((i as u64 + 42) * 0x9E3779B97F4A7C15 % 0xFFFF_FFFF_0000_0001))
+        .map(|i| {
+            let v = (i as u64 + 42).wrapping_mul(0x9E3779B97F4A7C15) % 0xFFFF_FFFF_0000_0001;
+            F::from_u64(v)
+        })
         .collect()
 }
 
@@ -336,10 +339,76 @@ fn trinity(
     }
 }
 
+// ===========================================================================
+// Divine value computation for bench harness
+// ===========================================================================
+// The bench harness operates on zero-initialized RAM (except parameters at
+// addr 0-28 and the LUT built by Phase 0). Divine values must be consistent
+// with this zero data for asserts to pass.
+//
+// FIFO order matches program execution: Phase 1b divines, then Phase 4 divines.
+
+fn compute_bench_divine(
+    lwe_n: usize,
+    neurons: usize,
+    ring_n: usize,
+    domain: u64,
+) -> Vec<u64> {
+    let p = 0xFFFF_FFFF_0000_0001u64;
+    let mut divine = Vec::new();
+
+    // Phase 1b: decrypt_outputs — one divine per neuron.
+    // Zero ciphertexts with zero keys: phase = 0, m = 0 satisfies noise bound.
+    for _ in 0..neurons {
+        divine.push(0);
+    }
+
+    // Phase 4: pbs.bootstrap chain
+
+    // 4a: build_test_poly — divine table indices.
+    // Verify: idx * domain - table_idx * ring_n < ring_n
+    // Solution: table_idx = floor(idx * domain / ring_n)
+    for i in 0..ring_n {
+        divine.push((i as u64 * domain) / ring_n as u64);
+    }
+
+    // 4b: rotation = io.divine()
+    // Zero ciphertext → rotation = 0.
+    divine.push(0);
+
+    // 4c: blind_rotate calls monomial_mul twice (a-component, b-component).
+    // With rotation k=0: monomial_mul is identity.
+    // For each j in 0..ring_n: src = j, sign = 1.
+    for _ in 0..2 {
+        // One monomial_mul call
+        for j in 0..ring_n {
+            divine.push(j as u64); // src
+            divine.push(1);        // sign (no negation)
+        }
+    }
+
+    // 4d: key_switch — (lwe_n + 1) divine values for the switched ciphertext.
+    // Zero input → zero output.
+    for _ in 0..=lwe_n {
+        divine.push(0);
+    }
+
+    // 4e: lwe.decrypt inside bootstrap — one divine for plaintext m.
+    // Zero ciphertext → m = 0.
+    divine.push(0);
+
+    eprintln!("--- Divine values for bench harness ---");
+    eprintln!("  Phase 1b: {} values (decrypt plaintexts)", neurons);
+    eprintln!("  Phase 4:  build_test_poly={}, rotation=1, monomial=2×{}, key_switch={}, decrypt=1",
+        ring_n, ring_n * 2, lwe_n + 1);
+    eprintln!("  Total:    {} divine values", divine.len());
+    let _ = std::io::Write::flush(&mut std::io::stderr());
+
+    divine
+}
+
 fn main() {
     let d = delta();
-    let p = 0xFFFF_FFFF_0000_0001u64;
-
     // ========== DATA SETUP ==========
 
     // Secret key (small values for demo)
@@ -418,7 +487,7 @@ fn main() {
     eprintln!("=== One table, four readers, five domains ===");
     eprintln!();
     eprintln!("--- Parameters ---");
-    eprintln!("  p (Goldilocks)     = {}", p);
+    eprintln!("  p (Goldilocks)     = {}", 0xFFFF_FFFF_0000_0001u64);
     eprintln!("  delta (p/1024)     = {}", d.to_u64());
     eprintln!("  LWE_N              = {}", LWE_N);
     eprintln!("  INPUT_DIM          = {}", INPUT_DIM);
@@ -545,4 +614,16 @@ fn main() {
         ));
     }
     println!("rust_ns: {}", start.elapsed().as_nanos() / iters);
+
+    // ========== DIVINE VALUES FOR BENCH HARNESS ==========
+    // Compute divine values for Probe 2 parameters (used by .inputs file).
+    // These are for the zero-data bench — all ciphertext/weight RAM is uninitialized.
+    let bench_lwe_n = 32;
+    let bench_neurons = 64;
+    let bench_ring_n = 64;
+    let bench_domain = 1024u64;
+    let divine = compute_bench_divine(bench_lwe_n, bench_neurons, bench_ring_n, bench_domain);
+    let divine_strs: Vec<String> = divine.iter().map(|v| v.to_string()).collect();
+    eprintln!();
+    eprintln!("divine: {}", divine_strs.join(", "));
 }
