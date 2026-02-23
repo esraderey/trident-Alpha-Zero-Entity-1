@@ -1,6 +1,6 @@
 # Trident
 
-## One Field. Three Revolutions.
+> The weapon is their language. They gave it all to us. If you learn it, when you really learn it, you begin to perceive time the way that they do. So you can see what's to come
 
 <p align="center">
   <img src="media/tri.gif" width="100%" alt="Trident" />
@@ -10,6 +10,8 @@ Trident is a programming language for provable, private, intelligent,
 quantum-native computation. Every variable, every operation, every function compiles to
 arithmetic over the Goldilocks prime field (p = 2^64 - 2^32 + 1). Programs
 produce STARK proofs — hash-based, post-quantum secure, no trusted setup.
+
+## One Field. Three Revolutions.
 
 Three computational revolutions — quantum computing, privacy, and
 artificial intelligence — share a common algebraic foundation in prime
