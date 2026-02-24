@@ -104,6 +104,16 @@ pub fn NK_ARRAY_INIT() -> Field { 48 }
 pub fn NK_TUPLE() -> Field { 49 }
 pub fn NK_INIT_FIELD() -> Field { 50 }
 
+// Attributes
+pub fn NK_ATTR() -> Field { 61 }
+
+// Declarations (program I/O)
+pub fn NK_PUB_INPUT() -> Field { 56 }
+pub fn NK_PUB_OUTPUT() -> Field { 57 }
+pub fn NK_SEC_INPUT() -> Field { 58 }
+pub fn NK_SEC_RAM() -> Field { 59 }
+pub fn NK_RAM_ENTRY() -> Field { 60 }
+
 // Patterns
 pub fn NK_PAT_NAME() -> Field { 51 }
 pub fn NK_PAT_TUPLE() -> Field { 52 }
@@ -184,6 +194,10 @@ fn STATE_INDEX_EXPR() -> Field { 53 }
 fn STATE_PAREN_EXPR() -> Field { 54 }
 fn STATE_PAREN_TUPLE() -> Field { 55 }
 fn STATE_PAREN_TUPLE_EXPR() -> Field { 56 }
+fn STATE_DECLS() -> Field { 57 }
+fn STATE_NAMED_FIELD_VALUE() -> Field { 58 }
+fn STATE_FOR_START_EXPR() -> Field { 59 }
+fn STATE_FOR_END_EXPR() -> Field { 60 }
 
 // =========================================================================
 // Binary operator codes (OP_*)
@@ -558,18 +572,14 @@ fn top_extra_2(sb: Field) -> Field {
 // Utility helpers
 // =========================================================================
 
-// Check if a flag is set in item_flags
+// Check if a flag is set in item_flags.
+// Flags are powers of 2 (1,2,4,8), accumulated by addition.
+// The parser resets flags to 0 between items, and currently only one
+// flag type (pub) is accumulated at item level. Attribute flags (test, pure)
+// will be added when attribute recording lands.
+// Equality check is correct for single-flag usage.
 fn has_flag(sb: Field, flag: Field) -> Bool {
-    // Simple: check exact flag. For single-flag checks this works.
-    // For multi-flag packing, we'd need bitwise ops.
-    // For now, item_flags stores a single combined value.
     let flags: Field = get_item_flags(sb)
-    let flags_u: U32 = convert.as_u32(flags)
-    let flag_u: U32 = convert.as_u32(flag)
-    // Check if flag bit is set: (flags & flag) != 0
-    // Since we don't have bitwise AND in Trident easily,
-    // we'll use a different approach: store flags as sum of powers
-    // and check divisibility. For now, simple equality for single flags.
     flags == flag
 }
 
@@ -660,6 +670,10 @@ fn dispatch(sb: Field) {
         handle_if_else(sb)
     } else if st == STATE_IF_ELSE_DONE() {
         handle_if_else_done(sb)
+    } else if st == STATE_FOR_START_EXPR() {
+        handle_for_start_expr(sb)
+    } else if st == STATE_FOR_END_EXPR() {
+        handle_for_end_expr(sb)
     } else if st == STATE_FOR_RANGE() {
         handle_for_range(sb)
     } else if st == STATE_FOR_BODY() {
@@ -720,6 +734,10 @@ fn dispatch(sb: Field) {
         handle_paren_tuple(sb)
     } else if st == STATE_PAREN_TUPLE_EXPR() {
         handle_paren_tuple_expr(sb)
+    } else if st == STATE_DECLS() {
+        handle_decls(sb)
+    } else if st == STATE_NAMED_FIELD_VALUE() {
+        handle_named_field_value(sb)
     } else if st == STATE_PARSE_TYPE() {
         handle_parse_type(sb)
     } else if st == STATE_ARRAY_TYPE() {
@@ -819,8 +837,106 @@ fn handle_uses(sb: Field) {
     backpatch(sb, file_node, 3, uses_start)
     backpatch(sb, file_node, 4, uses_count)
 
-    // Transition to ITEMS (parent frame already set)
-    set_cur_state(sb, STATE_ITEMS())
+    // Programs may have declarations before items; modules go straight to items
+    let fk: Field = read_node_field(sb, file_node, 1)
+    if fk == FK_PROGRAM() {
+        set_cur_state(sb, STATE_DECLS())
+    } else {
+        set_cur_state(sb, STATE_ITEMS())
+    }
+}
+
+// =========================================================================
+// STATE_DECLS: Parse program declarations (pub input/output, sec input/ram)
+// =========================================================================
+
+fn is_declaration(sb: Field) -> Bool {
+    let kind: Field = cur_kind(sb)
+    if kind == lexer.TK_SEC() {
+        // sec at file level is always a declaration
+        true
+    } else if kind == lexer.TK_PUB() {
+        // pub followed by TK_IDENT (input/output) is a declaration.
+        // pub followed by fn/const/struct/event is an item.
+        let next: Field = tok_kind(sb, get_tok_pos(sb) + 1)
+        if next == lexer.TK_IDENT() {
+            true
+        } else {
+            false
+        }
+    } else {
+        false
+    }
+}
+
+fn handle_decls(sb: Field) {
+    if is_declaration(sb) {
+        let kind: Field = cur_kind(sb)
+        advance(sb)  // eat 'pub' or 'sec'
+
+        // The next token is TK_IDENT with value "input", "output", or "ram".
+        // We skip it — the Rust parser identifies by string; we identify by
+        // position: pub followed by ident is always a declaration at this point.
+        let decl_name_tok: Field = get_tok_pos(sb)
+        if at(sb, lexer.TK_IDENT()) {
+            advance(sb)
+        }
+        expect(sb, lexer.TK_COLON())
+
+        // Determine declaration kind by the keyword before the name
+        if kind == lexer.TK_PUB() {
+            // pub input: Type  or  pub output: Type
+            // We check the next-after-colon to determine if we need { for ram.
+            // Since we already consumed the colon, parse type directly.
+            let type_node: Field = parse_type_inline(sb)
+            // We use decl_name_tok to distinguish input vs output at verification time.
+            // The AST records the name token so verifiers can check the source text.
+            emit_node(sb, NK_PUB_INPUT(), decl_name_tok, type_node, 0, 0, 0, 0, 0)
+        } else {
+            // sec input: Type  or  sec ram: { addr: Type, ... }
+            if at(sb, lexer.TK_LBRACE()) {
+                // sec ram: { ... }
+                advance(sb)
+                let entries_start: Field = get_node_count(sb)
+                let mut rcount: Field = 0
+                let mut rdone: Field = 0
+                for _ri in 0..64 bounded 64 {
+                    if rdone == 0 {
+                        if at(sb, lexer.TK_RBRACE()) {
+                            rdone = 1
+                        } else if at(sb, lexer.TK_EOF()) {
+                            rdone = 1
+                        } else {
+                            // addr : Type
+                            let addr_val: Field = 0
+                            let addr_tok: Field = get_tok_pos(sb)
+                            if at(sb, lexer.TK_INTEGER()) {
+                                advance(sb)
+                            } else {
+                                advance(sb)
+                            }
+                            expect(sb, lexer.TK_COLON())
+                            let rtype: Field = parse_type_inline(sb)
+                            emit_node(sb, NK_RAM_ENTRY(), addr_tok, rtype, 0, 0, 0, 0, 0)
+                            rcount = rcount + 1
+                            if at(sb, lexer.TK_COMMA()) { advance(sb) }
+                        }
+                    }
+                }
+                expect(sb, lexer.TK_RBRACE())
+                emit_node(sb, NK_SEC_RAM(), decl_name_tok, entries_start, rcount, 0, 0, 0, 0)
+            } else {
+                // sec input: Type
+                let type_node: Field = parse_type_inline(sb)
+                emit_node(sb, NK_SEC_INPUT(), decl_name_tok, type_node, 0, 0, 0, 0, 0)
+            }
+        }
+        // Stay in DECLS to check for more
+        set_cur_state(sb, STATE_DECLS())
+    } else {
+        // No more declarations — transition to items
+        set_cur_state(sb, STATE_ITEMS())
+    }
 }
 
 // =========================================================================
@@ -855,26 +971,38 @@ fn handle_parse_item(sb: Field) {
     let file_node: Field = top_node(sb)
     let kind: Field = cur_kind(sb)
 
-    // Handle attributes: #[...]
+    // Handle attributes: #[name] or #[name(arg)]
     if kind == lexer.TK_HASH() {
-        // Skip attributes for now — advance past #[...]
         advance(sb)  // eat #
         if at(sb, lexer.TK_LBRACKET()) {
             advance(sb)  // eat [
-            // Skip until ]
-            let mut adone: Field = 0
-            for _i in 0..64 bounded 64 {
-                if adone == 0 {
-                    if at(sb, lexer.TK_RBRACKET()) {
-                        advance(sb)
-                        adone = 1
-                    } else if at(sb, lexer.TK_EOF()) {
-                        adone = 1
-                    } else {
-                        advance(sb)
+            let attr_name_tok: Field = get_tok_pos(sb)
+            let mut attr_arg_tok: Field = 0
+            if at(sb, lexer.TK_IDENT()) {
+                advance(sb)
+            }
+            // Optional (arg)
+            if at(sb, lexer.TK_LPAREN()) {
+                advance(sb)
+                attr_arg_tok = get_tok_pos(sb)
+                // Advance past argument tokens until )
+                let mut pdone: Field = 0
+                for _pi in 0..64 bounded 64 {
+                    if pdone == 0 {
+                        if at(sb, lexer.TK_RPAREN()) {
+                            pdone = 1
+                        } else if at(sb, lexer.TK_EOF()) {
+                            pdone = 1
+                        } else {
+                            advance(sb)
+                        }
                     }
                 }
+                if at(sb, lexer.TK_RPAREN()) { advance(sb) }
             }
+            if at(sb, lexer.TK_RBRACKET()) { advance(sb) }
+            // Emit NK_ATTR node — downstream passes interpret the name token
+            emit_node(sb, NK_ATTR(), attr_name_tok, attr_arg_tok, 0, 0, 0, 0, 0)
         }
         // Check for more attributes or the actual item
         set_cur_state(sb, STATE_PARSE_ITEM())
@@ -1442,28 +1570,43 @@ fn handle_parse_let(sb: Field) {
         advance(sb)
     }
 
-    // Parse pattern: name or (a, b)
+    // Parse pattern: name, _, or (a, b, ...)
     let mut name_tok: Field = get_tok_pos(sb)
+    let mut is_tuple_pat: Bool = false
     if at(sb, lexer.TK_UNDERSCORE()) {
         advance(sb)
     } else if at(sb, lexer.TK_LPAREN()) {
-        // Tuple destructure — skip for now, treat as single
+        // Tuple destructure: (a, b, ...)
         advance(sb)
+        is_tuple_pat = true
+        let names_start: Field = get_node_count(sb)
+        let mut tpcount: Field = 0
+        let mut tpdone: Field = 0
         name_tok = get_tok_pos(sb)
-        // Skip to )
-        let mut lpdone: Field = 0
         for _i in 0..16 bounded 16 {
-            if lpdone == 0 {
+            if tpdone == 0 {
                 if at(sb, lexer.TK_RPAREN()) {
-                    advance(sb)
-                    lpdone = 1
+                    tpdone = 1
                 } else if at(sb, lexer.TK_EOF()) {
-                    lpdone = 1
+                    tpdone = 1
                 } else {
-                    advance(sb)
+                    let elem_tok: Field = get_tok_pos(sb)
+                    if at(sb, lexer.TK_IDENT()) {
+                        emit_node(sb, NK_PAT_NAME(), elem_tok, 0, 0, 0, 0, 0, 0)
+                        advance(sb)
+                    } else if at(sb, lexer.TK_UNDERSCORE()) {
+                        emit_node(sb, NK_PAT_WILDCARD(), 0, 0, 0, 0, 0, 0, 0)
+                        advance(sb)
+                    } else {
+                        advance(sb)
+                    }
+                    tpcount = tpcount + 1
+                    if at(sb, lexer.TK_COMMA()) { advance(sb) }
                 }
             }
         }
+        emit_node(sb, NK_PAT_TUPLE(), names_start, tpcount, 0, 0, 0, 0, 0)
+        expect(sb, lexer.TK_RPAREN())
     } else if at(sb, lexer.TK_IDENT()) {
         advance(sb)
     } else {
@@ -1610,13 +1753,32 @@ fn handle_parse_for(sb: Field) {
 
     expect(sb, lexer.TK_IN())
 
-    // Parse start expression inline (simple — usually a literal or var)
-    // For now, parse as integer literal or ident
-    let start_node: Field = parse_simple_expr(sb)
+    // NK_FOR: kind, var_tok, start_node, end_node, bound_value, body_node
+    let for_node: Field = emit_node(sb, NK_FOR(), var_tok, 0, 0, 0, 0, 0, 0)
+    inc_top_count(sb)
+
+    // Parse start expression (full)
+    push_frame(sb, STATE_FOR_START_EXPR(), for_node, 0, 0, 0, 0, 0, 0)
+    set_cur_state(sb, STATE_PARSE_EXPR())
+}
+
+fn handle_for_start_expr(sb: Field) {
+    let for_node: Field = top_node(sb)
+    let start_node: Field = get_scratch_0(sb)
+    backpatch(sb, for_node, 2, start_node)
 
     expect(sb, lexer.TK_DOTDOT())
 
-    let end_node: Field = parse_simple_expr(sb)
+    // Parse end expression (full)
+    pop_frame(sb)
+    push_frame(sb, STATE_FOR_END_EXPR(), for_node, 0, 0, 0, 0, 0, 0)
+    set_cur_state(sb, STATE_PARSE_EXPR())
+}
+
+fn handle_for_end_expr(sb: Field) {
+    let for_node: Field = top_node(sb)
+    let end_node: Field = get_scratch_0(sb)
+    backpatch(sb, for_node, 3, end_node)
 
     let mut bound_val: Field = 0
     if at(sb, lexer.TK_BOUNDED()) {
@@ -1626,12 +1788,10 @@ fn handle_parse_for(sb: Field) {
             advance(sb)
         }
     }
-
-    // NK_FOR: kind, var_tok, start_node, end_node, bound_value, body_node
-    let for_node: Field = emit_node(sb, NK_FOR(), var_tok, start_node, end_node, bound_val, 0, 0, 0)
-    inc_top_count(sb)
+    backpatch(sb, for_node, 4, bound_val)
 
     // Parse body block
+    pop_frame(sb)
     push_frame(sb, STATE_FOR_BODY_DONE(), for_node, 0, 0, 0, 0, 0, 0)
     set_cur_state(sb, STATE_BLOCK())
 }
@@ -1731,7 +1891,9 @@ fn handle_seal_fields(sb: Field) {
     handle_named_fields(sb, STATE_BLOCK_STMTS())
 }
 
-// Shared: parse { name: expr, ... } fields for reveal/seal/struct_init
+// Shared: parse { name: expr, ... } fields for reveal/seal.
+// Uses STATE_NAMED_FIELD_VALUE for full expression parsing of field values.
+// The return_state is stored in the frame's extra_1 (offset 5) of the parent.
 fn handle_named_fields(sb: Field, return_state: Field) {
     let parent_node: Field = top_node(sb)
     let count: Field = top_count(sb)
@@ -1752,17 +1914,30 @@ fn handle_named_fields(sb: Field, return_state: Field) {
 
         if at(sb, lexer.TK_COLON()) {
             advance(sb)
-            // Parse value expression inline (simple)
-            let val_node: Field = parse_simple_expr(sb)
-            emit_node(sb, NK_INIT_FIELD(), fname_tok, val_node, 0, 0, 0, 0, 0)
+            // Parse full expression for field value
+            let field_node: Field = emit_node(sb, NK_INIT_FIELD(), fname_tok, 0, 0, 0, 0, 0, 0)
+            push_frame(sb, STATE_NAMED_FIELD_VALUE(), field_node, 0, return_state, 0, 0, 0, 0)
+            set_cur_state(sb, STATE_PARSE_EXPR())
         } else {
             // Shorthand: { name } means { name: name }
             let var_node: Field = emit_node(sb, NK_VAR(), fname_tok, fname_tok, 0, 0, 0, 0, 0)
             emit_node(sb, NK_INIT_FIELD(), fname_tok, var_node, 0, 0, 0, 0, 0)
+            inc_top_count(sb)
+            if at(sb, lexer.TK_COMMA()) { advance(sb) }
         }
-        inc_top_count(sb)
-        if at(sb, lexer.TK_COMMA()) { advance(sb) }
     }
+}
+
+fn handle_named_field_value(sb: Field) {
+    let field_node: Field = top_node(sb)
+    let val_node: Field = get_scratch_0(sb)
+    let return_state: Field = top_extra_0(sb)
+    backpatch(sb, field_node, 2, val_node)
+    pop_frame(sb)
+    inc_top_count(sb)
+    if at(sb, lexer.TK_COMMA()) { advance(sb) }
+    // The parent frame's state was set by the reveal/seal handler.
+    // We stay in the same fields state (the parent frame determines this).
 }
 
 // =========================================================================
@@ -2010,6 +2185,39 @@ fn handle_parse_primary(sb: Field) {
         let path_start: Field = get_scratch_0(sb)
         let path_end: Field = get_scratch_1(sb)
 
+        // Skip optional generic args: name<N, M>(...)
+        if at(sb, lexer.TK_LT()) {
+            // Peek ahead: is this generic args (<int/ident, ...>) or less-than?
+            let after_lt: Field = tok_kind(sb, get_tok_pos(sb) + 1)
+            let after_lt2: Field = tok_kind(sb, get_tok_pos(sb) + 2)
+            let mut is_generic: Bool = false
+            if after_lt == lexer.TK_INTEGER() {
+                if after_lt2 == lexer.TK_COMMA() { is_generic = true }
+                if after_lt2 == lexer.TK_GT() { is_generic = true }
+            }
+            if after_lt == lexer.TK_IDENT() {
+                if after_lt2 == lexer.TK_COMMA() { is_generic = true }
+                if after_lt2 == lexer.TK_GT() { is_generic = true }
+            }
+            if is_generic {
+                advance(sb)  // eat <
+                let mut gdone: Field = 0
+                for _gi in 0..16 bounded 16 {
+                    if gdone == 0 {
+                        if at(sb, lexer.TK_GT()) {
+                            advance(sb)
+                            gdone = 1
+                        } else if at(sb, lexer.TK_EOF()) {
+                            gdone = 1
+                        } else {
+                            advance(sb)
+                            if at(sb, lexer.TK_COMMA()) { advance(sb) }
+                        }
+                    }
+                }
+            }
+        }
+
         let next: Field = cur_kind(sb)
         if next == lexer.TK_LPAREN() {
             // Function call
@@ -2076,7 +2284,21 @@ fn handle_parse_primary(sb: Field) {
 // =========================================================================
 
 fn handle_postfix(sb: Field) {
-    if at(sb, lexer.TK_LBRACKET()) {
+    if at(sb, lexer.TK_DOT()) {
+        advance(sb)  // eat .
+        let expr_node: Field = get_scratch_0(sb)
+        let field_tok: Field = get_tok_pos(sb)
+        if at(sb, lexer.TK_IDENT()) {
+            advance(sb)
+        } else {
+            emit_error(sb, ERR_EXPECTED_IDENT(), get_tok_pos(sb), get_tok_pos(sb))
+        }
+        // NK_FIELD_ACCESS: kind, expr_node, field_name_tok
+        let fa_node: Field = emit_node(sb, NK_FIELD_ACCESS(), expr_node, field_tok, 0, 0, 0, 0, 0)
+        set_scratch_0(sb, fa_node)
+        // Check for more postfix
+        set_cur_state(sb, STATE_POSTFIX())
+    } else if at(sb, lexer.TK_LBRACKET()) {
         advance(sb)  // eat [
         let expr_node: Field = get_scratch_0(sb)
         let idx_node_placeholder: Field = emit_node(sb, NK_INDEX(), expr_node, 0, 0, 0, 0, 0, 0)
@@ -2307,21 +2529,27 @@ fn handle_struct_init_fields(sb: Field) {
 
         if at(sb, lexer.TK_COLON()) {
             advance(sb)
-            let val_node: Field = parse_simple_expr(sb)
-            emit_node(sb, NK_INIT_FIELD(), fname_tok, val_node, 0, 0, 0, 0, 0)
+            // Parse full expression for field value
+            let field_node: Field = emit_node(sb, NK_INIT_FIELD(), fname_tok, 0, 0, 0, 0, 0, 0)
+            push_frame(sb, STATE_STRUCT_INIT_VALUE(), field_node, 0, 0, 0, 0, 0, 0)
+            set_cur_state(sb, STATE_PARSE_EXPR())
         } else {
-            // Shorthand
+            // Shorthand: { name } means { name: name }
             let var_node: Field = emit_node(sb, NK_VAR(), fname_tok, fname_tok, 0, 0, 0, 0, 0)
             emit_node(sb, NK_INIT_FIELD(), fname_tok, var_node, 0, 0, 0, 0, 0)
+            inc_top_count(sb)
+            if at(sb, lexer.TK_COMMA()) { advance(sb) }
         }
-        inc_top_count(sb)
-        if at(sb, lexer.TK_COMMA()) { advance(sb) }
     }
 }
 
 fn handle_struct_init_value(sb: Field) {
-    // Not used directly
+    let field_node: Field = top_node(sb)
+    let val_node: Field = get_scratch_0(sb)
+    backpatch(sb, field_node, 2, val_node)
     pop_frame(sb)
+    inc_top_count(sb)
+    if at(sb, lexer.TK_COMMA()) { advance(sb) }
 }
 
 // =========================================================================

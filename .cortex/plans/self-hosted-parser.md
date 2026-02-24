@@ -1,5 +1,17 @@
 # Self-Hosted Parser: Proven Parsing
 
+**Status: COMPLETE**
+
+~2,700 LOC. Compiles to TASM. All grammar constructs covered.
+
+## Completion Summary
+
+Phase 8 (gap-fill): `.field` postfix access, program declarations
+(`pub input/output`, `sec input/ram`), attribute recording (`#[attr]` →
+NK_ATTR nodes), full expression parsing in struct init/reveal/seal/for-range
+fields (replacing parse_simple_expr), let tuple destructuring (`let (a, b) = expr`),
+generic args at call sites (`name<N>(...)`).
+
 ## Context
 
 The self-hosted lexer is complete and STARK-verified (824 LOC, execute 39ms,
