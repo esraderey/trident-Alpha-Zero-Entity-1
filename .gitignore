@@ -29,5 +29,5 @@ editor/zed/grammars/
 # Neural weight artifacts — too large for git (v2 checkpoint ~30MB)
 data/neural/
 
-# Agent memory — keep plans/audits/reports, ignore scratch
-/.cortex/scratch/
+# Agent memory — keep plans/audits/other, ignore scratch
+/.claude/scratch/
