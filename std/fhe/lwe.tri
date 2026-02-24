@@ -97,12 +97,7 @@ fn hi_lt(a: Field, b: Field) -> Bool {
     a_hi < b_hi
 }
 
-pub fn decrypt(
-    ct_addr: Field,
-    s_addr: Field,
-    delta: Field,
-    n: Field
-) -> Field {
+pub fn decrypt(ct_addr: Field, s_addr: Field, delta: Field, n: Field) -> Field {
     // phase = b - <a, s>
     let b: Field = mem.read(ct_addr + n)
     let dot: Field = inner_product(ct_addr, s_addr, n)
@@ -135,12 +130,7 @@ pub fn decrypt(
 // Homomorphic addition: ct_out = ct1 + ct2.
 // Adds all n+1 elements pointwise.
 // ---------------------------------------------------------------------------
-pub fn ct_add(
-    ct1_addr: Field,
-    ct2_addr: Field,
-    out_addr: Field,
-    n: Field
-) {
+pub fn ct_add(ct1_addr: Field, ct2_addr: Field, out_addr: Field, n: Field) {
     let size: Field = n + 1
     for i in 0..size bounded 4096 {
         let idx: Field = convert.as_field(i)
@@ -154,12 +144,7 @@ pub fn ct_add(
 // Homomorphic scalar multiply: ct_out = k * ct.
 // Multiplies all n+1 elements by scalar k.
 // ---------------------------------------------------------------------------
-pub fn scale(
-    ct_addr: Field,
-    k: Field,
-    out_addr: Field,
-    n: Field
-) {
+pub fn scale(ct_addr: Field, k: Field, out_addr: Field, n: Field) {
     let size: Field = n + 1
     for i in 0..size bounded 4096 {
         let idx: Field = convert.as_field(i)
