@@ -173,6 +173,10 @@ fn ast_f(sb: Field, idx: Field, f: Field) -> Field {
     mem.read(get_ast_base(sb) + idx * AST_STRIDE() + 1 + f)
 }
 
+// Dereference a NK_BLOCK node — returns (stmts_start, stmts_count)
+fn block_stmts_start(sb: Field, blk: Field) -> Field { ast_f(sb, blk, 0) }
+fn block_stmts_count(sb: Field, blk: Field) -> Field { ast_f(sb, blk, 1) }
+
 // =========================================================================
 // Type pool
 // =========================================================================
@@ -716,8 +720,9 @@ fn resolve_type_node(sb: Field, node_idx: Field) -> Field {
         alloc_type(sb, TY_ARRAY(), iti, sz, 0)
     }
     else { if kind == parser.NK_TYPE_TUPLE() {
-        let cnt: Field = ast_f(sb, node_idx, 0)
-        let fst: Field = ast_f(sb, node_idx, 1)
+        // NK_TYPE_TUPLE: f0=types_start, f1=types_count
+        let fst: Field = ast_f(sb, node_idx, 0)
+        let cnt: Field = ast_f(sb, node_idx, 1)
         let sti: Field = get_tp_count(sb)
         for _ti in 0..cnt bounded 32 {
             let ti: Field = convert.as_field(_ti)
@@ -743,8 +748,8 @@ fn resolve_type_node(sb: Field, node_idx: Field) -> Field {
 // =========================================================================
 
 fn register_items(sb: Field) {
-    let first: Field = ast_f(sb, 0, 2)
-    let cnt: Field = ast_f(sb, 0, 3)
+    let first: Field = ast_f(sb, 0, 4)
+    let cnt: Field = ast_f(sb, 0, 5)
     for _ii in 0..cnt bounded 1024 {
         let ii: Field = convert.as_field(_ii)
         let node: Field = first + ii
@@ -760,9 +765,10 @@ fn register_items(sb: Field) {
 }
 
 fn reg_struct(sb: Field, node: Field) {
+    // NK_STRUCT: f0=name_tok, f1=fields_start, f2=fields_count
     let nid: Field = ast_f(sb, node, 0)
-    let fc: Field = ast_f(sb, node, 1)
-    let ff: Field = ast_f(sb, node, 2)
+    let fc: Field = ast_f(sb, node, 2)
+    let ff: Field = ast_f(sb, node, 1)
     let fss: Field = get_sf_count(sb)
     for _fi in 0..fc bounded 64 {
         let fi: Field = convert.as_field(_fi)
@@ -777,9 +783,10 @@ fn reg_struct(sb: Field, node: Field) {
 }
 
 fn reg_fn(sb: Field, node: Field) {
+    // NK_FN: f0=name_tok, f1=params_start, f2=params_count, f3=ret_type_node, f4=body_block, f5=flags
     let nid: Field = ast_f(sb, node, 0)
-    let pc: Field = ast_f(sb, node, 1)
-    let fp: Field = ast_f(sb, node, 2)
+    let fp: Field = ast_f(sb, node, 1)
+    let pc: Field = ast_f(sb, node, 2)
     let rtn: Field = ast_f(sb, node, 3)
     let pss: Field = get_tp_count(sb)
     for _pi in 0..pc bounded 32 {
@@ -807,9 +814,10 @@ fn reg_const(sb: Field, node: Field) {
 }
 
 fn reg_event(sb: Field, node: Field) {
+    // NK_EVENT: f0=name_tok, f1=fields_start, f2=fields_count
     let nid: Field = ast_f(sb, node, 0)
-    let fc: Field = ast_f(sb, node, 1)
-    let ff: Field = ast_f(sb, node, 2)
+    let fc: Field = ast_f(sb, node, 2)
+    let ff: Field = ast_f(sb, node, 1)
     let fss: Field = get_ef_count(sb)
     for _fi in 0..fc bounded 16 {
         let fi: Field = convert.as_field(_fi)
@@ -830,8 +838,8 @@ fn reg_event(sb: Field, node: Field) {
 // =========================================================================
 
 fn check_all_fns(sb: Field) {
-    let first: Field = ast_f(sb, 0, 2)
-    let cnt: Field = ast_f(sb, 0, 3)
+    let first: Field = ast_f(sb, 0, 4)
+    let cnt: Field = ast_f(sb, 0, 5)
     for _ii in 0..cnt bounded 1024 {
         let ii: Field = convert.as_field(_ii)
         let node: Field = first + ii
@@ -842,12 +850,12 @@ fn check_all_fns(sb: Field) {
 }
 
 fn check_fn(sb: Field, node: Field) {
-    let pc: Field = ast_f(sb, node, 1)
-    let fp: Field = ast_f(sb, node, 2)
-    let body_s: Field = ast_f(sb, node, 4)
-    let body_c: Field = ast_f(sb, node, 5)
+    // NK_FN: f0=name_tok, f1=params_start, f2=params_count, f3=ret_type_node, f4=body_block, f5=flags
+    let fp: Field = ast_f(sb, node, 1)
+    let pc: Field = ast_f(sb, node, 2)
+    let body_blk: Field = ast_f(sb, node, 4)
 
-    if body_c == 0 {
+    if body_blk == 0 {
         // intrinsic
     } else {
         set_in_pure_fn(sb, 0)
@@ -867,7 +875,9 @@ fn check_fn(sb: Field, node: Field) {
         set_ws_depth(sb, 0)
         set_rs_depth(sb, 0)
 
-        // Push body stmts in reverse
+        // Dereference body block and push stmts in reverse
+        let body_s: Field = block_stmts_start(sb, body_blk)
+        let body_c: Field = block_stmts_count(sb, body_blk)
         for _si in 0..body_c bounded 4096 {
             let si: Field = convert.as_field(_si)
             let ri: Field = body_c + field.neg(1) + field.neg(si)
@@ -1040,8 +1050,9 @@ fn do_binop(sb: Field, ni: Field, lt: Field, rt: Field) {
 // =========================================================================
 
 fn do_call_start(sb: Field, ni: Field) {
+    // NK_CALL: f0=path_start_tok, f1=path_end_tok, f2=args_start, f3=args_count
     let fnid: Field = ast_f(sb, ni, 0)
-    let ac: Field = ast_f(sb, ni, 1)
+    let ac: Field = ast_f(sb, ni, 3)
     let fa: Field = ast_f(sb, ni, 2)
     let fi: Field = lookup_fn(sb, fnid)
     if fi == field.neg(1) {
@@ -1119,9 +1130,10 @@ fn do_index(sb: Field, ni: Field) {
 // =========================================================================
 
 fn do_sinit_start(sb: Field, ni: Field) {
+    // NK_STRUCT_INIT: f0=path_start_tok, f1=fields_start, f2=fields_count
     let nid: Field = ast_f(sb, ni, 0)
-    let ic: Field = ast_f(sb, ni, 1)
-    let ff: Field = ast_f(sb, ni, 2)
+    let ic: Field = ast_f(sb, ni, 2)
+    let ff: Field = ast_f(sb, ni, 1)
     let si: Field = lookup_struct(sb, nid)
     if si == field.neg(1) {
         emit_error(sb, ni, ERR_UNDEFINED_STRUCT())
@@ -1142,9 +1154,10 @@ fn do_sinit_start(sb: Field, ni: Field) {
 }
 
 fn do_sinit(sb: Field, ni: Field) {
+    // NK_STRUCT_INIT: f0=path_start_tok, f1=fields_start, f2=fields_count
     let nid: Field = ast_f(sb, ni, 0)
-    let ic: Field = ast_f(sb, ni, 1)
-    let ff: Field = ast_f(sb, ni, 2)
+    let ic: Field = ast_f(sb, ni, 2)
+    let ff: Field = ast_f(sb, ni, 1)
     let si: Field = lookup_struct(sb, nid)
     for _fi in 0..ic bounded 64 {
         let fi: Field = convert.as_field(_fi)
@@ -1172,8 +1185,9 @@ fn do_sinit(sb: Field, ni: Field) {
 // =========================================================================
 
 fn do_arr_start(sb: Field, ni: Field) {
-    let ec: Field = ast_f(sb, ni, 0)
-    let fe: Field = ast_f(sb, ni, 1)
+    // NK_ARRAY_INIT: f0=elems_start, f1=elems_count
+    let ec: Field = ast_f(sb, ni, 1)
+    let fe: Field = ast_f(sb, ni, 0)
     if ec == 0 { rs_push(sb, alloc_type(sb, TY_ARRAY(), TI_FIELD(), 0, 0)) }
     else {
         ws_push(sb, WC_ARRAY_DONE(), ni, 0)
@@ -1186,7 +1200,8 @@ fn do_arr_start(sb: Field, ni: Field) {
 }
 
 fn do_arr(sb: Field, ni: Field) {
-    let ec: Field = ast_f(sb, ni, 0)
+    // NK_ARRAY_INIT: f0=elems_start, f1=elems_count
+    let ec: Field = ast_f(sb, ni, 1)
     let ft: Field = rs_pop(sb)
     let remaining: Field = ec + field.neg(1)
     for _ei in 0..remaining bounded 256 {
@@ -1201,8 +1216,9 @@ fn do_arr(sb: Field, ni: Field) {
 // =========================================================================
 
 fn do_tup_start(sb: Field, ni: Field) {
-    let ec: Field = ast_f(sb, ni, 0)
-    let fe: Field = ast_f(sb, ni, 1)
+    // NK_TUPLE: f0=elems_start, f1=elems_count
+    let ec: Field = ast_f(sb, ni, 1)
+    let fe: Field = ast_f(sb, ni, 0)
     ws_push(sb, WC_TUPLE_DONE(), ni, 0)
     for _ei in 0..ec bounded 64 {
         let ei: Field = convert.as_field(_ei)
@@ -1212,7 +1228,8 @@ fn do_tup_start(sb: Field, ni: Field) {
 }
 
 fn do_tup(sb: Field, ni: Field) {
-    let ec: Field = ast_f(sb, ni, 0)
+    // NK_TUPLE: f0=elems_start, f1=elems_count
+    let ec: Field = ast_f(sb, ni, 1)
     let sti: Field = get_tp_count(sb)
     for _ei in 0..ec bounded 64 {
         let et: Field = rs_pop(sb)
@@ -1229,7 +1246,7 @@ fn do_stmt(sb: Field, ni: Field) {
     let k: Field = ast_kind(sb, ni)
     if k == parser.NK_LET() {
         ws_push(sb, WC_LET_INIT(), ni, 0)
-        ws_push(sb, WC_EXPR(), ast_f(sb, ni, 3), 0)
+        ws_push(sb, WC_EXPR(), ast_f(sb, ni, 2), 0)
     } else { if k == parser.NK_ASSIGN() {
         ws_push(sb, WC_ASSIGN_VAL(), ni, 0)
         ws_push(sb, WC_EXPR(), ast_f(sb, ni, 1), 0)
@@ -1261,10 +1278,10 @@ fn do_stmt(sb: Field, ni: Field) {
 
 fn do_let(sb: Field, ni: Field) {
     let it: Field = rs_pop(sb)
-    let pk: Field = ast_f(sb, ni, 0)
-    let nid: Field = ast_f(sb, ni, 1)
-    let tn: Field = ast_f(sb, ni, 2)
-    let im: Field = ast_f(sb, ni, 4)
+    // NK_LET: f0=name_tok, f1=type_node, f2=init_node, f3=flags
+    let nid: Field = ast_f(sb, ni, 0)
+    let tn: Field = ast_f(sb, ni, 1)
+    let im: Field = ast_f(sb, ni, 3)
     let mut res: Field = it
     if tn == 0 {
         // inferred
@@ -1273,16 +1290,27 @@ fn do_let(sb: Field, ni: Field) {
         if type_eq(sb, exp, it) == false { emit_error(sb, ni, ERR_TYPE_MISMATCH()) }
         res = exp
     }
-    if pk == 0 { define_var(sb, nid, res, im) }
-    else {
-        let nc: Field = ast_f(sb, ni, 5)
+    // Check if this is a tuple destructure: look at node before NK_LET
+    // If it's NK_PAT_TUPLE, destructure; otherwise simple binding
+    let prev: Field = ni + field.neg(1)
+    let prev_kind: Field = ast_kind(sb, prev)
+    if prev_kind == parser.NK_PAT_TUPLE() {
+        // Tuple destructure: NK_PAT_TUPLE at prev has f0=names_start, f1=count
+        let nc: Field = ast_f(sb, prev, 1)
+        let names_start: Field = ast_f(sb, prev, 0)
         if type_tag(sb, res) == TY_TUPLE() {
             let tc: Field = type_p0(sb, res)
             let ts: Field = type_p1(sb, res)
             if nc == tc {
                 for _i in 0..nc bounded 32 {
                     let i: Field = convert.as_field(_i)
-                    define_var(sb, nid + i, ts + i, im)
+                    let pat: Field = names_start + i
+                    let pat_name: Field = ast_f(sb, pat, 0)
+                    if ast_kind(sb, pat) == parser.NK_PAT_WILDCARD() {
+                        // skip wildcard
+                    } else {
+                        define_var(sb, pat_name, ts + i, im)
+                    }
                 }
             } else { emit_error(sb, ni, ERR_DESTRUCT_NON_TUPLE()) }
         } else {
@@ -1291,17 +1319,28 @@ fn do_let(sb: Field, ni: Field) {
                 if nc == dw {
                     for _i in 0..nc bounded 16 {
                         let i: Field = convert.as_field(_i)
-                        define_var(sb, nid + i, TI_FIELD(), im)
+                        let pat: Field = names_start + i
+                        let pat_name: Field = ast_f(sb, pat, 0)
+                        if ast_kind(sb, pat) == parser.NK_PAT_WILDCARD() {
+                            // skip wildcard
+                        } else {
+                            define_var(sb, pat_name, TI_FIELD(), im)
+                        }
                     }
                 } else { emit_error(sb, ni, ERR_DESTRUCT_NON_TUPLE()) }
             } else { emit_error(sb, ni, ERR_DESTRUCT_NON_TUPLE()) }
         }
+    } else {
+        // Simple binding
+        define_var(sb, nid, res, im)
     }
 }
 
 fn do_assign(sb: Field, ni: Field) {
     let vt: Field = rs_pop(sb)
-    let pn: Field = ast_f(sb, ni, 0)
+    // NK_ASSIGN: f0=place_node (typically NK_VAR), f1=value_node
+    let place: Field = ast_f(sb, ni, 0)
+    let pn: Field = ast_f(sb, place, 0)
     let vi: Field = lookup_var(sb, pn)
     if vi == field.neg(1) { emit_error(sb, ni, ERR_UNDEFINED_VAR()) }
     else {
@@ -1315,16 +1354,17 @@ fn do_if(sb: Field, ni: Field) {
     if type_eq(sb, ct, TI_BOOL()) == false {
         if type_eq(sb, ct, TI_FIELD()) == false { emit_error(sb, ni, ERR_COND_TYPE()) }
     }
-    let ts: Field = ast_f(sb, ni, 1)
-    let tc: Field = ast_f(sb, ni, 2)
-    let es: Field = ast_f(sb, ni, 3)
-    let ec: Field = ast_f(sb, ni, 4)
+    // NK_IF: f0=cond_node, f1=then_block, f2=else_block
+    let then_blk: Field = ast_f(sb, ni, 1)
+    let else_blk: Field = ast_f(sb, ni, 2)
 
     // Push else, then then, then scope markers
-    if ec == 0 {
+    if else_blk == 0 {
         // no else
     } else {
-        // else block: push POP_SCOPE + stmts
+        // else block: dereference NK_BLOCK and push stmts
+        let es: Field = block_stmts_start(sb, else_blk)
+        let ec: Field = block_stmts_count(sb, else_blk)
         ws_push(sb, WC_POP_SCOPE(), 0, 0)
         for _si in 0..ec bounded 4096 {
             let si: Field = convert.as_field(_si)
@@ -1333,7 +1373,9 @@ fn do_if(sb: Field, ni: Field) {
         }
     }
 
-    // then block
+    // then block: dereference NK_BLOCK
+    let ts: Field = block_stmts_start(sb, then_blk)
+    let tc: Field = block_stmts_count(sb, then_blk)
     ws_push(sb, WC_IF_THEN(), ni, 0)
     push_scope(sb)
     for _si in 0..tc bounded 4096 {
@@ -1344,9 +1386,11 @@ fn do_if(sb: Field, ni: Field) {
 }
 
 fn do_for_start(sb: Field, ni: Field) {
+    // NK_FOR: f0=var_tok, f1=start_node, f2=end_node, f3=bound_val, f4=body_block
     let vn: Field = ast_f(sb, ni, 0)
-    let bs: Field = ast_f(sb, ni, 3)
-    let bc: Field = ast_f(sb, ni, 4)
+    let body_blk: Field = ast_f(sb, ni, 4)
+    let bs: Field = block_stmts_start(sb, body_blk)
+    let bc: Field = block_stmts_count(sb, body_blk)
     push_scope(sb)
     define_var(sb, vn, TI_U32(), 0)
     ws_push(sb, WC_FOR_BODY(), ni, 0)
@@ -1367,15 +1411,18 @@ fn do_match(sb: Field, ni: Field) {
     for _ai in 0..ac bounded 64 {
         let ai: Field = convert.as_field(_ai)
         let an: Field = fa + ai
+        // NK_MATCH_ARM: f0=pattern_node, f1=body_block
         let pn: Field = ast_f(sb, an, 0)
-        let bs: Field = ast_f(sb, an, 1)
-        let bc: Field = ast_f(sb, an, 2)
+        let body_blk: Field = ast_f(sb, an, 1)
+        let bs: Field = block_stmts_start(sb, body_blk)
+        let bc: Field = block_stmts_count(sb, body_blk)
         let pk: Field = ast_kind(sb, pn)
         if pk == parser.NK_PAT_WILDCARD() { hw = 1 }
         else { if pk == parser.NK_PAT_LIT() {
-            let ib: Field = ast_f(sb, pn, 1)
-            if ib == 1 {
-                let v: Field = ast_f(sb, pn, 0)
+            // NK_PAT_LIT: f0=value. For bool patterns: value is 0 or 1.
+            // Determine if it's a bool pattern by checking the scrutinee type.
+            let v: Field = ast_f(sb, pn, 0)
+            if type_eq(sb, st, TI_BOOL()) {
                 if v == 1 { ht = 1 } else { hf = 1 }
             }
         } else { hw = 1 } }
@@ -1397,9 +1444,10 @@ fn do_match(sb: Field, ni: Field) {
 }
 
 fn do_event_start(sb: Field, ni: Field) {
+    // NK_REVEAL/NK_SEAL: f0=name_tok, f1=fields_start, f2=fields_count
     let nid: Field = ast_f(sb, ni, 0)
-    let fc: Field = ast_f(sb, ni, 1)
-    let ff: Field = ast_f(sb, ni, 2)
+    let fc: Field = ast_f(sb, ni, 2)
+    let ff: Field = ast_f(sb, ni, 1)
     if get_in_pure_fn(sb) == 1 { emit_error(sb, ni, ERR_TYPE_MISMATCH()) }
     let ei: Field = lookup_event(sb, nid)
     if ei == field.neg(1) { emit_error(sb, ni, ERR_UNDEFINED_EVENT()) }
@@ -1419,7 +1467,8 @@ fn do_event_start(sb: Field, ni: Field) {
 }
 
 fn do_evfld(sb: Field, ni: Field) {
-    let fc: Field = ast_f(sb, ni, 1)
+    // NK_REVEAL/NK_SEAL: f0=name_tok, f1=fields_start, f2=fields_count
+    let fc: Field = ast_f(sb, ni, 2)
     for _fi in 0..fc bounded 16 {
         let vt: Field = rs_pop(sb)
         if type_eq(sb, vt, TI_FIELD()) == false { emit_error(sb, ni, ERR_TYPE_MISMATCH()) }
