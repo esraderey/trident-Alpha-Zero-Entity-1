@@ -91,3 +91,15 @@ path = "benches/std/compiler/parser.reference.rs"
 [[example]]
 name = "ref_std_compiler_pipeline"
 path = "benches/std/compiler/pipeline.reference.rs"
+
+[[example]]
+name = "ref_std_compiler_typecheck"
+path = "benches/std/compiler/typecheck.reference.rs"
+
+[[example]]
+name = "ref_std_compiler_codegen"
+path = "benches/std/compiler/codegen.reference.rs"
+
+[[example]]
+name = "ref_std_compiler_optimize"
+path = "benches/std/compiler/optimize.reference.rs"
