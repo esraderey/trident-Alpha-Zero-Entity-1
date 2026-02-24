@@ -338,6 +338,11 @@ fn collect_block_names(block: &Block, kinds: &mut BTreeMap<String, (NameKind, u3
     }
 }
 
+/// Count UTF-16 code units in a byte slice of valid UTF-8.
+fn utf16_len(s: &str) -> u32 {
+    s.chars().map(|c| c.len_utf16() as u32).sum()
+}
+
 fn encode_deltas(
     source: &str,
     line_starts: &[usize],
@@ -358,8 +363,8 @@ fn encode_deltas(
             .partition_point(|&offset| offset <= start)
             .saturating_sub(1) as u32;
         let line_start = line_starts[line as usize];
-        let col = (start - line_start) as u32;
-        let length = (end - start) as u32;
+        let col = utf16_len(&source[line_start..start]);
+        let length = utf16_len(&source[start..end]);
 
         let delta_line = line - prev_line;
         let delta_start = if delta_line == 0 { col - prev_col } else { col };
