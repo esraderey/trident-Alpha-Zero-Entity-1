@@ -13,9 +13,20 @@ use super::TIRBuilder;
 impl TIRBuilder {
     /// Append Pop ops to clean up locals created in an if/else branch.
     /// `post_depth` is stack_depth() after the branch body, `pre_depth` before.
-    fn append_branch_cleanup(body: &mut Vec<TIROp>, post_depth: u32, pre_depth: u32) {
-        let leftover = post_depth.saturating_sub(pre_depth);
+    /// `keep` is the number of words to preserve on top (e.g. a tail expression value).
+    fn append_branch_cleanup(body: &mut Vec<TIROp>, post_depth: u32, pre_depth: u32, keep: u32) {
+        let leftover = post_depth.saturating_sub(pre_depth + keep);
         if leftover > 0 {
+            if keep > 0 {
+                // Swap the result value(s) past the dead locals, then pop.
+                if leftover <= 15 {
+                    body.push(TIROp::Swap(leftover));
+                } else {
+                    for _ in 0..leftover {
+                        body.push(TIROp::Swap(1));
+                    }
+                }
+            }
             let mut remaining = leftover;
             while remaining > 0 {
                 let batch = remaining.min(5);
@@ -138,21 +149,38 @@ impl TIRBuilder {
                     let saved = self.stack.save_state();
                     let pre_depth = self.stack.stack_depth();
                     let mut then_body = self.build_block_as_ir(&then_block.node);
-                    Self::append_branch_cleanup(&mut then_body, self.stack.stack_depth(), pre_depth);
+                    let then_depth = self.stack.stack_depth();
                     self.stack.restore_state(saved.clone());
                     let mut else_body = self.build_block_as_ir(&else_blk.node);
-                    Self::append_branch_cleanup(&mut else_body, self.stack.stack_depth(), pre_depth);
+                    let else_depth = self.stack.stack_depth();
                     self.stack.restore_state(saved);
+
+                    // If both branches grow the stack by the same amount,
+                    // they produce a value. Preserve it, clean up only locals.
+                    let then_grow = then_depth.saturating_sub(pre_depth);
+                    let else_grow = else_depth.saturating_sub(pre_depth);
+                    let keep = if then_grow > 0 && then_grow == else_grow {
+                        then_grow
+                    } else {
+                        0
+                    };
+
+                    Self::append_branch_cleanup(&mut then_body, then_depth, pre_depth, keep);
+                    Self::append_branch_cleanup(&mut else_body, else_depth, pre_depth, keep);
 
                     self.ops.push(TIROp::IfElse {
                         then_body,
                         else_body,
                     });
+
+                    if keep > 0 {
+                        self.stack.push_temp(keep);
+                    }
                 } else {
                     let saved = self.stack.save_state();
                     let pre_depth = self.stack.stack_depth();
                     let mut then_body = self.build_block_as_ir(&then_block.node);
-                    Self::append_branch_cleanup(&mut then_body, self.stack.stack_depth(), pre_depth);
+                    Self::append_branch_cleanup(&mut then_body, self.stack.stack_depth(), pre_depth, 0);
                     self.stack.restore_state(saved);
 
                     self.ops.push(TIROp::IfOnly { then_body });
@@ -183,20 +211,20 @@ impl TIRBuilder {
                 self.stack.pop(); // pop index model
 
                 let saved = self.stack.save_state();
-                self.stack.clear();
-                // After the lowering's counter decrement, the runtime stack has:
-                //   [..., index, counter]  (counter at st0, index at st1)
-                // Model both on the stack so var lookups get correct depths.
-                self.stack.push_named(&var.node, 1); // index (bottom, depth 1)
-                self.stack.push_temp(1);              // counter (top, depth 0)
+                let pre_loop_depth = self.stack.stack_depth();
+                // The loop subroutine's real stack has all outer variables
+                // plus [index, counter] on top. Keep outer vars in the model
+                // so the loop body can reference them at the correct depths.
+                self.stack.push_named(&var.node, 1); // index (depth 1)
+                self.stack.push_temp(1);              // counter (depth 0)
 
                 let mut body_ir = self.build_block_as_ir(&body.node);
 
                 // Clean up any locals created in the loop body.
-                // stack_depth includes the index (1) + counter (1) + body locals.
-                // We want to pop everything except index and counter.
+                // Keep everything that existed before the body: outer vars + index + counter.
                 let total_depth = self.stack.stack_depth();
-                let leftover = total_depth.saturating_sub(2); // keep index + counter
+                let keep = pre_loop_depth + 2; // outer vars + index + counter
+                let leftover = total_depth.saturating_sub(keep);
                 if leftover > 0 {
                     let mut remaining = leftover;
                     while remaining > 0 {
