@@ -9,11 +9,6 @@ authors = ["mastercyb"]
 kind = "Rust"
 version = "0.7.0"
 
-[grammars.trident]
-repository = "https://github.com/mastercyb/trident"
-path = "tree-sitter"
-rev = "77c2e400dbe5033f86bc6bfe6a2dc6154bc6dbbe"
-
 [language_servers.trident-lsp]
 name = "Trident LSP"
 languages = ["Trident"]

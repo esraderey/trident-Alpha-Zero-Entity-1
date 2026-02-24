@@ -1,5 +1,4 @@
 name = "Trident"
-grammar = "trident"
 path_suffixes = ["tri"]
 line_comments = ["// "]
 brackets = [
