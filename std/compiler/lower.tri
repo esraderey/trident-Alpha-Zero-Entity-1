@@ -1,0 +1,1121 @@
+module std.compiler.lower
+
+// Self-hosted TIR → TASM lowering + linker.
+//
+// Takes a flat TIR array (stride 4: opcode, arg0, arg1, arg2) and produces
+// TASM text as a byte array in RAM. Structural ops (IfElse, IfOnly, Loop)
+// are lowered to Triton's deferred-subroutine pattern with skiz + call.
+//
+// Architecture: single bounded main loop with a work queue of TIR ranges.
+// Each work item = (start_idx, count, mode). mode=0: normal TIR ops.
+// mode=1: deferred then (clears flag). mode=2: deferred else/plain.
+// mode=3: deferred loop body.
+//
+// Memory layout (state block at state_base):
+//   +0   tir_base         Input TIR ops (stride 4)
+//   +1   tir_count        Number of TIR ops
+//   +2   out_base         Output TASM bytes
+//   +3   out_len          Current output byte count
+//   +4   label_counter    For generating unique deferred labels
+//   +5   deferred_base    Deferred block buffer (stride 5)
+//   +6   deferred_count   Number of pending deferred blocks
+//   +7   label_pool_base  Label byte storage area
+//   +8   label_pool_ptr   Next free position in label pool
+//   +9   work_base        Work queue (stride 3: start, count, mode)
+//   +10  work_head        Next work item to process
+//   +11  work_tail        Next free slot in work queue
+
+use vm.core.field
+
+use vm.core.convert
+
+use vm.io.mem
+
+// =========================================================================
+// TIR Opcode constants
+// =========================================================================
+
+pub fn OP_CALL() -> Field { 1 }
+pub fn OP_RETURN() -> Field { 2 }
+pub fn OP_HALT() -> Field { 3 }
+pub fn OP_IF_ELSE() -> Field { 4 }
+pub fn OP_IF_ONLY() -> Field { 5 }
+pub fn OP_LOOP() -> Field { 6 }
+pub fn OP_FN_START() -> Field { 7 }
+pub fn OP_FN_END() -> Field { 8 }
+pub fn OP_ENTRY() -> Field { 9 }
+pub fn OP_COMMENT() -> Field { 10 }
+pub fn OP_ASM() -> Field { 11 }
+pub fn OP_PUSH() -> Field { 12 }
+pub fn OP_POP() -> Field { 13 }
+pub fn OP_DUP() -> Field { 14 }
+pub fn OP_SWAP() -> Field { 15 }
+pub fn OP_ADD() -> Field { 16 }
+pub fn OP_SUB() -> Field { 17 }
+pub fn OP_MUL() -> Field { 18 }
+pub fn OP_NEG() -> Field { 19 }
+pub fn OP_INVERT() -> Field { 20 }
+pub fn OP_EQ() -> Field { 21 }
+pub fn OP_LT() -> Field { 22 }
+pub fn OP_AND() -> Field { 23 }
+pub fn OP_OR() -> Field { 24 }
+pub fn OP_XOR() -> Field { 25 }
+pub fn OP_POPCOUNT() -> Field { 26 }
+pub fn OP_SPLIT() -> Field { 27 }
+pub fn OP_DIVMOD() -> Field { 28 }
+pub fn OP_SHL() -> Field { 29 }
+pub fn OP_SHR() -> Field { 30 }
+pub fn OP_LOG2() -> Field { 31 }
+pub fn OP_POW() -> Field { 32 }
+pub fn OP_READ_IO() -> Field { 33 }
+pub fn OP_WRITE_IO() -> Field { 34 }
+pub fn OP_READ_MEM() -> Field { 35 }
+pub fn OP_WRITE_MEM() -> Field { 36 }
+pub fn OP_ASSERT() -> Field { 37 }
+pub fn OP_HASH() -> Field { 38 }
+pub fn OP_REVEAL() -> Field { 39 }
+pub fn OP_SEAL() -> Field { 40 }
+pub fn OP_RAM_READ() -> Field { 41 }
+pub fn OP_RAM_WRITE() -> Field { 42 }
+pub fn OP_HINT() -> Field { 43 }
+pub fn OP_SPONGE_INIT() -> Field { 44 }
+pub fn OP_SPONGE_ABSORB() -> Field { 45 }
+pub fn OP_SPONGE_SQUEEZE() -> Field { 46 }
+pub fn OP_SPONGE_LOAD() -> Field { 47 }
+pub fn OP_MERKLE_STEP() -> Field { 48 }
+pub fn OP_MERKLE_LOAD() -> Field { 49 }
+pub fn OP_EXT_MUL() -> Field { 50 }
+pub fn OP_EXT_INVERT() -> Field { 51 }
+pub fn OP_FOLD_EXT() -> Field { 52 }
+pub fn OP_FOLD_BASE() -> Field { 53 }
+pub fn OP_PROOF_BLOCK() -> Field { 54 }
+
+// ASCII constants
+fn CH_SP() -> Field { 32 }
+fn CH_NL() -> Field { 10 }
+fn CH_COLON() -> Field { 58 }
+fn CH_MINUS() -> Field { 45 }
+fn CH_US() -> Field { 95 }
+fn CH_DOT() -> Field { 46 }
+fn CH_SLASH() -> Field { 47 }
+fn CH_0() -> Field { 48 }
+
+// =========================================================================
+// State accessors
+// =========================================================================
+
+fn s_tir_base(sb: Field) -> Field { mem.read(sb) }
+fn s_tir_count(sb: Field) -> Field { mem.read(sb + 1) }
+fn s_out_base(sb: Field) -> Field { mem.read(sb + 2) }
+fn s_out_len(sb: Field) -> Field { mem.read(sb + 3) }
+fn s_set_out_len(sb: Field, v: Field) { mem.write(sb + 3, v) }
+fn s_label_ctr(sb: Field) -> Field { mem.read(sb + 4) }
+fn s_set_label_ctr(sb: Field, v: Field) { mem.write(sb + 4, v) }
+fn s_defer_base(sb: Field) -> Field { mem.read(sb + 5) }
+fn s_defer_count(sb: Field) -> Field { mem.read(sb + 6) }
+fn s_set_defer_count(sb: Field, v: Field) { mem.write(sb + 6, v) }
+fn s_lpool_base(sb: Field) -> Field { mem.read(sb + 7) }
+fn s_lpool_ptr(sb: Field) -> Field { mem.read(sb + 8) }
+fn s_set_lpool_ptr(sb: Field, v: Field) { mem.write(sb + 8, v) }
+fn s_work_base(sb: Field) -> Field { mem.read(sb + 9) }
+fn s_work_head(sb: Field) -> Field { mem.read(sb + 10) }
+fn s_set_work_head(sb: Field, v: Field) { mem.write(sb + 10, v) }
+fn s_work_tail(sb: Field) -> Field { mem.read(sb + 11) }
+fn s_set_work_tail(sb: Field, v: Field) { mem.write(sb + 11, v) }
+
+// TIR accessors (stride 4)
+fn tir_op(sb: Field, idx: Field) -> Field { mem.read(s_tir_base(sb) + idx * 4) }
+fn tir_a0(sb: Field, idx: Field) -> Field { mem.read(s_tir_base(sb) + idx * 4 + 1) }
+fn tir_a1(sb: Field, idx: Field) -> Field { mem.read(s_tir_base(sb) + idx * 4 + 2) }
+fn tir_a2(sb: Field, idx: Field) -> Field { mem.read(s_tir_base(sb) + idx * 4 + 3) }
+
+// =========================================================================
+// Work queue management (stride 3: start_idx, count, mode)
+// mode: 0=normal, 1=deferred-then(clears), 2=deferred-plain, 3=deferred-loop
+// =========================================================================
+
+fn work_push(sb: Field, start: Field, count: Field, mode: Field) {
+    let wb: Field = s_work_base(sb)
+    let tail: Field = s_work_tail(sb)
+    mem.write(wb + tail * 3, start)
+    mem.write(wb + tail * 3 + 1, count)
+    mem.write(wb + tail * 3 + 2, mode)
+    s_set_work_tail(sb, tail + 1)
+}
+
+fn work_pop_start(sb: Field) -> Field {
+    let wb: Field = s_work_base(sb)
+    let head: Field = s_work_head(sb)
+    mem.read(wb + head * 3)
+}
+
+fn work_pop_count(sb: Field) -> Field {
+    let wb: Field = s_work_base(sb)
+    let head: Field = s_work_head(sb)
+    mem.read(wb + head * 3 + 1)
+}
+
+fn work_pop_mode(sb: Field) -> Field {
+    let wb: Field = s_work_base(sb)
+    let head: Field = s_work_head(sb)
+    mem.read(wb + head * 3 + 2)
+}
+
+fn work_advance(sb: Field) { s_set_work_head(sb, s_work_head(sb) + 1) }
+fn work_empty(sb: Field) -> Field { if s_work_head(sb) == s_work_tail(sb) { 1 } else { 0 } }
+
+// =========================================================================
+// Output helpers
+// =========================================================================
+
+fn eb(sb: Field, b: Field) {
+    let base: Field = s_out_base(sb)
+    let len: Field = s_out_len(sb)
+    mem.write(base + len, b)
+    s_set_out_len(sb, len + 1)
+}
+
+fn e_indent(sb: Field) {
+    eb(sb, CH_SP())
+    eb(sb, CH_SP())
+    eb(sb, CH_SP())
+    eb(sb, CH_SP())
+}
+fn e_nl(sb: Field) { eb(sb, CH_NL()) }
+
+fn e_str(sb: Field, base: Field, len: Field) {
+    let lu: U32 = convert.as_u32(len)
+    for j in 0..lu bounded 1024 {
+        let idx: Field = convert.as_field(j)
+        eb(sb, mem.read(base + idx))
+    }
+}
+
+fn e_uint(sb: Field, val: Field) {
+    if val == 0 {
+        eb(sb, CH_0())
+        return
+    }
+    let tmp: Field = s_out_base(sb) + s_out_len(sb) + 2000
+    let mut cnt: Field = 0
+    let ten: U32 = convert.as_u32(10)
+    let mut rem: U32 = convert.as_u32(val)
+    let bnd: U32 = convert.as_u32(20)
+    for k in 0..bnd bounded 20 {
+        if rem == convert.as_u32(0) {
+            // done
+        } else {
+            let (q, d) = rem /% ten
+            mem.write(tmp + cnt, convert.as_field(d) + CH_0())
+            cnt = cnt + 1
+            rem = q
+        }
+    }
+    let cu: U32 = convert.as_u32(cnt)
+    for k in 0..cu bounded 20 {
+        let ki: Field = convert.as_field(k)
+        eb(sb, mem.read(tmp + cnt + field.neg(1) + field.neg(ki)))
+    }
+}
+
+fn e_int(sb: Field, val: Field) {
+    if val == field.neg(1) {
+        eb(sb, CH_MINUS())
+        eb(sb, 49)
+    }
+    else { e_uint(sb, val) }
+}
+
+// =========================================================================
+// TASM mnemonic emitters
+// =========================================================================
+
+fn e_add(sb: Field) {
+    e_indent(sb)
+    eb(sb, 97)
+    eb(sb, 100)
+    eb(sb, 100)
+    e_nl(sb)
+}
+fn e_mul(sb: Field) {
+    e_indent(sb)
+    eb(sb, 109)
+    eb(sb, 117)
+    eb(sb, 108)
+    e_nl(sb)
+}
+fn e_eq(sb: Field) {
+    e_indent(sb)
+    eb(sb, 101)
+    eb(sb, 113)
+    e_nl(sb)
+}
+fn e_lt(sb: Field) {
+    e_indent(sb)
+    eb(sb, 108)
+    eb(sb, 116)
+    e_nl(sb)
+}
+fn e_and(sb: Field) {
+    e_indent(sb)
+    eb(sb, 97)
+    eb(sb, 110)
+    eb(sb, 100)
+    e_nl(sb)
+}
+fn e_or(sb: Field) {
+    e_indent(sb)
+    eb(sb, 111)
+    eb(sb, 114)
+    e_nl(sb)
+}
+fn e_xor(sb: Field) {
+    e_indent(sb)
+    eb(sb, 120)
+    eb(sb, 111)
+    eb(sb, 114)
+    e_nl(sb)
+}
+fn e_invert(sb: Field) {
+    e_indent(sb)
+    eb(sb, 105)
+    eb(sb, 110)
+    eb(sb, 118)
+    eb(sb, 101)
+    eb(sb, 114)
+    eb(sb, 116)
+    e_nl(sb)
+}
+fn e_split(sb: Field) {
+    e_indent(sb)
+    eb(sb, 115)
+    eb(sb, 112)
+    eb(sb, 108)
+    eb(sb, 105)
+    eb(sb, 116)
+    e_nl(sb)
+}
+fn e_log2(sb: Field) {
+    e_indent(sb)
+    eb(sb, 108)
+    eb(sb, 111)
+    eb(sb, 103)
+    eb(sb, 95)
+    eb(sb, 50)
+    eb(sb, 95)
+    eb(sb, 102)
+    eb(sb, 108)
+    eb(sb, 111)
+    eb(sb, 111)
+    eb(sb, 114)
+    e_nl(sb)
+}
+fn e_pow(sb: Field) {
+    e_indent(sb)
+    eb(sb, 112)
+    eb(sb, 111)
+    eb(sb, 119)
+    e_nl(sb)
+}
+fn e_pop_count(sb: Field) {
+    e_indent(sb)
+    eb(sb, 112)
+    eb(sb, 111)
+    eb(sb, 112)
+    eb(sb, 95)
+    eb(sb, 99)
+    eb(sb, 111)
+    eb(sb, 117)
+    eb(sb, 110)
+    eb(sb, 116)
+    e_nl(sb)
+}
+fn e_div_mod(sb: Field) {
+    e_indent(sb)
+    eb(sb, 100)
+    eb(sb, 105)
+    eb(sb, 118)
+    eb(sb, 95)
+    eb(sb, 109)
+    eb(sb, 111)
+    eb(sb, 100)
+    e_nl(sb)
+}
+fn e_hash(sb: Field) {
+    e_indent(sb)
+    eb(sb, 104)
+    eb(sb, 97)
+    eb(sb, 115)
+    eb(sb, 104)
+    e_nl(sb)
+}
+fn e_sponge_init(sb: Field) {
+    e_indent(sb)
+    eb(sb, 115)
+    eb(sb, 112)
+    eb(sb, 111)
+    eb(sb, 110)
+    eb(sb, 103)
+    eb(sb, 101)
+    eb(sb, 95)
+    eb(sb, 105)
+    eb(sb, 110)
+    eb(sb, 105)
+    eb(sb, 116)
+    e_nl(sb)
+}
+fn e_sponge_absorb(sb: Field) {
+    e_indent(sb)
+    eb(sb, 115)
+    eb(sb, 112)
+    eb(sb, 111)
+    eb(sb, 110)
+    eb(sb, 103)
+    eb(sb, 101)
+    eb(sb, 95)
+    eb(sb, 97)
+    eb(sb, 98)
+    eb(sb, 115)
+    eb(sb, 111)
+    eb(sb, 114)
+    eb(sb, 98)
+    e_nl(sb)
+}
+fn e_sponge_squeeze(sb: Field) {
+    e_indent(sb)
+    eb(sb, 115)
+    eb(sb, 112)
+    eb(sb, 111)
+    eb(sb, 110)
+    eb(sb, 103)
+    eb(sb, 101)
+    eb(sb, 95)
+    eb(sb, 115)
+    eb(sb, 113)
+    eb(sb, 117)
+    eb(sb, 101)
+    eb(sb, 101)
+    eb(sb, 122)
+    eb(sb, 101)
+    e_nl(sb)
+}
+fn e_sponge_absorb_mem(sb: Field) {
+    e_indent(sb)
+    eb(sb, 115)
+    eb(sb, 112)
+    eb(sb, 111)
+    eb(sb, 110)
+    eb(sb, 103)
+    eb(sb, 101)
+    eb(sb, 95)
+    eb(sb, 97)
+    eb(sb, 98)
+    eb(sb, 115)
+    eb(sb, 111)
+    eb(sb, 114)
+    eb(sb, 98)
+    eb(sb, 95)
+    eb(sb, 109)
+    eb(sb, 101)
+    eb(sb, 109)
+    e_nl(sb)
+}
+fn e_merkle_step(sb: Field) {
+    e_indent(sb)
+    eb(sb, 109)
+    eb(sb, 101)
+    eb(sb, 114)
+    eb(sb, 107)
+    eb(sb, 108)
+    eb(sb, 101)
+    eb(sb, 95)
+    eb(sb, 115)
+    eb(sb, 116)
+    eb(sb, 101)
+    eb(sb, 112)
+    e_nl(sb)
+}
+fn e_merkle_step_mem(sb: Field) {
+    e_indent(sb)
+    eb(sb, 109)
+    eb(sb, 101)
+    eb(sb, 114)
+    eb(sb, 107)
+    eb(sb, 108)
+    eb(sb, 101)
+    eb(sb, 95)
+    eb(sb, 115)
+    eb(sb, 116)
+    eb(sb, 101)
+    eb(sb, 112)
+    eb(sb, 95)
+    eb(sb, 109)
+    eb(sb, 101)
+    eb(sb, 109)
+    e_nl(sb)
+}
+fn e_xb_mul(sb: Field) {
+    e_indent(sb)
+    eb(sb, 120)
+    eb(sb, 98)
+    eb(sb, 95)
+    eb(sb, 109)
+    eb(sb, 117)
+    eb(sb, 108)
+    e_nl(sb)
+}
+fn e_x_invert(sb: Field) {
+    e_indent(sb)
+    eb(sb, 120)
+    eb(sb, 95)
+    eb(sb, 105)
+    eb(sb, 110)
+    eb(sb, 118)
+    eb(sb, 101)
+    eb(sb, 114)
+    eb(sb, 116)
+    e_nl(sb)
+}
+fn e_xx_dot_step(sb: Field) {
+    e_indent(sb)
+    eb(sb, 120)
+    eb(sb, 120)
+    eb(sb, 95)
+    eb(sb, 100)
+    eb(sb, 111)
+    eb(sb, 116)
+    eb(sb, 95)
+    eb(sb, 115)
+    eb(sb, 116)
+    eb(sb, 101)
+    eb(sb, 112)
+    e_nl(sb)
+}
+fn e_xb_dot_step(sb: Field) {
+    e_indent(sb)
+    eb(sb, 120)
+    eb(sb, 98)
+    eb(sb, 95)
+    eb(sb, 100)
+    eb(sb, 111)
+    eb(sb, 116)
+    eb(sb, 95)
+    eb(sb, 115)
+    eb(sb, 116)
+    eb(sb, 101)
+    eb(sb, 112)
+    e_nl(sb)
+}
+fn e_return(sb: Field) {
+    e_indent(sb)
+    eb(sb, 114)
+    eb(sb, 101)
+    eb(sb, 116)
+    eb(sb, 117)
+    eb(sb, 114)
+    eb(sb, 110)
+    e_nl(sb)
+}
+fn e_halt(sb: Field) {
+    e_indent(sb)
+    eb(sb, 104)
+    eb(sb, 97)
+    eb(sb, 108)
+    eb(sb, 116)
+    e_nl(sb)
+}
+fn e_assert(sb: Field) {
+    e_indent(sb)
+    eb(sb, 97)
+    eb(sb, 115)
+    eb(sb, 115)
+    eb(sb, 101)
+    eb(sb, 114)
+    eb(sb, 116)
+    e_nl(sb)
+}
+fn e_assert_vector(sb: Field) {
+    e_indent(sb)
+    eb(sb, 97)
+    eb(sb, 115)
+    eb(sb, 115)
+    eb(sb, 101)
+    eb(sb, 114)
+    eb(sb, 116)
+    eb(sb, 95)
+    eb(sb, 118)
+    eb(sb, 101)
+    eb(sb, 99)
+    eb(sb, 116)
+    eb(sb, 111)
+    eb(sb, 114)
+    e_nl(sb)
+}
+fn e_skiz(sb: Field) {
+    e_indent(sb)
+    eb(sb, 115)
+    eb(sb, 107)
+    eb(sb, 105)
+    eb(sb, 122)
+    e_nl(sb)
+}
+fn e_recurse(sb: Field) {
+    e_indent(sb)
+    eb(sb, 114)
+    eb(sb, 101)
+    eb(sb, 99)
+    eb(sb, 117)
+    eb(sb, 114)
+    eb(sb, 115)
+    eb(sb, 101)
+    e_nl(sb)
+}
+
+// Parametric
+fn e_push(sb: Field, v: Field) {
+    e_indent(sb)
+    eb(sb, 112)
+    eb(sb, 117)
+    eb(sb, 115)
+    eb(sb, 104)
+    eb(sb, CH_SP())
+    e_int(sb, v)
+    e_nl(sb)
+}
+fn e_pop(sb: Field, n: Field) {
+    e_indent(sb)
+    eb(sb, 112)
+    eb(sb, 111)
+    eb(sb, 112)
+    eb(sb, CH_SP())
+    e_uint(sb, n)
+    e_nl(sb)
+}
+fn e_dup(sb: Field, d: Field) {
+    e_indent(sb)
+    eb(sb, 100)
+    eb(sb, 117)
+    eb(sb, 112)
+    eb(sb, CH_SP())
+    e_uint(sb, d)
+    e_nl(sb)
+}
+fn e_swap(sb: Field, d: Field) {
+    e_indent(sb)
+    eb(sb, 115)
+    eb(sb, 119)
+    eb(sb, 97)
+    eb(sb, 112)
+    eb(sb, CH_SP())
+    e_uint(sb, d)
+    e_nl(sb)
+}
+fn e_read_io(sb: Field, n: Field) {
+    e_indent(sb)
+    eb(sb, 114)
+    eb(sb, 101)
+    eb(sb, 97)
+    eb(sb, 100)
+    eb(sb, 95)
+    eb(sb, 105)
+    eb(sb, 111)
+    eb(sb, CH_SP())
+    e_uint(sb, n)
+    e_nl(sb)
+}
+fn e_write_io(sb: Field, n: Field) {
+    e_indent(sb)
+    eb(sb, 119)
+    eb(sb, 114)
+    eb(sb, 105)
+    eb(sb, 116)
+    eb(sb, 101)
+    eb(sb, 95)
+    eb(sb, 105)
+    eb(sb, 111)
+    eb(sb, CH_SP())
+    e_uint(sb, n)
+    e_nl(sb)
+}
+fn e_divine(sb: Field, n: Field) {
+    e_indent(sb)
+    eb(sb, 100)
+    eb(sb, 105)
+    eb(sb, 118)
+    eb(sb, 105)
+    eb(sb, 110)
+    eb(sb, 101)
+    eb(sb, CH_SP())
+    e_uint(sb, n)
+    e_nl(sb)
+}
+fn e_read_mem(sb: Field, n: Field) {
+    e_indent(sb)
+    eb(sb, 114)
+    eb(sb, 101)
+    eb(sb, 97)
+    eb(sb, 100)
+    eb(sb, 95)
+    eb(sb, 109)
+    eb(sb, 101)
+    eb(sb, 109)
+    eb(sb, CH_SP())
+    e_uint(sb, n)
+    e_nl(sb)
+}
+fn e_write_mem(sb: Field, n: Field) {
+    e_indent(sb)
+    eb(sb, 119)
+    eb(sb, 114)
+    eb(sb, 105)
+    eb(sb, 116)
+    eb(sb, 101)
+    eb(sb, 95)
+    eb(sb, 109)
+    eb(sb, 101)
+    eb(sb, 109)
+    eb(sb, CH_SP())
+    e_uint(sb, n)
+    e_nl(sb)
+}
+fn e_call(sb: Field, lb: Field, ll: Field) {
+    e_indent(sb)
+    eb(sb, 99)
+    eb(sb, 97)
+    eb(sb, 108)
+    eb(sb, 108)
+    eb(sb, CH_SP())
+    e_str(sb, lb, ll)
+    e_nl(sb)
+}
+fn e_label_def(sb: Field, lb: Field, ll: Field) {
+    e_str(sb, lb, ll)
+    eb(sb, CH_COLON())
+    e_nl(sb)
+}
+
+// =========================================================================
+// Label generation in pool
+// =========================================================================
+
+fn alloc_label(sb: Field, prefix_code: Field) -> (Field, Field) {
+    let pool: Field = s_lpool_ptr(sb)
+    let mut pos: Field = 0
+    mem.write(pool, CH_US())
+    mem.write(pool + 1, CH_US())
+    pos = 2
+    if prefix_code == 0 {
+        mem.write(pool + 2, 116)
+        mem.write(pool + 3, 104)
+        mem.write(pool + 4, 101)
+        mem.write(pool + 5, 110)
+        pos = 6
+    } else if prefix_code == 1 {
+        mem.write(pool + 2, 101)
+        mem.write(pool + 3, 108)
+        mem.write(pool + 4, 115)
+        mem.write(pool + 5, 101)
+        pos = 6
+    } else {
+        mem.write(pool + 2, 108)
+        mem.write(pool + 3, 111)
+        mem.write(pool + 4, 111)
+        mem.write(pool + 5, 112)
+        pos = 6
+    }
+    mem.write(pool + pos, CH_US())
+    mem.write(pool + pos + 1, CH_US())
+    pos = pos + 2
+    let mut ctr: Field = s_label_ctr(sb) + 1
+    s_set_label_ctr(sb, ctr)
+    let tmp: Field = pool + 64
+    let mut dc: Field = 0
+    let ten: U32 = convert.as_u32(10)
+    let mut cu: U32 = convert.as_u32(ctr)
+    let bnd: U32 = convert.as_u32(20)
+    for k in 0..bnd bounded 20 {
+        if cu == convert.as_u32(0) { }
+        else {
+            let (q, d) = cu /% ten
+            mem.write(tmp + dc, convert.as_field(d) + CH_0())
+            dc = dc + 1
+            cu = q
+        }
+    }
+    let dcu: U32 = convert.as_u32(dc)
+    for k in 0..dcu bounded 20 {
+        let ki: Field = convert.as_field(k)
+        mem.write(pool + pos, mem.read(tmp + dc + field.neg(1) + field.neg(ki)))
+        pos = pos + 1
+    }
+    s_set_lpool_ptr(sb, pool + pos)
+    return (pool, pos)
+}
+
+// =========================================================================
+// Deferred block management (stride 5)
+// =========================================================================
+
+fn push_deferred(sb: Field, lbl_b: Field, lbl_l: Field, body_s: Field, body_c: Field, flags: Field) {
+    let db: Field = s_defer_base(sb)
+    let dc: Field = s_defer_count(sb)
+    let addr: Field = db + dc * 5
+    mem.write(addr, lbl_b)
+    mem.write(addr + 1, lbl_l)
+    mem.write(addr + 2, body_s)
+    mem.write(addr + 3, body_c)
+    mem.write(addr + 4, flags)
+    s_set_defer_count(sb, dc + 1)
+}
+
+// =========================================================================
+// Process a single TIR op — called from the main loop, NOT recursive.
+// On structural ops: enqueues deferred blocks.
+// On FnEnd: enqueues all deferred block bodies to work queue.
+// =========================================================================
+
+fn process_op(sb: Field, idx: Field) {
+    let op: Field = tir_op(sb, idx)
+    let a0: Field = tir_a0(sb, idx)
+    let a1: Field = tir_a1(sb, idx)
+    let a2: Field = tir_a2(sb, idx)
+
+    if op == OP_PUSH() { e_push(sb, a0)
+    } else if op == OP_POP() { e_pop(sb, a0)
+    } else if op == OP_DUP() { e_dup(sb, a0)
+    } else if op == OP_SWAP() { e_swap(sb, a0)
+
+    } else if op == OP_ADD() { e_add(sb)
+    } else if op == OP_MUL() { e_mul(sb)
+    } else if op == OP_EQ() { e_eq(sb)
+    } else if op == OP_LT() { e_lt(sb)
+    } else if op == OP_AND() { e_and(sb)
+    } else if op == OP_OR() { e_or(sb)
+    } else if op == OP_XOR() { e_xor(sb)
+    } else if op == OP_INVERT() { e_invert(sb)
+    } else if op == OP_SPLIT() { e_split(sb)
+    } else if op == OP_LOG2() { e_log2(sb)
+    } else if op == OP_POW() { e_pow(sb)
+    } else if op == OP_POPCOUNT() { e_pop_count(sb)
+    } else if op == OP_DIVMOD() { e_div_mod(sb)
+    } else if op == OP_HASH() { e_hash(sb)
+
+    } else if op == OP_SPONGE_INIT() { e_sponge_init(sb)
+    } else if op == OP_SPONGE_ABSORB() { e_sponge_absorb(sb)
+    } else if op == OP_SPONGE_SQUEEZE() { e_sponge_squeeze(sb)
+    } else if op == OP_SPONGE_LOAD() { e_sponge_absorb_mem(sb)
+    } else if op == OP_MERKLE_STEP() { e_merkle_step(sb)
+    } else if op == OP_MERKLE_LOAD() { e_merkle_step_mem(sb)
+
+    } else if op == OP_EXT_MUL() { e_xb_mul(sb)
+    } else if op == OP_EXT_INVERT() { e_x_invert(sb)
+    } else if op == OP_FOLD_EXT() { e_xx_dot_step(sb)
+    } else if op == OP_FOLD_BASE() { e_xb_dot_step(sb)
+
+    } else if op == OP_SUB() {
+        e_push(sb, field.neg(1))
+        e_mul(sb)
+        e_add(sb)
+    } else if op == OP_NEG() {
+        e_push(sb, field.neg(1))
+        e_mul(sb)
+    } else if op == OP_SHL() {
+        e_push(sb, 2)
+        e_pow(sb)
+        e_mul(sb)
+    } else if op == OP_SHR() {
+        e_push(sb, 2)
+        e_pow(sb)
+        e_div_mod(sb)
+        e_swap(sb, 1)
+        e_pop(sb, 1)
+
+    } else if op == OP_READ_IO() { e_read_io(sb, a0)
+    } else if op == OP_WRITE_IO() { e_write_io(sb, a0)
+    } else if op == OP_HINT() { e_divine(sb, a0)
+    } else if op == OP_READ_MEM() { e_read_mem(sb, a0)
+    } else if op == OP_WRITE_MEM() { e_write_mem(sb, a0)
+
+    } else if op == OP_ASSERT() {
+        if a0 == 1 { e_assert(sb) } else { e_assert_vector(sb) }
+    } else if op == OP_RAM_READ() {
+        e_read_mem(sb, a0)
+        e_pop(sb, 1)
+    } else if op == OP_RAM_WRITE() {
+        e_swap(sb, a0)
+        e_write_mem(sb, a0)
+        e_pop(sb, 1)
+
+    } else if op == OP_REVEAL() {
+        e_push(sb, a0)
+        e_write_io(sb, 1)
+        let fc: U32 = convert.as_u32(a1)
+        for k in 0..fc bounded 64 { e_write_io(sb, 1) }
+    } else if op == OP_SEAL() {
+        let padding: Field = 9 + field.neg(a1)
+        let pu: U32 = convert.as_u32(padding)
+        for k in 0..pu bounded 9 { e_push(sb, 0) }
+        e_push(sb, a0)
+        e_hash(sb)
+        e_write_io(sb, 5)
+
+    } else if op == OP_CALL() { e_call(sb, a0, a1)
+    } else if op == OP_RETURN() { e_return(sb)
+    } else if op == OP_HALT() { e_halt(sb)
+
+    // ── Structural: IfElse ──
+    } else if op == OP_IF_ELSE() {
+        let then_s: Field = a0
+        let then_c: Field = a1
+        let a2u: U32 = convert.as_u32(a2)
+        let mask: U32 = convert.as_u32(1048576)
+        let (else_cu, else_su) = a2u /% mask
+        let else_s: Field = convert.as_field(else_su)
+        let else_c: Field = convert.as_field(else_cu)
+
+        let (then_lb, then_ll) = alloc_label(sb, 0)
+        let (else_lb, else_ll) = alloc_label(sb, 1)
+
+        e_push(sb, 1)
+        e_swap(sb, 1)
+        e_skiz(sb)
+        e_call(sb, then_lb, then_ll)
+        e_skiz(sb)
+        e_call(sb, else_lb, else_ll)
+
+        // flags: 1=clears(then), 0=plain(else)
+        push_deferred(sb, then_lb, then_ll, then_s, then_c, 1)
+        push_deferred(sb, else_lb, else_ll, else_s, else_c, 0)
+
+    } else if op == OP_IF_ONLY() {
+        let (lb, ll) = alloc_label(sb, 0)
+        e_skiz(sb)
+        e_call(sb, lb, ll)
+        push_deferred(sb, lb, ll, a0, a1, 0)
+
+    } else if op == OP_LOOP() {
+        let (lb, ll) = alloc_label(sb, 2)
+        e_call(sb, lb, ll)
+        push_deferred(sb, lb, ll, a0, a1, 2) // 2=loop flag
+
+    } else if op == OP_FN_START() {
+        e_label_def(sb, a0, a1)
+    } else if op == OP_FN_END() {
+        e_nl(sb)
+        // Enqueue all deferred blocks as work items
+        enqueue_deferred(sb)
+    } else if op == OP_ENTRY() {
+        e_call(sb, a0, a1)
+        e_halt(sb)
+        e_nl(sb)
+
+    } else if op == OP_COMMENT() {
+        e_indent(sb)
+        eb(sb, CH_SLASH())
+        eb(sb, CH_SLASH())
+        eb(sb, CH_SP())
+        e_str(sb, a0, a1)
+        e_nl(sb)
+
+    } else if op == OP_ASM() {
+        let mut ptr: Field = a0
+        let lc: U32 = convert.as_u32(a1)
+        for k in 0..lc bounded 256 {
+            let ll: Field = mem.read(ptr)
+            ptr = ptr + 1
+            if ll == 0 { } else {
+                e_indent(sb)
+                e_str(sb, ptr, ll)
+                e_nl(sb)
+            }
+            ptr = ptr + ll
+        }
+
+    } else if op == OP_PROOF_BLOCK() {
+        // Inline body. Enqueue body as work.
+        e_indent(sb)
+        eb(sb, CH_SLASH())
+        eb(sb, CH_SLASH())
+        eb(sb, CH_SP())
+        eb(sb, 112)
+        eb(sb, 114)
+        eb(sb, 111)
+        eb(sb, 111)
+        eb(sb, 102)
+        eb(sb, 95)
+        eb(sb, 98)
+        eb(sb, 108)
+        eb(sb, 111)
+        eb(sb, 99)
+        eb(sb, 107)
+        e_nl(sb)
+        // ProofBlock body is inlined (mode=0 normal)
+        work_push(sb, a0, a1, 0)
+        // After body, emit end comment — enqueue as a sentinel
+        // Actually we need end comment after body. We push end comment as mode=4.
+        work_push(sb, 0, 0, 4) // mode 4 = emit "// end proof_block"
+    }
+}
+
+// =========================================================================
+// Enqueue all pending deferred blocks as work items
+// Each deferred block becomes: label header (emitted inline) + body work item
+// =========================================================================
+
+fn enqueue_deferred(sb: Field) {
+    let bnd: U32 = convert.as_u32(200)
+    for pass in 0..bnd bounded 200 {
+        let dc: Field = s_defer_count(sb)
+        if dc == 0 { }
+        else {
+            let db: Field = s_defer_base(sb)
+            let dcu: U32 = convert.as_u32(dc)
+            s_set_defer_count(sb, 0)
+
+            for bi in 0..dcu bounded 256 {
+                let b: Field = convert.as_field(bi)
+                let addr: Field = db + b * 5
+                let lbl_b: Field = mem.read(addr)
+                let lbl_l: Field = mem.read(addr + 1)
+                let body_s: Field = mem.read(addr + 2)
+                let body_c: Field = mem.read(addr + 3)
+                let flags: Field = mem.read(addr + 4)
+
+                // Emit label definition now
+                e_label_def(sb, lbl_b, lbl_l)
+
+                if flags == 2 {
+                    // Loop: emit preamble, enqueue body, then epilogue
+                    e_dup(sb, 0)
+                    e_push(sb, 0)
+                    e_eq(sb)
+                    e_skiz(sb)
+                    e_return(sb)
+                    e_push(sb, field.neg(1))
+                    e_add(sb)
+                    // Enqueue body (mode=0) then loop epilogue (mode=5)
+                    work_push(sb, body_s, body_c, 0)
+                    work_push(sb, 0, 0, 5) // mode 5 = recurse + newline
+                } else if flags == 1 {
+                    // Then branch: pop flag, body, push 0, return
+                    e_pop(sb, 1)
+                    work_push(sb, body_s, body_c, 0)
+                    work_push(sb, 0, 0, 6) // mode 6 = push 0 + return + newline
+                } else {
+                    // Plain: body, return
+                    work_push(sb, body_s, body_c, 0)
+                    work_push(sb, 0, 0, 7) // mode 7 = return + newline
+                }
+            }
+        }
+    }
+}
+
+// =========================================================================
+// Main entry point — work-queue-driven lowering
+// =========================================================================
+
+pub fn lower(state_base: Field) {
+    let sb: Field = state_base
+
+    // Enqueue the entire TIR stream as the first work item (mode 0)
+    work_push(sb, 0, s_tir_count(sb), 0)
+
+    // Process work queue
+    let max_iters: U32 = convert.as_u32(200000)
+    for step in 0..max_iters bounded 200000 {
+        if work_empty(sb) == 1 { }
+        else {
+            let ws: Field = work_pop_start(sb)
+            let wc: Field = work_pop_count(sb)
+            let wm: Field = work_pop_mode(sb)
+            work_advance(sb)
+
+            if wm == 0 {
+                // Normal: process each TIR op in range
+                let wcu: U32 = convert.as_u32(wc)
+                for i in 0..wcu bounded 65536 {
+                    let idx: Field = convert.as_field(i)
+                    process_op(sb, ws + idx)
+                }
+            } else if wm == 4 {
+                // End proof_block comment
+                e_indent(sb)
+                eb(sb, CH_SLASH())
+                eb(sb, CH_SLASH())
+                eb(sb, CH_SP())
+                eb(sb, 101)
+                eb(sb, 110)
+                eb(sb, 100)
+                eb(sb, CH_SP())
+                eb(sb, 112)
+                eb(sb, 114)
+                eb(sb, 111)
+                eb(sb, 111)
+                eb(sb, 102)
+                eb(sb, 95)
+                eb(sb, 98)
+                eb(sb, 108)
+                eb(sb, 111)
+                eb(sb, 99)
+                eb(sb, 107)
+                e_nl(sb)
+            } else if wm == 5 {
+                // Loop epilogue: recurse + newline
+                e_recurse(sb)
+                e_nl(sb)
+            } else if wm == 6 {
+                // Then epilogue: push 0 + return + newline
+                e_push(sb, 0)
+                e_return(sb)
+                e_nl(sb)
+            } else if wm == 7 {
+                // Plain epilogue: return + newline
+                e_return(sb)
+                e_nl(sb)
+            }
+        }
+    }
+}
+
+// =========================================================================
+// Linker utilities
+// =========================================================================
+
+pub fn mangle_module_name(name_base: Field, name_len: Field, out_base: Field) -> Field {
+    let mut pos: Field = 0
+    let nl: U32 = convert.as_u32(name_len)
+    for k in 0..nl bounded 128 {
+        let ki: Field = convert.as_field(k)
+        let b: Field = mem.read(name_base + ki)
+        if b == CH_DOT() { mem.write(out_base + pos, CH_US()) }
+        else { mem.write(out_base + pos, b) }
+        pos = pos + 1
+    }
+    mem.write(out_base + pos, CH_US())
+    mem.write(out_base + pos + 1, CH_US())
+    return pos + 2
+}
+
+fn bytes_eq(a_base: Field, a_len: Field, b_base: Field, b_len: Field) -> Field {
+    if a_len == b_len {
+        let mut eq: Field = 1
+        let al: U32 = convert.as_u32(a_len)
+        for k in 0..al bounded 256 {
+            let ki: Field = convert.as_field(k)
+            if mem.read(a_base + ki) == mem.read(b_base + ki) { }
+            else { eq = 0 }
+        }
+        return eq
+    } else {
+        return 0
+    }
+}
+
+fn copy_bytes(src: Field, dst: Field, len: Field) {
+    let lu: U32 = convert.as_u32(len)
+    for k in 0..lu bounded 65536 {
+        let ki: Field = convert.as_field(k)
+        mem.write(dst + ki, mem.read(src + ki))
+    }
+}
