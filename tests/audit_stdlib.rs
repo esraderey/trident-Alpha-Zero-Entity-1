@@ -292,6 +292,30 @@ fn main() {
     );
 }
 
+// ── std.compiler.typecheck ──
+
+#[test]
+fn test_std_compiler_typecheck_compiles() {
+    let tasm = compile_test_program(
+        "_test_typecheck.tri",
+        r#"program test_typecheck
+use std.compiler.typecheck
+
+fn main() {
+    let state_base: Field = 50000
+    typecheck.check(state_base)
+    let errs: Field = typecheck.error_count(state_base)
+    pub_write(errs)
+}
+"#,
+    );
+    assert!(tasm.contains("__check:"), "missing check function");
+    assert!(
+        tasm.contains("__dispatch:"),
+        "missing dispatch function"
+    );
+}
+
 // ── std.crypto.ed25519 ──
 
 #[test]
