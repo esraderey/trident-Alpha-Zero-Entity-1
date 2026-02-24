@@ -22,7 +22,7 @@ CORE            256K         64K
 vm spec          32K         16K
 language         64K         32K
 TIR             128K         64K
-compiler        128K         32K
+compiler         64K         32K
 std.*           128K         64K
 os.*            128K         64K
 tooling          64K         32K
