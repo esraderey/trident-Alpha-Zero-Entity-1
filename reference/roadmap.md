@@ -52,7 +52,7 @@ Quantum         256K        128K
 ```
 CORE      Poseidon + Merkle as CORE programs, BBG prototype
 TIR       Lowering works for stack, register, and tree targets
-compiler  Lexer + parser rewritten in .tri
+compiler  Lexer + parser + typechecker rewritten in .tri
 std.*     std.token, std.coin, std.card shipped
 os.*      os.neptune.* complete, Atlas on-chain registry live
 AI        Small model inference compiles to provable Trident
