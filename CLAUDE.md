@@ -242,13 +242,12 @@ implementation.
 
 ## Agent Memory
 
-All signed-off plans and design documents persist in the project repo,
-not in ephemeral agent storage. When the user approves a plan, it
-becomes a committed artifact.
+All plans and design documents persist in the project repo, not in
+ephemeral agent storage.
 
 ```
 .claude/
-  plans/                Signed-off design decisions and implementation plans
+  plans/                Design decisions and implementation plans
   audits/               Audit logs and summaries
   other/                Performance reports, analysis, findings
 ```
@@ -256,10 +255,17 @@ becomes a committed artifact.
 Rules:
 
 1. Read what's already there before writing.
-2. Plans go in `.claude/plans/` with descriptive names (e.g. `gpu-neural-rewrite.md`).
+2. **Before presenting a plan for approval, write it to
+   `.claude/plans/<name>.md` first.** The user reviews the file,
+   not the chat. This ensures plans survive context compaction.
 3. Every plan the user signs off on gets committed to the repo.
+   Rejected plans get deleted.
 4. Compress old entries when files grow stale — density over volume.
-5. Budget: 1000 lines total across `.claude/`. Merge or delete weakest entries when exceeded.
+5. Budget: 1000 lines total across `.claude/`. Before writing a new
+   file, count current total (`wc -l .claude/**/*.md`). If over
+   budget, merge or delete the weakest entries first.
+6. After every context compaction, re-read `.claude/plans/` to
+   recover any active plan state.
 
 ## Dual-Stream Optimization
 
