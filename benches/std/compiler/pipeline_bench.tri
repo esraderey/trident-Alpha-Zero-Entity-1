@@ -1,54 +1,72 @@
 program pipeline_bench
 
-// End-to-end benchmark: source bytes → lexer → parser → verified AST.
-// Chains the self-hosted lexer and parser in a single proven program.
+// End-to-end benchmark: source bytes → lex → parse → typecheck → codegen → optimize.
+// Uses the self-hosted pipeline module to compile a small Trident program,
+// then asserts token count, node count, error count, and TIR op count match
+// expected values from the Rust compiler.
 use vm.io.io
 
 use vm.io.mem
 
 use vm.core.convert
 
-use std.compiler.lexer
-
-use std.compiler.parser
+use std.compiler.pipeline
 
 fn main() {
-    // Read layout parameters from public input
+    // Read pipeline state block parameters from public input
+    let state_base: Field = io.read()
     let src_base: Field = io.read()
     let src_len: Field = io.read()
-    let tok_base: Field = io.read()
-    let lex_err_base: Field = io.read()
-    let lex_state_base: Field = io.read()
-    let ast_base: Field = io.read()
-    let parse_err_base: Field = io.read()
-    let parse_state_base: Field = io.read()
-    let parse_stack_base: Field = io.read()
-    let expected_tok_count: Field = io.read()
-    let expected_node_count: Field = io.read()
+    let scratch_base: Field = io.read()
+    let expected_tir_count: Field = io.read()
+    let expected_err_count: Field = io.read()
+
+    // Initialize pipeline state block (12 words at state_base)
+    // +0  src_base
+    mem.write(state_base, src_base)
+    // +1  src_len
+    mem.write(state_base + 1, src_len)
+    // +2  out_tir_base (written by compile)
+    mem.write(state_base + 2, 0)
+    // +3  out_tir_count (written by compile)
+    mem.write(state_base + 3, 0)
+    // +4  file_kind: 1 = program
+    mem.write(state_base + 4, 1)
+    // +5  digest_width: 5
+    mem.write(state_base + 5, 5)
+    // +6  hash_rate: 10
+    mem.write(state_base + 6, 10)
+    // +7  xfield_width: 3
+    mem.write(state_base + 7, 3)
+    // +8  max_stack_depth: 16
+    mem.write(state_base + 8, 16)
+    // +9  spill_ram_base: 2^30
+    mem.write(state_base + 9, 1073741824)
+    // +10 scratch_base
+    mem.write(state_base + 10, scratch_base)
+    // +11 err_count (written by compile)
+    mem.write(state_base + 11, 0)
 
     // Load source bytes from public input into RAM
     let src_len_u32: U32 = convert.as_u32(src_len)
-    for i in 0..src_len_u32 bounded 1024 {
+    for i in 0..src_len_u32 bounded 2048 {
         let idx: Field = convert.as_field(i)
         let byte: Field = io.read()
         mem.write(src_base + idx, byte)
     }
 
-    // Stage 1: Lex
-    lexer.lex(src_base, src_len, tok_base, lex_err_base, lex_state_base)
-    let tok_count: Field = mem.read(lex_state_base + 1)
-    let lex_err_count: Field = mem.read(lex_state_base + 2)
-    assert(tok_count == expected_tok_count)
-    assert(lex_err_count == 0)
+    // Run the full pipeline: lex → parse → typecheck → codegen → optimize
+    pipeline.compile(state_base)
 
-    // Stage 2: Parse
-    parser.parse(tok_base, tok_count, ast_base, parse_err_base, parse_state_base, parse_stack_base)
-    let node_count: Field = mem.read(parse_state_base + 2)
-    let parse_err_count: Field = mem.read(parse_state_base + 3)
-    assert(node_count == expected_node_count)
-    assert(parse_err_count == 0)
+    // Read results
+    let tir_count: Field = pipeline.result_tir_count(state_base)
+    let err_count: Field = pipeline.result_err_count(state_base)
 
-    // Output: tok_count and node_count as proof of work
-    io.write(tok_count)
-    io.write(node_count)
+    // Assert results match Rust compiler reference
+    assert(err_count == expected_err_count)
+    assert(tir_count == expected_tir_count)
+
+    // Output counts as proof of work
+    io.write(tir_count)
+    io.write(err_count)
 }

@@ -1,6 +1,8 @@
-use trident::lexer::Lexer;
+use trident::api::CompileOptions;
 
 /// Test source: a small Trident program exercising the full pipeline.
+/// Same source as used in the lex/parse/typecheck benches — simple enough
+/// to fit in a proven program, complex enough to exercise all stages.
 const TEST_SOURCE: &str = r#"program test
 
 use vm.io.io
@@ -20,49 +22,36 @@ fn main() {
 
 fn main() {
     let source = TEST_SOURCE;
+    let options = CompileOptions::default();
 
-    // Lex to get token count
-    let (tokens, _comments, diags) = Lexer::new(source, 0).tokenize();
-    assert!(diags.is_empty(), "lex errors: {:?}", diags);
-    let tok_count = tokens.len();
+    // Run the full Rust compiler pipeline to get optimized TIR op count
+    let tir_ops = trident::build_tir(source, "test.tri", &options)
+        .expect("Rust compiler should compile test source cleanly");
+    let tir_count = tir_ops.len() as u64;
 
-    // Parse to get node count
-    let file = trident::parse_source_silent(source, "test.tri").expect("parse failed");
-    // Count nodes by serializing (reuse parser reference logic)
-    // For now, use the known value from the parser reference: 31 nodes
-    let expected_node_count = 31u64;
-
-    eprintln!("=== Pipeline Reference ===");
+    eprintln!("=== Pipeline Reference (full 5-stage) ===");
     eprintln!("Source: {} bytes", source.len());
-    eprintln!("Tokens: {}", tok_count);
-    eprintln!("AST nodes: {}", expected_node_count);
+    eprintln!("Optimized TIR ops: {}", tir_count);
     eprintln!();
 
-    // Memory layout
+    // Memory layout for the bench
+    let state_base: u64 = 500;
     let src_base: u64 = 1000;
     let src_len = source.len() as u64;
-    let tok_base: u64 = 2000;
-    let lex_err_base: u64 = 3000;
-    let lex_state_base: u64 = 3500;
-    let ast_base: u64 = 5000;
-    let parse_err_base: u64 = 8000;
-    let parse_state_base: u64 = 9000;
-    let parse_stack_base: u64 = 10000;
+    // scratch_base must be far enough from state_base to not overlap
+    // Pipeline uses ~100K words of scratch
+    let scratch_base: u64 = 200_000;
+    let expected_err_count: u64 = 0;
 
     let mut vals: Vec<String> = Vec::new();
 
-    // 11 parameters
+    // 6 parameters
+    vals.push(state_base.to_string());
     vals.push(src_base.to_string());
     vals.push(src_len.to_string());
-    vals.push(tok_base.to_string());
-    vals.push(lex_err_base.to_string());
-    vals.push(lex_state_base.to_string());
-    vals.push(ast_base.to_string());
-    vals.push(parse_err_base.to_string());
-    vals.push(parse_state_base.to_string());
-    vals.push(parse_stack_base.to_string());
-    vals.push(tok_count.to_string());
-    vals.push(expected_node_count.to_string());
+    vals.push(scratch_base.to_string());
+    vals.push(tir_count.to_string());
+    vals.push(expected_err_count.to_string());
 
     // Source bytes
     for &b in source.as_bytes() {
@@ -70,5 +59,4 @@ fn main() {
     }
 
     eprintln!("values: {}", vals.join(", "));
-    let _ = file; // suppress unused warning
 }

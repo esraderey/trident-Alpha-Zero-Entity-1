@@ -21,8 +21,8 @@ Layer           Current   First Release
 CORE            256K         64K
 vm spec          32K         16K
 language         64K         32K
-TIR             128K         64K
-compiler         64K         32K
+TIR              64K         64K
+compiler         32K         32K
 std.*           128K         64K
 os.*            128K         64K
 tooling          64K         32K
@@ -52,7 +52,10 @@ Quantum         256K        128K
 ```
 CORE      Poseidon + Merkle as CORE programs, BBG prototype
 TIR       Lowering works for stack, register, and tree targets
-compiler  Lexer + parser + typechecker rewritten in .tri
+compiler  ✓ All 6 stages + pipeline rewritten in .tri (9,195 LOC)
+            lexer (824) → parser (2,723) → typecheck (1,502) →
+            codegen (1,979) → optimize (733) → lower (1,121) →
+            pipeline (313)
 std.*     std.token, std.coin, std.card shipped
 os.*      os.neptune.* complete, Atlas on-chain registry live
 AI        Small model inference compiles to provable Trident
@@ -65,8 +68,8 @@ Quantum   Quantum circuit simulation backend
 ```
 CORE      Transaction circuit, STARK verifier as CORE program
 language  Indexed assignment (arr[i] = val, s.field = val)
-TIR       5+ OS targets lowering, all three VM types passing tests
-compiler  Type checker rewritten in .tri
+TIR       ✓ TIR builder, optimizer, lowerer self-hosted in .tri
+compiler  ✓ All stages self-hosted — wire lower when core/warrior ready
 std.*     23 std.skill.* shipped
 os.*      3+ OS namespaces operational
 tooling   Web playground: compile .tri in browser
@@ -84,7 +87,7 @@ CORE      Self-verifying: CORE proves its own execution
 vm spec   Intrinsic set stable: no new vm.* builtins
 language  Protocols: compile-time structural typing, grammar frozen
 TIR       TIROp set stable (5+ OS, 1 VM per type prove op set complete)
-compiler  Pipeline fully in Trident — compiler compiles itself
+compiler  ✓ Pipeline in Trident — needs lower wiring + self-compilation
 std.*     #[requires]/#[ensures] contracts on all public functions
 os.*      Per-OS namespace governance established
 AI        Proven training: gradient computation inside proof
