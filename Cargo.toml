@@ -50,56 +50,56 @@ harness = false
 
 [[example]]
 name = "ref_std_crypto_poseidon2"
-path = "benches/std/crypto/poseidon2.reference.rs"
+path = "benches/references/std/crypto/poseidon2.rs"
 
 [[example]]
 name = "ref_std_crypto_poseidon"
-path = "benches/std/crypto/poseidon.reference.rs"
+path = "benches/references/std/crypto/poseidon.rs"
 
 [[example]]
 name = "ref_std_crypto_bigint"
-path = "benches/std/crypto/bigint.reference.rs"
+path = "benches/references/std/crypto/bigint.rs"
 
 [[example]]
 name = "ref_std_crypto_merkle"
-path = "benches/std/crypto/merkle.reference.rs"
+path = "benches/references/std/crypto/merkle.rs"
 
 [[example]]
 name = "ref_std_quantum_gates"
-path = "benches/std/quantum/gates.reference.rs"
+path = "benches/references/std/quantum/gates.rs"
 
 [[example]]
 name = "ref_std_nn_tensor"
-path = "benches/std/nn/tensor.reference.rs"
+path = "benches/references/std/nn/tensor.rs"
 
 [[example]]
 name = "ref_std_private_poly"
-path = "benches/std/private/poly.reference.rs"
+path = "benches/references/std/private/poly.rs"
 
 [[example]]
 name = "ref_std_trinity_inference"
-path = "benches/std/trinity/inference.reference.rs"
+path = "benches/references/std/trinity/inference.rs"
 
 [[example]]
 name = "ref_std_compiler_lexer"
-path = "benches/std/compiler/lexer.reference.rs"
+path = "benches/references/std/compiler/lexer.rs"
 
 [[example]]
 name = "ref_std_compiler_parser"
-path = "benches/std/compiler/parser.reference.rs"
+path = "benches/references/std/compiler/parser.rs"
 
 [[example]]
 name = "ref_std_compiler_pipeline"
-path = "benches/std/compiler/pipeline.reference.rs"
+path = "benches/references/std/compiler/pipeline.rs"
 
 [[example]]
 name = "ref_std_compiler_typecheck"
-path = "benches/std/compiler/typecheck.reference.rs"
+path = "benches/references/std/compiler/typecheck.rs"
 
 [[example]]
 name = "ref_std_compiler_codegen"
-path = "benches/std/compiler/codegen.reference.rs"
+path = "benches/references/std/compiler/codegen.rs"
 
 [[example]]
 name = "ref_std_compiler_optimize"
-path = "benches/std/compiler/optimize.reference.rs"
+path = "benches/references/std/compiler/optimize.rs"
