@@ -1,7 +1,7 @@
 # Live harness inputs for parser benchmark.
 #
-# These values replace read_io instructions in the linked _bench.tasm program.
-# Order matches the read_io sequence in parser_bench.tri main():
+# These values replace read_io instructions in the linked .tasm program.
+# Order matches the read_io sequence in parser.tri main():
 #   8 parameters, then 69*4=276 flat token values, then 1 expected first node kind.
 #
 # Parameters (8):

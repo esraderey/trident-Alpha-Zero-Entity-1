@@ -402,8 +402,8 @@ std/crypto/poseidon2.tri                     Poseidon2 hash (+ RAM-based variant
 std/crypto/lut_sponge.tri                    LUT sponge hash (Reader 2)
 std/quantum/gates.tri                        Quantum gate library
 std/trinity/inference.tri                    Trinity module (4 readers, 29 args)
-benches/std/trinity/inference.baseline.tasm  Hand-optimized TASM (167 instructions)
-benches/std/trinity/inference.reference.rs   Rust ground truth
+baselines/triton/std/trinity/inference.tasm   Hand-optimized TASM (167 instructions)
+benches/references/std/trinity/inference.rs  Rust ground truth
 ```
 
 ## What Is Proven

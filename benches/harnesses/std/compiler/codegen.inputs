@@ -1,7 +1,7 @@
 # Live harness inputs for codegen benchmark (4-stage).
 #
-# These values replace read_io instructions in codegen_bench.tasm.
-# Order matches the read_io sequence in codegen_bench.tri main():
+# These values replace read_io instructions in the linked .tasm program.
+# Order matches the read_io sequence in codegen.tri main():
 #   13 parameters, then 229 source bytes.
 #
 # Parameters (13):

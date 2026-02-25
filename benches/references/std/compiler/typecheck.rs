@@ -67,7 +67,7 @@ fn main() {
 
     let mut vals: Vec<String> = Vec::new();
 
-    // 12 parameters — match typecheck_bench.tri read order
+    // 12 parameters — match typecheck.tri read order
     vals.push(src_base.to_string());
     vals.push(src_len.to_string());
     vals.push(tok_base.to_string());

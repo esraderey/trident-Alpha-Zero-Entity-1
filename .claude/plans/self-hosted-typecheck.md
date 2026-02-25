@@ -111,7 +111,7 @@ diag_count     count       Number of diagnostics
 - Error collection and reporting
 
 ### Step 8: Bench harness (~100 LOC)
-**File**: `benches/std/compiler/typecheck_bench.tri`
+**File**: `benches/harnesses/std/compiler/typecheck.tri`
 - Program that loads a known AST (from parser output), runs typecheck, asserts no errors
 - Reference implementation in Rust for ground truth
 
@@ -123,7 +123,7 @@ diag_count     count       Number of diagnostics
 
 After typecheck.tri, prove existing benches via trisha:
 
-1. `trident build benches/std/compiler/lexer_bench.tri` → get .tasm
+1. `trident build benches/harnesses/std/compiler/lexer.tri` → get .tasm
 2. `trisha run lexer_bench` → execute, verify correctness
 3. `trisha prove lexer_bench` → generate STARK proof
 4. `trisha verify lexer_bench` → verify proof

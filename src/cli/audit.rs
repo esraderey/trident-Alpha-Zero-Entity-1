@@ -92,21 +92,19 @@ fn cmd_audit_exec() {
         process::exit(1);
     }
 
-    let bench_dir = resolve_bench_dir(&PathBuf::from("benches"));
+    let bench_dir = resolve_bench_dir(&PathBuf::from("baselines/triton"));
     if !bench_dir.is_dir() {
-        eprintln!("error: 'benches/' directory not found");
+        eprintln!("error: 'baselines/triton/' directory not found");
         process::exit(1);
     }
 
-    let project_root = bench_dir
-        .parent()
-        .unwrap_or_else(|| std::path::Path::new("."));
+    let project_root = find_project_root(&bench_dir);
 
     let mut baselines = find_baseline_files(&bench_dir, 0);
     baselines.sort();
 
     if baselines.is_empty() {
-        eprintln!("No .baseline.tasm files found in benches/");
+        eprintln!("No .tasm baselines found in baselines/triton/");
         process::exit(1);
     }
 
@@ -118,7 +116,7 @@ fn cmd_audit_exec() {
             .strip_prefix(&bench_dir)
             .unwrap_or(baseline_path);
         let rel_str = rel.to_string_lossy();
-        let source_rel = rel_str.replace(".baseline.tasm", ".tri");
+        let source_rel = rel_str.replace(".tasm", ".tri");
         let source_path = project_root.join(&source_rel);
         let module_name = source_rel.trim_end_matches(".tri").replace('/', "::");
 
@@ -162,7 +160,7 @@ fn cmd_audit_exec() {
         let neural_path = PathBuf::from(
             baseline_path
                 .to_string_lossy()
-                .replace(".baseline.tasm", ".neural.tasm"),
+                .replace(".tasm", ".neural.tasm"),
         );
         if neural_path.exists() {
             let neural_tasm = std::fs::read_to_string(&neural_path).unwrap_or_default();
@@ -583,7 +581,8 @@ pub fn cmd_equiv(args: EquivArgs) {
 
 // ── Shared helpers ────────────────────────────────────────────────
 
-/// Recursively find all .baseline.tasm files in a directory.
+/// Recursively find all hand-written .tasm baselines in a directory.
+/// Excludes `.neural.tasm` and `.formal.tasm` (generated, not hand-written).
 fn find_baseline_files(dir: &std::path::Path, depth: usize) -> Vec<PathBuf> {
     if depth >= 64 {
         return Vec::new();
@@ -594,15 +593,32 @@ fn find_baseline_files(dir: &std::path::Path, depth: usize) -> Vec<PathBuf> {
             let path = entry.path();
             if path.is_dir() {
                 files.extend(find_baseline_files(&path, depth + 1));
-            } else if path
-                .file_name()
-                .is_some_and(|n| n.to_string_lossy().ends_with(".baseline.tasm"))
-            {
-                files.push(path);
+            } else if let Some(name) = path.file_name() {
+                let name = name.to_string_lossy();
+                if name.ends_with(".tasm")
+                    && !name.ends_with(".neural.tasm")
+                    && !name.ends_with(".formal.tasm")
+                {
+                    files.push(path);
+                }
             }
         }
     }
     files
+}
+
+/// Find the project root from a baselines directory.
+fn find_project_root(bench_dir: &std::path::Path) -> &std::path::Path {
+    let mut dir = bench_dir;
+    loop {
+        if dir.file_name().map(|n| n == "baselines").unwrap_or(false) {
+            return dir.parent().unwrap_or(std::path::Path::new("."));
+        }
+        match dir.parent() {
+            Some(parent) if parent != dir => dir = parent,
+            _ => return bench_dir.parent().unwrap_or(std::path::Path::new(".")),
+        }
+    }
 }
 
 /// Resolve the bench directory by searching ancestor directories.

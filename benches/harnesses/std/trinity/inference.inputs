@@ -1,7 +1,7 @@
 # Live harness inputs for Trinity benchmark.
 #
-# These values replace read_io instructions in the linked _bench.tasm program.
-# Order matches the read_io sequence in inference_bench.tri main():
+# These values replace read_io instructions in the linked .tasm program.
+# Order matches the read_io sequence in inference.tri main():
 #   store_params() reads 29 values, load_round_constants() reads 198 more.
 #
 # Parameters (29):

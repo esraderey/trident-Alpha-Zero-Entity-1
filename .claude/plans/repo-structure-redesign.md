@@ -107,7 +107,7 @@ baselines/wasm/std/crypto/poseidon2.neural.wat        # neural
 | `benches/X/Y_bench.tri` | `benches/harnesses/X/Y.tri` | Grouped by purpose |
 | `benches/X/Y.inputs` | `benches/harnesses/X/Y.inputs` | Grouped by purpose |
 | `benches/X/Y.reference.rs` | `benches/references/X/Y.rs` | Grouped by purpose |
-| `data/neural/` | `model/neural/` | Says what it is |
+| `data/neural/` | `model/general/` | Says what it is |
 
 ## What Stays The Same
 

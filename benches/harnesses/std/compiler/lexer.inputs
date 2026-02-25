@@ -1,7 +1,7 @@
 # Live harness inputs for lexer benchmark.
 #
-# These values replace read_io instructions in the linked _bench.tasm program.
-# Order matches the read_io sequence in lexer_bench.tri main():
+# These values replace read_io instructions in the linked .tasm program.
+# Order matches the read_io sequence in lexer.tri main():
 #   6 parameters, then 229 source bytes, then 69 expected token kinds.
 #
 # Parameters (6):

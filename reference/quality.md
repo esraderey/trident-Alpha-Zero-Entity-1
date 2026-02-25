@@ -157,9 +157,9 @@ Every function that compiles to TASM is verified across four dimensions:
 
 | Dimension | Source | Role |
 |-----------|--------|------|
-| Reference | `benches/*/reference.rs` (Rust) | Ground truth: generates inputs, computes expected outputs |
+| Reference | `benches/references/` (Rust) | Ground truth: generates inputs, computes expected outputs |
 | Classic | `trident build` | Default compiler pipeline |
-| Manual | `benches/*/*.baseline.tasm` | Hand-optimized expert TASM |
+| Manual | `baselines/triton/*.tasm` | Hand-optimized expert TASM |
 | Neural | Neural optimizer | ML-optimized TASM |
 
 Four metrics compared across all dimensions:

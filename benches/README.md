@@ -1,34 +1,40 @@
 # Trident Benchmarks
 
 Per-function compiler overhead analysis: compiles real library modules
-from `std/` and `vm/`, then compares instruction counts against
-hand-optimized TASM baselines.
+from `std/`, `vm/`, and `os/`, then compares instruction counts and
+execution costs against hand-optimized TASM baselines.
 
 ## Directory Structure
 
 ```
 benches/
-  std/
-    crypto/
-      auth.baseline.tasm       # vs std/crypto/auth.tri
-      bigint.baseline.tasm     # vs std/crypto/bigint.tri
-      ecdsa.baseline.tasm      # vs std/crypto/ecdsa.tri
-      keccak256.baseline.tasm  # vs std/crypto/keccak256.tri
-      merkle.baseline.tasm     # vs std/crypto/merkle.tri
-      poseidon.baseline.tasm   # vs std/crypto/poseidon.tri
-      poseidon2.baseline.tasm  # vs std/crypto/poseidon2.tri
+  end_to_end.rs              Criterion bench
+  harnesses/                 Live execution programs (.tri + .inputs)
+    std/compiler/lexer.tri
+    std/compiler/lexer.inputs
+    std/trinity/inference.tri
+    ...
+  references/                Rust ground truth
+    std/crypto/poseidon2.rs
+    std/nn/tensor.rs
+    ...
+
+baselines/triton/            Hand-optimized TASM (separate top-level dir)
+  std/crypto/poseidon2.tasm
+  vm/core/field.tasm
+  os/neptune/kernel.tasm
+  ...
 ```
 
-The directory tree mirrors the source tree. Each `.baseline.tasm` file
-contains hand-optimized TASM for every public function in the
-corresponding `.tri` module. No synthetic benchmark programs exist here
--- all compilation targets are real library code.
+- **`harnesses/`** — `.tri` source + `.inputs` files for live execution benchmarks
+- **`references/`** — Rust programs that generate inputs and expected outputs (ground truth)
+- **`baselines/triton/`** — hand-optimized TASM baselines (top-level, outside `benches/`)
 
 ## How It Works
 
-1. `trident bench` scans `benches/` recursively for `.baseline.tasm` files
+1. `trident bench` scans `baselines/triton/` for `.tasm` files
 2. Each baseline maps to a source module by path:
-   `benches/std/crypto/auth.baseline.tasm` -> `std/crypto/auth.tri`
+   `baselines/triton/std/crypto/auth.tasm` -> `std/crypto/auth.tri`
 3. The source module is compiled through the full pipeline (resolve, parse,
    typecheck, TIR, optimize, lower) without linking
 4. Both compiled output and baseline are parsed into per-function
@@ -46,17 +52,18 @@ corresponding `.tri` module. No synthetic benchmark programs exist here
 ## Running
 
 ```nu
-trident bench              # from project root
-trident bench benches/     # explicit directory
+trident bench                         # from project root
+trident bench baselines/triton/       # explicit directory
+trident bench baselines/triton/std/   # subdirectory
 ```
 
-Works from any subdirectory -- walks up to find `benches/`.
+Works from any subdirectory -- walks up to find `baselines/`.
 
 ## Adding a Baseline
 
-1. Write the `.tri` module in `std/` or `vm/` (real library code)
-2. Create the matching baseline path in `benches/`:
-   `benches/std/crypto/newmod.baseline.tasm`
+1. Write the `.tri` module in `std/`, `vm/`, or `os/` (real library code)
+2. Create the matching baseline path:
+   `baselines/triton/std/crypto/newmod.tasm`
 3. Write hand-optimized TASM with `__funcname:` labels matching the
    module's public functions
 4. Run `trident bench` to see the comparison

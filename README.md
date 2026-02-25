@@ -236,7 +236,7 @@ already written in Trident and STARK-verified:
 
 ```nu
 trident build std/compiler/lexer.tri     # compile the lexer to TASM
-trident bench benches/std/compiler --full # execute, prove, verify
+trident bench baselines/triton/std/compiler --full # execute, prove, verify
 ```
 
 ```
