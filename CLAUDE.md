@@ -243,7 +243,11 @@ implementation.
 ## Agent Memory
 
 All plans and design documents persist in the project repo, not in
-ephemeral agent storage.
+ephemeral agent storage. Plans go to the **project** `.claude/plans/`
+directory (i.e. `<repo-root>/.claude/plans/`), never to `~/.claude/`.
+The plan mode auto-assigned file path (`~/.claude/plans/...`) is
+ignored — always write to the project directory so the user can
+review in their editor.
 
 ```
 .claude/
@@ -256,8 +260,9 @@ Rules:
 
 1. Read what's already there before writing.
 2. **Before presenting a plan for approval, write it to
-   `.claude/plans/<name>.md` first.** The user reviews the file,
-   not the chat. This ensures plans survive context compaction.
+   `<repo-root>/.claude/plans/<name>.md` first.** The user reviews
+   the file in their editor, not the chat. This ensures plans
+   survive context compaction.
 3. Every plan the user signs off on gets committed to the repo.
    Rejected plans get deleted.
 4. Compress old entries when files grow stale — density over volume.
@@ -271,7 +276,7 @@ Rules:
 
 Two independent optimization streams run in parallel:
 
-1. **Hand TASM** (`benches/*.baseline.tasm`): Write from first
+1. **Hand TASM** (`baselines/triton/`): Write from first
    principles — algorithm + stack machine, never from compiler output.
    Ask "what is the minimum instruction sequence for this operation on
    Triton VM?" not "how can I improve what the compiler emitted?"
@@ -303,8 +308,8 @@ Four ways to produce TASM: Rust reference, classic compiler, manual
 baseline, neural optimizer. All must agree on correctness.
 `trident bench --full` is the scoreboard.
 
-- `benches/*/reference.rs` — Rust ground truth (generates inputs, expected outputs)
-- `benches/*/*.baseline.tasm` — hand-optimized TASM (expert floor)
+- `benches/references/` — Rust ground truth (generates inputs, expected outputs)
+- `baselines/triton/` — hand-optimized TASM (expert floor)
 - Classic TASM — `trident build` output
 - Neural TASM — neural optimizer output
 

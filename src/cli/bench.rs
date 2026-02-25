@@ -13,7 +13,7 @@ use trident::neural::model::composite::NeuralCompilerV2;
 #[derive(Args)]
 pub struct BenchArgs {
     /// Directory containing baseline .tasm files (mirrors source tree)
-    #[arg(default_value = "benches")]
+    #[arg(default_value = "baselines/triton")]
     pub dir: PathBuf,
     /// Run all checks: compile, execute, prove, verify
     #[arg(long)]
@@ -62,13 +62,13 @@ pub fn cmd_bench(args: BenchArgs) {
     }
 
     let project_root = find_project_root(&bench_dir);
-    let benches_root = project_root.join("benches");
+    let baselines_root = project_root.join("baselines/triton");
 
     let mut baselines = find_baseline_files(&bench_dir, 0);
     baselines.sort();
 
     if baselines.is_empty() {
-        eprintln!("No .baseline.tasm files found in '{}'", bench_dir.display());
+        eprintln!("No .tasm baselines found in '{}'", bench_dir.display());
         process::exit(1);
     }
 
@@ -92,10 +92,10 @@ pub fn cmd_bench(args: BenchArgs) {
 
     for baseline_path in &baselines {
         let rel = baseline_path
-            .strip_prefix(&benches_root)
+            .strip_prefix(&baselines_root)
             .unwrap_or(baseline_path);
         let rel_str = rel.to_string_lossy();
-        let source_rel = rel_str.replace(".baseline.tasm", ".tri");
+        let source_rel = rel_str.replace(".tasm", ".tri");
         let source_path = project_root.join(&source_rel);
         let module_name = source_rel.trim_end_matches(".tri").replace('/', "::");
 
@@ -141,13 +141,9 @@ pub fn cmd_bench(args: BenchArgs) {
         }
 
         // Run Rust reference benchmark if available
-        let ref_rs = baseline_path.with_file_name(
-            baseline_path
-                .file_name()
-                .unwrap()
-                .to_string_lossy()
-                .replace(".baseline.tasm", ".reference.rs"),
-        );
+        let ref_rs = project_root
+            .join("benches/references")
+            .join(rel_str.replace(".tasm", ".rs"));
         let rust_ns = if args.full && ref_rs.exists() {
             let rel = ref_rs.strip_prefix(project_root).unwrap_or(&ref_rs);
             run_rust_reference(&rel.to_string_lossy())
@@ -196,13 +192,8 @@ pub fn cmd_bench(args: BenchArgs) {
         // Run trisha passes for --full
         if has_trisha {
             // Check for .inputs file for live harness mode
-            let inputs_path = baseline_path.with_file_name(
-                baseline_path
-                    .file_name()
-                    .unwrap()
-                    .to_string_lossy()
-                    .replace(".baseline.tasm", ".inputs"),
-            );
+            let harness_dir = project_root.join("benches/harnesses");
+            let inputs_path = harness_dir.join(rel_str.replace(".tasm", ".inputs"));
             let live_inputs = if inputs_path.exists() {
                 parse_inputs_file(&inputs_path)
             } else {
@@ -210,23 +201,11 @@ pub fn cmd_bench(args: BenchArgs) {
             };
 
             if let Some(ref li) = live_inputs {
-                // Live mode: compile _bench.tri as linked program, transform for execution.
+                // Live mode: compile harness .tri as linked program, transform for execution.
                 // This resolves all cross-module calls (unlike compile_module).
-                let bench_tri = baseline_path.with_file_name(
-                    baseline_path
-                        .file_name()
-                        .unwrap()
-                        .to_string_lossy()
-                        .replace(".baseline.tasm", "_bench.tri"),
-                );
-                // Also check for pre-compiled _bench.tasm
-                let bench_tasm_path = baseline_path.with_file_name(
-                    baseline_path
-                        .file_name()
-                        .unwrap()
-                        .to_string_lossy()
-                        .replace(".baseline.tasm", "_bench.tasm"),
-                );
+                let bench_tri = harness_dir.join(rel_str.replace(".tasm", ".tri"));
+                // Also check for pre-compiled harness .tasm
+                let bench_tasm_path = harness_dir.join(rel_str.replace(".tasm", "_bench.tasm"));
 
                 let linked_tasm = if bench_tasm_path.exists() {
                     std::fs::read_to_string(&bench_tasm_path).ok()
@@ -703,14 +682,14 @@ fn fmt_rust(ns: Option<u64>) -> String {
     }
 }
 
-/// Run a Rust reference benchmark. Expects a `.reference.rs` file that is
-/// registered as a cargo example. Builds with --release, runs, parses
+/// Run a Rust reference benchmark. Expects a `.rs` file in benches/references/
+/// that is registered as a cargo example. Builds with --release, runs, parses
 /// `rust_ns: <N>` from stdout.
 fn run_rust_reference(ref_path: &str) -> Option<u64> {
-    // Derive example name from path: benches/std/crypto/poseidon2.reference.rs -> ref_std_crypto_poseidon2
+    // Derive example name from path: benches/references/std/crypto/poseidon2.rs -> ref_std_crypto_poseidon2
     let name = ref_path
-        .trim_start_matches("benches/")
-        .trim_end_matches(".reference.rs")
+        .trim_start_matches("benches/references/")
+        .trim_end_matches(".rs")
         .replace('/', "_");
     let example_name = format!("ref_{}", name);
 
@@ -856,26 +835,26 @@ fn compile_neural_tasm_inline(
 }
 
 /// Derive the .neural.tasm path from a source .tri path.
-/// E.g. std/crypto/poseidon2.tri -> benches/std/crypto/poseidon2.neural.tasm
+/// E.g. std/crypto/poseidon2.tri -> baselines/triton/std/crypto/poseidon2.neural.tasm
 fn derive_neural_tasm_path(source_path: &str) -> Option<PathBuf> {
     // Find the relative part after the project root
     let source = Path::new(source_path);
     let file_stem = source.file_stem()?.to_string_lossy();
     let parent = source.parent()?;
 
-    // Walk up to find "benches" sibling
+    // Walk up to find "baselines" sibling
     let mut ancestor = parent;
     let mut rel_parts = vec![file_stem.to_string()];
     loop {
         if let Some(name) = ancestor.file_name() {
             rel_parts.push(name.to_string_lossy().to_string());
             ancestor = ancestor.parent()?;
-            // Check if benches/ exists as sibling
-            let benches = ancestor.join("benches");
-            if benches.is_dir() {
+            // Check if baselines/triton/ exists as sibling
+            let baselines = ancestor.join("baselines").join("triton");
+            if baselines.is_dir() {
                 rel_parts.reverse();
                 let rel = rel_parts.join("/");
-                return Some(benches.join(format!("{}.neural.tasm", rel)));
+                return Some(baselines.join(format!("{}.neural.tasm", rel)));
             }
         } else {
             return None;
@@ -930,7 +909,8 @@ fn parse_inputs_file(path: &Path) -> Option<LiveInputs> {
     })
 }
 
-/// Recursively find all .baseline.tasm files in a directory (depth-limited).
+/// Recursively find all .tasm baseline files in a directory (depth-limited).
+/// Skips .neural.tasm and .formal.tasm (generated artifacts).
 fn find_baseline_files(dir: &std::path::Path, depth: usize) -> Vec<PathBuf> {
     if depth >= 64 {
         return Vec::new();
@@ -941,26 +921,29 @@ fn find_baseline_files(dir: &std::path::Path, depth: usize) -> Vec<PathBuf> {
             let path = entry.path();
             if path.is_dir() {
                 files.extend(find_baseline_files(&path, depth + 1));
-            } else if path
-                .file_name()
-                .is_some_and(|n| n.to_string_lossy().ends_with(".baseline.tasm"))
-            {
-                files.push(path);
+            } else if let Some(name) = path.file_name() {
+                let name = name.to_string_lossy();
+                if name.ends_with(".tasm")
+                    && !name.ends_with(".neural.tasm")
+                    && !name.ends_with(".formal.tasm")
+                {
+                    files.push(path);
+                }
             }
         }
     }
     files
 }
 
-/// Find the project root from a bench directory.
+/// Find the project root from a baselines directory.
 ///
-/// Walks up from `bench_dir` looking for a parent that contains a `benches/`
-/// child. This handles both `trident bench` (bench_dir = `benches/`) and
-/// `trident bench benches/std/trinity` (bench_dir = `benches/std/trinity/`).
+/// Walks up from `bench_dir` looking for a parent that contains a `baselines/`
+/// child. This handles both `trident bench` (bench_dir = `baselines/triton/`)
+/// and `trident bench baselines/triton/std/crypto` (subdirectory).
 fn find_project_root(bench_dir: &Path) -> &Path {
     let mut dir = bench_dir;
     loop {
-        if dir.file_name().map(|n| n == "benches").unwrap_or(false) {
+        if dir.file_name().map(|n| n == "baselines").unwrap_or(false) {
             return dir.parent().unwrap_or(Path::new("."));
         }
         match dir.parent() {
