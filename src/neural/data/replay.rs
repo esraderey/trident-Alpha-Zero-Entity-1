@@ -37,7 +37,7 @@ struct ReplayArchive {
 
 /// Default path for replay buffer persistence.
 fn default_replay_path() -> PathBuf {
-    PathBuf::from("data/neural/v2/replay.rkyv")
+    PathBuf::from("model/general/v2/replay.rkyv")
 }
 
 /// Priority-based replay buffer.

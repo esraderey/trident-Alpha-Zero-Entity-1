@@ -10,7 +10,7 @@ use burn::prelude::*;
 use burn::record::{FullPrecisionSettings, NamedMpkFileRecorder};
 
 /// Checkpoint directory relative to repo root.
-const CHECKPOINT_DIR: &str = "data/neural/v2";
+const CHECKPOINT_DIR: &str = "model/general/v2";
 
 /// Checkpoint tag for naming saved files.
 #[derive(Debug, Clone, Copy)]
@@ -49,7 +49,7 @@ fn checkpoint_dir() -> PathBuf {
 /// Save a model checkpoint to disk.
 ///
 /// Uses NamedMpk format with full precision (lossless).
-/// File will be at `data/neural/v2/{tag}.mpk`.
+/// File will be at `model/general/v2/{tag}.mpk`.
 pub fn save_checkpoint<B: Backend, M: Module<B> + Clone>(
     model: &M,
     tag: CheckpointTag,

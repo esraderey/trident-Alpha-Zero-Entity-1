@@ -844,8 +844,8 @@ fn cmd_train_reset() {
     let repo_root = find_repo_root();
     let mut deleted = 0usize;
 
-    // Delete neural weights (both v1 and v2)
-    for subdir in &["data/neural", "data/neural/v2"] {
+    // Delete neural weights
+    for subdir in &["model/general", "model/general/v2"] {
         let dir = repo_root.join(subdir);
         if dir.exists() {
             if let Err(e) = std::fs::remove_dir_all(&dir) {
@@ -860,8 +860,8 @@ fn cmd_train_reset() {
         }
     }
 
-    // Delete all .neural.tasm files under benches/
-    let benches_dir = repo_root.join("benches");
+    // Delete all .neural.tasm files under baselines/
+    let benches_dir = repo_root.join("baselines");
     if benches_dir.exists() {
         for entry in walkdir(&benches_dir) {
             if entry.extension().and_then(|e| e.to_str()) == Some("tasm") {
