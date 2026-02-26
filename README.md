@@ -166,7 +166,7 @@ opaque. Ken Thompson showed in 1984 that a compiler can inject
 backdoors invisible in the source. Forty years later, every software
 supply chain still rests on the same blind faith.
 
-Trident breaks the chain. The compiler self-hosts on Triton VM:
+Trident breaks the chain. The compiler self-hosts on the [cyber/core](https://cyber.page/cyber-core/):
 Trident source compiles Trident source, and the execution produces a
 STARK proof that the compilation was faithful. Not "we audited the
 binary." Not "we reproduced the build." A cryptographic proof, from
