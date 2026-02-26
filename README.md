@@ -157,6 +157,45 @@ normalized AST. Audit certificates travel with the code. See
 
 ---
 
+## Trusting, Not Trust.
+
+You download a compiler binary. Someone compiled it — you trust them.
+They used a compiler too — you trust that one as well. The trust chain
+stretches back to the first hand-assembled binary, and every link is
+opaque. Ken Thompson showed in 1984 that a compiler can inject
+backdoors invisible in the source. Forty years later, every software
+supply chain still rests on the same blind faith.
+
+Trident breaks the chain. The compiler self-hosts on Triton VM:
+Trident source compiles Trident source, and the execution produces a
+STARK proof that the compilation was faithful. Not "we audited the
+binary." Not "we reproduced the build." A cryptographic proof, from
+the mathematics itself, that the output corresponds to the input.
+
+The lexer is already there:
+
+```nu
+trident build std/compiler/lexer.tri     # compile the lexer to TASM
+trident bench baselines/triton/std/compiler --full # execute, prove, verify
+```
+
+```
+Module                Compile    Rust  | Exec  | Prove    | Verify | Status
+std::compiler::lexer    4.4ms   1.4µs |  39ms | 10252ms  |  42ms  | PASS
+```
+
+824 lines of Trident. 51 token kinds. 28 keywords. The STARK proof
+says: this tokenization is correct for all inputs, or here is your
+counterexample. Parser, typechecker, codegen follow the same path.
+
+`src/` is the Rust bootstrap — it shrinks. `std/compiler/` is the
+self-hosted replacement — it grows. When the last compiler stage moves
+to Trident, every `trident build` produces a proof certificate
+alongside the assembly. No trusted compiler. No trusted build server.
+No trusted anything. You verify.
+
+---
+
 ## Apps
 
 Production programs that compile to TASM with `trident build` today.
@@ -216,38 +255,6 @@ std.*             Real libraries            Implemented in Trident (sha256, bigi
 os.*              Portable runtime          os.signal, os.neuron, os.state, os.time
 os.<os>.*         OS-specific APIs          os.neptune.xfield, os.solana.pda
 ```
-
----
-
-## Self-Hosting: Proving Compilation
-
-Every compiler is a trusted third party. You feed it source, it
-produces a binary, and you trust that the transformation was faithful.
-Self-hosting on a provable VM eliminates that trust: Trident compiles
-Trident, producing a STARK proof that the compilation was correct.
-
-The lexer — the first compiler component — is already written in
-Trident and STARK-verified:
-
-```nu
-trident build std/compiler/lexer.tri     # compile the lexer to TASM
-trident bench baselines/triton/std/compiler --full # execute, prove, verify
-```
-
-```
-Module                Compile    Rust  | Exec  | Prove    | Verify | Status
-std::compiler::lexer    4.4ms   1.4µs |  39ms | 10252ms  |  42ms  | PASS
-```
-
-824 lines of Trident. 51 token kinds. 28 keywords via a length-first
-trie. When executed on Triton VM, the result is a STARK proof that the
-tokenization was performed correctly.
-
-`src/` is the Rust bootstrap compiler — it shrinks as self-hosting
-progresses. `std/compiler/` is the self-hosted replacement — it grows.
-Every `trident build` will produce a proof certificate alongside the
-assembly. No trusted compiler binary. No trusted build server. You
-don't trust — you verify.
 
 ---
 
