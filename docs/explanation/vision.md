@@ -29,6 +29,34 @@ three revolutions that share its field.
 
 ---
 
+## One Field. Three Revolutions.
+
+Three computational revolutions share a common algebraic root: the prime
+field.
+
+**Quantum** -- prime-dimensional Hilbert spaces have no invariant
+subspaces. Every gate touches the full state space. A single
+prime-dimensional qudit replaces 64 entangled qubits -- four orders of
+magnitude gate count reduction.
+
+**Privacy** -- zero-knowledge proofs (STARKs), fully homomorphic
+encryption (TFHE), and multi-party computation (Shamir sharing) all
+demand a field where every nonzero element has a multiplicative inverse
+and no information is destroyed. All three operate natively over the
+same prime field.
+
+**AI** -- neural networks expressed in field arithmetic produce STARK
+proofs alongside their outputs. Weights, activations, and gradients are
+field elements from the start -- no float-to-field quantization.
+
+> Reversible computation with complete arithmetic lives in prime fields.
+> Both classical provability and quantum mechanics require reversible
+> computation with complete arithmetic. Therefore both require prime
+> fields. The convergence is
+> [structural](quantum.md).
+
+---
+
 ## The Discovery
 
 The Goldilocks field (p = 2^64 - 2^32 + 1) was chosen for classical STARK
