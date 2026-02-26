@@ -14,8 +14,6 @@ Every variable, every operation, every function compiles to arithmetic
 over the Goldilocks prime field (p = 2^64 - 2^32 + 1). Programs produce
 STARK proofs — hash-based, post-quantum secure, no trusted setup.
 
-Don't trust. Don't fear. Don't beg.
-
 ---
 
 ## Hello, Proof
@@ -109,7 +107,8 @@ Neptune already carries a recursive proof, and these programs extend
 what those proofs can express.
 
 See the [Gold Standard](docs/explanation/gold-standard.md) for the full
-PLUMB specification.
+PLUMB specification and the [Skill Library](docs/explanation/skill-library.md)
+for designed token capabilities.
 
 ---
 

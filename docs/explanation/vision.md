@@ -325,6 +325,53 @@ correctness, quantum security, quantum advantage -- flows from the same field.
 
 ---
 
+## Design Principles
+
+Eight principles govern every decision in Trident:
+
+1. **Field elements all the way down.** The core numeric type is a finite field element.
+2. **Bounded execution.** All loops require explicit bounds. No recursion. No halting problem.
+3. **Compile-time everything.** All type widths, array sizes, and costs known statically.
+4. **Constraints are features.** No heap, no dynamic dispatch, no callbacks -- safety guarantees.
+5. **Provable-first.** Designed for ZK. These constraints make great conventional programs too.
+6. **Field-native intelligence.** Neural networks in field arithmetic, not floats.
+7. **Quantum-native by construction.** The same field structure optimizes for quantum execution.
+8. **Minimal dependencies.** 5 runtime crates: clap, ariadne, blake3, tower-lsp, tokio.
+
+---
+
+## Proving Compilation: The Trust Chain
+
+You download a compiler binary. Someone compiled it -- you trust them.
+They used a compiler too -- you trust that one as well. The trust chain
+stretches back to the first hand-assembled binary, and every link is
+opaque. Ken Thompson showed in 1984 that a compiler can inject
+backdoors invisible in the source. Forty years later, every software
+supply chain still rests on the same blind faith.
+
+Trident breaks the chain. The compiler self-hosts on Triton VM:
+Trident source compiles Trident source, and the execution produces a
+STARK proof that the compilation was faithful. Not "we audited the
+binary." Not "we reproduced the build." A cryptographic proof, from
+the mathematics itself, that the output corresponds to the input.
+
+Seven compiler stages -- lexer, parser, typechecker, codegen, optimizer,
+lowering, pipeline -- are already written in Trident. 9,195 lines of
+self-hosted compiler. Three producers race on the same scoreboard: the
+classical compiler (`Tri`), hand-written expert assembly (`Hand`), and a
+[neural optimizer](../../reference/neural.md) (`Neural`) -- a
+13M-parameter GNN+Transformer that learns to emit better assembly than
+the compiler. `trident bench --full` adds execution, proving, and
+verification via STARK proof.
+
+`src/` is the Rust bootstrap -- it shrinks. `std/compiler/` is the
+self-hosted replacement -- it grows. When the last compiler stage moves
+to Trident, every `trident build` produces a proof certificate
+alongside the assembly. No trusted compiler. No trusted build server.
+No trusted anything. You verify.
+
+---
+
 ## The Strategic Position
 
 ```text

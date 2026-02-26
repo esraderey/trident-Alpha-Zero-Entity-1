@@ -30,6 +30,50 @@ These properties emerged from ZK requirements. The discovery is that they define
 
 ---
 
+## Four Structural Facts
+
+Four structural facts drive every design decision in Trident and explain
+why a new language is required for write-once-prove-anywhere compilation:
+
+**Arithmetic circuits are not programs.** The machine word is a field
+element, not a byte. A language that treats `Field`, `Digest`, and
+extension fields as first-class types generates native circuits. One
+that wraps byte-oriented code in ZK proofs fights the machine at every
+step.
+
+**Proofs compose, calls don't.** Programs produce independent proofs
+that a verifier checks together. Composition is recursive -- a proof
+can verify another proof inside it, so any chain of proofs collapses
+into a single proof. Trident is designed for recursive proof
+composition -- not invocation.
+
+**Bounded execution is a feature.** Circuits must terminate. Loops must
+be bounded. The compiler computes exact proving cost from source,
+before execution. The same bound that makes programs provable makes
+them quantum-native: bounded loops map directly to fixed-depth quantum
+circuits.
+
+**The field is the type system.** Goldilocks prime, cubic extension
+fields, 5-element digests -- these are the native machine words. The
+same algebraic structure required for STARK proofs is optimal for
+[quantum computation](quantum.md),
+[private computation](vision.md), and neural network
+inference. One design choice, three futures.
+
+### The Compilation Pipeline
+
+Source compiles through a [54-operation intermediate
+representation](../../reference/ir.md) that maps nearly 1:1 to target
+instructions. What you see is what you prove.
+
+Today Trident compiles to [Triton VM](https://triton-vm.org/) -- the
+first target -- powering [Neptune Cash](https://neptune.cash/), the
+only programmable, private, mineable, quantum-safe blockchain. The
+multi-target architecture supports quantum, ML, ZK, and classical
+backends as they ship.
+
+---
+
 ## 🏗️ Architecture: Four Dimensions
 
 Trident target resolution has four orthogonal dimensions:

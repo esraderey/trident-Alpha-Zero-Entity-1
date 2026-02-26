@@ -395,6 +395,22 @@ The test runner compiles each test function and reports pass/fail along with cos
 trident test .
 ```
 
+## 📦 Packaging and Deployment
+
+Once a program compiles and passes tests, package it for deployment:
+
+```nu
+trident package main.tri         # produce .deploy/ artifact
+trident deploy main.tri          # package + deploy to registry
+```
+
+`trident package` produces a `.deploy/` directory containing the compiled
+TASM, cost report, content hash, and any attached audit certificates.
+`trident deploy` packages and then publishes the artifact to the registry,
+where it is identified by its [content-addressed hash](../explanation/content-addressing.md).
+
+---
+
 ## 🔗 See Also
 
 - [Language Reference](../../reference/language.md) -- Types, operators, builtins, grammar
