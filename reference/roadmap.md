@@ -8,7 +8,11 @@ state, focus dynamics — all written in Trident, all provable.
 Kelvin versioning: versions count down toward 0K (frozen forever).
 Lower layers freeze first.
 
-Three targets before first release:
+We start release from 512k.
+Its still hot, not production ready.
+Developer preview and request for comment.
+
+Three targets before 256k release:
 
 1. Self-hosting — compiler compiles itself in Trident
 2. Atlas — on-chain package registry live
@@ -45,6 +49,7 @@ Quantum         256K        128K
 - [ ] tooling   Integration tests and formal verification
 - [ ] tooling   Beautiful website
 - [ ] tooling   Complete benchmark coverage
+- [ ] CORE      Hemera hash migration
 ```
 
 ## 128K — the machine assembles
