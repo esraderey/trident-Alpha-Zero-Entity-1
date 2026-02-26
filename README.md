@@ -6,7 +6,7 @@
   <img src="media/tri.gif" width="100%" alt="Trident" />
 </p>
 
-Trident is a programming language for provable, private, intelligent,
+Trident is a provable programming language. Its power lies in collective, private, intelligent,
 quantum-native computation. Every variable, every operation, every function compiles to
 arithmetic over the Goldilocks prime field (p = 2^64 - 2^32 + 1). Programs
 produce STARK proofs — hash-based, post-quantum secure, no trusted setup.
@@ -14,17 +14,74 @@ produce STARK proofs — hash-based, post-quantum secure, no trusted setup.
 ## One Field. Three Revolutions.
 
 Three computational revolutions — quantum computing, privacy, and
-artificial intelligence — share a common algebraic foundation in prime
-field arithmetic. Trident sits at their intersection because its native
-`Field` type simultaneously satisfies the requirements of all three.
-The convergence is a
-[mathematical inevitability](docs/explanation/quantum.md).
+artificial intelligence — are advancing in isolation. They share a
+common algebraic root: the prime field.
 
-Today Trident compiles to [Triton VM](https://triton-vm.org/) — the first
-target — powering [Neptune Cash](https://neptune.cash/), the only
-programmable, private, mineable, quantum-safe blockchain that exists. The
-[multi-target architecture](docs/explanation/multi-target.md) supports
-quantum, ML, ZK, and classical backends as they ship.
+**Quantum** — prime-dimensional Hilbert spaces have no invariant
+subspaces. Every gate touches the full state space. A single
+prime-dimensional qudit replaces 64 entangled qubits — four orders of
+magnitude gate count reduction.
+
+**Privacy** — zero-knowledge proofs (STARKs), fully homomorphic
+encryption (TFHE), and multi-party computation (Shamir sharing) all
+demand a field where every nonzero element has a multiplicative inverse
+and no information is destroyed. All three operate natively over the
+same prime field.
+
+**AI** — neural networks expressed in field arithmetic produce STARK
+proofs alongside their outputs. Weights, activations, and gradients are
+field elements from the start — no float-to-field quantization.
+
+> Reversible computation with complete arithmetic lives in prime fields.
+> Both classical provability and quantum mechanics require reversible
+> computation with complete arithmetic. Therefore both require prime
+> fields. The convergence is
+> [structural](docs/explanation/quantum.md).
+
+### The Rosetta Stone
+
+A single lookup table over the Goldilocks field simultaneously
+functions as four mechanisms:
+
+| Reading | Role | What it provides |
+|---------|------|------------------|
+| Cryptographic S-box | Hash nonlinearity | Security |
+| Neural activation | Network expressiveness | Intelligence |
+| FHE bootstrap | Encrypted evaluation | Privacy |
+| STARK lookup | Proof authentication | Verifiability |
+
+One table. One field. Four purposes. When all systems operate over the
+same prime field, four separate mechanisms collapse into one data
+structure read four ways.
+
+### Trinity: All Three in One Proof
+
+[Trinity](docs/explanation/trinity-bench.md) demonstrates the
+unification: a single Trident program encrypts input with LWE, runs a
+dense neural layer, decrypts, hashes with a LUT sponge, applies
+Poseidon2, performs programmable bootstrapping, and commits via a
+quantum circuit — all inside one STARK trace.
+
+```
+Encrypted Input → FHE Linear → Decrypt → Dense Layer (Reader 1)
+→ LUT Sponge Hash (Reader 2) → Poseidon2 → PBS Demo (Reader 3) → Quantum Commit
+```
+
+All four readers share the same RAM-based ReLU lookup table. To our
+knowledge, no existing system composes FHE, neural inference,
+LUT-based hashing, and quantum circuits in a single proof.
+
+See [Quantum](docs/explanation/quantum.md),
+[Privacy](docs/explanation/privacy.md), and
+[Verifiable AI](docs/explanation/ai.md) for the full treatment of each
+pillar.
+
+---
+
+## Write Once, Prove Anywhere.
+
+Provable VMs need a language designed for how they work. You write
+Trident once; it compiles to any provable target.
 
 ```trident
 program hello
@@ -40,127 +97,63 @@ fn main() {
 trident build hello.tri           # compile to TASM (Triton VM)
 ```
 
-Feed it to the Triton VM prover and you get a
+Feed it to the prover and you get a
 [STARK proof](docs/explanation/stark-proofs.md) that `a + b = sum` for
 secret values of `a` and `b`. Quantum-safe. Zero-knowledge. No trusted
 setup. No elliptic curves.
 
-Read the [Vision](docs/explanation/vision.md) to understand why Trident
-exists and what it's building toward.
-
----
-
-## The Thesis
-
-Three revolutions are advancing in isolation. They share a common root.
-
-**Quantum** — requires unitary operations on state spaces with no
-decoherence channels. When the dimension is prime, the Hilbert space has no
-invariant subspaces. Every gate touches the full state space. A single
-prime-dimensional qudit replaces 64 entangled qubits — four orders of
-magnitude gate count reduction.
-
-**Privacy** — requires reversible computation with complete arithmetic.
-Zero-knowledge proofs (STARKs), fully homomorphic encryption (TFHE), and
-multi-party computation (Shamir sharing) all demand a field where every
-nonzero element has a multiplicative inverse and no information is destroyed.
-All three operate natively over the same prime field.
-
-**AI** — requires nonlinear functions over fixed-width arithmetic for
-provable inference. Neural networks expressed in field arithmetic produce
-STARK proofs alongside their outputs. Weights, activations, and gradients
-are field elements from the start — no float-to-field quantization.
-
-The cyclic group Z/pZ is the shared algebraic skeleton. Classically, it
-defines the additive group of the field. Quantum mechanically, it defines
-the computational basis of a prime-dimensional qudit. In neural networks,
-it defines the native arithmetic of provable inference. In cryptography,
-it defines the domain of ZK proofs, FHE ciphertexts, and MPC secret shares.
-Same structure. Three readings.
-
-> Reversible computation with complete arithmetic lives in prime fields.
-> Both classical provability and quantum mechanics require reversible
-> computation with complete arithmetic. Therefore both require prime fields.
-> Trident makes prime field elements its fundamental primitive. The
-> convergence is structural.
-
-See [Quantum Computing](docs/explanation/quantum.md),
-[Privacy](docs/explanation/privacy.md), and
-[Verifiable AI](docs/explanation/ai.md)
-for the full treatment of each pillar.
-
----
-
-## The Rosetta Stone
-
-The deepest structural insight: a single lookup table over the Goldilocks
-field simultaneously functions as four different mechanisms.
-
-| Reading | Role | What it provides |
-|---------|------|------------------|
-| Cryptographic S-box | Hash nonlinearity | Security |
-| Neural activation | Network expressiveness | Intelligence |
-| FHE bootstrap | Encrypted evaluation | Privacy |
-| STARK lookup | Proof authentication | Verifiability |
-
-One table. One field. Four purposes. A mathematical identity. When all systems operate over the same prime field,
-four separate mechanisms collapse into one data structure read four ways.
-
-A program that performs neural network inference on FHE-encrypted data with
-a STARK correctness proof uses the same ReLU table for the activation
-function, the FHE bootstrapping, and the STARK authentication. Three roles
-served by a single array of field elements.
-
----
-
-## Why a New Language
-
-Provable VMs need a language designed for how they work. Four structural
-facts drive every design decision:
+Four structural facts drive every design decision:
 
 **Arithmetic circuits are not programs.** The machine word is a field
 element, not a byte. A language that treats `Field`, `Digest`, and
-extension fields as first-class types generates native circuits. One that
-wraps byte-oriented code in ZK proofs fights the machine at every step.
+extension fields as first-class types generates native circuits. One
+that wraps byte-oriented code in ZK proofs fights the machine at every
+step.
 
-**Proofs compose, calls don't.** There is no `msg.sender` calling a
-contract. Programs produce independent proofs that a verifier checks
-together. Composition is recursive — a proof can verify another proof
-inside it, so any chain of proofs collapses into a single proof. Trident
-is designed for recursive proof composition — not invocation.
+**Proofs compose, calls don't.** Programs produce independent proofs
+that a verifier checks together. Composition is recursive — a proof
+can verify another proof inside it, so any chain of proofs collapses
+into a single proof. Trident is designed for recursive proof
+composition — not invocation.
 
 **Bounded execution is a feature.** Circuits must terminate. Loops must
 be bounded. The compiler computes exact proving cost from source,
-before execution. The same bound that makes programs provable makes them
-quantum-native: bounded loops map directly to fixed-depth quantum circuits.
+before execution. The same bound that makes programs provable makes
+them quantum-native: bounded loops map directly to fixed-depth quantum
+circuits.
 
-**The field is the type system.** Goldilocks prime, cubic extension fields,
-5-element digests — these are the native machine words. The same algebraic
-structure required for STARK proofs is optimal for
+**The field is the type system.** Goldilocks prime, cubic extension
+fields, 5-element digests — these are the native machine words. The
+same algebraic structure required for STARK proofs is optimal for
 [quantum computation](docs/explanation/quantum.md),
 [private computation](docs/explanation/vision.md), and neural network
 inference. One design choice, three futures.
 
-### What follows from these facts
+Today Trident compiles to [Triton VM](https://triton-vm.org/) — the
+first target — powering [Neptune Cash](https://neptune.cash/), the
+only programmable, private, mineable, quantum-safe blockchain. The
+[multi-target architecture](docs/explanation/multi-target.md) supports
+quantum, ML, ZK, and classical backends as they ship.
 
-What you see is what you prove. Source compiles through a 54-operation
+### What follows
+
+Source compiles through a 54-operation
 [intermediate representation](reference/ir.md) that maps nearly 1:1 to
-target instructions.
+target instructions. What you see is what you prove.
 
-Hash performance dominance. Triton VM executes
-[Tip5](https://eprint.iacr.org/2023/107) in 1 clock cycle. SP1 needs ~3,000
-cycles for SHA-256. RISC Zero needs ~1,000. For hash-heavy applications —
-Merkle trees, content addressing, token transfers — this is decisive.
+Triton VM executes [Tip5](https://eprint.iacr.org/2023/107) in 1 clock
+cycle. SP1 needs ~3,000 cycles for SHA-256. RISC Zero needs ~1,000.
+For hash-heavy applications — Merkle trees, content addressing, token
+transfers — this is decisive.
 See [Comparative Analysis](docs/explanation/provable-computing.md).
 
-Formal verification built in. Annotate with `#[requires]` and
-`#[ensures]`, run `trident audit`, get a proof of correctness for all
-inputs — or a concrete counterexample.
+Annotate with `#[requires]` and `#[ensures]`, run `trident audit`, get
+a proof of correctness for all inputs — or a concrete counterexample.
 See [Formal Verification](docs/explanation/formal-verification.md).
 
-Content-addressed code. Every function has a unique cryptographic
-identity derived from its normalized AST. Audit certificates travel with
-the code. See [Content-Addressed Code](docs/explanation/content-addressing.md).
+Every function has a unique cryptographic identity derived from its
+normalized AST. Audit certificates travel with the code. See
+[Content-Addressed Code](docs/explanation/content-addressing.md).
 
 ---
 
@@ -228,11 +221,13 @@ os.<os>.*         OS-specific APIs          os.neptune.xfield, os.solana.pda
 
 ## Self-Hosting: Proving Compilation
 
-The compiler self-hosts on Triton VM: Trident compiles Trident, producing
-a STARK proof that the compilation was correct. Provable compilation.
+Every compiler is a trusted third party. You feed it source, it
+produces a binary, and you trust that the transformation was faithful.
+Self-hosting on a provable VM eliminates that trust: Trident compiles
+Trident, producing a STARK proof that the compilation was correct.
 
-This is actively happening. The lexer — the first compiler component — is
-already written in Trident and STARK-verified:
+The lexer — the first compiler component — is already written in
+Trident and STARK-verified:
 
 ```nu
 trident build std/compiler/lexer.tri     # compile the lexer to TASM
@@ -244,27 +239,15 @@ Module                Compile    Rust  | Exec  | Prove    | Verify | Status
 std::compiler::lexer    4.4ms   1.4µs |  39ms | 10252ms  |  42ms  | PASS
 ```
 
-`std/compiler/lexer.tri` — 824 lines of Trident — tokenizes source code
-into 51 token kinds, recognizes all 28 keywords via a length-first trie,
-handles comments, numbers, symbols, and inline assembly blocks. When
-executed on Triton VM, the result is a STARK proof that the tokenization
-was performed correctly. Proven lexing.
+824 lines of Trident. 51 token kinds. 28 keywords via a length-first
+trie. When executed on Triton VM, the result is a STARK proof that the
+tokenization was performed correctly.
 
-The source tree reflects this trajectory. `src/` is the Rust bootstrap
-compiler — it shrinks as self-hosting progresses. `vm/`, `std/`, and `os/`
-are Trident source — they grow. The intrinsic `.tri` files in `vm/` are
-the first pieces written in Trident itself. The compiler components in
-`std/compiler/` are the next.
-
+`src/` is the Rust bootstrap compiler — it shrinks as self-hosting
+progresses. `std/compiler/` is the self-hosted replacement — it grows.
 Every `trident build` will produce a proof certificate alongside the
-assembly — a cryptographic guarantee that the compilation was faithful.
-No trusted compiler binary. No trusted build server. You don't trust —
-you verify.
-
-When quantum hardware matures, the same programs that produce classical
-STARK proofs will have their proof generation quantum-accelerated — with
-zero source code changes. The field structure is preserved end-to-end from
-source code to quantum execution.
+assembly. No trusted compiler binary. No trusted build server. You
+don't trust — you verify.
 
 ---
 
