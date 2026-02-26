@@ -188,9 +188,15 @@ std::compiler::parser        358      8      -  44.75x
 std::compiler::pipeline        0      1      -   0.00x
 ```
 
-The ratios are the optimization target — hand baselines set the floor,
-the compiler races toward it. `trident bench --full` adds execution,
-proving, and verification via STARK proof.
+Three producers race on the same scoreboard: the classical compiler
+(`Tri`), hand-written expert assembly (`Hand`), and a
+[neural optimizer](reference/neural.md) (`Neural`) — a 13M-parameter
+GNN+Transformer that learns to emit better assembly than the compiler.
+The dashes mean the model is training. When it produces valid output
+that beats the compiler, the number appears. Hand baselines set the
+floor; the compiler and the neural model race toward it.
+`trident bench --full` adds execution, proving, and verification via
+STARK proof.
 
 `src/` is the Rust bootstrap — it shrinks. `std/compiler/` is the
 self-hosted replacement — it grows. When the last compiler stage moves
