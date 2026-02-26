@@ -172,21 +172,25 @@ STARK proof that the compilation was faithful. Not "we audited the
 binary." Not "we reproduced the build." A cryptographic proof, from
 the mathematics itself, that the output corresponds to the input.
 
-The lexer is already there:
+Seven compiler stages — lexer, parser, typechecker, codegen, optimizer,
+lowering, pipeline — are already written in Trident. 9,195 lines of
+self-hosted compiler:
 
 ```nu
-trident build std/compiler/lexer.tri     # compile the lexer to TASM
-trident bench baselines/triton/std/compiler --full # execute, prove, verify
+trident bench baselines/triton/std/compiler  # instruction count scoreboard
 ```
 
 ```
-Module                Compile    Rust  | Exec  | Prove    | Verify | Status
-std::compiler::lexer    4.4ms   1.4µs |  39ms | 10252ms  |  42ms  | PASS
+Module                       Tri   Hand Neural   Ratio
+-------------------------------------------------------
+std::compiler::lexer         288      8      -  36.00x
+std::compiler::parser        358      8      -  44.75x
+std::compiler::pipeline        0      1      -   0.00x
 ```
 
-824 lines of Trident. 51 token kinds. 28 keywords. The STARK proof
-says: this tokenization is correct for all inputs, or here is your
-counterexample. Parser, typechecker, codegen follow the same path.
+The ratios are the optimization target — hand baselines set the floor,
+the compiler races toward it. `trident bench --full` adds execution,
+proving, and verification via STARK proof.
 
 `src/` is the Rust bootstrap — it shrinks. `std/compiler/` is the
 self-hosted replacement — it grows. When the last compiler stage moves
