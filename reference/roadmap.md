@@ -8,9 +8,9 @@ state, focus dynamics — all written in Trident, all provable.
 Kelvin versioning: versions count down toward 0K (frozen forever).
 Lower layers freeze first.
 
-We start release from 512k.
-Its still hot, not production ready.
+512K released 2026-02-26. Hot, not production ready.
 Developer preview and request for comment.
+`cargo install trident-lang` · [GitHub](https://github.com/cyberia-to/trident/releases/tag/v0.1.0)
 
 Three targets before 256k release:
 
